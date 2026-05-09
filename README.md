@@ -54,12 +54,12 @@ codesign --force --deep --sign - "Leaf Reader.app"
 
 ## Release
 
-Version `1.0.0` is tagged as `v1.0.0`.
+Version `1.0.1` is tagged as `v1.0.1`.
 
 Local release artifacts are generated under:
 
 ```text
-release/1.0.0/
+release/1.0.1/
 ```
 
 ## Requirements
