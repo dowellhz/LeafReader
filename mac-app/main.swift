@@ -483,6 +483,7 @@ struct WebReadableDocument {
     let html: String
     let baseURL: URL
     let plainText: String
+    let coverImageURL: URL?
 }
 
 enum WebDocumentLoader {
@@ -526,7 +527,12 @@ enum WebDocumentLoader {
         }
 
         let body = sections.isEmpty ? "<p>Unable to read EPUB content.</p>" : sections.joined(separator: "\n<hr>\n")
-        return WebReadableDocument(html: pageHTML(title: url.deletingPathExtension().lastPathComponent, body: body), baseURL: opfDirectory, plainText: plainTextParts.joined(separator: "\n\n"))
+        return WebReadableDocument(
+            html: pageHTML(title: url.deletingPathExtension().lastPathComponent, body: body),
+            baseURL: opfDirectory,
+            plainText: plainTextParts.joined(separator: "\n\n"),
+            coverImageURL: epubCoverImageURL(opfXML: opfXML, manifest: manifest, opfDirectory: opfDirectory)
+        )
     }
 
     private static func loadDOCX(url: URL) throws -> WebReadableDocument {
@@ -538,7 +544,7 @@ enum WebDocumentLoader {
             .joined(separator: "\n")
         let title = url.deletingPathExtension().lastPathComponent
         let plainText = docxParagraphs(from: xml).joined(separator: "\n\n")
-        return WebReadableDocument(html: pageHTML(title: title, body: body.isEmpty ? "<p>Unable to read DOCX content.</p>" : body), baseURL: directory, plainText: plainText)
+        return WebReadableDocument(html: pageHTML(title: title, body: body.isEmpty ? "<p>Unable to read DOCX content.</p>" : body), baseURL: directory, plainText: plainText, coverImageURL: nil)
     }
 
     private static func unzip(url: URL) throws -> URL {
@@ -571,6 +577,19 @@ enum WebDocumentLoader {
     private static func epubSpineIDs(from xml: String) -> [String] {
         let pattern = #"<itemref\b[^>]*\bidref=["']([^"']+)["'][^>]*/?>"#
         return regexMatches(pattern, in: xml).compactMap { $0.count > 1 ? $0[1] : nil }
+    }
+
+    private static func epubCoverImageURL(opfXML: String, manifest: [String: String], opfDirectory: URL) -> URL? {
+        if let metaCoverID = regexMatches(#"<meta\b[^>]*\bname=["']cover["'][^>]*\bcontent=["']([^"']+)["'][^>]*/?>"#, in: opfXML).first.flatMap({ $0.count > 1 ? $0[1] : nil }),
+           let href = manifest[metaCoverID] {
+            return opfDirectory.appendingPathComponent(href.removingPercentEncoding ?? href)
+        }
+
+        let coverItemPattern = #"<item\b[^>]*(?:properties=["'][^"']*cover-image[^"']*["']|id=["'][^"']*cover[^"']*["'])[^>]*\bhref=["']([^"']+)["'][^>]*/?>"#
+        if let href = regexMatches(coverItemPattern, in: opfXML).first.flatMap({ $0.count > 1 ? $0[1] : nil }) {
+            return opfDirectory.appendingPathComponent(href.removingPercentEncoding ?? href)
+        }
+        return nil
     }
 
     private static func firstXMLAttribute(_ attribute: String, in xml: String) -> String? {
@@ -617,12 +636,15 @@ enum WebDocumentLoader {
           <meta name="viewport" content="width=device-width, initial-scale=1">
           <style>
             html { background: #f6f8fb; }
-            body { max-width: 820px; margin: 0 auto; padding: 56px 64px 96px; color: #191b20; background: white; font: 18px/1.72 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; }
+            :root { --reader-zoom: 1; }
+            body { box-sizing: border-box; width: min(820px, calc(100vw - 96px)); min-height: 100vh; margin: 0 auto; padding: 56px 64px 96px; color: #191b20; background: white; font: calc(18px * var(--reader-zoom))/1.72 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; overflow-wrap: break-word; }
             h1, h2, h3 { line-height: 1.28; margin: 1.5em 0 .5em; }
             p { margin: 0 0 1em; }
-            img { max-width: 100%; height: auto; }
+            img { display: block; max-width: min(100%, 680px); height: auto; margin: 1.4em auto; object-fit: contain; }
             hr { border: 0; border-top: 1px solid #e5e7eb; margin: 2.4em 0; }
+            a { color: #1f5fbf; text-decoration-thickness: .08em; text-underline-offset: .16em; }
             ::selection { background: rgba(255, 221, 87, .62); }
+            @media (max-width: 760px) { body { width: 100vw; padding: 36px 28px 72px; } }
           </style>
           <title>\(escapeHTML(title))</title>
         </head>
@@ -1194,6 +1216,8 @@ final class AIClient {
 }
 
 final class AIChatPanel: NSView, NSTextFieldDelegate {
+    private static let readerBodyFontSize: CGFloat = 18
+
     private let client = AIClient()
     private let askButton = GradientButton(title: "", target: nil, action: nil)
     private let scrollView = NSScrollView()
@@ -1213,6 +1237,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         ChatMessage(role: "system", content: AppText.systemPrompt())
     ]
     private var isBusy = false
+    private var pendingStreamText = ""
+    private var streamUpdateWorkItem: DispatchWorkItem?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -1315,11 +1341,12 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
                 guard let self = self, let assistantBody = assistantBody else { return }
                 streamedText += delta
                 let visibleText = AIClient.visibleAnswer(from: streamedText)
-                self.updateBubble(assistantBody, role: AppText.aiRole, text: visibleText.isEmpty ? AppText.generating : visibleText)
+                self.scheduleStreamUpdate(assistantBody, text: visibleText.isEmpty ? AppText.generating : visibleText)
             }
         }, completion: { [weak self, weak assistantBody] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                self.flushStreamUpdate(assistantBody)
                 self.setBusy(false, text: "")
                 switch result {
                 case .success(let content):
@@ -1443,6 +1470,25 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         body.superview?.scrollToVisible(body.superview?.bounds ?? body.bounds)
     }
 
+    private func scheduleStreamUpdate(_ body: NSTextField, text: String) {
+        pendingStreamText = text
+        guard streamUpdateWorkItem == nil else { return }
+        let workItem = DispatchWorkItem { [weak self, weak body] in
+            guard let self, let body else { return }
+            self.streamUpdateWorkItem = nil
+            self.updateBubble(body, role: AppText.aiRole, text: self.pendingStreamText)
+        }
+        streamUpdateWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
+    }
+
+    private func flushStreamUpdate(_ body: NSTextField?) {
+        streamUpdateWorkItem?.cancel()
+        streamUpdateWorkItem = nil
+        guard let body, !pendingStreamText.isEmpty else { return }
+        updateBubble(body, role: AppText.aiRole, text: pendingStreamText)
+    }
+
     @objc private func toggleCollapsedBubble(_ recognizer: NSClickGestureRecognizer) {
         guard
             let box = recognizer.view as? NSBox,
@@ -1458,9 +1504,9 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
     private func plainString(_ text: String) -> NSAttributedString {
         NSAttributedString(string: text, attributes: [
-            .font: NSFont.systemFont(ofSize: 14),
+            .font: NSFont.systemFont(ofSize: Self.readerBodyFontSize),
             .foregroundColor: NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1),
-            .paragraphStyle: paragraphStyle(spacing: 4)
+            .paragraphStyle: paragraphStyle(spacing: 8)
         ])
     }
 
@@ -1487,9 +1533,9 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
                 .replacingOccurrences(of: #"^[-*]\s+"#, with: "• ", options: .regularExpression)
 
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: (isHeading || isBoldLine) ? NSFont.boldSystemFont(ofSize: isHeading ? 15 : 14) : NSFont.systemFont(ofSize: 14),
+                .font: (isHeading || isBoldLine) ? NSFont.boldSystemFont(ofSize: Self.readerBodyFontSize) : NSFont.systemFont(ofSize: Self.readerBodyFontSize),
                 .foregroundColor: NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1),
-                .paragraphStyle: paragraphStyle(spacing: isHeading ? 7 : 4, headIndent: isBullet ? 14 : 0)
+                .paragraphStyle: paragraphStyle(spacing: isHeading ? 10 : 8, headIndent: isBullet ? 18 : 0)
             ]
             output.append(NSAttributedString(string: display + "\n", attributes: attrs))
         }
@@ -1499,7 +1545,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
     private func paragraphStyle(spacing: CGFloat, headIndent: CGFloat = 0) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
-        style.lineSpacing = 2
+        style.lineSpacing = 5
         style.paragraphSpacing = spacing
         style.headIndent = headIndent
         return style
@@ -1530,7 +1576,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         transcriptStack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.documentView = transcriptStack
 
-        statusLabel.font = NSFont.systemFont(ofSize: 12)
+        statusLabel.font = NSFont.systemFont(ofSize: 14)
         statusLabel.textColor = NSColor(red: 0.42, green: 0.44, blue: 0.49, alpha: 1)
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
 
@@ -1545,7 +1591,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         inputBar.translatesAutoresizingMaskIntoConstraints = false
 
         inputField.placeholderString = AppText.followUpPlaceholder
-        inputField.font = NSFont.systemFont(ofSize: 14)
+        inputField.font = NSFont.systemFont(ofSize: Self.readerBodyFontSize)
         inputField.isBordered = false
         inputField.drawsBackground = false
         inputField.focusRingType = .none
@@ -1657,7 +1703,7 @@ final class SearchOverlayView: NSView {
         searchField.drawsBackground = false
         searchField.focusRingType = .none
         searchField.font = NSFont.systemFont(ofSize: 18)
-        searchField.placeholderString = AppText.localized("搜索 PDF", "Search PDF")
+        searchField.placeholderString = AppText.localized("搜索文档", "Search document")
         searchField.target = self
         searchField.action = #selector(submitSearch)
 
@@ -1760,6 +1806,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var currentDocumentKind: ReaderDocumentKind = .pdf
     private var currentWebPlainText = ""
     private var currentWebSelectedText = ""
+    private var webZoomPercent = 100
+    private var webScrollProgress: Double = 0
+    private var lastWebProgressSave = Date.distantPast
     private var lastPageIndex: Int?
     private var searchResults: [PDFSelection] = []
     private var searchResultIndex = 0
@@ -1840,10 +1889,14 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         userContentController.addUserScript(WKUserScript(
             source: """
             (() => {
+              var lastScrollSent = 0;
               const sendSelection = () => {
                 window.webkit.messageHandlers.selectionChanged.postMessage(String(window.getSelection() || ""));
               };
-              const sendScroll = () => {
+              const sendScroll = (force = false) => {
+                const now = Date.now();
+                if (!force && now - lastScrollSent < 200) return;
+                lastScrollSent = now;
                 const height = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
                 const progress = Math.max(0, Math.min(1, window.scrollY / height));
                 window.webkit.messageHandlers.scrollChanged.postMessage(progress);
@@ -1851,9 +1904,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
               document.addEventListener("selectionchange", () => setTimeout(sendSelection, 0));
               document.addEventListener("mouseup", sendSelection);
               document.addEventListener("keyup", sendSelection);
-              window.addEventListener("scroll", () => requestAnimationFrame(sendScroll), { passive: true });
-              window.addEventListener("load", sendScroll);
-              setTimeout(sendScroll, 250);
+              window.addEventListener("scroll", () => sendScroll(false), { passive: true });
+              window.addEventListener("load", () => sendScroll(true));
+              setTimeout(() => sendScroll(true), 250);
             })();
             """,
             injectionTime: .atDocumentEnd,
@@ -1888,7 +1941,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         titleLabel.font = NSFont.systemFont(ofSize: 15)
         titleLabel.textColor = NSColor(red: 0.1, green: 0.11, blue: 0.14, alpha: 1)
         titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.toolTip = AppText.localized("从当前目录选择 PDF", "Choose PDF from Current Folder")
+        titleLabel.isSelectable = false
+        titleLabel.toolTip = AppText.localized("从当前目录选择文件", "Choose a file from the current folder")
         titleLabel.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(openPDFInCurrentDirectory)))
 
         coverImageView.imageScaling = .scaleProportionallyUpOrDown
@@ -1899,7 +1953,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         coverImageView.layer?.cornerRadius = 3
         coverImageView.layer?.masksToBounds = true
         coverImageView.isHidden = true
-        coverImageView.toolTip = AppText.localized("从当前目录选择 PDF", "Choose PDF from Current Folder")
+        coverImageView.toolTip = AppText.localized("从当前目录选择文件", "Choose a file from the current folder")
         coverImageView.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(openPDFInCurrentDirectory)))
 
         let zoomOut = plainButton(title: "-", action: #selector(zoomOut))
@@ -1930,7 +1984,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         pageLabel.font = NSFont.systemFont(ofSize: 15, weight: .medium)
         pageLabel.alignment = .center
         searchButton = iconButton(symbol: "magnifyingglass", action: #selector(showSearchOverlay))
-        searchButton.toolTip = AppText.localized("搜索 PDF", "Search PDF")
+        searchButton.toolTip = AppText.localized("搜索文档", "Search document")
 
         fullScreenButton = capsuleButton(title: AppText.fullScreen, symbol: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullScreen))
         coverButton = capsuleButton(title: AppText.cover, symbol: "book.closed", action: #selector(goToCover))
@@ -2681,6 +2735,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             currentFileMD5 = fileMD5(for: url)
             currentWebPlainText = document.plainText
             currentWebSelectedText = ""
+            webZoomPercent = 100
+            webScrollProgress = 0
             highlightedSelectionKeys.removeAll()
             searchResults.removeAll()
             searchResultIndex = 0
@@ -2688,11 +2744,17 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             searchOverlay.setResultText("")
             aiPanel.setSelectedText("")
             titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
-            coverImageView.image = NSImage(systemSymbolName: kind == .epub ? "book.closed" : "doc.text", accessibilityDescription: nil)
+            if let coverImageURL = document.coverImageURL, let image = NSImage(contentsOf: coverImageURL) {
+                coverImageView.image = image
+            } else {
+                coverImageView.image = NSImage(systemSymbolName: kind == .epub ? "book.closed" : "doc.text", accessibilityDescription: nil)
+            }
             coverImageView.isHidden = false
             pageLabel.stringValue = "0%"
             zoomField.stringValue = "100%"
             webView.loadHTMLString(document.html, baseURL: document.baseURL)
+            webView.pageZoom = CGFloat(webZoomPercent) / 100
+            restoreWebProgressAfterLoad()
             saveSession()
         } catch {
             NSAlert(error: error).runModal()
@@ -2727,14 +2789,20 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func zoomIn() {
-        guard currentDocumentKind == .pdf else { return }
+        guard currentDocumentKind == .pdf else {
+            setWebZoom(webZoomPercent + 10)
+            return
+        }
         pdfView.scaleFactor = min(pdfView.scaleFactor * 1.25, 8)
         updateZoomLabel()
         saveSession()
     }
 
     @objc private func zoomOut() {
-        guard currentDocumentKind == .pdf else { return }
+        guard currentDocumentKind == .pdf else {
+            setWebZoom(webZoomPercent - 10)
+            return
+        }
         pdfView.scaleFactor = max(pdfView.scaleFactor * 0.8, 0.1)
         updateZoomLabel()
         saveSession()
@@ -2742,7 +2810,16 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     @objc private func applyZoomFromField() {
         guard currentDocumentKind == .pdf else {
-            zoomField.stringValue = "100%"
+            let raw = zoomField.stringValue
+                .replacingOccurrences(of: "%", with: "")
+                .replacingOccurrences(of: "％", with: "")
+                .replacingOccurrences(of: ",", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let percent = Int(raw), percent > 0 else {
+                updateZoomLabel()
+                return
+            }
+            setWebZoom(percent)
             return
         }
         let raw = zoomField.stringValue
@@ -2761,7 +2838,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func prevPage() {
-        guard currentDocumentKind == .pdf else { return }
+        guard currentDocumentKind == .pdf else {
+            scrollWebPage(direction: -1)
+            return
+        }
         pdfView.goToPreviousPage(nil)
         scrollCurrentPageToTop()
         updatePageLabel()
@@ -2769,11 +2849,27 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func nextPage() {
-        guard currentDocumentKind == .pdf else { return }
+        guard currentDocumentKind == .pdf else {
+            scrollWebPage(direction: 1)
+            return
+        }
         pdfView.goToNextPage(nil)
         scrollCurrentPageToTop()
         updatePageLabel()
         saveSession()
+    }
+
+    private func setWebZoom(_ percent: Int) {
+        webZoomPercent = min(max(percent, 60), 220)
+        zoomField.stringValue = "\(webZoomPercent)%"
+        webView.pageZoom = CGFloat(webZoomPercent) / 100
+        saveWebProgress()
+        window?.makeFirstResponder(webView)
+    }
+
+    private func scrollWebPage(direction: Int) {
+        let sign = direction < 0 ? "-" : ""
+        webView.evaluateJavaScript("window.scrollBy({top: \(sign)Math.max(240, window.innerHeight * 0.86), behavior: 'smooth'});")
     }
 
     @objc private func goToCover() {
@@ -3005,7 +3101,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         if message.name == "scrollChanged" {
             guard currentDocumentKind != .pdf else { return }
             let progress = message.body as? Double ?? 0
+            webScrollProgress = progress
             pageLabel.stringValue = "\(Int(round(progress * 100)))%"
+            saveWebProgress()
             return
         }
         guard message.name == "selectionChanged" else { return }
@@ -3209,6 +3307,39 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         return "bookSession.\(md5).\(suffix)"
     }
 
+    private func restoreWebProgressAfterLoad() {
+        guard currentDocumentKind != .pdf, let progressKey = bookSessionKey("webProgress") else { return }
+        let progress = min(max(UserDefaults.standard.double(forKey: progressKey), 0), 1)
+        webScrollProgress = progress
+        pageLabel.stringValue = "\(Int(round(progress * 100)))%"
+        let percent = UserDefaults.standard.integer(forKey: bookSessionKey("webZoom") ?? "")
+        if percent >= 60, percent <= 220 {
+            webZoomPercent = percent
+            zoomField.stringValue = "\(webZoomPercent)%"
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self, self.currentDocumentKind != .pdf else { return }
+            self.webView.pageZoom = CGFloat(self.webZoomPercent) / 100
+            self.zoomField.stringValue = "\(self.webZoomPercent)%"
+            self.webView.evaluateJavaScript("""
+            (() => {
+              const height = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+              window.scrollTo(0, height * \(progress));
+            })();
+            """)
+        }
+    }
+
+    private func saveWebProgress() {
+        guard !isRestoringSession, currentDocumentKind != .pdf else { return }
+        guard let progressKey = bookSessionKey("webProgress"), let zoomKey = bookSessionKey("webZoom") else { return }
+        let now = Date()
+        guard now.timeIntervalSince(lastWebProgressSave) > 0.5 else { return }
+        lastWebProgressSave = now
+        UserDefaults.standard.set(webScrollProgress, forKey: progressKey)
+        UserDefaults.standard.set(webZoomPercent, forKey: zoomKey)
+    }
+
     private func restoreBookProgressOrGoHome() {
         guard let document = pdfView.document else { return }
         guard
@@ -3241,7 +3372,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         guard let url = currentFileURL else { return }
         let bookmark = (try? url.bookmarkData(options: .withSecurityScope)) ?? Data()
         UserDefaults.standard.set(bookmark, forKey: "lastPDFBookmark")
-        guard currentDocumentKind == .pdf else { return }
+        guard currentDocumentKind == .pdf else {
+            saveWebProgress()
+            return
+        }
         let pageIndex = pdfView.document?.index(for: pdfView.currentPage ?? PDFPage()) ?? 0
         if let pageKey = bookSessionKey("pageIndex"), let scaleKey = bookSessionKey("scale") {
             UserDefaults.standard.set(pageIndex, forKey: pageKey)
