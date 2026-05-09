@@ -1402,6 +1402,126 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 }
 
+final class SearchOverlayView: NSView {
+    let searchField = NSTextField(string: "")
+    private let resultLabel = NSTextField(labelWithString: "")
+    private let previousButton = NSButton(title: "", target: nil, action: nil)
+    private let nextButton = NSButton(title: "", target: nil, action: nil)
+    private let closeButton = NSButton(title: "", target: nil, action: nil)
+
+    var onSubmit: ((String) -> Void)?
+    var onPrevious: (() -> Void)?
+    var onNext: (() -> Void)?
+    var onClose: (() -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        buildUI()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func focus() {
+        window?.makeFirstResponder(searchField)
+    }
+
+    func setResultText(_ text: String) {
+        resultLabel.stringValue = text
+    }
+
+    private func buildUI() {
+        wantsLayer = true
+        layer?.backgroundColor = NSColor(red: 0.995, green: 0.985, blue: 0.995, alpha: 0.98).cgColor
+        layer?.cornerRadius = 14
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = 0.16
+        layer?.shadowRadius = 18
+        layer?.shadowOffset = CGSize(width: 0, height: -7)
+
+        searchField.isBordered = false
+        searchField.drawsBackground = false
+        searchField.focusRingType = .none
+        searchField.font = NSFont.systemFont(ofSize: 18)
+        searchField.placeholderString = AppText.localized("搜索 PDF", "Search PDF")
+        searchField.target = self
+        searchField.action = #selector(submitSearch)
+
+        resultLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
+        resultLabel.textColor = NSColor(red: 0.42, green: 0.42, blue: 0.47, alpha: 1)
+        resultLabel.alignment = .right
+
+        let separator = NSView()
+        separator.wantsLayer = true
+        separator.layer?.backgroundColor = NSColor(red: 0.82, green: 0.72, blue: 0.98, alpha: 0.65).cgColor
+
+        configureIconButton(previousButton, symbol: "chevron.up", action: #selector(previousResult))
+        configureIconButton(nextButton, symbol: "chevron.down", action: #selector(nextResult))
+        configureIconButton(closeButton, symbol: "xmark", action: #selector(closeSearch))
+
+        for view in [searchField, resultLabel, separator, previousButton, nextButton, closeButton] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
+
+        NSLayoutConstraint.activate([
+            searchField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 28),
+            searchField.centerYAnchor.constraint(equalTo: centerYAnchor),
+            searchField.trailingAnchor.constraint(equalTo: resultLabel.leadingAnchor, constant: -12),
+
+            resultLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            resultLabel.widthAnchor.constraint(equalToConstant: 72),
+
+            separator.leadingAnchor.constraint(equalTo: resultLabel.trailingAnchor, constant: 18),
+            separator.centerYAnchor.constraint(equalTo: centerYAnchor),
+            separator.widthAnchor.constraint(equalToConstant: 1),
+            separator.heightAnchor.constraint(equalToConstant: 44),
+
+            previousButton.leadingAnchor.constraint(equalTo: separator.trailingAnchor, constant: 18),
+            previousButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            previousButton.widthAnchor.constraint(equalToConstant: 36),
+            previousButton.heightAnchor.constraint(equalToConstant: 36),
+
+            nextButton.leadingAnchor.constraint(equalTo: previousButton.trailingAnchor, constant: 14),
+            nextButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            nextButton.widthAnchor.constraint(equalToConstant: 36),
+            nextButton.heightAnchor.constraint(equalToConstant: 36),
+
+            closeButton.leadingAnchor.constraint(equalTo: nextButton.trailingAnchor, constant: 18),
+            closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
+            closeButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            closeButton.widthAnchor.constraint(equalToConstant: 36),
+            closeButton.heightAnchor.constraint(equalToConstant: 36)
+        ])
+    }
+
+    private func configureIconButton(_ button: NSButton, symbol: String, action: Selector) {
+        button.isBordered = false
+        button.target = self
+        button.action = action
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        button.imageScaling = .scaleProportionallyDown
+        button.contentTintColor = NSColor(red: 0.44, green: 0.44, blue: 0.48, alpha: 1)
+    }
+
+    @objc private func submitSearch() {
+        onSubmit?(searchField.stringValue)
+    }
+
+    @objc private func previousResult() {
+        onPrevious?()
+    }
+
+    @objc private func nextResult() {
+        onNext?()
+    }
+
+    @objc private func closeSearch() {
+        onClose?()
+    }
+}
+
 final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate {
     private static let preferredAIWidthDefaultsKey = "preferredAIWidth"
 
@@ -1415,13 +1535,18 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private let coverImageView = NSImageView()
     private let pageLabel = NSTextField(labelWithString: AppText.noPDF)
     private let zoomField = NSTextField(string: "100%")
+    private let searchOverlay = SearchOverlayView()
     private var fullScreenButton: NSButton!
     private var coverButton: NSButton!
     private var prevButton: NSButton!
     private var nextButton: NSButton!
+    private var searchButton: NSButton!
     private var currentFileURL: URL?
     private var currentFileMD5: String?
     private var lastPageIndex: Int?
+    private var searchResults: [PDFSelection] = []
+    private var searchResultIndex = 0
+    private var lastSearchQuery = ""
     private var highlightedSelectionKeys = Set<String>()
     private var didRegisterSelectionObserver = false
     private var isRestoringSession = false
@@ -1552,6 +1677,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
         pageLabel.font = NSFont.systemFont(ofSize: 15, weight: .medium)
         pageLabel.alignment = .center
+        searchButton = iconButton(symbol: "magnifyingglass", action: #selector(showSearchOverlay))
+        searchButton.toolTip = AppText.localized("搜索 PDF", "Search PDF")
 
         fullScreenButton = capsuleButton(title: AppText.fullScreen, symbol: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullScreen))
         coverButton = capsuleButton(title: AppText.cover, symbol: "book.closed", action: #selector(goToCover))
@@ -1603,7 +1730,23 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             self?.openAISettings()
         }
 
-        for view in [openButton, titleLabel, coverImageView, zoomGroup, pageLabel, fullScreenButton!] {
+        searchOverlay.isHidden = true
+        searchOverlay.onSubmit = { [weak self] query in
+            self?.performSearch(query)
+        }
+        searchOverlay.onPrevious = { [weak self] in
+            self?.goToPreviousSearchResult()
+        }
+        searchOverlay.onNext = { [weak self] in
+            self?.goToNextSearchResult()
+        }
+        searchOverlay.onClose = { [weak self] in
+            self?.hideSearchOverlay()
+        }
+        searchOverlay.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(searchOverlay, positioned: .above, relativeTo: contentArea)
+
+        for view in [openButton, titleLabel, coverImageView, zoomGroup, pageLabel, searchButton!, fullScreenButton!] {
             view.translatesAutoresizingMaskIntoConstraints = false
             toolbar.addSubview(view)
         }
@@ -1702,9 +1845,19 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             pageLabel.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
             pageLabel.widthAnchor.constraint(equalToConstant: 140),
 
+            searchButton.leadingAnchor.constraint(equalTo: pageLabel.trailingAnchor, constant: 6),
+            searchButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
+            searchButton.widthAnchor.constraint(equalToConstant: 28),
+            searchButton.heightAnchor.constraint(equalToConstant: 28),
+
             fullScreenButton.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor, constant: -14),
             fullScreenButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
             fullScreenButton.heightAnchor.constraint(equalToConstant: 30),
+
+            searchOverlay.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
+            searchOverlay.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            searchOverlay.widthAnchor.constraint(equalToConstant: 560),
+            searchOverlay.heightAnchor.constraint(equalToConstant: 70),
 
             coverButton.trailingAnchor.constraint(equalTo: prevButton.leadingAnchor, constant: -12),
             coverButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
@@ -2217,6 +2370,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         currentFileURL = url
         currentFileMD5 = fileMD5(for: url)
         highlightedSelectionKeys.removeAll()
+        searchResults.removeAll()
+        searchResultIndex = 0
+        lastSearchQuery = ""
+        searchOverlay.setResultText("")
         titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
         updateCoverThumbnail(from: document)
 
@@ -2307,6 +2464,103 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         scrollCurrentPageToTop()
         updatePageLabel()
         saveSession()
+    }
+
+    @objc private func showSearchOverlay() {
+        searchOverlay.isHidden = false
+        window?.makeFirstResponder(searchOverlay.searchField)
+    }
+
+    private func hideSearchOverlay() {
+        searchOverlay.isHidden = true
+        searchResults.removeAll()
+        searchResultIndex = 0
+        lastSearchQuery = ""
+        searchOverlay.setResultText("")
+        pdfView.clearSelection()
+        window?.makeFirstResponder(pdfView)
+    }
+
+    private func performSearch(_ rawQuery: String) {
+        let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            searchResults.removeAll()
+            searchResultIndex = 0
+            lastSearchQuery = ""
+            searchOverlay.setResultText("")
+            pdfView.clearSelection()
+            return
+        }
+        guard let document = pdfView.document else {
+            searchOverlay.setResultText("0 / 0")
+            return
+        }
+
+        if query != lastSearchQuery {
+            searchResults = document.findString(query, withOptions: [.caseInsensitive, .diacriticInsensitive])
+            searchResultIndex = 0
+            lastSearchQuery = query
+        } else if !searchResults.isEmpty {
+            searchResultIndex = (searchResultIndex + 1) % searchResults.count
+        }
+
+        showCurrentSearchResult()
+    }
+
+    private func goToPreviousSearchResult() {
+        guard !searchResults.isEmpty else {
+            performSearch(searchOverlay.searchField.stringValue)
+            return
+        }
+        searchResultIndex = (searchResultIndex - 1 + searchResults.count) % searchResults.count
+        showCurrentSearchResult()
+    }
+
+    private func goToNextSearchResult() {
+        guard !searchResults.isEmpty else {
+            performSearch(searchOverlay.searchField.stringValue)
+            return
+        }
+        searchResultIndex = (searchResultIndex + 1) % searchResults.count
+        showCurrentSearchResult()
+    }
+
+    private func showCurrentSearchResult() {
+        guard !searchResults.isEmpty else {
+            searchOverlay.setResultText("0 / 0")
+            pdfView.clearSelection()
+            return
+        }
+
+        let selection = searchResults[searchResultIndex]
+        pdfView.setCurrentSelection(selection, animate: true)
+        goToVisibleSearchSelection(selection)
+        updatePageLabel()
+        saveSession()
+        searchOverlay.setResultText("\(searchResultIndex + 1) / \(searchResults.count)")
+    }
+
+    private func goToVisibleSearchSelection(_ selection: PDFSelection) {
+        guard let page = selection.pages.first else {
+            pdfView.go(to: selection)
+            return
+        }
+
+        let selectionBounds = selection.bounds(for: page)
+        guard !selectionBounds.isEmpty else {
+            pdfView.go(to: selection)
+            return
+        }
+
+        let pageBounds = page.bounds(for: pdfView.displayBox)
+        let overlayClearance = searchOverlay.isHidden ? CGFloat(64) : CGFloat(150)
+        let yOffset = overlayClearance / max(pdfView.scaleFactor, 0.1)
+        let destinationY = min(pageBounds.maxY, selectionBounds.maxY + yOffset)
+        let destination = PDFDestination(
+            page: page,
+            at: NSPoint(x: max(pageBounds.minX, selectionBounds.minX), y: destinationY)
+        )
+        pdfView.go(to: destination)
     }
 
     private func turnPageFromScroll(_ direction: EdgePagingPDFView.ScrollPageDirection) {
@@ -2585,6 +2839,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func handlePageKey(_ event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "f" {
+            showSearchOverlay()
+            return true
+        }
+
         let disallowedModifiers: NSEvent.ModifierFlags = [.command, .option, .control]
         guard event.modifierFlags.intersection(disallowedModifiers).isEmpty else { return false }
         guard !isEditingTextInput else { return false }

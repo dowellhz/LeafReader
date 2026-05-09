@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icon.png" alt="Leaf Reader icon" width="128">
+  <img src="assets/leaf-reader-icon.png" alt="Leaf Reader icon" width="128">
 </p>
 
 # Leaf Reader
@@ -23,7 +23,7 @@ Leaf Reader is a native macOS PDF reader built with Swift and PDFKit. It focuses
 - `mac-app/main.swift` - native Swift source code.
 - `mac-app/AppIcon.icns` - packaged app icon.
 - `mac-app/AppIconSource.png` - source image for the app icon.
-- `assets/icon.png` - project icon used in this README.
+- `assets/leaf-reader-icon.png` - project icon used in this README.
 - `assets/screenshot.png` - screenshot used in this README.
 
 ## Run
