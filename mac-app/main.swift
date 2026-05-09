@@ -1,6 +1,8 @@
 import Cocoa
 import CryptoKit
 import PDFKit
+import UniformTypeIdentifiers
+import WebKit
 
 struct ChatMessage {
     let role: String
@@ -455,6 +457,204 @@ final class ClippingView: NSView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+}
+
+enum ReaderDocumentKind {
+    case pdf
+    case epub
+    case docx
+
+    static func kind(for url: URL) -> ReaderDocumentKind? {
+        switch url.pathExtension.lowercased() {
+        case "pdf":
+            return .pdf
+        case "epub":
+            return .epub
+        case "docx":
+            return .docx
+        default:
+            return nil
+        }
+    }
+}
+
+struct WebReadableDocument {
+    let html: String
+    let baseURL: URL
+    let plainText: String
+}
+
+enum WebDocumentLoader {
+    static func load(url: URL) throws -> WebReadableDocument {
+        switch ReaderDocumentKind.kind(for: url) {
+        case .epub:
+            return try loadEPUB(url: url)
+        case .docx:
+            return try loadDOCX(url: url)
+        default:
+            throw NSError(domain: "LeafReader", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "Unsupported document type"
+            ])
+        }
+    }
+
+    private static func loadEPUB(url: URL) throws -> WebReadableDocument {
+        let directory = try unzip(url: url)
+        let containerURL = directory.appendingPathComponent("META-INF/container.xml")
+        let containerXML = try String(contentsOf: containerURL, encoding: .utf8)
+        guard let opfPath = firstXMLAttribute("full-path", in: containerXML) else {
+            throw NSError(domain: "LeafReader", code: -2, userInfo: [
+                NSLocalizedDescriptionKey: "Invalid EPUB container"
+            ])
+        }
+
+        let opfURL = directory.appendingPathComponent(opfPath)
+        let opfDirectory = opfURL.deletingLastPathComponent()
+        let opfXML = try String(contentsOf: opfURL, encoding: .utf8)
+        let manifest = epubManifest(from: opfXML)
+        let spineIDs = epubSpineIDs(from: opfXML)
+
+        var sections: [String] = []
+        var plainTextParts: [String] = []
+        for id in spineIDs {
+            guard let href = manifest[id] else { continue }
+            let chapterURL = opfDirectory.appendingPathComponent(href.removingPercentEncoding ?? href)
+            guard let chapter = try? String(contentsOf: chapterURL, encoding: .utf8) else { continue }
+            sections.append(rewriteRelativeLinks(in: chapter, baseURL: chapterURL.deletingLastPathComponent()))
+            plainTextParts.append(htmlToPlainText(chapter))
+        }
+
+        let body = sections.isEmpty ? "<p>Unable to read EPUB content.</p>" : sections.joined(separator: "\n<hr>\n")
+        return WebReadableDocument(html: pageHTML(title: url.deletingPathExtension().lastPathComponent, body: body), baseURL: opfDirectory, plainText: plainTextParts.joined(separator: "\n\n"))
+    }
+
+    private static func loadDOCX(url: URL) throws -> WebReadableDocument {
+        let directory = try unzip(url: url)
+        let documentURL = directory.appendingPathComponent("word/document.xml")
+        let xml = try String(contentsOf: documentURL, encoding: .utf8)
+        let body = docxParagraphs(from: xml)
+            .map { "<p>\(escapeHTML($0))</p>" }
+            .joined(separator: "\n")
+        let title = url.deletingPathExtension().lastPathComponent
+        let plainText = docxParagraphs(from: xml).joined(separator: "\n\n")
+        return WebReadableDocument(html: pageHTML(title: title, body: body.isEmpty ? "<p>Unable to read DOCX content.</p>" : body), baseURL: directory, plainText: plainText)
+    }
+
+    private static func unzip(url: URL) throws -> URL {
+        let destination = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LeafReader-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+        process.arguments = ["-qq", "-o", url.path, "-d", destination.path]
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw NSError(domain: "LeafReader", code: Int(process.terminationStatus), userInfo: [
+                NSLocalizedDescriptionKey: "Unable to unpack \(url.lastPathComponent)"
+            ])
+        }
+        return destination
+    }
+
+    private static func epubManifest(from xml: String) -> [String: String] {
+        var result: [String: String] = [:]
+        let pattern = #"<item\b[^>]*\bid=["']([^"']+)["'][^>]*\bhref=["']([^"']+)["'][^>]*/?>"#
+        for match in regexMatches(pattern, in: xml) where match.count >= 3 {
+            result[match[1]] = match[2]
+        }
+        return result
+    }
+
+    private static func epubSpineIDs(from xml: String) -> [String] {
+        let pattern = #"<itemref\b[^>]*\bidref=["']([^"']+)["'][^>]*/?>"#
+        return regexMatches(pattern, in: xml).compactMap { $0.count > 1 ? $0[1] : nil }
+    }
+
+    private static func firstXMLAttribute(_ attribute: String, in xml: String) -> String? {
+        let pattern = #"\#(attribute)=["']([^"']+)["']"#
+        return regexMatches(pattern, in: xml).first.flatMap { $0.count > 1 ? $0[1] : nil }
+    }
+
+    private static func docxParagraphs(from xml: String) -> [String] {
+        let paragraphMatches = regexMatches(#"<w:p\b[\s\S]*?</w:p>"#, in: xml).compactMap(\.first)
+        return paragraphMatches.map { paragraph in
+            regexMatches(#"<w:t\b[^>]*>([\s\S]*?)</w:t>"#, in: paragraph)
+                .compactMap { $0.count > 1 ? decodeXML($0[1]) : nil }
+                .joined()
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty }
+    }
+
+    private static func rewriteRelativeLinks(in html: String, baseURL: URL) -> String {
+        var output = html
+        let base = baseURL.absoluteString
+        output = output.replacingOccurrences(of: #"(?i)(src|href)=["'](?![a-z]+:|#|/)([^"']+)["']"#, with: "$1=\"\(base)/$2\"", options: .regularExpression)
+        return output
+    }
+
+    private static func pageHTML(title: String, body: String) -> String {
+        """
+        <!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            html { background: #f6f8fb; }
+            body { max-width: 820px; margin: 0 auto; padding: 56px 64px 96px; color: #191b20; background: white; font: 18px/1.72 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; }
+            h1, h2, h3 { line-height: 1.28; margin: 1.5em 0 .5em; }
+            p { margin: 0 0 1em; }
+            img { max-width: 100%; height: auto; }
+            hr { border: 0; border-top: 1px solid #e5e7eb; margin: 2.4em 0; }
+            ::selection { background: rgba(255, 221, 87, .62); }
+          </style>
+          <title>\(escapeHTML(title))</title>
+        </head>
+        <body>\(body)</body>
+        </html>
+        """
+    }
+
+    private static func htmlToPlainText(_ html: String) -> String {
+        decodeXML(html
+            .replacingOccurrences(of: #"<script\b[\s\S]*?</script>"#, with: " ", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: #"<style\b[\s\S]*?</style>"#, with: " ", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: #"<[^>]+>"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func regexMatches(_ pattern: String, in text: String) -> [[String]] {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
+        let nsText = text as NSString
+        let range = NSRange(location: 0, length: nsText.length)
+        return regex.matches(in: text, range: range).map { match in
+            (0..<match.numberOfRanges).compactMap { index in
+                let range = match.range(at: index)
+                guard range.location != NSNotFound else { return nil }
+                return nsText.substring(with: range)
+            }
+        }
+    }
+
+    private static func decodeXML(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&apos;", with: "'")
+    }
+
+    private static func escapeHTML(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
     }
 }
 
@@ -1522,10 +1722,11 @@ final class SearchOverlayView: NSView {
     }
 }
 
-final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate {
+final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate, WKScriptMessageHandler {
     private static let preferredAIWidthDefaultsKey = "preferredAIWidth"
 
     private var pdfView: EdgePagingPDFView!
+    private var webView: WKWebView!
     private let contentArea = NSView()
     private let pdfContainer = ClippingView()
     private let aiPanel = AIChatPanel()
@@ -1543,6 +1744,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var searchButton: NSButton!
     private var currentFileURL: URL?
     private var currentFileMD5: String?
+    private var currentDocumentKind: ReaderDocumentKind = .pdf
+    private var currentWebPlainText = ""
+    private var currentWebSelectedText = ""
     private var lastPageIndex: Int?
     private var searchResults: [PDFSelection] = []
     private var searchResultIndex = 0
@@ -1594,6 +1798,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         if let keyDownMonitor {
             NSEvent.removeMonitor(keyDownMonitor)
         }
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "selectionChanged")
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -1613,6 +1818,29 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         pdfView.onScrollPastPageEdge = { [weak self] direction in
             self?.turnPageFromScroll(direction)
         }
+
+        let webConfiguration = WKWebViewConfiguration()
+        let userContentController = WKUserContentController()
+        userContentController.add(self, name: "selectionChanged")
+        userContentController.addUserScript(WKUserScript(
+            source: """
+            (() => {
+              const sendSelection = () => {
+                window.webkit.messageHandlers.selectionChanged.postMessage(String(window.getSelection() || ""));
+              };
+              document.addEventListener("selectionchange", () => setTimeout(sendSelection, 0));
+              document.addEventListener("mouseup", sendSelection);
+              document.addEventListener("keyup", sendSelection);
+            })();
+            """,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: false
+        ))
+        webConfiguration.userContentController = userContentController
+        webView = WKWebView(frame: .zero, configuration: webConfiguration)
+        webView.wantsLayer = true
+        webView.layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
+        webView.isHidden = true
 
         NotificationCenter.default.addObserver(self, selector: #selector(pageChanged), name: .PDFViewPageChanged, object: pdfView)
 
@@ -1689,6 +1917,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         contentArea.addSubview(pdfContainer)
         pdfView.translatesAutoresizingMaskIntoConstraints = false
         pdfContainer.addSubview(pdfView)
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        pdfContainer.addSubview(webView)
 
         for view in [aiPanel] {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -1723,7 +1953,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         aiPanel.onAskSelectedText = { [weak self] text in
             guard let self else { return nil }
             let context = self.contextForCurrentSelection(selectedText: text)
-            self.markSelectionIfWord(self.pdfView.currentSelection, text: text)
+            if self.currentDocumentKind == .pdf {
+                self.markSelectionIfWord(self.pdfView.currentSelection, text: text)
+            }
             return context
         }
         aiPanel.onSettingsRequired = { [weak self] in
@@ -1781,6 +2013,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             pdfView.leadingAnchor.constraint(equalTo: pdfContainer.leadingAnchor),
             pdfView.trailingAnchor.constraint(equalTo: pdfContainer.trailingAnchor),
             pdfView.bottomAnchor.constraint(equalTo: pdfContainer.bottomAnchor),
+
+            webView.topAnchor.constraint(equalTo: pdfContainer.topAnchor),
+            webView.leadingAnchor.constraint(equalTo: pdfContainer.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: pdfContainer.trailingAnchor),
+            webView.bottomAnchor.constraint(equalTo: pdfContainer.bottomAnchor),
 
             aiPanel.topAnchor.constraint(equalTo: contentArea.topAnchor),
             aiPanel.trailingAnchor.constraint(equalTo: contentArea.trailingAnchor),
@@ -2356,19 +2593,38 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     @objc private func openPDF() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.pdf]
+        panel.allowedContentTypes = supportedContentTypes
         panel.allowsMultipleSelection = false
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
-            self?.loadPDF(url)
+            self?.loadDocument(url)
+        }
+    }
+
+    private var supportedContentTypes: [UTType] {
+        [.pdf] + ["epub", "docx"].compactMap { UTType(filenameExtension: $0) }
+    }
+
+    private func loadDocument(_ url: URL) {
+        guard let kind = ReaderDocumentKind.kind(for: url) else { return }
+        switch kind {
+        case .pdf:
+            loadPDF(url)
+        case .epub, .docx:
+            loadWebDocument(url, kind: kind)
         }
     }
 
     private func loadPDF(_ url: URL) {
         guard let document = PDFDocument(url: url) else { return }
+        currentDocumentKind = .pdf
+        pdfView.isHidden = false
+        webView.isHidden = true
         pdfView.document = document
         currentFileURL = url
         currentFileMD5 = fileMD5(for: url)
+        currentWebPlainText = ""
+        currentWebSelectedText = ""
         highlightedSelectionKeys.removeAll()
         searchResults.removeAll()
         searchResultIndex = 0
@@ -2389,6 +2645,35 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         saveSession()
     }
 
+    private func loadWebDocument(_ url: URL, kind: ReaderDocumentKind) {
+        do {
+            let document = try WebDocumentLoader.load(url: url)
+            currentDocumentKind = kind
+            pdfView.isHidden = true
+            webView.isHidden = false
+            pdfView.document = nil
+            currentFileURL = url
+            currentFileMD5 = fileMD5(for: url)
+            currentWebPlainText = document.plainText
+            currentWebSelectedText = ""
+            highlightedSelectionKeys.removeAll()
+            searchResults.removeAll()
+            searchResultIndex = 0
+            lastSearchQuery = ""
+            searchOverlay.setResultText("")
+            aiPanel.setSelectedText("")
+            titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
+            coverImageView.image = NSImage(systemSymbolName: kind == .epub ? "book.closed" : "doc.text", accessibilityDescription: nil)
+            coverImageView.isHidden = false
+            pageLabel.stringValue = kind == .epub ? "EPUB" : "DOCX"
+            zoomField.stringValue = "100%"
+            webView.loadHTMLString(document.html, baseURL: document.baseURL)
+            saveSession()
+        } catch {
+            NSAlert(error: error).runModal()
+        }
+    }
+
     private func updateCoverThumbnail(from document: PDFDocument) {
         guard let firstPage = document.page(at: 0) else {
             coverImageView.image = nil
@@ -2401,34 +2686,40 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     func openDocument(_ url: URL) {
-        loadPDF(url)
+        loadDocument(url)
     }
 
     @objc private func openPDFInCurrentDirectory() {
         guard let url = currentFileURL else { return }
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.pdf]
+        panel.allowedContentTypes = supportedContentTypes
         panel.allowsMultipleSelection = false
         panel.directoryURL = url.deletingLastPathComponent()
         panel.begin { [weak self] response in
             guard response == .OK, let selectedURL = panel.url else { return }
-            self?.loadPDF(selectedURL)
+            self?.loadDocument(selectedURL)
         }
     }
 
     @objc private func zoomIn() {
+        guard currentDocumentKind == .pdf else { return }
         pdfView.scaleFactor = min(pdfView.scaleFactor * 1.25, 8)
         updateZoomLabel()
         saveSession()
     }
 
     @objc private func zoomOut() {
+        guard currentDocumentKind == .pdf else { return }
         pdfView.scaleFactor = max(pdfView.scaleFactor * 0.8, 0.1)
         updateZoomLabel()
         saveSession()
     }
 
     @objc private func applyZoomFromField() {
+        guard currentDocumentKind == .pdf else {
+            zoomField.stringValue = "100%"
+            return
+        }
         let raw = zoomField.stringValue
             .replacingOccurrences(of: "%", with: "")
             .replacingOccurrences(of: "％", with: "")
@@ -2441,10 +2732,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         pdfView.scaleFactor = min(max(percent, 10), 800) / 100
         updateZoomLabel()
         saveSession()
-        window?.makeFirstResponder(pdfView)
+        window?.makeFirstResponder(currentDocumentKind == .pdf ? pdfView : webView)
     }
 
     @objc private func prevPage() {
+        guard currentDocumentKind == .pdf else { return }
         pdfView.goToPreviousPage(nil)
         scrollCurrentPageToTop()
         updatePageLabel()
@@ -2452,6 +2744,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func nextPage() {
+        guard currentDocumentKind == .pdf else { return }
         pdfView.goToNextPage(nil)
         scrollCurrentPageToTop()
         updatePageLabel()
@@ -2459,6 +2752,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func goToCover() {
+        guard currentDocumentKind == .pdf else {
+            webView.evaluateJavaScript("window.scrollTo({top:0, behavior:'smooth'});")
+            return
+        }
         guard let firstPage = pdfView.document?.page(at: 0) else { return }
         pdfView.go(to: firstPage)
         scrollCurrentPageToTop()
@@ -2478,6 +2775,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         lastSearchQuery = ""
         searchOverlay.setResultText("")
         pdfView.clearSelection()
+        clearWebSearchSelection()
         window?.makeFirstResponder(pdfView)
     }
 
@@ -2489,6 +2787,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             lastSearchQuery = ""
             searchOverlay.setResultText("")
             pdfView.clearSelection()
+            clearWebSearchSelection()
+            return
+        }
+        guard currentDocumentKind == .pdf else {
+            performWebSearch(query, backwards: false)
             return
         }
         guard let document = pdfView.document else {
@@ -2508,6 +2811,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func goToPreviousSearchResult() {
+        guard currentDocumentKind == .pdf else {
+            performWebSearch(searchOverlay.searchField.stringValue, backwards: true)
+            return
+        }
         guard !searchResults.isEmpty else {
             performSearch(searchOverlay.searchField.stringValue)
             return
@@ -2517,6 +2824,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func goToNextSearchResult() {
+        guard currentDocumentKind == .pdf else {
+            performWebSearch(searchOverlay.searchField.stringValue, backwards: false)
+            return
+        }
         guard !searchResults.isEmpty else {
             performSearch(searchOverlay.searchField.stringValue)
             return
@@ -2563,7 +2874,48 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         pdfView.go(to: destination)
     }
 
+    private func performWebSearch(_ rawQuery: String, backwards: Bool) {
+        let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            searchOverlay.setResultText("")
+            clearWebSearchSelection()
+            return
+        }
+
+        let escapedQuery = jsStringLiteral(query)
+        let script = """
+        (() => {
+          const query = \(escapedQuery);
+          const found = window.find(query, false, \(backwards ? "true" : "false"), true, false, true, false);
+          const selection = window.getSelection();
+          if (selection && selection.rangeCount > 0) {
+            const rect = selection.getRangeAt(0).getBoundingClientRect();
+            window.scrollBy({ top: rect.top - 160, behavior: 'smooth' });
+          }
+          return found;
+        })();
+        """
+        webView.evaluateJavaScript(script) { [weak self] result, _ in
+            let found = result as? Bool ?? false
+            self?.searchOverlay.setResultText(found ? AppText.localized("找到", "Found") : "0 / 0")
+        }
+    }
+
+    private func clearWebSearchSelection() {
+        webView?.evaluateJavaScript("window.getSelection().removeAllRanges();")
+    }
+
+    private func jsStringLiteral(_ text: String) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: [text]),
+              let encoded = String(data: data, encoding: .utf8),
+              encoded.count >= 2 else {
+            return "\"\""
+        }
+        return String(encoded.dropFirst().dropLast())
+    }
+
     private func turnPageFromScroll(_ direction: EdgePagingPDFView.ScrollPageDirection) {
+        guard currentDocumentKind == .pdf else { return }
         switch direction {
         case .previous:
             pdfView.goToPreviousPage(nil)
@@ -2611,11 +2963,25 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func selectionChanged() {
+        guard currentDocumentKind == .pdf else { return }
         let selection = pdfView.currentSelection
         let text = selection?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let selectedText = text.count > 1 ? text : ""
         aiPanel.setSelectedText(selectedText)
         if selectedText.isEmpty {
+            scheduleAICollapse()
+        } else {
+            cancelScheduledAICollapse()
+            setAIPanelCollapsed(false, animated: true)
+        }
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "selectionChanged" else { return }
+        let text = (message.body as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        currentWebSelectedText = text.count > 1 ? text : ""
+        aiPanel.setSelectedText(currentWebSelectedText)
+        if currentWebSelectedText.isEmpty {
             scheduleAICollapse()
         } else {
             cancelScheduledAICollapse()
@@ -2649,6 +3015,12 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private func contextForCurrentSelection(selectedText: String) -> String {
         let normalizedSelection = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedSelection.isEmpty else { return "" }
+
+        guard currentDocumentKind == .pdf else {
+            return sentenceContext(containing: normalizedSelection, in: currentWebPlainText)
+                ?? characterWindowContext(containing: normalizedSelection, in: currentWebPlainText, radius: 80)
+                ?? ""
+        }
 
         if let selection = pdfView.currentSelection,
            let page = selection.pages.first {
@@ -2746,10 +3118,18 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     private func updateZoomLabel() {
         if isEditingZoomField { return }
+        guard currentDocumentKind == .pdf else {
+            zoomField.stringValue = "100%"
+            return
+        }
         zoomField.stringValue = "\(Int(round(pdfView.scaleFactor * 100)))%"
     }
 
     private func updatePageLabel() {
+        guard currentDocumentKind == .pdf else {
+            pageLabel.stringValue = currentDocumentKind == .epub ? "EPUB" : "DOCX"
+            return
+        }
         guard let document = pdfView.document else {
             pageLabel.stringValue = AppText.noPDF
             return
@@ -2808,8 +3188,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         if isRestoringSession { return }
         guard let url = currentFileURL else { return }
         let bookmark = (try? url.bookmarkData(options: .withSecurityScope)) ?? Data()
-        let pageIndex = pdfView.document?.index(for: pdfView.currentPage ?? PDFPage()) ?? 0
         UserDefaults.standard.set(bookmark, forKey: "lastPDFBookmark")
+        guard currentDocumentKind == .pdf else { return }
+        let pageIndex = pdfView.document?.index(for: pdfView.currentPage ?? PDFPage()) ?? 0
         if let pageKey = bookSessionKey("pageIndex"), let scaleKey = bookSessionKey("scale") {
             UserDefaults.standard.set(pageIndex, forKey: pageKey)
             UserDefaults.standard.set(pdfView.scaleFactor, forKey: scaleKey)
@@ -2822,7 +3203,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         guard let url = try? URL(resolvingBookmarkData: bookmark, options: .withSecurityScope, bookmarkDataIsStale: &stale), !stale else { return }
 
         isRestoringSession = true
-        loadPDF(url)
+        loadDocument(url)
         isRestoringSession = false
         updatePageLabel()
         updateZoomLabel()
