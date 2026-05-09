@@ -1,0 +1,146 @@
+import Cocoa
+
+final class FlippedStackView: NSStackView {
+    override var isFlipped: Bool { true }
+}
+
+final class GradientButton: NSButton {
+    var previewText = "" {
+        didSet { needsDisplay = true }
+    }
+
+    override var isEnabled: Bool {
+        didSet { needsDisplay = true }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let bounds = self.bounds
+        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 18, yRadius: 18)
+        let alpha: CGFloat = isEnabled ? 1 : 0.42
+        let gradient = NSGradient(colors: [
+            NSColor(red: 0.45, green: 0.18, blue: 0.96, alpha: alpha),
+            NSColor(red: 0.21, green: 0.50, blue: 0.98, alpha: alpha)
+        ])
+        gradient?.draw(in: path, angle: 0)
+
+        if isEnabled {
+            NSColor(red: 0.25, green: 0.33, blue: 0.92, alpha: 0.24).setStroke()
+            path.lineWidth = 1
+            path.stroke()
+        }
+
+        let title = AppText.askAI
+        let titleAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 16, weight: .semibold),
+            .foregroundColor: NSColor.white
+        ]
+        let previewAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+            .foregroundColor: NSColor.white.withAlphaComponent(0.86)
+        ]
+
+        let leftPadding: CGFloat = 18
+        let gap: CGFloat = 10
+        let rightPadding: CGFloat = 16
+        let titleSize = title.size(withAttributes: titleAttrs)
+        let midY = (bounds.height - titleSize.height) / 2 + 1
+        title.draw(at: NSPoint(x: leftPadding, y: midY), withAttributes: titleAttrs)
+
+        let preview = singleLinePreview(previewText)
+        guard !preview.isEmpty else { return }
+
+        let previewX = leftPadding + titleSize.width + gap
+        let previewWidth = max(0, bounds.width - previewX - rightPadding)
+        guard previewWidth > 12 else { return }
+        let previewRect = NSRect(
+            x: previewX,
+            y: (bounds.height - 17) / 2,
+            width: previewWidth,
+            height: 17
+        )
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byTruncatingTail
+        paragraph.maximumLineHeight = 17
+
+        var attrs = previewAttrs
+        attrs[.paragraphStyle] = paragraph
+        (preview as NSString).draw(in: previewRect, withAttributes: attrs)
+    }
+
+    private func singleLinePreview(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+final class SideHandleButton: NSButton {
+    static let handleWidth: CGFloat = 14
+    static let handleHeight: CGFloat = 50
+
+    var collapsedStyle = true {
+        didSet { needsDisplay = true }
+    }
+
+    override var isHighlighted: Bool {
+        didSet { needsDisplay = true }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let rect = bounds.insetBy(dx: 1, dy: 1)
+        let path = NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4)
+        let fill = collapsedStyle
+            ? NSColor(red: isHighlighted ? 0.92 : 0.98, green: isHighlighted ? 0.16 : 0.24, blue: isHighlighted ? 0.17 : 0.24, alpha: 1)
+            : NSColor(red: 0.22, green: 0.50, blue: 0.98, alpha: 1)
+        fill.setFill()
+        path.fill()
+
+        let symbol = collapsedStyle ? "‹" : "›"
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 18, weight: .regular),
+            .foregroundColor: NSColor.white
+        ]
+        let size = symbol.size(withAttributes: attrs)
+        symbol.draw(at: NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2 + 1), withAttributes: attrs)
+    }
+}
+
+final class ResizeHandleView: NSView {
+    var onDragDeltaX: ((CGFloat) -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor(red: 0.86, green: 0.88, blue: 0.91, alpha: 1).cgColor
+        addCursorRect(bounds, cursor: .resizeLeftRight)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .resizeLeftRight)
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        onDragDeltaX?(event.deltaX)
+    }
+}
+
+final class ClippingView: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.masksToBounds = true
+        layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}

@@ -21,7 +21,7 @@ Leaf Reader is a native macOS document reader built with Swift, PDFKit, and WebK
 ## Repository Layout
 
 - `Leaf Reader.app` - built macOS app bundle.
-- `mac-app/main.swift` - native Swift source code.
+- `mac-app/*.swift` - native Swift source code.
 - `mac-app/AppIcon.icns` - packaged app icon.
 - `mac-app/AppIconSource.png` - source image for the app icon.
 - `assets/leaf-reader-icon.png` - project icon used in this README.
@@ -38,7 +38,7 @@ open "Leaf Reader.app"
 Compile the Swift source into the existing app bundle:
 
 ```sh
-swiftc mac-app/main.swift \
+swiftc mac-app/*.swift \
   -o "Leaf Reader.app/Contents/MacOS/Leaf Reader" \
   -framework Cocoa \
   -framework PDFKit \
