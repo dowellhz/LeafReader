@@ -1,7 +1,7 @@
 import Cocoa
 
 final class AIChatPanel: NSView, NSTextFieldDelegate {
-    private static let readerBodyFontSize: CGFloat = 17
+    private static let readerBodyFontSize: CGFloat = 15
 
     private let client = AIClient()
     private let askButton = GradientButton(title: "", target: nil, action: nil)
