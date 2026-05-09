@@ -2593,7 +2593,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     @objc private func openPDF() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = supportedContentTypes
+        configureOpenPanel(panel)
         panel.allowsMultipleSelection = false
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
@@ -2601,8 +2601,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
     }
 
-    private var supportedContentTypes: [UTType] {
-        [.pdf] + ["epub", "docx"].compactMap { UTType(filenameExtension: $0) }
+    private func configureOpenPanel(_ panel: NSOpenPanel) {
+        panel.allowedFileTypes = ["pdf", "epub", "docx"]
+        panel.allowsOtherFileTypes = false
     }
 
     private func loadDocument(_ url: URL) {
@@ -2692,7 +2693,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     @objc private func openPDFInCurrentDirectory() {
         guard let url = currentFileURL else { return }
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = supportedContentTypes
+        configureOpenPanel(panel)
         panel.allowsMultipleSelection = false
         panel.directoryURL = url.deletingLastPathComponent()
         panel.begin { [weak self] response in
