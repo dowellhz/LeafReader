@@ -472,6 +472,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     @objc private func openAISettings() {
         let selectedModel = AISettingsStore.selectedModel
+        let settingsFontSize: CGFloat = 15
         let panel = SettingsPanel(
             contentRect: NSRect(x: 0, y: 0, width: 740, height: 700),
             styleMask: [.borderless],
@@ -495,7 +496,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         panel.contentView = content
 
         let titleLabel = NSTextField(labelWithString: AppText.settings)
-        titleLabel.font = NSFont.systemFont(ofSize: 24, weight: .semibold)
+        titleLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let closeButton = NSButton(title: "", target: self, action: #selector(cancelAISettings(_:)))
@@ -505,26 +506,26 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         closeButton.translatesAutoresizingMaskIntoConstraints = false
 
         let modelHelpLabel = NSTextField(labelWithString: AppText.modelHelp)
-        modelHelpLabel.font = NSFont.systemFont(ofSize: 16)
+        modelHelpLabel.font = NSFont.systemFont(ofSize: settingsFontSize)
         modelHelpLabel.textColor = NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
         modelHelpLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let keyHelpLabel = NSTextField(labelWithString: AppText.keyHelp)
-        keyHelpLabel.font = NSFont.systemFont(ofSize: 16)
+        keyHelpLabel.font = NSFont.systemFont(ofSize: settingsFontSize)
         keyHelpLabel.textColor = NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
         keyHelpLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let languageHelpLabel = NSTextField(labelWithString: AppText.languageHelp)
-        languageHelpLabel.font = NSFont.systemFont(ofSize: 16)
+        languageHelpLabel.font = NSFont.systemFont(ofSize: settingsFontSize)
         languageHelpLabel.textColor = NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
         languageHelpLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let modelLabel = NSTextField(labelWithString: AppText.model)
-        modelLabel.font = NSFont.systemFont(ofSize: 17, weight: .semibold)
+        modelLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
         modelLabel.translatesAutoresizingMaskIntoConstraints = false
         let modelPopup = NSPopUpButton(frame: .zero, pullsDown: false)
         modelPopup.controlSize = .large
-        modelPopup.font = NSFont.systemFont(ofSize: 18)
+        modelPopup.font = NSFont.systemFont(ofSize: settingsFontSize)
         modelPopup.translatesAutoresizingMaskIntoConstraints = false
         for model in AISettingsStore.models {
             modelPopup.addItem(withTitle: model.displayName)
@@ -535,11 +536,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
 
         let languageLabel = NSTextField(labelWithString: AppText.language)
-        languageLabel.font = NSFont.systemFont(ofSize: 17, weight: .semibold)
+        languageLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
         languageLabel.translatesAutoresizingMaskIntoConstraints = false
         let languagePopup = NSPopUpButton(frame: .zero, pullsDown: false)
         languagePopup.controlSize = .large
-        languagePopup.font = NSFont.systemFont(ofSize: 18)
+        languagePopup.font = NSFont.systemFont(ofSize: settingsFontSize)
         languagePopup.translatesAutoresizingMaskIntoConstraints = false
         for language in AppText.Language.allCases {
             languagePopup.addItem(withTitle: language.title)
@@ -550,13 +551,13 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
 
         let keyLabel = NSTextField(labelWithString: "API Key")
-        keyLabel.font = NSFont.systemFont(ofSize: 17, weight: .semibold)
+        keyLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
         keyLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let keyField = APIKeySecureTextField(string: AISettingsStore.apiKey(for: selectedModel))
         keyField.placeholderString = AppText.apiKeyPlaceholder
         keyField.controlSize = .regular
-        keyField.font = NSFont.systemFont(ofSize: 22)
+        keyField.font = NSFont.systemFont(ofSize: settingsFontSize)
         keyField.isBordered = true
         keyField.drawsBackground = true
         keyField.isEditable = true
@@ -567,7 +568,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let plainKeyField = APIKeyTextField(string: AISettingsStore.apiKey(for: selectedModel))
         plainKeyField.placeholderString = AppText.apiKeyPlaceholder
         plainKeyField.controlSize = .regular
-        plainKeyField.font = NSFont.systemFont(ofSize: 22)
+        plainKeyField.font = NSFont.systemFont(ofSize: settingsFontSize)
         plainKeyField.isBordered = true
         plainKeyField.drawsBackground = true
         plainKeyField.isEditable = true
@@ -585,12 +586,12 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let cancelButton = NSButton(title: AppText.cancel, target: nil, action: nil)
         cancelButton.bezelStyle = .rounded
         cancelButton.controlSize = .large
-        cancelButton.font = NSFont.systemFont(ofSize: 16, weight: .medium)
+        cancelButton.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .medium)
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
         let saveButton = NSButton(title: AppText.confirm, target: nil, action: nil)
         saveButton.bezelStyle = .rounded
         saveButton.controlSize = .large
-        saveButton.font = NSFont.systemFont(ofSize: 16, weight: .semibold)
+        saveButton.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
         saveButton.keyEquivalent = "\r"
         saveButton.translatesAutoresizingMaskIntoConstraints = false
 

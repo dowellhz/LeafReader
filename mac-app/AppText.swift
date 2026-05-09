@@ -107,7 +107,7 @@ enum AppText {
             如果用户输入的是完整句子或长段落：
             按句子或自然语义块逐段处理
             每段先输出原文，原文必须单独一行并用 Markdown 粗体格式 **原文** 包起来
-            再给出自然中文翻译
+            再给出自然中文翻译，翻译必须单独一行并用 Markdown 粗体格式 **翻译** 包起来
             再解析其中较难的单词、短语、俚语或固定搭配
             简单基础词汇无需解释
             重点解释地道表达、固定搭配、语法难点、文化语境
@@ -133,7 +133,7 @@ enum AppText {
         If the user provides a full sentence or longer passage:
         Process it by sentence or natural meaning block.
         First output the original source text on its own line, wrapped in Markdown bold like **Original text**.
-        Then give a plain-English explanation or paraphrase.
+        Then give the plain-English explanation or paraphrase on its own line, also wrapped in Markdown bold like **Explanation**.
         Then explain difficult words, phrases, idioms, grammar points, and cultural context.
         Do not explain very basic words.
 
@@ -255,7 +255,7 @@ enum AppText {
             格式要求：
             - 按句子或自然语义块逐段处理
             - 每段先放原文，原文必须单独一行并用 Markdown 粗体格式 **原文** 包起来
-            - 下一行放自然中文翻译
+            - 下一行放自然中文翻译，翻译必须单独一行并用 Markdown 粗体格式 **翻译** 包起来
             - 然后用 Markdown 项目符号解释重点词、短语、固定搭配、文化背景
             - 项目符号格式使用：* xxx：解释
             - 重要补充说明也用 Markdown 项目符号，不要写成长段
@@ -274,7 +274,7 @@ enum AppText {
         Format requirements:
         - Process it by sentence or natural meaning block.
         - Put the original source text first, on its own line, wrapped in Markdown bold like **Original text**.
-        - On the next line, give a natural plain-English explanation or paraphrase.
+        - On the next line, give a natural plain-English explanation or paraphrase, also wrapped in Markdown bold like **Explanation**.
         - Then use Markdown bullets to explain important words, phrases, idioms, grammar, or cultural context.
         - Use bullet format: * xxx: explanation
         - Keep explanations concise.
