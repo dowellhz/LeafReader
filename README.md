@@ -2,6 +2,8 @@
 
 Leaf Reader is a lightweight macOS PDF reader with page navigation, zoom controls, reading progress restore, and an integrated AI reading assistant.
 
+![Leaf Reader screenshot](assets/screenshot.png)
+
 ## What's Included
 
 - `Leaf Reader.app` - the built macOS app bundle.

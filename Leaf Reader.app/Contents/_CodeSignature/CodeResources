@@ -8,50 +8,6 @@
 		<data>
 		IL+Tm0pDtqnxSCVRJgrFZKuzhCI=
 		</data>
-		<key>Resources/css/flip.css</key>
-		<data>
-		a8ArGvmeLvah18q7HHD/k0yf9Jg=
-		</data>
-		<key>Resources/css/style.css</key>
-		<data>
-		Xt7Zu5cUda1eHksrdLtpgnh+1Fg=
-		</data>
-		<key>Resources/index.html</key>
-		<data>
-		UrSbXbx65GU+BXunM0sQ3KdGvko=
-		</data>
-		<key>Resources/js/ai-panel.js</key>
-		<data>
-		ptQEFfOo0nOIZc6nazlA887y5Tw=
-		</data>
-		<key>Resources/js/app.js</key>
-		<data>
-		3Vn0QegtR/JIBnqW2TIFOsuBEbU=
-		</data>
-		<key>Resources/js/page-flip.js</key>
-		<data>
-		TooLvBy9ExZBfdQ9aqDhb7xWank=
-		</data>
-		<key>Resources/js/pdf-loader.js</key>
-		<data>
-		OilDHa62Se/VViMKEhqOPAJI5WM=
-		</data>
-		<key>Resources/js/storage.js</key>
-		<data>
-		rC8G4hpEF+B7niYUvQUIYCBwj9E=
-		</data>
-		<key>Resources/js/text-select.js</key>
-		<data>
-		RADtY6xYpOUrowFi26BVcRBfjWU=
-		</data>
-		<key>Resources/pdf.min.js</key>
-		<data>
-		pGQaJibzltAnJJjoh+oJ5NAT5JM=
-		</data>
-		<key>Resources/pdf.worker.min.js</key>
-		<data>
-		SRYtVGoaWhG9LJMrLRslINrvHsM=
-		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
@@ -60,83 +16,6 @@
 			<key>hash2</key>
 			<data>
 			ob9wShM4Eq46YEAJpwDKN+GyhC7Chnpwjsvut3f7liw=
-			</data>
-		</dict>
-		<key>Resources/css/flip.css</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			sh+NX1fgfXVdmHFR7FJPLD4wMVGwxa78x0q60RkuIXo=
-			</data>
-		</dict>
-		<key>Resources/css/style.css</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			aCkNaDGJKB8KNbtPqzzc0+VDEmpW4ga31NROpzEFKyA=
-			</data>
-		</dict>
-		<key>Resources/index.html</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			cWlsB+4cM+94S2L9aa46A0vqIQq7dkotzSCXDndDPKQ=
-			</data>
-		</dict>
-		<key>Resources/js/ai-panel.js</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			U68KLmlI4ZxmWjmD233EVht+sjowFoEGFb/BYCL8yak=
-			</data>
-		</dict>
-		<key>Resources/js/app.js</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			Cuk/FnQNOb9IF4Wx0+kuP5svjs+RyW+ao/+2Hl7PxLE=
-			</data>
-		</dict>
-		<key>Resources/js/page-flip.js</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			rRHfP+yUbmdlR/GwKh6XxBGiY/CquB3Ti8tIQyq/3Ps=
-			</data>
-		</dict>
-		<key>Resources/js/pdf-loader.js</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			9GmVlHmRz5iWA9VYcft8vjqHwFH9ty3uQr3MlQLsfKA=
-			</data>
-		</dict>
-		<key>Resources/js/storage.js</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			RY33QyuCh40sJy1DrlhtxOqYvMQZ436IY2Qj3w+IqL0=
-			</data>
-		</dict>
-		<key>Resources/js/text-select.js</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			h9JTHg7tbuRnsB87nSu/I3wmErvJRklvbjX94JEgqX8=
-			</data>
-		</dict>
-		<key>Resources/pdf.min.js</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			W1eZ5vjGgGYyB6xbQu4U7tKkBvp69I9QwVTwwLFWaUY=
-			</data>
-		</dict>
-		<key>Resources/pdf.worker.min.js</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			/qvfMJdw7SS7oxpUZ4Ns3Iz2OccFryfVK1hbBBu4Uns=
 			</data>
 		</dict>
 	</dict>
