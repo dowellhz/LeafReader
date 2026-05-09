@@ -591,7 +591,9 @@ enum WebDocumentLoader {
     private static func rewriteRelativeLinks(in html: String, baseURL: URL) -> String {
         var output = html
         let base = baseURL.absoluteString
-        output = output.replacingOccurrences(of: #"(?i)(src|href)=["'](?![a-z]+:|#|/)([^"']+)["']"#, with: "$1=\"\(base)/$2\"", options: .regularExpression)
+        output = output.replacingOccurrences(of: #"(?i)src=["'](?![a-z]+:|#|/)([^"']+)["']"#, with: "src=\"\(base)/$1\"", options: .regularExpression)
+        output = output.replacingOccurrences(of: #"(?i)href=["'](?![a-z]+:|#)([^"']*#([^"']+))["']"#, with: "href=\"#$2\"", options: .regularExpression)
+        output = output.replacingOccurrences(of: #"(?i)href=["'](?![a-z]+:|#)([^"']+)["']"#, with: "href=\"#\"", options: .regularExpression)
         return output
     }
 
@@ -1733,7 +1735,7 @@ final class SearchOverlayView: NSView {
     }
 }
 
-final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate, WKScriptMessageHandler {
+final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     private static let preferredAIWidthDefaultsKey = "preferredAIWidth"
 
     private var pdfView: EdgePagingPDFView!
@@ -1810,6 +1812,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             NSEvent.removeMonitor(keyDownMonitor)
         }
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "selectionChanged")
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "scrollChanged")
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -1833,15 +1836,24 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let webConfiguration = WKWebViewConfiguration()
         let userContentController = WKUserContentController()
         userContentController.add(self, name: "selectionChanged")
+        userContentController.add(self, name: "scrollChanged")
         userContentController.addUserScript(WKUserScript(
             source: """
             (() => {
               const sendSelection = () => {
                 window.webkit.messageHandlers.selectionChanged.postMessage(String(window.getSelection() || ""));
               };
+              const sendScroll = () => {
+                const height = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+                const progress = Math.max(0, Math.min(1, window.scrollY / height));
+                window.webkit.messageHandlers.scrollChanged.postMessage(progress);
+              };
               document.addEventListener("selectionchange", () => setTimeout(sendSelection, 0));
               document.addEventListener("mouseup", sendSelection);
               document.addEventListener("keyup", sendSelection);
+              window.addEventListener("scroll", () => requestAnimationFrame(sendScroll), { passive: true });
+              window.addEventListener("load", sendScroll);
+              setTimeout(sendScroll, 250);
             })();
             """,
             injectionTime: .atDocumentEnd,
@@ -1852,6 +1864,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         webView.wantsLayer = true
         webView.layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
         webView.isHidden = true
+        webView.navigationDelegate = self
 
         NotificationCenter.default.addObserver(self, selector: #selector(pageChanged), name: .PDFViewPageChanged, object: pdfView)
 
@@ -2677,7 +2690,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
             coverImageView.image = NSImage(systemSymbolName: kind == .epub ? "book.closed" : "doc.text", accessibilityDescription: nil)
             coverImageView.isHidden = false
-            pageLabel.stringValue = kind == .epub ? "EPUB" : "DOCX"
+            pageLabel.stringValue = "0%"
             zoomField.stringValue = "100%"
             webView.loadHTMLString(document.html, baseURL: document.baseURL)
             saveSession()
@@ -2989,6 +3002,12 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "scrollChanged" {
+            guard currentDocumentKind != .pdf else { return }
+            let progress = message.body as? Double ?? 0
+            pageLabel.stringValue = "\(Int(round(progress * 100)))%"
+            return
+        }
         guard message.name == "selectionChanged" else { return }
         let text = (message.body as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         currentWebSelectedText = text.count > 1 ? text : ""
@@ -2999,6 +3018,25 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             cancelScheduledAICollapse()
             setAIPanelCollapsed(false, animated: true)
         }
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard navigationAction.navigationType == .linkActivated else {
+            decisionHandler(.allow)
+            return
+        }
+
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+
+        if url.scheme == "http" || url.scheme == "https" {
+            NSWorkspace.shared.open(url)
+        } else if let fragment = url.fragment, !fragment.isEmpty {
+            webView.evaluateJavaScript("document.getElementById(\(jsStringLiteral(fragment)))?.scrollIntoView({behavior:'smooth', block:'start'});")
+        }
+        decisionHandler(.cancel)
     }
 
     private func markSelectionIfWord(_ selection: PDFSelection?, text: String) {
@@ -3139,7 +3177,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     private func updatePageLabel() {
         guard currentDocumentKind == .pdf else {
-            pageLabel.stringValue = currentDocumentKind == .epub ? "EPUB" : "DOCX"
+            if pageLabel.stringValue == AppText.noPDF || pageLabel.stringValue == "EPUB" || pageLabel.stringValue == "DOCX" {
+                pageLabel.stringValue = "0%"
+            }
             return
         }
         guard let document = pdfView.document else {
