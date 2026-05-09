@@ -556,7 +556,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
         let keyField = APIKeySecureTextField(string: AISettingsStore.apiKey(for: selectedModel))
         keyField.placeholderString = AppText.apiKeyPlaceholder
-        keyField.controlSize = .regular
+        keyField.controlSize = .small
         keyField.font = NSFont.systemFont(ofSize: settingsFontSize)
         keyField.isBordered = true
         keyField.drawsBackground = true
@@ -567,7 +567,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
         let plainKeyField = APIKeyTextField(string: AISettingsStore.apiKey(for: selectedModel))
         plainKeyField.placeholderString = AppText.apiKeyPlaceholder
-        plainKeyField.controlSize = .regular
+        plainKeyField.controlSize = .small
         plainKeyField.font = NSFont.systemFont(ofSize: settingsFontSize)
         plainKeyField.isBordered = true
         plainKeyField.drawsBackground = true
@@ -630,7 +630,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             keyField.topAnchor.constraint(equalTo: keyLabel.bottomAnchor, constant: 10),
             keyField.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             keyField.trailingAnchor.constraint(equalTo: eyeButton.leadingAnchor, constant: -10),
-            keyField.heightAnchor.constraint(equalToConstant: 46),
+            keyField.heightAnchor.constraint(equalToConstant: 34),
             plainKeyField.topAnchor.constraint(equalTo: keyField.topAnchor),
             plainKeyField.leadingAnchor.constraint(equalTo: keyField.leadingAnchor),
             plainKeyField.trailingAnchor.constraint(equalTo: keyField.trailingAnchor),
