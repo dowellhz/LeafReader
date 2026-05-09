@@ -521,7 +521,7 @@ enum WebDocumentLoader {
             guard let href = manifest[id] else { continue }
             let chapterURL = opfDirectory.appendingPathComponent(href.removingPercentEncoding ?? href)
             guard let chapter = try? String(contentsOf: chapterURL, encoding: .utf8) else { continue }
-            sections.append(rewriteRelativeLinks(in: chapter, baseURL: chapterURL.deletingLastPathComponent()))
+            sections.append(rewriteRelativeLinks(in: htmlBodyContent(from: chapter), baseURL: chapterURL.deletingLastPathComponent()))
             plainTextParts.append(htmlToPlainText(chapter))
         }
 
@@ -593,6 +593,17 @@ enum WebDocumentLoader {
         let base = baseURL.absoluteString
         output = output.replacingOccurrences(of: #"(?i)(src|href)=["'](?![a-z]+:|#|/)([^"']+)["']"#, with: "$1=\"\(base)/$2\"", options: .regularExpression)
         return output
+    }
+
+    private static func htmlBodyContent(from html: String) -> String {
+        let pattern = #"<body\b[^>]*>([\s\S]*?)</body>"#
+        if let body = regexMatches(pattern, in: html).first, body.count > 1 {
+            return body[1]
+        }
+        return html
+            .replacingOccurrences(of: #"(?i)<!doctype[^>]*>"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"(?i)</?html[^>]*>"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"(?i)<head\b[\s\S]*?</head>"#, with: "", options: .regularExpression)
     }
 
     private static func pageHTML(title: String, body: String) -> String {
