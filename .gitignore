@@ -1,0 +1,19 @@
+.DS_Store
+*.dmg
+*.zip
+*.pkg
+
+# Track the distributable app bundle at the repository root, but keep
+# generated release folders out of git.
+*.app/
+!Leaf Reader.app/
+!Leaf Reader.app/**
+
+# Local build outputs
+mac-app/Leaf Reader
+mac-app/PDFReader
+mac-app/IconBuilder
+mac-app/release/
+
+# Temporary source images kept outside the app bundle
+mac-app/AppIconSourceRaw.png
