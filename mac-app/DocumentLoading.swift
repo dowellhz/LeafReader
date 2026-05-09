@@ -26,6 +26,11 @@ struct WebReadableDocument {
     let coverImageURL: URL?
 }
 
+private struct HTMLBodyFragment {
+    let content: String
+    let bodyClasses: String
+}
+
 enum WebDocumentLoader {
     static func load(url: URL) throws -> WebReadableDocument {
         switch ReaderDocumentKind.kind(for: url) {
@@ -55,6 +60,7 @@ enum WebDocumentLoader {
         let opfXML = try String(contentsOf: opfURL, encoding: .utf8)
         let manifest = epubManifest(from: opfXML)
         let spineIDs = epubSpineIDs(from: opfXML)
+        let embeddedStyles = epubStylesheets(from: opfXML, opfDirectory: opfDirectory)
 
         var sections: [String] = []
         var plainTextParts: [String] = []
@@ -62,13 +68,18 @@ enum WebDocumentLoader {
             guard let href = manifest[id] else { continue }
             let chapterURL = opfDirectory.appendingPathComponent(href.removingPercentEncoding ?? href)
             guard let chapter = try? String(contentsOf: chapterURL, encoding: .utf8) else { continue }
-            sections.append(rewriteRelativeLinks(in: htmlBodyContent(from: chapter), baseURL: chapterURL.deletingLastPathComponent()))
+            let fragment = htmlBodyFragment(from: chapter)
+            let content = rewriteRelativeLinks(in: fragment.content, baseURL: chapterURL.deletingLastPathComponent())
+            let classes = ["reader-section", fragment.bodyClasses]
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+            sections.append("<section class=\"\(escapeHTML(classes))\">\(content)</section>")
             plainTextParts.append(htmlToPlainText(chapter))
         }
 
-        let body = sections.isEmpty ? "<p>Unable to read EPUB content.</p>" : sections.joined(separator: "\n<hr>\n")
+        let body = sections.isEmpty ? "<p>Unable to read EPUB content.</p>" : sections.joined(separator: "\n")
         return WebReadableDocument(
-            html: pageHTML(title: url.deletingPathExtension().lastPathComponent, body: body),
+            html: pageHTML(title: url.deletingPathExtension().lastPathComponent, body: body, embeddedStyles: embeddedStyles),
             baseURL: opfDirectory,
             plainText: plainTextParts.joined(separator: "\n\n"),
             coverImageURL: epubCoverImageURL(opfXML: opfXML, manifest: manifest, opfDirectory: opfDirectory)
@@ -132,6 +143,18 @@ enum WebDocumentLoader {
         return nil
     }
 
+    private static func epubStylesheets(from opfXML: String, opfDirectory: URL) -> String {
+        let pattern = #"<item\b[^>]*\bhref=["']([^"']+\.css)["'][^>]*\bmedia-type=["']text/css["'][^>]*/?>|<item\b[^>]*\bmedia-type=["']text/css["'][^>]*\bhref=["']([^"']+\.css)["'][^>]*/?>"#
+        let styles = regexMatches(pattern, in: opfXML).compactMap { match -> String? in
+            let href = match.dropFirst().first { !$0.isEmpty }
+            guard let href else { return nil }
+            let cssURL = opfDirectory.appendingPathComponent(href.removingPercentEncoding ?? href)
+            guard let css = try? String(contentsOf: cssURL, encoding: .utf8) else { return nil }
+            return rewriteCSSRelativeURLs(in: css, baseURL: cssURL.deletingLastPathComponent())
+        }
+        return styles.joined(separator: "\n\n")
+    }
+
     private static func firstXMLAttribute(_ attribute: String, in xml: String) -> String? {
         let pattern = #"\#(attribute)=["']([^"']+)["']"#
         return regexMatches(pattern, in: xml).first.flatMap { $0.count > 1 ? $0[1] : nil }
@@ -157,18 +180,35 @@ enum WebDocumentLoader {
         return output
     }
 
-    private static func htmlBodyContent(from html: String) -> String {
-        let pattern = #"<body\b[^>]*>([\s\S]*?)</body>"#
-        if let body = regexMatches(pattern, in: html).first, body.count > 1 {
-            return body[1]
-        }
-        return html
-            .replacingOccurrences(of: #"(?i)<!doctype[^>]*>"#, with: "", options: .regularExpression)
-            .replacingOccurrences(of: #"(?i)</?html[^>]*>"#, with: "", options: .regularExpression)
-            .replacingOccurrences(of: #"(?i)<head\b[\s\S]*?</head>"#, with: "", options: .regularExpression)
+    private static func rewriteCSSRelativeURLs(in css: String, baseURL: URL) -> String {
+        let base = baseURL.absoluteString
+        return css.replacingOccurrences(
+            of: #"(?i)url\((['"]?)(?![a-z]+:|#|/)([^'")]+)\1\)"#,
+            with: "url($1\(base)/$2$1)",
+            options: .regularExpression
+        )
     }
 
-    private static func pageHTML(title: String, body: String) -> String {
+    private static func htmlBodyFragment(from html: String) -> HTMLBodyFragment {
+        let pattern = #"<body\b([^>]*)>([\s\S]*?)</body>"#
+        if let body = regexMatches(pattern, in: html).first, body.count > 2 {
+            return HTMLBodyFragment(content: body[2], bodyClasses: bodyClasses(from: body[1]))
+        }
+        return HTMLBodyFragment(
+            content: html
+                .replacingOccurrences(of: #"(?i)<!doctype[^>]*>"#, with: "", options: .regularExpression)
+                .replacingOccurrences(of: #"(?i)</?html[^>]*>"#, with: "", options: .regularExpression)
+                .replacingOccurrences(of: #"(?i)<head\b[\s\S]*?</head>"#, with: "", options: .regularExpression),
+            bodyClasses: ""
+        )
+    }
+
+    private static func bodyClasses(from attributes: String) -> String {
+        let pattern = #"\bclass=["']([^"']+)["']"#
+        return regexMatches(pattern, in: attributes).first.flatMap { $0.count > 1 ? $0[1] : nil } ?? ""
+    }
+
+    private static func pageHTML(title: String, body: String, embeddedStyles: String = "") -> String {
         """
         <!doctype html>
         <html>
@@ -176,17 +216,21 @@ enum WebDocumentLoader {
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
           <style>
+            \(embeddedStyles)
+
             html { background: #f6f8fb; }
             :root { --reader-zoom: 1; }
-            body { box-sizing: border-box; width: min(820px, calc(100vw - 96px)); min-height: 100vh; margin: 0 auto; padding: 56px 64px 96px; color: #191b20; background: white; font: calc(18px * var(--reader-zoom))/1.72 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; overflow-wrap: break-word; }
-            h1, h2, h3 { line-height: 1.28; margin: 1.5em 0 .5em; }
-            p { margin: 0 0 1em; }
+            body { box-sizing: border-box; width: min(820px, calc(100vw - 144px)); min-height: 100vh; margin: 0 auto; padding: 56px 72px 96px; color: #191b20; background: white; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; font-size: calc(18px * var(--reader-zoom)); line-height: 1.72; overflow-wrap: break-word; }
+            .reader-section { display: block; }
+            .reader-section + .reader-section { padding-top: 9em; }
+            .reader-section p, .reader-section li { line-height: 1.84; }
+            h1, h2, h3 { line-height: 1.28; }
             img { display: block; max-width: min(100%, 680px); height: auto; margin: 1.4em auto; object-fit: contain; }
             svg { display: block; max-width: min(100%, 420px); height: auto; margin: 1.4em auto; }
             hr { border: 0; border-top: 1px solid #e5e7eb; margin: 2.4em 0; }
             a { color: #1f5fbf; text-decoration-thickness: .08em; text-underline-offset: .16em; }
             ::selection { background: rgba(255, 221, 87, .62); }
-            @media (max-width: 760px) { body { width: 100vw; padding: 36px 28px 72px; } }
+            @media (max-width: 760px) { body { width: calc(100vw - 32px); padding: 36px 32px 72px; } }
           </style>
           <title>\(escapeHTML(title))</title>
         </head>

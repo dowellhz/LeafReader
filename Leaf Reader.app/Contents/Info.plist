@@ -4,22 +4,6 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>Leaf Reader</string>
-	<key>CFBundleExecutable</key>
-	<string>Leaf Reader</string>
-	<key>CFBundleIconFile</key>
-	<string>AppIcon</string>
-	<key>CFBundleIdentifier</key>
-	<string>com.linlu.leafreader</string>
-	<key>CFBundleName</key>
-	<string>Leaf Reader</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.0.1</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.0.1</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -37,6 +21,22 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleExecutable</key>
+	<string>Leaf Reader</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.linlu.leafreader</string>
+	<key>CFBundleName</key>
+	<string>Leaf Reader</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.2</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.2</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>12.0</string>
 	<key>NSAppTransportSecurity</key>
