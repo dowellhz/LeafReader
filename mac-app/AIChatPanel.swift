@@ -19,6 +19,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var onAskSelectedText: ((String) -> String?)?
     var onSummarizeCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onTranslateCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
+    var onCurrentReadingContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onSettingsRequired: (() -> Void)?
 
     private var selectedText = ""
@@ -28,13 +29,21 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     ]
     private var isBusy = false
     private var pendingStreamText = ""
-    private var pendingStreamRenderMarkdown = true
-    private var nextAssistantRenderMarkdown = true
+    private var isEditingFollowUp = false
+    private var ignoreEmptySelectionUntil = Date.distantPast
+    private var localMouseMonitor: Any?
     private var streamUpdateWorkItem: DispatchWorkItem?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         buildUI()
+        installInteractionMonitor()
+    }
+
+    deinit {
+        if let localMouseMonitor {
+            NSEvent.removeMonitor(localMouseMonitor)
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -42,9 +51,31 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     func setSelectedText(_ text: String) {
+        if shouldIgnoreEmptySelectionUpdate(text) {
+            return
+        }
         selectedText = text
         askButton.previewText = text
         askButton.isEnabled = !text.isEmpty
+    }
+
+    private func shouldIgnoreEmptySelectionUpdate(_ text: String) -> Bool {
+        guard text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return false
+        }
+        if isEditingFollowUp || isBusy || Date() < ignoreEmptySelectionUntil {
+            return true
+        }
+        if let responder = window?.firstResponder {
+            if let view = responder as? NSView, view.isDescendant(of: self) {
+                return true
+            }
+            if responder === inputField.currentEditor() {
+                return true
+            }
+        }
+        return false
     }
 
     func setContentVisible(_ visible: Bool) {
@@ -73,11 +104,48 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     @objc private func summarizeCurrentContent() {
+        let selected = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !selected.isEmpty {
+            askSelectedSummary(selected)
+            return
+        }
         askCurrentContent(mode: .summary)
     }
 
+    private func askSelectedSummary(_ text: String) {
+        guard !isBusy else { return }
+        guard AISettingsStore.hasAPIKeyForSelectedModel else {
+            onSettingsRequired?()
+            return
+        }
+        let title = AppText.localized("选中文字", "Selected text")
+        let displayedQuestion = "\(AppText.localized("总结", "Summarize")): \(title)"
+        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: false)
+        recordTranscript(role: AppText.userRole, text: displayedQuestion)
+        messages.append(ChatMessage(role: "user", content: AIPromptStore.summaryPrompt(title: title, text: text)))
+        requestAI()
+    }
+
     @objc private func translateCurrentContent() {
+        let selected = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !selected.isEmpty {
+            askSelectedTranslation(selected)
+            return
+        }
         askCurrentContent(mode: .translation)
+    }
+
+    private func askSelectedTranslation(_ text: String) {
+        guard !isBusy else { return }
+        guard AISettingsStore.hasAPIKeyForSelectedModel else {
+            onSettingsRequired?()
+            return
+        }
+        let title = AppText.localized("选中文字", "Selected text")
+        let displayedQuestion = "\(AppText.localized("翻译", "Translate")): \(title)"
+        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: false)
+        recordTranscript(role: AppText.userRole, text: displayedQuestion)
+        requestTranslation(title: title, text: text)
     }
 
     private enum CurrentContentMode {
@@ -140,21 +208,43 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         inputField.stringValue = ""
         appendBubble(role: AppText.userRole, text: text, collapsible: false)
         recordTranscript(role: AppText.userRole, text: text)
-        messages.append(ChatMessage(role: "user", content: followUpPrompt(for: text)))
-        requestAI()
+        enqueueFollowUp(question: text)
     }
 
-    private func followUpPrompt(for text: String) -> String {
+    private func enqueueFollowUp(question: String) {
         let selected = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !selected.isEmpty {
             let selectedContext = onAskSelectedText?(selected) ?? ""
-            return AIPromptStore.selectedFollowUpPrompt(
+            messages.append(ChatMessage(role: "user", content: AIPromptStore.selectedFollowUpPrompt(
                 selectedText: selected,
                 context: selectedContext,
-                question: text
-            )
+                question: question
+            )))
+            requestAI()
+            return
         }
-        return AIPromptStore.followUpPrompt(context: transcriptContext(), text: text)
+
+        guard let onCurrentReadingContent else {
+            messages.append(ChatMessage(role: "user", content: AIPromptStore.followUpPrompt(context: transcriptContext(), text: question)))
+            requestAI()
+            return
+        }
+
+        onCurrentReadingContent { [weak self] content in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if let content, !content.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    self.messages.append(ChatMessage(role: "user", content: AIPromptStore.readingFollowUpPrompt(
+                        readingText: content.text,
+                        context: self.transcriptContext(),
+                        question: question
+                    )))
+                } else {
+                    self.messages.append(ChatMessage(role: "user", content: AIPromptStore.followUpPrompt(context: self.transcriptContext(), text: question)))
+                }
+                self.requestAI()
+            }
+        }
     }
 
     private func transcriptContext() -> String {
@@ -171,37 +261,52 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         transcriptEntries.append(TranscriptEntry(role: role, content: content))
     }
 
+    private func installInteractionMonitor() {
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self, event.window === self.window else { return event }
+            let point = self.convert(event.locationInWindow, from: nil)
+            if self.bounds.contains(point) {
+                self.ignoreEmptySelectionUntil = Date().addingTimeInterval(1.5)
+            }
+            return event
+        }
+    }
+
     func controlTextDidEndEditing(_ obj: Notification) {
         guard obj.object as? NSTextField === inputField else { return }
+        isEditingFollowUp = false
         if let movement = obj.userInfo?["NSTextMovement"] as? Int, movement == NSReturnTextMovement {
             sendFollowUp()
         }
     }
 
+    func controlTextDidBeginEditing(_ obj: Notification) {
+        guard obj.object as? NSTextField === inputField else { return }
+        isEditingFollowUp = true
+    }
+
     private func requestAI() {
         setBusy(true, text: AppText.thinking)
-        let renderMarkdown = nextAssistantRenderMarkdown
-        nextAssistantRenderMarkdown = true
-        let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating, renderMarkdown: renderMarkdown)
+        let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating)
         var streamedText = ""
         client.sendStream(messages: messages, onDelta: { [weak self, weak assistantBody] delta in
             DispatchQueue.main.async {
                 guard let self = self, let assistantBody = assistantBody else { return }
                 streamedText += delta
                 let visibleText = AIClient.visibleAnswer(from: streamedText)
-                self.scheduleStreamUpdate(assistantBody, text: visibleText.isEmpty ? AppText.generating : visibleText, renderMarkdown: renderMarkdown)
+                self.scheduleStreamUpdate(assistantBody, text: visibleText.isEmpty ? AppText.generating : visibleText)
             }
         }, completion: { [weak self, weak assistantBody] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                self.flushStreamUpdate(assistantBody, renderMarkdown: renderMarkdown)
+                self.flushStreamUpdate(assistantBody)
                 self.setBusy(false, text: "")
                 switch result {
                 case .success(let content):
                     self.recordTranscript(role: AppText.aiRole, text: content)
                     self.messages.append(ChatMessage(role: "assistant", content: content))
                     if let assistantBody = assistantBody {
-                        self.updateBubble(assistantBody, role: AppText.aiRole, text: content, renderMarkdown: renderMarkdown)
+                        self.updateBubble(assistantBody, role: AppText.aiRole, text: content)
                     }
                 case .failure(let error):
                     let message = self.userFacingAIError(error)
@@ -365,7 +470,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
     private func setBusy(_ busy: Bool, text: String) {
         isBusy = busy
-        askButton.isEnabled = !busy && !selectedText.isEmpty
+        askButton.isEnabled = !selectedText.isEmpty
         summaryButton.isEnabled = !busy
         translateButton.isEnabled = !busy
         inputField.isEnabled = !busy
@@ -427,24 +532,23 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         body.superview?.scrollToVisible(body.superview?.bounds ?? body.bounds)
     }
 
-    private func scheduleStreamUpdate(_ body: NSTextField, text: String, renderMarkdown: Bool) {
+    private func scheduleStreamUpdate(_ body: NSTextField, text: String) {
         pendingStreamText = text
-        pendingStreamRenderMarkdown = renderMarkdown
         guard streamUpdateWorkItem == nil else { return }
         let workItem = DispatchWorkItem { [weak self, weak body] in
             guard let self, let body else { return }
             self.streamUpdateWorkItem = nil
-            self.updateBubble(body, role: AppText.aiRole, text: self.pendingStreamText, renderMarkdown: self.pendingStreamRenderMarkdown)
+            self.updateBubble(body, role: AppText.aiRole, text: self.pendingStreamText)
         }
         streamUpdateWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
     }
 
-    private func flushStreamUpdate(_ body: NSTextField?, renderMarkdown: Bool) {
+    private func flushStreamUpdate(_ body: NSTextField?) {
         streamUpdateWorkItem?.cancel()
         streamUpdateWorkItem = nil
         guard let body, !pendingStreamText.isEmpty else { return }
-        updateBubble(body, role: AppText.aiRole, text: pendingStreamText, renderMarkdown: renderMarkdown)
+        updateBubble(body, role: AppText.aiRole, text: pendingStreamText)
     }
 
     private func bubbleString(role: String, text: String, renderMarkdown: Bool) -> NSAttributedString {

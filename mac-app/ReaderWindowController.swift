@@ -45,6 +45,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var currentDocumentKind: ReaderDocumentKind = .pdf
     private var currentWebPlainText = ""
     private var currentWebSelectedText = ""
+    private var currentWebSelectionContext = ""
     private var currentTOCItems: [ReaderTOCItem] = []
     private var pdfTOCDestinations: [String: PDFDestination] = [:]
     private var webZoomPercent = 100
@@ -63,7 +64,6 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var isEditingZoomField = false
     private var isAIPanelCollapsed = true
     private var preferredAIWidth: CGFloat = ReaderWindowController.loadPreferredAIWidth()
-    private var pendingAICollapseWorkItem: DispatchWorkItem?
     private var aiSettingsPanel: NSWindow?
     private weak var aiSettingsModelPopup: NSPopUpButton?
     private weak var aiSettingsLanguagePopup: NSPopUpButton?
@@ -135,8 +135,66 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             source: """
             (() => {
               var lastScrollSent = 0;
+              var preservedHighlightRange = null;
+              var documentMouseDown = false;
+              const installSelectionHighlightStyle = () => {
+                if (document.getElementById('leaf-reader-selection-highlight-style')) return;
+                const style = document.createElement('style');
+                style.id = 'leaf-reader-selection-highlight-style';
+                style.textContent = `
+                  ::highlight(leaf-reader-selection) { background: rgba(255, 221, 87, .62); color: inherit; }
+                  .leaf-reader-selection-highlight { background: rgba(255, 221, 87, .62); color: inherit; }
+                `;
+                document.head.appendChild(style);
+              };
+              const clearSpanHighlights = () => {
+                document.querySelectorAll('span.leaf-reader-selection-highlight').forEach((span) => {
+                  const parent = span.parentNode;
+                  if (!parent) return;
+                  while (span.firstChild) parent.insertBefore(span.firstChild, span);
+                  parent.removeChild(span);
+                  parent.normalize();
+                });
+              };
+              const clearPreservedSelectionHighlight = () => {
+                preservedHighlightRange = null;
+                if (window.CSS && CSS.highlights) CSS.highlights.delete('leaf-reader-selection');
+                clearSpanHighlights();
+              };
+              const preserveSelectionHighlight = (selection) => {
+                if (!selection || selection.rangeCount === 0 || String(selection || "").trim().length === 0) return;
+                installSelectionHighlightStyle();
+                clearPreservedSelectionHighlight();
+                const range = selection.getRangeAt(0).cloneRange();
+                preservedHighlightRange = range;
+                if (window.CSS && CSS.highlights && window.Highlight) {
+                  CSS.highlights.set('leaf-reader-selection', new Highlight(range));
+                  return;
+                }
+                try {
+                  const span = document.createElement('span');
+                  span.className = 'leaf-reader-selection-highlight';
+                  range.surroundContents(span);
+                } catch (_) {
+                  // Complex cross-node EPUB selections still keep their text context in native selection.
+                }
+              };
               const sendSelection = () => {
-                window.webkit.messageHandlers.selectionChanged.postMessage(String(window.getSelection() || ""));
+                const selection = window.getSelection();
+                const text = String(selection || "").trim();
+                let context = "";
+                if (selection && selection.rangeCount > 0 && text.length > 0) {
+                  preserveSelectionHighlight(selection);
+                  const container = selection.getRangeAt(0).commonAncestorContainer;
+                  const element = container.nodeType === Node.ELEMENT_NODE ? container : container.parentElement;
+                  const block = element ? element.closest('p,li,blockquote,pre,td,th,h1,h2,h3,h4,h5,h6,div') : null;
+                  const source = block ? (block.innerText || block.textContent || "") : text;
+                  context = source.replace(/\\s+/g, " ").trim().slice(0, 360);
+                } else if (documentMouseDown) {
+                  clearPreservedSelectionHighlight();
+                }
+                window.webkit.messageHandlers.selectionChanged.postMessage({ text, context });
+                documentMouseDown = false;
               };
               const sendScroll = (force = false) => {
                 const now = Date.now();
@@ -146,8 +204,17 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 const progress = Math.max(0, Math.min(1, window.scrollY / height));
                 window.webkit.messageHandlers.scrollChanged.postMessage(progress);
               };
+              document.addEventListener("mousedown", () => {
+                documentMouseDown = true;
+                clearPreservedSelectionHighlight();
+                const selection = window.getSelection();
+                if (selection) selection.removeAllRanges();
+                window.webkit.messageHandlers.selectionChanged.postMessage({ text: "", context: "" });
+              });
               document.addEventListener("selectionchange", () => setTimeout(sendSelection, 0));
-              document.addEventListener("mouseup", sendSelection);
+              document.addEventListener("mouseup", () => {
+                sendSelection();
+              });
               document.addEventListener("keyup", sendSelection);
               window.addEventListener("scroll", () => sendScroll(false), { passive: true });
               window.addEventListener("load", () => sendScroll(true));
@@ -290,6 +357,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
         aiPanel.onTranslateCurrentContent = { [weak self] completion in
             self?.currentTranslationContent(completion: completion)
+        }
+        aiPanel.onCurrentReadingContent = { [weak self] completion in
+            self?.currentReadingQuestionContent(completion: completion)
         }
         aiPanel.onSettingsRequired = { [weak self] in
             self?.openAISettings()
@@ -801,22 +871,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func toggleAIPanel() {
-        cancelScheduledAICollapse()
         setAIPanelCollapsed(!isAIPanelCollapsed, animated: true)
-    }
-
-    private func scheduleAICollapse() {
-        cancelScheduledAICollapse()
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.setAIPanelCollapsed(true, animated: true)
-        }
-        pendingAICollapseWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 60, execute: workItem)
-    }
-
-    private func cancelScheduledAICollapse() {
-        pendingAICollapseWorkItem?.cancel()
-        pendingAICollapseWorkItem = nil
     }
 
     private func setAIPanelCollapsed(_ collapsed: Bool, animated: Bool) {
@@ -1009,6 +1064,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             currentFileMD5 = fileMD5(for: url)
             currentWebPlainText = document.plainText
             currentWebSelectedText = ""
+            currentWebSelectionContext = ""
             currentTOCItems = document.tocItems
             pdfTOCDestinations = [:]
             accumulatedPDFTrackpadScroll = 0
@@ -1651,22 +1707,13 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         saveSession()
     }
 
-    private func hideAIPanelForPageTurn() {
-        cancelScheduledAICollapse()
-        aiPanel.setSelectedText("")
-        setAIPanelCollapsed(true, animated: true)
-    }
-
     @objc private func selectionChanged() {
         guard currentDocumentKind == .pdf else { return }
         let selection = pdfView.currentSelection
         let text = selection?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let selectedText = text.count > 1 ? text : ""
         aiPanel.setSelectedText(selectedText)
-        if selectedText.isEmpty {
-            scheduleAICollapse()
-        } else {
-            cancelScheduledAICollapse()
+        if !selectedText.isEmpty {
             setAIPanelCollapsed(false, animated: true)
         }
     }
@@ -1681,13 +1728,19 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             return
         }
         guard message.name == "selectionChanged" else { return }
-        let text = (message.body as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        currentWebSelectedText = text.count > 1 ? text : ""
-        aiPanel.setSelectedText(currentWebSelectedText)
-        if currentWebSelectedText.isEmpty {
-            scheduleAICollapse()
+        let text: String
+        let context: String
+        if let payload = message.body as? [String: Any] {
+            text = (payload["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            context = (payload["context"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         } else {
-            cancelScheduledAICollapse()
+            text = (message.body as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            context = ""
+        }
+        currentWebSelectedText = text.count > 1 ? text : ""
+        currentWebSelectionContext = currentWebSelectedText.isEmpty ? "" : context
+        aiPanel.setSelectedText(currentWebSelectedText)
+        if !currentWebSelectedText.isEmpty {
             setAIPanelCollapsed(false, animated: true)
         }
     }
@@ -1745,8 +1798,13 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         guard !normalizedSelection.isEmpty else { return "" }
 
         guard currentDocumentKind == .pdf else {
+            if !currentWebSelectionContext.isEmpty {
+                return sentenceContext(containing: normalizedSelection, in: currentWebSelectionContext)
+                    ?? characterWindowContext(containing: normalizedSelection, in: currentWebSelectionContext, radius: 40)
+                    ?? currentWebSelectionContext
+            }
             return sentenceContext(containing: normalizedSelection, in: currentWebPlainText)
-                ?? characterWindowContext(containing: normalizedSelection, in: currentWebPlainText, radius: 80)
+                ?? characterWindowContext(containing: normalizedSelection, in: currentWebPlainText, radius: 40)
                 ?? ""
         }
 
@@ -1815,10 +1873,37 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
     }
 
+    private func currentReadingQuestionContent(completion: @escaping ((title: String, text: String)?) -> Void) {
+        let title = titleLabel.stringValue
+        if currentDocumentKind == .pdf {
+            let text = normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
+            completion(text.isEmpty ? nil : (title, String(text.prefix(5000))))
+            return
+        }
+
+        currentWebVisibleText(preserveLineBreaks: true) { [weak self] visibleText in
+            guard let self else {
+                completion(nil)
+                return
+            }
+            if !visibleText.isEmpty {
+                completion((title, String(visibleText.prefix(5000))))
+                return
+            }
+
+            let fallback = self.normalizeReaderTextPreservingParagraphs(self.currentWebProgressTextWindow())
+            completion(fallback.isEmpty ? nil : (title, String(fallback.prefix(5000))))
+        }
+    }
+
     private func currentWebVisibleText(preserveLineBreaks: Bool = false, completion: @escaping (String) -> Void) {
+        let selector = preserveLineBreaks
+            ? "h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th"
+            : "h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th,div"
+        let surroundingBlockCount = preserveLineBreaks ? 0 : 1
         let script = """
         (() => {
-          const blocks = Array.from(document.body.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th,div'));
+          const blocks = Array.from(document.body.querySelectorAll('\(selector)'));
           const seen = new Set();
           const parts = [];
           const visibleIndexes = [];
@@ -1829,8 +1914,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             visibleIndexes.push(index);
           }
           if (!visibleIndexes.length) return '';
-          const startIndex = Math.max(0, visibleIndexes[0] - 1);
-          const endIndex = Math.min(blocks.length - 1, visibleIndexes[visibleIndexes.length - 1] + 1);
+          const startIndex = Math.max(0, visibleIndexes[0] - \(surroundingBlockCount));
+          const endIndex = Math.min(blocks.length - 1, visibleIndexes[visibleIndexes.length - 1] + \(surroundingBlockCount));
           for (let index = startIndex; index <= endIndex; index++) {
             const el = blocks[index];
             const text = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
