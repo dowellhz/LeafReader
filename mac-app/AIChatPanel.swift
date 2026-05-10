@@ -16,6 +16,13 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     private let sendButton = NSButton(title: "", target: nil, action: nil)
     private let spinner = NSProgressIndicator()
 
+    private struct BubbleMetadata {
+        var role: String
+        var text: String
+        var renderMarkdown: Bool
+        var collapsible: Bool
+    }
+
     var onAskSelectedText: ((String) -> String?)?
     var onSummarizeCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onTranslateCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
@@ -33,6 +40,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     private var ignoreEmptySelectionUntil = Date.distantPast
     private var localMouseMonitor: Any?
     private var streamUpdateWorkItem: DispatchWorkItem?
+    private var isDarkMode = false
+    private var bubbleMetadataByID: [String: BubbleMetadata] = [:]
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -59,6 +68,12 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         askButton.isEnabled = !text.isEmpty
     }
 
+    func clearSelectedText() {
+        selectedText = ""
+        askButton.previewText = ""
+        askButton.isEnabled = false
+    }
+
     private func shouldIgnoreEmptySelectionUpdate(_ text: String) -> Bool {
         guard text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -81,9 +96,23 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     func setContentVisible(_ visible: Bool) {
         subviews.forEach { $0.isHidden = !visible }
         layer?.backgroundColor = visible
-            ? NSColor.white.withAlphaComponent(0.97).cgColor
+            ? panelBackgroundColor.cgColor
             : NSColor.clear.cgColor
         needsLayout = true
+    }
+
+    func setDarkMode(_ enabled: Bool) {
+        isDarkMode = enabled
+        layer?.backgroundColor = panelBackgroundColor.cgColor
+        statusLabel.textColor = secondaryTextColor
+        inputBar.layer?.backgroundColor = inputBackgroundColor.cgColor
+        inputBar.layer?.borderWidth = enabled ? 1 : 0
+        inputBar.layer?.borderColor = NSColor(red: 0.22, green: 0.26, blue: 0.32, alpha: 1).cgColor
+        inputField.textColor = primaryTextColor
+        sendButton.contentTintColor = enabled
+            ? NSColor(red: 0.32, green: 0.55, blue: 1, alpha: 1)
+            : NSColor(red: 0.0, green: 0.35, blue: 0.9, alpha: 1)
+        restyleTranscript()
     }
 
     @objc private func startQuestion() {
@@ -487,12 +516,10 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
     @discardableResult
     private func appendBubble(role: String, text: String, collapsible: Bool = false, renderMarkdown: Bool = true) -> NSTextField {
-        let box = NSBox()
-        box.boxType = .custom
-        box.borderWidth = 1
-        box.borderColor = NSColor(red: 0.87, green: 0.89, blue: 0.92, alpha: 1)
+        let box = ChatBubbleView()
+        box.fillColor = bubbleFillColor(role: role)
+        box.borderColor = bubbleBorderColor
         box.cornerRadius = 8
-        box.fillColor = role == AppText.userRole ? NSColor(red: 0.92, green: 0.96, blue: 1, alpha: 1) : .white
         box.translatesAutoresizingMaskIntoConstraints = false
 
         let body = NSTextField(wrappingLabelWithString: "")
@@ -500,6 +527,9 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         body.maximumNumberOfLines = collapsible ? 1 : 0
         body.isSelectable = false
         body.translatesAutoresizingMaskIntoConstraints = false
+        let bodyID = UUID().uuidString
+        body.identifier = NSUserInterfaceItemIdentifier(bodyID)
+        bubbleMetadataByID[bodyID] = BubbleMetadata(role: role, text: text, renderMarkdown: renderMarkdown, collapsible: collapsible)
 
         box.addSubview(body)
         transcriptStack.addArrangedSubview(box)
@@ -525,6 +555,15 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     private func updateBubble(_ body: NSTextField, role: String, text: String, renderMarkdown: Bool = true) {
+        let existingMetadata = body.identifier.flatMap { bubbleMetadataByID[$0.rawValue] }
+        if let bodyID = body.identifier?.rawValue {
+            bubbleMetadataByID[bodyID] = BubbleMetadata(
+                role: role,
+                text: text,
+                renderMarkdown: renderMarkdown,
+                collapsible: existingMetadata?.collapsible ?? false
+            )
+        }
         body.attributedStringValue = bubbleString(role: role, text: text, renderMarkdown: renderMarkdown)
         body.invalidateIntrinsicContentSize()
         body.superview?.invalidateIntrinsicContentSize()
@@ -557,7 +596,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
     @objc private func toggleCollapsedBubble(_ recognizer: NSClickGestureRecognizer) {
         guard
-            let box = recognizer.view as? NSBox,
+            let box = recognizer.view as? ChatBubbleView,
             let body = box.subviews.compactMap({ $0 as? NSTextField }).first
         else { return }
 
@@ -571,7 +610,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     private func plainString(_ text: String) -> NSAttributedString {
         NSAttributedString(string: text, attributes: [
             .font: NSFont.systemFont(ofSize: Self.readerBodyFontSize),
-            .foregroundColor: NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1),
+            .foregroundColor: primaryTextColor,
             .paragraphStyle: paragraphStyle(spacing: 8)
         ])
     }
@@ -600,7 +639,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: (isHeading || isBoldLine) ? NSFont.boldSystemFont(ofSize: Self.readerBodyFontSize) : NSFont.systemFont(ofSize: Self.readerBodyFontSize),
-                .foregroundColor: NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1),
+                .foregroundColor: primaryTextColor,
                 .paragraphStyle: paragraphStyle(spacing: isHeading ? 10 : 8, headIndent: isBullet ? 18 : 0)
             ]
             output.append(NSAttributedString(string: display + "\n", attributes: attrs))
@@ -615,6 +654,102 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         style.paragraphSpacing = spacing
         style.headIndent = headIndent
         return style
+    }
+
+    private var panelBackgroundColor: NSColor {
+        isDarkMode
+            ? NSColor(red: 0.07, green: 0.09, blue: 0.11, alpha: 0.96)
+            : NSColor.white.withAlphaComponent(0.97)
+    }
+
+    private var primaryTextColor: NSColor {
+        isDarkMode
+            ? NSColor(red: 0.78, green: 0.81, blue: 0.86, alpha: 1)
+            : NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
+    }
+
+    private var secondaryTextColor: NSColor {
+        isDarkMode
+            ? NSColor(red: 0.55, green: 0.60, blue: 0.68, alpha: 1)
+            : NSColor(red: 0.42, green: 0.44, blue: 0.49, alpha: 1)
+    }
+
+    private var inputBackgroundColor: NSColor {
+        isDarkMode
+            ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+            : NSColor(red: 0.93, green: 0.94, blue: 0.95, alpha: 1)
+    }
+
+    private var bubbleBorderColor: NSColor {
+        isDarkMode
+            ? NSColor(red: 0.22, green: 0.26, blue: 0.32, alpha: 1)
+            : NSColor(red: 0.87, green: 0.89, blue: 0.92, alpha: 1)
+    }
+
+    private func bubbleFillColor(role: String) -> NSColor {
+        guard isDarkMode else {
+            return role == AppText.userRole ? NSColor(red: 0.92, green: 0.96, blue: 1, alpha: 1) : .white
+        }
+        return role == AppText.userRole
+            ? NSColor(red: 0.12, green: 0.18, blue: 0.28, alpha: 1)
+            : NSColor(red: 0.08, green: 0.10, blue: 0.13, alpha: 1)
+    }
+
+    private func restyleTranscript() {
+        let entries = transcriptStack.arrangedSubviews.compactMap { view -> BubbleMetadata? in
+            guard
+                let box = view as? NSBox,
+                let body = box.subviews.compactMap({ $0 as? NSTextField }).first,
+                let bodyID = body.identifier?.rawValue,
+                let metadata = bubbleMetadataByID[bodyID]
+            else {
+                return nil
+            }
+            return metadata
+        }
+
+        if !entries.isEmpty {
+            transcriptStack.arrangedSubviews.forEach { view in
+                transcriptStack.removeArrangedSubview(view)
+                view.removeFromSuperview()
+            }
+            bubbleMetadataByID.removeAll()
+            for metadata in entries {
+                appendBubble(
+                    role: metadata.role,
+                    text: metadata.text,
+                    collapsible: metadata.collapsible,
+                    renderMarkdown: metadata.renderMarkdown
+                )
+            }
+            return
+        }
+
+        for box in transcriptStack.arrangedSubviews.compactMap({ $0 as? ChatBubbleView }) {
+            box.borderColor = bubbleBorderColor
+            guard let body = box.subviews.compactMap({ $0 as? NSTextField }).first else { continue }
+            let metadata: BubbleMetadata?
+            if let bodyID = body.identifier?.rawValue {
+                metadata = bubbleMetadataByID[bodyID]
+            } else {
+                metadata = nil
+            }
+            let role = metadata?.role ?? AppText.aiRole
+            let fillColor = bubbleFillColor(role: role)
+            box.fillColor = fillColor
+            if let metadata {
+                body.attributedStringValue = bubbleString(role: metadata.role, text: metadata.text, renderMarkdown: metadata.renderMarkdown)
+            } else {
+                box.fillColor = bubbleFillColor(role: AppText.aiRole)
+                let updated = NSMutableAttributedString(attributedString: body.attributedStringValue)
+                updated.addAttribute(.foregroundColor, value: primaryTextColor, range: NSRange(location: 0, length: updated.length))
+                body.attributedStringValue = updated
+            }
+            box.needsDisplay = true
+            body.needsDisplay = true
+        }
+        transcriptStack.needsLayout = true
+        transcriptStack.layoutSubtreeIfNeeded()
     }
 
     private func buildUI() {
@@ -761,5 +896,43 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         if !messages.isEmpty, messages[0].role == "system" {
             messages[0] = ChatMessage(role: "system", content: AIPromptStore.systemPrompt())
         }
+    }
+}
+
+private final class ChatBubbleView: NSView {
+    var fillColor: NSColor = .white {
+        didSet { needsDisplay = true }
+    }
+
+    var borderColor: NSColor = .clear {
+        didSet { needsDisplay = true }
+    }
+
+    var cornerRadius: CGFloat = 8 {
+        didSet { needsDisplay = true }
+    }
+
+    override var isFlipped: Bool {
+        true
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: cornerRadius, yRadius: cornerRadius)
+        fillColor.setFill()
+        path.fill()
+        borderColor.setStroke()
+        path.lineWidth = 1
+        path.stroke()
     }
 }

@@ -6,7 +6,9 @@
 
 Leaf Reader is a native macOS document reader built with Swift, PDFKit, and WebKit. It supports PDF, EPUB, and DOCX reading with quick navigation, text selection, search, reading progress restore for PDFs, and an integrated AI assistant for explaining selected passages.
 
-![Leaf Reader screenshot](assets/screenshot.png)
+![Leaf Reader light mode screenshot](assets/screenshot-light.png)
+
+![Leaf Reader dark mode screenshot](assets/screenshot-dark.png)
 
 ## Features
 
@@ -54,12 +56,12 @@ codesign --force --deep --sign - "Leaf Reader.app"
 
 ## Release
 
-Version `1.0.1` is tagged as `v1.0.1`.
+Version `1.0.4` is tagged as `v1.0.4`.
 
 Local release artifacts are generated under:
 
 ```text
-release/1.0.1/
+release/1.0.4/
 ```
 
 ## Requirements

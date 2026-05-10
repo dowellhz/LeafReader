@@ -150,3 +150,9 @@ final class ClippingView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 }
+
+final class PassthroughOverlayView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+}

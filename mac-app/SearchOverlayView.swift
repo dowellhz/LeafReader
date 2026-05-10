@@ -29,6 +29,27 @@ final class SearchOverlayView: NSView {
         resultLabel.stringValue = text
     }
 
+    func setDarkMode(_ enabled: Bool) {
+        layer?.backgroundColor = (enabled
+            ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 0.98)
+            : NSColor(red: 0.995, green: 0.985, blue: 0.995, alpha: 0.98)
+        ).cgColor
+        layer?.borderWidth = enabled ? 1 : 0
+        layer?.borderColor = NSColor(red: 0.24, green: 0.28, blue: 0.34, alpha: 1).cgColor
+
+        let textColor = enabled
+            ? NSColor(red: 0.84, green: 0.87, blue: 0.92, alpha: 1)
+            : NSColor(red: 0.16, green: 0.17, blue: 0.20, alpha: 1)
+        let secondaryColor = enabled
+            ? NSColor(red: 0.55, green: 0.60, blue: 0.68, alpha: 1)
+            : NSColor(red: 0.42, green: 0.42, blue: 0.47, alpha: 1)
+        searchField.textColor = textColor
+        resultLabel.textColor = secondaryColor
+        for button in [previousButton, nextButton, closeButton] {
+            button.contentTintColor = secondaryColor
+        }
+    }
+
     private func buildUI() {
         wantsLayer = true
         layer?.backgroundColor = NSColor(red: 0.995, green: 0.985, blue: 0.995, alpha: 0.98).cgColor
@@ -45,6 +66,7 @@ final class SearchOverlayView: NSView {
         searchField.placeholderString = AppText.localized("搜索文档", "Search document")
         searchField.target = self
         searchField.action = #selector(submitSearch)
+        searchField.cell?.sendsActionOnEndEditing = false
 
         resultLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
         resultLabel.textColor = NSColor(red: 0.42, green: 0.42, blue: 0.47, alpha: 1)

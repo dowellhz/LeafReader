@@ -18,6 +18,40 @@ final class ClickEditableTextField: NSTextField {
     }
 }
 
+private enum ReaderTheme: String, CaseIterable {
+    private static let defaultsKey = "readerTheme"
+
+    case original
+    case dark
+
+    var title: String {
+        switch self {
+        case .original:
+            return AppText.localized("浅色模式", "Light Mode")
+        case .dark:
+            return AppText.localized("深色模式", "Dark Mode")
+        }
+    }
+
+    var helpText: String {
+        AppText.localized("选择 PDF、EPUB 和 DOCX 阅读区域的显示模式。", "Choose the display mode for PDF, EPUB, and DOCX reading views.")
+    }
+
+    static var selected: ReaderTheme {
+        get {
+            guard let rawValue = UserDefaults.standard.string(forKey: defaultsKey),
+                  let theme = ReaderTheme(rawValue: rawValue) else {
+                return .original
+            }
+            return theme
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: defaultsKey)
+            UserDefaults.standard.synchronize()
+        }
+    }
+}
+
 final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     private static let preferredAIWidthDefaultsKey = "preferredAIWidth"
 
@@ -25,12 +59,13 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var webView: WKWebView!
     private let contentArea = NSView()
     private let pdfContainer = ClippingView()
+    private let pdfDimOverlay = PassthroughOverlayView()
     private let aiPanel = AIChatPanel()
     private let aiHandleButton = SideHandleButton(title: "", target: nil, action: nil)
     private let resizeHandle = ResizeHandleView()
     private let titleLabel = NSTextField(labelWithString: "Leaf Reader")
     private let coverImageView = NSImageView()
-    private let pageLabel = NSTextField(labelWithString: AppText.noPDF)
+    private let pageLabel = ClickEditableTextField(string: AppText.noPDF)
     private let zoomField = ClickEditableTextField(string: "100%")
     private let searchOverlay = SearchOverlayView()
     private var fullScreenButton: NSButton!
@@ -40,6 +75,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var prevButton: NSButton!
     private var nextButton: NSButton!
     private var searchButton: NSButton!
+    private weak var toolbarView: NSView?
+    private weak var bottomBarView: NSView?
+    private weak var zoomGroupView: NSView?
     private var currentFileURL: URL?
     private var currentFileMD5: String?
     private var currentDocumentKind: ReaderDocumentKind = .pdf
@@ -58,15 +96,18 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var searchResults: [PDFSelection] = []
     private var searchResultIndex = 0
     private var lastSearchQuery = ""
+    private var suppressSearchSelectionForAIUntil = Date.distantPast
     private var highlightedSelectionKeys = Set<String>()
     private var didRegisterSelectionObserver = false
     private var isRestoringSession = false
     private var isEditingZoomField = false
+    private var isEditingPageField = false
     private var isAIPanelCollapsed = true
     private var preferredAIWidth: CGFloat = ReaderWindowController.loadPreferredAIWidth()
     private var aiSettingsPanel: NSWindow?
     private weak var aiSettingsModelPopup: NSPopUpButton?
     private weak var aiSettingsLanguagePopup: NSPopUpButton?
+    private weak var aiSettingsThemePopup: NSPopUpButton?
     private weak var aiSettingsSecureKeyField: NSSecureTextField?
     private weak var aiSettingsPlainKeyField: NSTextField?
     private var recentDocumentsPanel: NSWindow?
@@ -294,9 +335,21 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             view.translatesAutoresizingMaskIntoConstraints = false
             zoomGroup.addSubview(view)
         }
+        toolbarView = toolbar
+        bottomBarView = bottomBar
+        zoomGroupView = zoomGroup
 
         pageLabel.font = NSFont.systemFont(ofSize: 15, weight: .medium)
         pageLabel.alignment = .center
+        pageLabel.isBordered = false
+        pageLabel.drawsBackground = false
+        pageLabel.focusRingType = .none
+        pageLabel.isEditable = true
+        pageLabel.isSelectable = true
+        pageLabel.delegate = self
+        pageLabel.target = self
+        pageLabel.action = #selector(applyPageFromField)
+        pageLabel.toolTip = AppText.localized("输入页码后按回车跳转", "Enter a page number and press Return")
         searchButton = iconButton(symbol: "magnifyingglass", action: #selector(showSearchOverlay))
         searchButton.toolTip = AppText.localized("搜索文档", "Search document")
 
@@ -313,6 +366,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         pdfContainer.addSubview(pdfView)
         webView.translatesAutoresizingMaskIntoConstraints = false
         pdfContainer.addSubview(webView)
+        pdfDimOverlay.wantsLayer = true
+        pdfDimOverlay.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.30).cgColor
+        pdfDimOverlay.translatesAutoresizingMaskIntoConstraints = false
+        pdfDimOverlay.isHidden = true
+        pdfContainer.addSubview(pdfDimOverlay, positioned: .above, relativeTo: pdfView)
 
         for view in [aiPanel] {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -416,6 +474,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             pdfView.leadingAnchor.constraint(equalTo: pdfContainer.leadingAnchor),
             pdfView.trailingAnchor.constraint(equalTo: pdfContainer.trailingAnchor),
             pdfView.bottomAnchor.constraint(equalTo: pdfContainer.bottomAnchor),
+
+            pdfDimOverlay.topAnchor.constraint(equalTo: pdfContainer.topAnchor),
+            pdfDimOverlay.leadingAnchor.constraint(equalTo: pdfContainer.leadingAnchor),
+            pdfDimOverlay.trailingAnchor.constraint(equalTo: pdfContainer.trailingAnchor),
+            pdfDimOverlay.bottomAnchor.constraint(equalTo: pdfContainer.bottomAnchor),
 
             webView.topAnchor.constraint(equalTo: pdfContainer.topAnchor),
             webView.leadingAnchor.constraint(equalTo: pdfContainer.leadingAnchor),
@@ -527,6 +590,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         DispatchQueue.main.async { [weak self] in
             self?.setAIPanelCollapsed(true, animated: false)
         }
+        applyReaderTheme()
         restoreSession()
     }
 
@@ -586,22 +650,175 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         nextButton.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: AppText.next)
     }
 
+    private func applyReaderTheme() {
+        let isDark = ReaderTheme.selected == .dark
+        let chromeBackground = isDark
+            ? NSColor(red: 0.07, green: 0.08, blue: 0.10, alpha: 1)
+            : NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1)
+
+        window?.backgroundColor = chromeBackground
+        window?.appearance = isDark ? NSAppearance(named: .darkAqua) : nil
+        contentArea.layer?.backgroundColor = chromeBackground.cgColor
+        pdfContainer.layer?.backgroundColor = chromeBackground.cgColor
+        webView.layer?.backgroundColor = chromeBackground.cgColor
+        toolbarView?.layer?.backgroundColor = (isDark
+            ? NSColor(red: 0.07, green: 0.09, blue: 0.11, alpha: 0.96)
+            : NSColor.white.withAlphaComponent(0.97)
+        ).cgColor
+        toolbarView?.layer?.borderColor = (isDark
+            ? NSColor(red: 0.20, green: 0.24, blue: 0.29, alpha: 1)
+            : NSColor(red: 0.88, green: 0.9, blue: 0.93, alpha: 1)
+        ).cgColor
+        bottomBarView?.layer?.backgroundColor = toolbarView?.layer?.backgroundColor
+        bottomBarView?.layer?.borderColor = toolbarView?.layer?.borderColor
+        zoomGroupView?.layer?.backgroundColor = (isDark
+            ? NSColor(red: 0.08, green: 0.10, blue: 0.13, alpha: 1)
+            : NSColor.white
+        ).cgColor
+        zoomGroupView?.layer?.borderColor = (isDark
+            ? NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1)
+            : NSColor(red: 0.84, green: 0.86, blue: 0.9, alpha: 1)
+        ).cgColor
+        resizeHandle.layer?.backgroundColor = (isDark
+            ? NSColor(red: 0.20, green: 0.24, blue: 0.29, alpha: 1)
+            : NSColor(red: 0.86, green: 0.88, blue: 0.91, alpha: 1)
+        ).cgColor
+        applyChromeTheme(to: window?.contentView, isDark: isDark)
+        aiPanel.setDarkMode(isDark)
+        searchOverlay.setDarkMode(isDark)
+        pdfView.backgroundColor = chromeBackground
+        pdfView.enclosingScrollView?.backgroundColor = chromeBackground
+        pdfView.documentView?.wantsLayer = true
+        pdfView.documentView?.layer?.backgroundColor = chromeBackground.cgColor
+        applyPDFReaderTheme(isDark: isDark)
+
+        applyWebReaderTheme()
+    }
+
+    private func applyChromeTheme(to view: NSView?, isDark: Bool) {
+        guard let view else { return }
+        let textColor = isDark
+            ? NSColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 1)
+            : NSColor(red: 0.10, green: 0.11, blue: 0.14, alpha: 1)
+        let secondaryColor = isDark
+            ? NSColor(red: 0.62, green: 0.67, blue: 0.74, alpha: 1)
+            : NSColor(red: 0.36, green: 0.39, blue: 0.48, alpha: 1)
+
+        if let label = view as? NSTextField {
+            label.textColor = textColor
+        }
+        if let button = view as? NSButton {
+            button.contentTintColor = secondaryColor
+        }
+        if view !== aiPanel, view !== searchOverlay {
+            for subview in view.subviews {
+                applyChromeTheme(to: subview, isDark: isDark)
+            }
+        }
+    }
+
+    private func applyPDFReaderTheme(isDark: Bool) {
+        guard let documentView = pdfView.documentView else { return }
+        pdfView.displaysPageBreaks = true
+        pdfView.pageShadowsEnabled = true
+        documentView.wantsLayer = true
+        documentView.layer?.backgroundColor = NSColor.clear.cgColor
+        documentView.layer?.filters = []
+        pdfDimOverlay.isHidden = !isDark || currentDocumentKind != .pdf
+        pdfDimOverlay.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.34).cgColor
+        documentView.needsDisplay = true
+        pdfView.setNeedsDisplay(pdfView.bounds)
+    }
+
+    private func applyWebReaderTheme() {
+        guard webView != nil else { return }
+        let darkCSS = """
+        html.leaf-reader-dark { background: #111418 !important; color-scheme: dark; }
+        html.leaf-reader-dark body {
+          color: #d9dee7 !important;
+          background: #171a20 !important;
+        }
+        html.leaf-reader-dark p,
+        html.leaf-reader-dark div,
+        html.leaf-reader-dark span,
+        html.leaf-reader-dark li,
+        html.leaf-reader-dark blockquote,
+        html.leaf-reader-dark td,
+        html.leaf-reader-dark th,
+        html.leaf-reader-dark h1,
+        html.leaf-reader-dark h2,
+        html.leaf-reader-dark h3,
+        html.leaf-reader-dark h4,
+        html.leaf-reader-dark h5,
+        html.leaf-reader-dark h6,
+        html.leaf-reader-dark strong,
+        html.leaf-reader-dark em,
+        html.leaf-reader-dark b,
+        html.leaf-reader-dark i {
+          color: #d9dee7 !important;
+          background-color: transparent !important;
+          text-shadow: none !important;
+        }
+        html.leaf-reader-dark body * {
+          border-color: #343b46 !important;
+        }
+        html.leaf-reader-dark a {
+          color: #9fc0ff !important;
+        }
+        html.leaf-reader-dark img,
+        html.leaf-reader-dark svg {
+          filter: brightness(.88) contrast(.98);
+        }
+        html.leaf-reader-dark ::selection {
+          background: rgba(255, 221, 87, .46) !important;
+        }
+        """
+        let cssLiteral = jsStringLiteral(darkCSS)
+        let enabled = ReaderTheme.selected == .dark ? "true" : "false"
+        webView.evaluateJavaScript("""
+        (() => {
+          const enabled = \(enabled);
+          let style = document.getElementById('leaf-reader-theme-style');
+          if (!style) {
+            style = document.createElement('style');
+            style.id = 'leaf-reader-theme-style';
+            document.head.appendChild(style);
+          }
+          style.textContent = \(cssLiteral);
+          document.documentElement.classList.toggle('leaf-reader-dark', enabled);
+        })();
+        """)
+    }
+
     @objc private func openAISettings() {
         let selectedModel = AISettingsStore.selectedModel
         let settingsFontSize: CGFloat = 15
+        let isDark = ReaderTheme.selected == .dark
+        let panelBackground = isDark
+            ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+            : NSColor.white
+        let primaryText = isDark
+            ? NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
+            : NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
+        let secondaryText = isDark
+            ? NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
+            : NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
         let panel = SettingsPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 740, height: 700),
+            contentRect: NSRect(x: 0, y: 0, width: 740, height: 790),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
+        panel.appearance = isDark ? NSAppearance(named: .darkAqua) : NSAppearance(named: .aqua)
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.isReleasedWhenClosed = false
 
         let content = NSView()
         content.wantsLayer = true
-        content.layer?.backgroundColor = NSColor.white.cgColor
+        content.layer?.backgroundColor = panelBackground.cgColor
+        content.layer?.borderWidth = isDark ? 1 : 0
+        content.layer?.borderColor = NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1).cgColor
         content.layer?.cornerRadius = 12
         content.layer?.masksToBounds = false
         content.layer?.shadowColor = NSColor.black.cgColor
@@ -613,31 +830,38 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
         let titleLabel = NSTextField(labelWithString: AppText.settings)
         titleLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
+        titleLabel.textColor = primaryText
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let closeButton = NSButton(title: "", target: self, action: #selector(cancelAISettings(_:)))
         closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: AppText.close)
         closeButton.isBordered = false
-        closeButton.contentTintColor = NSColor(red: 0.16, green: 0.18, blue: 0.24, alpha: 1)
+        closeButton.contentTintColor = primaryText
         closeButton.translatesAutoresizingMaskIntoConstraints = false
 
         let modelHelpLabel = NSTextField(labelWithString: AppText.modelHelp)
         modelHelpLabel.font = NSFont.systemFont(ofSize: settingsFontSize)
-        modelHelpLabel.textColor = NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
+        modelHelpLabel.textColor = secondaryText
         modelHelpLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let keyHelpLabel = NSTextField(labelWithString: AppText.keyHelp)
         keyHelpLabel.font = NSFont.systemFont(ofSize: settingsFontSize)
-        keyHelpLabel.textColor = NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
+        keyHelpLabel.textColor = secondaryText
         keyHelpLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let languageHelpLabel = NSTextField(labelWithString: AppText.languageHelp)
         languageHelpLabel.font = NSFont.systemFont(ofSize: settingsFontSize)
-        languageHelpLabel.textColor = NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
+        languageHelpLabel.textColor = secondaryText
         languageHelpLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        let themeHelpLabel = NSTextField(labelWithString: ReaderTheme.selected.helpText)
+        themeHelpLabel.font = NSFont.systemFont(ofSize: settingsFontSize)
+        themeHelpLabel.textColor = secondaryText
+        themeHelpLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let modelLabel = NSTextField(labelWithString: AppText.model)
         modelLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
+        modelLabel.textColor = primaryText
         modelLabel.translatesAutoresizingMaskIntoConstraints = false
         let modelPopup = NSPopUpButton(frame: .zero, pullsDown: false)
         modelPopup.controlSize = .large
@@ -653,6 +877,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
         let languageLabel = NSTextField(labelWithString: AppText.language)
         languageLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
+        languageLabel.textColor = primaryText
         languageLabel.translatesAutoresizingMaskIntoConstraints = false
         let languagePopup = NSPopUpButton(frame: .zero, pullsDown: false)
         languagePopup.controlSize = .large
@@ -666,8 +891,25 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             languagePopup.selectItem(at: index)
         }
 
+        let themeLabel = NSTextField(labelWithString: AppText.localized("模式", "Mode"))
+        themeLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
+        themeLabel.textColor = primaryText
+        themeLabel.translatesAutoresizingMaskIntoConstraints = false
+        let themePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+        themePopup.controlSize = .large
+        themePopup.font = NSFont.systemFont(ofSize: settingsFontSize)
+        themePopup.translatesAutoresizingMaskIntoConstraints = false
+        for theme in ReaderTheme.allCases {
+            themePopup.addItem(withTitle: theme.title)
+            themePopup.lastItem?.representedObject = theme.rawValue
+        }
+        if let index = ReaderTheme.allCases.firstIndex(of: ReaderTheme.selected) {
+            themePopup.selectItem(at: index)
+        }
+
         let keyLabel = NSTextField(labelWithString: "API Key")
         keyLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
+        keyLabel.textColor = primaryText
         keyLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let keyField = APIKeySecureTextField(string: AISettingsStore.apiKey(for: selectedModel))
@@ -679,6 +921,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         keyField.isEditable = true
         keyField.isSelectable = true
         keyField.isEnabled = true
+        keyField.textColor = primaryText
+        keyField.backgroundColor = isDark ? NSColor(red: 0.08, green: 0.10, blue: 0.13, alpha: 1) : .white
         keyField.translatesAutoresizingMaskIntoConstraints = false
 
         let plainKeyField = APIKeyTextField(string: AISettingsStore.apiKey(for: selectedModel))
@@ -691,12 +935,14 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         plainKeyField.isSelectable = true
         plainKeyField.isEnabled = true
         plainKeyField.isHidden = true
+        plainKeyField.textColor = primaryText
+        plainKeyField.backgroundColor = keyField.backgroundColor
         plainKeyField.translatesAutoresizingMaskIntoConstraints = false
 
         let eyeButton = NSButton(title: "", target: self, action: #selector(toggleAISettingsAPIKeyVisibility(_:)))
         eyeButton.image = NSImage(systemSymbolName: "eye", accessibilityDescription: AppText.showAPIKey)
         eyeButton.isBordered = false
-        eyeButton.contentTintColor = NSColor(red: 0.36, green: 0.39, blue: 0.48, alpha: 1)
+        eyeButton.contentTintColor = secondaryText
         eyeButton.translatesAutoresizingMaskIntoConstraints = false
 
         let cancelButton = NSButton(title: AppText.cancel, target: nil, action: nil)
@@ -715,9 +961,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         modelPopup.action = #selector(aiSettingsModelChanged(_:))
         modelPopup.identifier = NSUserInterfaceItemIdentifier("modelPopup")
         languagePopup.identifier = NSUserInterfaceItemIdentifier("languagePopup")
+        themePopup.identifier = NSUserInterfaceItemIdentifier("themePopup")
         keyField.identifier = NSUserInterfaceItemIdentifier("keyField")
         plainKeyField.identifier = NSUserInterfaceItemIdentifier("plainKeyField")
-        for view in [titleLabel, closeButton, modelLabel, modelPopup, modelHelpLabel, languageLabel, languagePopup, languageHelpLabel, keyLabel, keyField, plainKeyField, eyeButton, keyHelpLabel, cancelButton, saveButton] {
+        for view in [titleLabel, closeButton, modelLabel, modelPopup, modelHelpLabel, languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, keyLabel, keyField, plainKeyField, eyeButton, keyHelpLabel, cancelButton, saveButton] {
             content.addSubview(view)
         }
 
@@ -769,6 +1016,16 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             languageHelpLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             languageHelpLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
 
+            themeLabel.topAnchor.constraint(equalTo: languageHelpLabel.bottomAnchor, constant: 26),
+            themeLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            themePopup.topAnchor.constraint(equalTo: themeLabel.bottomAnchor, constant: 14),
+            themePopup.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            themePopup.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            themePopup.heightAnchor.constraint(equalToConstant: 54),
+            themeHelpLabel.topAnchor.constraint(equalTo: themePopup.bottomAnchor, constant: 12),
+            themeHelpLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            themeHelpLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+
             saveButton.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
             saveButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -36),
             saveButton.widthAnchor.constraint(equalToConstant: 118),
@@ -790,6 +1047,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         aiSettingsPanel = panel
         aiSettingsModelPopup = modelPopup
         aiSettingsLanguagePopup = languagePopup
+        aiSettingsThemePopup = themePopup
         aiSettingsSecureKeyField = keyField
         aiSettingsPlainKeyField = plainKeyField
 
@@ -812,8 +1070,13 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
            let language = AppText.Language(rawValue: rawLanguage) {
             AppText.selectedLanguage = language
         }
+        if let rawTheme = aiSettingsThemePopup?.selectedItem?.representedObject as? String,
+           let theme = ReaderTheme(rawValue: rawTheme) {
+            ReaderTheme.selected = theme
+        }
         AISettingsStore.save(modelID: modelID, apiKey: keyField.stringValue)
         refreshLanguageUI()
+        applyReaderTheme()
         panel.sheetParent?.endSheet(panel)
     }
 
@@ -1047,6 +1310,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
         restoreBookProgressOrGoHome()
         lastPageIndex = currentPageIndex()
+        applyReaderTheme()
         updatePageLabel()
         updateZoomLabel()
         RecentDocumentsStore.record(url: url, kind: .pdf)
@@ -1058,6 +1322,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             let document = try WebDocumentLoader.load(url: url)
             currentDocumentKind = kind
             pdfView.isHidden = true
+            pdfDimOverlay.isHidden = true
             webView.isHidden = false
             pdfView.document = nil
             currentFileURL = url
@@ -1087,6 +1352,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             pageLabel.stringValue = "0%"
             zoomField.stringValue = "100%"
             webView.loadHTMLString(document.html, baseURL: document.baseURL)
+            applyReaderTheme()
             applyWebZoomToPage()
             restoreWebProgressAfterLoad()
             RecentDocumentsStore.record(url: url, kind: kind)
@@ -1126,13 +1392,23 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             backing: .buffered,
             defer: false
         )
+        let isDark = ReaderTheme.selected == .dark
+        let panelBackground = isDark
+            ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+            : NSColor.white
+        let primaryText = isDark
+            ? NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
+            : NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
         panel.backgroundColor = .clear
+        panel.appearance = isDark ? NSAppearance(named: .darkAqua) : NSAppearance(named: .aqua)
         panel.isOpaque = false
         panel.isReleasedWhenClosed = false
 
         let content = NSView()
         content.wantsLayer = true
-        content.layer?.backgroundColor = NSColor.white.cgColor
+        content.layer?.backgroundColor = panelBackground.cgColor
+        content.layer?.borderWidth = isDark ? 1 : 0
+        content.layer?.borderColor = NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1).cgColor
         content.layer?.cornerRadius = 12
         content.layer?.masksToBounds = false
         content.layer?.shadowColor = NSColor.black.cgColor
@@ -1144,12 +1420,13 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
         let title = NSTextField(labelWithString: AppText.localized("最近阅读", "Recent Reading"))
         title.font = NSFont.systemFont(ofSize: 16, weight: .semibold)
+        title.textColor = primaryText
         title.translatesAutoresizingMaskIntoConstraints = false
 
         let closeButton = NSButton(title: "", target: self, action: #selector(closeRecentDocumentsPanel(_:)))
         closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: AppText.close)
         closeButton.isBordered = false
-        closeButton.contentTintColor = NSColor(red: 0.16, green: 0.18, blue: 0.24, alpha: 1)
+        closeButton.contentTintColor = primaryText
         closeButton.translatesAutoresizingMaskIntoConstraints = false
 
         let clearButton = NSButton(title: AppText.localized("清空", "Clear"), target: self, action: #selector(clearRecentDocuments(_:)))
@@ -1207,26 +1484,39 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func recentDocumentRow(for item: RecentDocumentItem) -> NSView {
+        let isDark = ReaderTheme.selected == .dark
+        let primaryText = isDark
+            ? NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
+            : NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
+        let secondaryText = isDark
+            ? NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
+            : NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
         let row = NSView()
         row.wantsLayer = true
-        row.layer?.backgroundColor = NSColor(red: 0.975, green: 0.98, blue: 0.988, alpha: 1).cgColor
+        row.layer?.backgroundColor = (isDark
+            ? NSColor(red: 0.13, green: 0.15, blue: 0.19, alpha: 1)
+            : NSColor(red: 0.975, green: 0.98, blue: 0.988, alpha: 1)
+        ).cgColor
+        row.layer?.borderWidth = isDark ? 1 : 0
+        row.layer?.borderColor = NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1).cgColor
         row.layer?.cornerRadius = 8
         row.translatesAutoresizingMaskIntoConstraints = false
 
         let icon = NSImageView()
         icon.image = NSImage(systemSymbolName: iconName(forRecentKind: item.kind), accessibilityDescription: item.kind)
-        icon.contentTintColor = NSColor(red: 0.16, green: 0.19, blue: 0.24, alpha: 1)
+        icon.contentTintColor = secondaryText
         icon.translatesAutoresizingMaskIntoConstraints = false
 
         let title = NSTextField(labelWithString: item.title)
         title.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
+        title.textColor = primaryText
         title.lineBreakMode = .byTruncatingTail
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         title.translatesAutoresizingMaskIntoConstraints = false
 
         let subtitle = NSTextField(labelWithString: "\(item.kind)  ·  \(URL(fileURLWithPath: item.path).deletingLastPathComponent().path)")
         subtitle.font = NSFont.systemFont(ofSize: 12)
-        subtitle.textColor = NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
+        subtitle.textColor = secondaryText
         subtitle.lineBreakMode = .byTruncatingMiddle
         subtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         subtitle.translatesAutoresizingMaskIntoConstraints = false
@@ -1345,6 +1635,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             return
         }
 
+        clearAISelectionForNavigation()
         pdfView.go(to: destination)
         lastPageIndex = pageIndex
         updatePageLabel()
@@ -1459,7 +1750,46 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         window?.makeFirstResponder(currentDocumentKind == .pdf ? pdfView : webView)
     }
 
+    @objc private func applyPageFromField() {
+        guard currentDocumentKind == .pdf,
+              let document = pdfView.document,
+              document.pageCount > 0 else {
+            updatePageLabel()
+            window?.makeFirstResponder(currentDocumentKind == .pdf ? pdfView : webView)
+            return
+        }
+
+        let raw = pageLabel.stringValue
+        let pageNumberText: String
+        if let range = raw.range(of: #"\d+"#, options: .regularExpression) {
+            pageNumberText = String(raw[range])
+        } else {
+            pageNumberText = ""
+        }
+        guard let requestedPage = Int(pageNumberText) else {
+            updatePageLabel()
+            window?.makeFirstResponder(pdfView)
+            return
+        }
+
+        let targetIndex = min(max(requestedPage, 1), document.pageCount) - 1
+        guard let page = document.page(at: targetIndex) else {
+            updatePageLabel()
+            window?.makeFirstResponder(pdfView)
+            return
+        }
+
+        clearAISelectionForNavigation()
+        pdfView.go(to: page)
+        lastPageIndex = targetIndex
+        scrollCurrentPageToTop()
+        updatePageLabel()
+        saveSession()
+        window?.makeFirstResponder(pdfView)
+    }
+
     @objc private func prevPage() {
+        clearAISelectionForNavigation()
         guard currentDocumentKind == .pdf else {
             scrollWebPage(direction: -1)
             return
@@ -1471,6 +1801,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func nextPage() {
+        clearAISelectionForNavigation()
         guard currentDocumentKind == .pdf else {
             scrollWebPage(direction: 1)
             return
@@ -1503,6 +1834,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func goToCover() {
+        clearAISelectionForNavigation()
         guard currentDocumentKind == .pdf else {
             webView.evaluateJavaScript("window.scrollTo({top:0, behavior:'smooth'});")
             return
@@ -1521,13 +1853,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     private func hideSearchOverlay() {
         searchOverlay.isHidden = true
-        searchResults.removeAll()
-        searchResultIndex = 0
-        lastSearchQuery = ""
-        searchOverlay.setResultText("")
-        pdfView.clearSelection()
-        clearWebSearchSelection()
-        window?.makeFirstResponder(pdfView)
+        window?.makeFirstResponder(currentDocumentKind == .pdf ? pdfView : webView)
     }
 
     private func performSearch(_ rawQuery: String) {
@@ -1539,6 +1865,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             searchOverlay.setResultText("")
             pdfView.clearSelection()
             clearWebSearchSelection()
+            clearSearchSelectionForAI()
             return
         }
         guard currentDocumentKind == .pdf else {
@@ -1591,29 +1918,37 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         guard !searchResults.isEmpty else {
             searchOverlay.setResultText("0 / 0")
             pdfView.clearSelection()
+            clearSearchSelectionForAI()
             return
         }
 
         let selection = searchResults[searchResultIndex]
+        beginSuppressingSearchSelectionForAI()
         pdfView.setCurrentSelection(selection, animate: true)
-        goToVisibleSearchSelection(selection)
+        let pageIndex = goToVisibleSearchSelection(selection)
+        if let pageIndex {
+            lastPageIndex = pageIndex
+        }
         updatePageLabel()
         saveSession()
         searchOverlay.setResultText("\(searchResultIndex + 1) / \(searchResults.count)")
+        clearSearchSelectionForAI()
     }
 
-    private func goToVisibleSearchSelection(_ selection: PDFSelection) {
+    @discardableResult
+    private func goToVisibleSearchSelection(_ selection: PDFSelection) -> Int? {
         guard let page = selection.pages.first else {
             pdfView.go(to: selection)
-            return
+            return currentPageIndex()
         }
 
         let selectionBounds = selection.bounds(for: page)
         guard !selectionBounds.isEmpty else {
             pdfView.go(to: selection)
-            return
+            return currentPageIndex()
         }
 
+        pdfView.go(to: page)
         let pageBounds = page.bounds(for: pdfView.displayBox)
         let overlayClearance = searchOverlay.isHidden ? CGFloat(64) : CGFloat(150)
         let yOffset = overlayClearance / max(pdfView.scaleFactor, 0.1)
@@ -1623,6 +1958,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             at: NSPoint(x: max(pageBounds.minX, selectionBounds.minX), y: destinationY)
         )
         pdfView.go(to: destination)
+        return pdfView.document?.index(for: page)
     }
 
     private func performWebSearch(_ rawQuery: String, backwards: Bool) {
@@ -1630,9 +1966,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         guard !query.isEmpty else {
             searchOverlay.setResultText("")
             clearWebSearchSelection()
+            clearSearchSelectionForAI()
             return
         }
 
+        beginSuppressingSearchSelectionForAI()
         let escapedQuery = jsStringLiteral(query)
         let script = """
         (() => {
@@ -1649,7 +1987,18 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         webView.evaluateJavaScript(script) { [weak self] result, _ in
             let found = result as? Bool ?? false
             self?.searchOverlay.setResultText(found ? AppText.localized("找到", "Found") : "0 / 0")
+            self?.clearSearchSelectionForAI()
         }
+    }
+
+    private func beginSuppressingSearchSelectionForAI() {
+        suppressSearchSelectionForAIUntil = Date().addingTimeInterval(1.2)
+    }
+
+    private func clearSearchSelectionForAI() {
+        currentWebSelectedText = ""
+        currentWebSelectionContext = ""
+        aiPanel.clearSelectedText()
     }
 
     private func clearWebSearchSelection() {
@@ -1667,6 +2016,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     private func turnPageFromScroll(_ direction: EdgePagingPDFView.ScrollPageDirection) {
         guard currentDocumentKind == .pdf else { return }
+        clearAISelectionForNavigation()
         switch direction {
         case .previous:
             pdfView.goToPreviousPage(nil)
@@ -1676,6 +2026,18 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         scrollCurrentPageToTop()
         updatePageLabel()
         saveSession()
+    }
+
+    private func clearAISelectionForNavigation() {
+        currentWebSelectedText = ""
+        currentWebSelectionContext = ""
+        aiPanel.clearSelectedText()
+
+        if currentDocumentKind == .pdf {
+            pdfView.clearSelection()
+        } else {
+            clearWebSearchSelection()
+        }
     }
 
     private func scrollCurrentPageToTop() {
@@ -1709,6 +2071,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     @objc private func selectionChanged() {
         guard currentDocumentKind == .pdf else { return }
+        guard Date() >= suppressSearchSelectionForAIUntil else {
+            clearSearchSelectionForAI()
+            return
+        }
         let selection = pdfView.currentSelection
         let text = selection?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let selectedText = text.count > 1 ? text : ""
@@ -1728,6 +2094,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             return
         }
         guard message.name == "selectionChanged" else { return }
+        guard Date() >= suppressSearchSelectionForAIUntil else {
+            clearSearchSelectionForAI()
+            return
+        }
         let text: String
         let context: String
         if let payload = message.body as? [String: Any] {
@@ -1766,6 +2136,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard currentDocumentKind != .pdf else { return }
+        applyWebReaderTheme()
         applyWebZoomToPage()
         zoomField.stringValue = "\(webZoomPercent)%"
     }
@@ -2147,6 +2518,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     func controlTextDidBeginEditing(_ obj: Notification) {
         if obj.object as? NSTextField === zoomField {
             isEditingZoomField = true
+        } else if obj.object as? NSTextField === pageLabel {
+            isEditingPageField = true
+            if currentDocumentKind == .pdf, let pageIndex = currentPageIndex() {
+                pageLabel.stringValue = "\(pageIndex + 1)"
+            }
         }
     }
 
@@ -2154,13 +2530,19 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         if obj.object as? NSTextField === zoomField {
             isEditingZoomField = false
             updateZoomLabel()
+        } else if obj.object as? NSTextField === pageLabel {
+            isEditingPageField = false
+            updatePageLabel()
         }
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        guard control === zoomField else { return false }
-        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+        if control === zoomField, commandSelector == #selector(NSResponder.insertNewline(_:)) {
             applyZoomFromField()
+            return true
+        }
+        if control === pageLabel, commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            applyPageFromField()
             return true
         }
         return false
@@ -2176,6 +2558,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func updatePageLabel() {
+        if isEditingPageField { return }
         guard currentDocumentKind == .pdf else {
             if pageLabel.stringValue == AppText.noPDF || pageLabel.stringValue == "EPUB" || pageLabel.stringValue == "DOCX" {
                 pageLabel.stringValue = "0%"
@@ -2300,7 +2683,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     private func installKeyboardPagingMonitor() {
         guard localEventMonitor == nil else { return }
-        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .scrollWheel]) { [weak self] event in
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .scrollWheel, .leftMouseDown]) { [weak self] event in
             guard let self = self, event.window === self.window else { return event }
             switch event.type {
             case .keyDown:
@@ -2309,10 +2692,31 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             case .scrollWheel:
                 guard self.handlePDFTrackpadScroll(event) else { return event }
                 return nil
+            case .leftMouseDown:
+                self.clearAISelectionIfClickingReader(event)
+                self.hideSearchOverlayIfClickingReader(event)
+                return event
             default:
                 return event
             }
         }
+    }
+
+    private func clearAISelectionIfClickingReader(_ event: NSEvent) {
+        guard isMouseEventInsidePDFArea(event) else { return }
+        clearAISelectionForNavigation()
+    }
+
+    private func hideSearchOverlayIfClickingReader(_ event: NSEvent) {
+        guard !searchOverlay.isHidden else { return }
+
+        let pointInContent = contentArea.convert(event.locationInWindow, from: nil)
+        guard contentArea.bounds.contains(pointInContent) else { return }
+
+        let pointInSearch = searchOverlay.convert(event.locationInWindow, from: nil)
+        guard !searchOverlay.bounds.contains(pointInSearch) else { return }
+
+        hideSearchOverlay()
     }
 
     private func handlePDFTrackpadScroll(_ event: NSEvent) -> Bool {
