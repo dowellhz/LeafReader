@@ -4,6 +4,20 @@ import PDFKit
 import UniformTypeIdentifiers
 import WebKit
 
+final class ClickEditableTextField: NSTextField {
+    private var allowsEditingFocus = false
+
+    override var acceptsFirstResponder: Bool {
+        allowsEditingFocus || currentEditor() != nil
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        allowsEditingFocus = true
+        defer { allowsEditingFocus = false }
+        super.mouseDown(with: event)
+    }
+}
+
 final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     private static let preferredAIWidthDefaultsKey = "preferredAIWidth"
 
@@ -17,10 +31,12 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private let titleLabel = NSTextField(labelWithString: "Leaf Reader")
     private let coverImageView = NSImageView()
     private let pageLabel = NSTextField(labelWithString: AppText.noPDF)
-    private let zoomField = NSTextField(string: "100%")
+    private let zoomField = ClickEditableTextField(string: "100%")
     private let searchOverlay = SearchOverlayView()
     private var fullScreenButton: NSButton!
     private var coverButton: NSButton!
+    private var tocButton: NSButton!
+    private var recentButton: NSButton!
     private var prevButton: NSButton!
     private var nextButton: NSButton!
     private var searchButton: NSButton!
@@ -29,9 +45,14 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var currentDocumentKind: ReaderDocumentKind = .pdf
     private var currentWebPlainText = ""
     private var currentWebSelectedText = ""
+    private var currentTOCItems: [ReaderTOCItem] = []
+    private var pdfTOCDestinations: [String: PDFDestination] = [:]
     private var webZoomPercent = 100
     private var webScrollProgress: Double = 0
     private var lastWebProgressSave = Date.distantPast
+    private var accumulatedPDFTrackpadScroll: CGFloat = 0
+    private var lastPDFTrackpadPageTurn = Date.distantPast
+    private var didTurnPageForCurrentPDFTrackpadGesture = false
     private var lastPageIndex: Int?
     private var searchResults: [PDFSelection] = []
     private var searchResultIndex = 0
@@ -48,9 +69,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private weak var aiSettingsLanguagePopup: NSPopUpButton?
     private weak var aiSettingsSecureKeyField: NSSecureTextField?
     private weak var aiSettingsPlainKeyField: NSTextField?
+    private var recentDocumentsPanel: NSWindow?
     private var aiHandleLeadingConstraint: NSLayoutConstraint!
     private var aiPanelWidthConstraint: NSLayoutConstraint!
-    private var keyDownMonitor: Any?
+    private var localEventMonitor: Any?
 
     override init(window: NSWindow?) {
         super.init(window: window)
@@ -80,8 +102,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     deinit {
-        if let keyDownMonitor {
-            NSEvent.removeMonitor(keyDownMonitor)
+        if let localEventMonitor {
+            NSEvent.removeMonitor(localEventMonitor)
         }
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "selectionChanged")
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "scrollChanged")
@@ -193,6 +215,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         zoomField.isBordered = false
         zoomField.drawsBackground = false
         zoomField.focusRingType = .none
+        zoomField.isEditable = true
+        zoomField.isSelectable = true
         zoomField.delegate = self
         zoomField.target = self
         zoomField.action = #selector(applyZoomFromField)
@@ -210,6 +234,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         searchButton.toolTip = AppText.localized("搜索文档", "Search document")
 
         fullScreenButton = capsuleButton(title: AppText.fullScreen, symbol: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullScreen))
+        tocButton = capsuleButton(title: AppText.localized("目录", "TOC"), symbol: "list.bullet", action: #selector(showTableOfContents))
+        recentButton = capsuleButton(title: AppText.localized("最近", "Recent"), symbol: "clock.arrow.circlepath", action: #selector(showRecentDocuments))
         coverButton = capsuleButton(title: AppText.cover, symbol: "book.closed", action: #selector(goToCover))
         prevButton = capsuleButton(title: AppText.prev, symbol: "chevron.left", action: #selector(prevPage))
         nextButton = capsuleButton(title: AppText.next, symbol: "chevron.right", action: #selector(nextPage), imageOnRight: true)
@@ -259,6 +285,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             }
             return context
         }
+        aiPanel.onSummarizeCurrentContent = { [weak self] completion in
+            self?.currentSummaryContent(completion: completion)
+        }
         aiPanel.onSettingsRequired = { [weak self] in
             self?.openAISettings()
         }
@@ -284,7 +313,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             toolbar.addSubview(view)
         }
 
-        for view in [settingsButton, coverButton!, prevButton!, nextButton!] {
+        for view in [settingsButton, recentButton!, tocButton!, coverButton!, prevButton!, nextButton!] {
             view.translatesAutoresizingMaskIntoConstraints = false
             bottomBar.addSubview(view)
         }
@@ -343,6 +372,16 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             settingsButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
             settingsButton.widthAnchor.constraint(equalToConstant: 24),
             settingsButton.heightAnchor.constraint(equalToConstant: 24),
+
+            recentButton.leadingAnchor.constraint(equalTo: settingsButton.trailingAnchor, constant: 18),
+            recentButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
+            recentButton.widthAnchor.constraint(equalToConstant: 88),
+            recentButton.heightAnchor.constraint(equalToConstant: 30),
+
+            tocButton.leadingAnchor.constraint(equalTo: recentButton.trailingAnchor, constant: 10),
+            tocButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
+            tocButton.widthAnchor.constraint(equalToConstant: 88),
+            tocButton.heightAnchor.constraint(equalToConstant: 30),
 
             coverImageView.leadingAnchor.constraint(equalTo: openButton.trailingAnchor, constant: 28),
             coverImageView.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
@@ -456,6 +495,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         aiPanel.refreshLanguage()
         fullScreenButton.title = window?.styleMask.contains(.fullScreen) == true ? AppText.windowed : AppText.fullScreen
         coverButton.title = AppText.cover
+        tocButton.title = AppText.localized("目录", "TOC")
+        recentButton.title = AppText.localized("最近", "Recent")
         prevButton.title = AppText.prev
         nextButton.title = AppText.next
         if pdfView.document == nil {
@@ -466,6 +507,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             accessibilityDescription: fullScreenButton.title
         )
         coverButton.image = NSImage(systemSymbolName: "book.closed", accessibilityDescription: AppText.cover)
+        tocButton.image = NSImage(systemSymbolName: "list.bullet", accessibilityDescription: tocButton.title)
+        recentButton.image = NSImage(systemSymbolName: "clock.arrow.circlepath", accessibilityDescription: recentButton.title)
         prevButton.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: AppText.prev)
         nextButton.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: AppText.next)
     }
@@ -928,6 +971,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         currentFileMD5 = fileMD5(for: url)
         currentWebPlainText = ""
         currentWebSelectedText = ""
+            currentTOCItems = pdfTOCItems(from: document)
+            accumulatedPDFTrackpadScroll = 0
+            didTurnPageForCurrentPDFTrackpadGesture = false
         highlightedSelectionKeys.removeAll()
         searchResults.removeAll()
         searchResultIndex = 0
@@ -945,6 +991,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         lastPageIndex = currentPageIndex()
         updatePageLabel()
         updateZoomLabel()
+        RecentDocumentsStore.record(url: url, kind: .pdf)
         saveSession()
     }
 
@@ -959,6 +1006,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             currentFileMD5 = fileMD5(for: url)
             currentWebPlainText = document.plainText
             currentWebSelectedText = ""
+            currentTOCItems = document.tocItems
+            pdfTOCDestinations = [:]
+            accumulatedPDFTrackpadScroll = 0
+            didTurnPageForCurrentPDFTrackpadGesture = false
             webZoomPercent = 100
             webScrollProgress = 0
             highlightedSelectionKeys.removeAll()
@@ -977,12 +1028,300 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             pageLabel.stringValue = "0%"
             zoomField.stringValue = "100%"
             webView.loadHTMLString(document.html, baseURL: document.baseURL)
-            webView.pageZoom = CGFloat(webZoomPercent) / 100
+            applyWebZoomToPage()
             restoreWebProgressAfterLoad()
+            RecentDocumentsStore.record(url: url, kind: kind)
             saveSession()
         } catch {
             NSAlert(error: error).runModal()
         }
+    }
+
+    @objc private func showTableOfContents() {
+        guard !currentTOCItems.isEmpty else {
+            NSSound.beep()
+            return
+        }
+
+        let menu = NSMenu()
+        for (index, item) in currentTOCItems.prefix(120).enumerated() {
+            let indent = String(repeating: "  ", count: min(item.level, 4))
+            let menuItem = NSMenuItem(title: "\(indent)\(item.title)", action: #selector(selectTableOfContentsItem(_:)), keyEquivalent: "")
+            menuItem.target = self
+            menuItem.representedObject = index
+            menu.addItem(menuItem)
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: tocButton.bounds.height + 4), in: tocButton)
+    }
+
+    @objc private func showRecentDocuments() {
+        let items = RecentDocumentsStore.load()
+        guard !items.isEmpty else {
+            NSSound.beep()
+            return
+        }
+
+        let panel = SettingsPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 720, height: 540),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.isReleasedWhenClosed = false
+
+        let content = NSView()
+        content.wantsLayer = true
+        content.layer?.backgroundColor = NSColor.white.cgColor
+        content.layer?.cornerRadius = 12
+        content.layer?.masksToBounds = false
+        content.layer?.shadowColor = NSColor.black.cgColor
+        content.layer?.shadowOpacity = 0.18
+        content.layer?.shadowRadius = 24
+        content.layer?.shadowOffset = CGSize(width: 0, height: -8)
+        content.translatesAutoresizingMaskIntoConstraints = false
+        panel.contentView = content
+
+        let title = NSTextField(labelWithString: AppText.localized("最近阅读", "Recent Reading"))
+        title.font = NSFont.systemFont(ofSize: 16, weight: .semibold)
+        title.translatesAutoresizingMaskIntoConstraints = false
+
+        let closeButton = NSButton(title: "", target: self, action: #selector(closeRecentDocumentsPanel(_:)))
+        closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: AppText.close)
+        closeButton.isBordered = false
+        closeButton.contentTintColor = NSColor(red: 0.16, green: 0.18, blue: 0.24, alpha: 1)
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+
+        let clearButton = NSButton(title: AppText.localized("清空", "Clear"), target: self, action: #selector(clearRecentDocuments(_:)))
+        clearButton.bezelStyle = .rounded
+        clearButton.controlSize = .regular
+        clearButton.font = NSFont.systemFont(ofSize: 13)
+        clearButton.translatesAutoresizingMaskIntoConstraints = false
+
+        let scrollView = NSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = true
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        let stack = FlippedStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 10
+        stack.edgeInsets = NSEdgeInsets(top: 2, left: 0, bottom: 2, right: 12)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.documentView = stack
+
+        for item in items {
+            let row = recentDocumentRow(for: item)
+            stack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -12).isActive = true
+        }
+
+        for view in [title, closeButton, clearButton, scrollView] {
+            content.addSubview(view)
+        }
+
+        NSLayoutConstraint.activate([
+            title.topAnchor.constraint(equalTo: content.topAnchor, constant: 28),
+            title.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 52),
+
+            closeButton.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
+            closeButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -22),
+            closeButton.widthAnchor.constraint(equalToConstant: 34),
+            closeButton.heightAnchor.constraint(equalToConstant: 34),
+
+            clearButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            clearButton.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -10),
+            clearButton.widthAnchor.constraint(equalToConstant: 76),
+
+            scrollView.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 28),
+            scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 52),
+            scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -52),
+            scrollView.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -30),
+
+            stack.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
+        ])
+
+        recentDocumentsPanel = panel
+        window?.beginSheet(panel)
+    }
+
+    private func recentDocumentRow(for item: RecentDocumentItem) -> NSView {
+        let row = NSView()
+        row.wantsLayer = true
+        row.layer?.backgroundColor = NSColor(red: 0.975, green: 0.98, blue: 0.988, alpha: 1).cgColor
+        row.layer?.cornerRadius = 8
+        row.translatesAutoresizingMaskIntoConstraints = false
+
+        let icon = NSImageView()
+        icon.image = NSImage(systemSymbolName: iconName(forRecentKind: item.kind), accessibilityDescription: item.kind)
+        icon.contentTintColor = NSColor(red: 0.16, green: 0.19, blue: 0.24, alpha: 1)
+        icon.translatesAutoresizingMaskIntoConstraints = false
+
+        let title = NSTextField(labelWithString: item.title)
+        title.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
+        title.lineBreakMode = .byTruncatingTail
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        title.translatesAutoresizingMaskIntoConstraints = false
+
+        let subtitle = NSTextField(labelWithString: "\(item.kind)  ·  \(URL(fileURLWithPath: item.path).deletingLastPathComponent().path)")
+        subtitle.font = NSFont.systemFont(ofSize: 12)
+        subtitle.textColor = NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
+        subtitle.lineBreakMode = .byTruncatingMiddle
+        subtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        subtitle.translatesAutoresizingMaskIntoConstraints = false
+
+        let openButton = NSButton(title: AppText.localized("打开", "Open"), target: self, action: #selector(openRecentDocumentFromButton(_:)))
+        openButton.bezelStyle = .rounded
+        openButton.controlSize = .regular
+        openButton.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        openButton.identifier = NSUserInterfaceItemIdentifier(item.path)
+        openButton.translatesAutoresizingMaskIntoConstraints = false
+
+        for view in [icon, title, subtitle, openButton] {
+            row.addSubview(view)
+        }
+
+        NSLayoutConstraint.activate([
+            row.heightAnchor.constraint(equalToConstant: 70),
+            icon.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 18),
+            icon.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 24),
+            icon.heightAnchor.constraint(equalToConstant: 24),
+
+            title.topAnchor.constraint(equalTo: row.topAnchor, constant: 13),
+            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 18),
+            title.trailingAnchor.constraint(equalTo: openButton.leadingAnchor, constant: -18),
+
+            subtitle.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 6),
+            subtitle.leadingAnchor.constraint(equalTo: title.leadingAnchor),
+            subtitle.trailingAnchor.constraint(equalTo: title.trailingAnchor),
+
+            openButton.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -24),
+            openButton.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            openButton.widthAnchor.constraint(equalToConstant: 82)
+        ])
+        return row
+    }
+
+    private func iconName(forRecentKind kind: String) -> String {
+        switch kind {
+        case "EPUB":
+            return "book.closed"
+        case "DOCX":
+            return "doc.text"
+        default:
+            return "doc.richtext"
+        }
+    }
+
+    @objc private func openRecentDocumentFromButton(_ sender: NSButton) {
+        guard let path = sender.identifier?.rawValue else { return }
+        closeRecentDocumentsPanel(sender)
+        loadDocument(URL(fileURLWithPath: path))
+    }
+
+    @objc private func clearRecentDocuments(_ sender: NSButton) {
+        RecentDocumentsStore.clear()
+        closeRecentDocumentsPanel(sender)
+    }
+
+    @objc private func closeRecentDocumentsPanel(_ sender: Any?) {
+        guard let panel = recentDocumentsPanel else { return }
+        panel.sheetParent?.endSheet(panel)
+        recentDocumentsPanel = nil
+    }
+
+    @objc private func selectTableOfContentsItem(_ sender: NSMenuItem) {
+        guard let index = sender.representedObject as? Int, currentTOCItems.indices.contains(index) else { return }
+        let item = currentTOCItems[index]
+        if currentDocumentKind == .pdf {
+            jumpToPDFTOCItem(item)
+        } else {
+            jumpToWebTOCItem(item)
+        }
+    }
+
+    private func pdfTOCItems(from document: PDFDocument) -> [ReaderTOCItem] {
+        pdfTOCDestinations = [:]
+        guard let root = document.outlineRoot else { return pdfPageTOCItems(from: document) }
+        var items: [ReaderTOCItem] = []
+
+        func walk(_ outline: PDFOutline, level: Int) {
+            for index in 0..<outline.numberOfChildren {
+                guard let child = outline.child(at: index) else { continue }
+                if let destination = pdfDestination(for: child) {
+                    let title = child.label?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let id = "pdf-toc-\(items.count)"
+                    pdfTOCDestinations[id] = destination
+                    items.append(ReaderTOCItem(
+                        title: title?.isEmpty == false ? title! : AppText.localized("未命名目录", "Untitled"),
+                        href: id,
+                        level: min(level, 4)
+                    ))
+                }
+                walk(child, level: level + 1)
+            }
+        }
+
+        walk(root, level: 0)
+        return items.isEmpty ? pdfPageTOCItems(from: document) : items
+    }
+
+    private func pdfDestination(for outline: PDFOutline) -> PDFDestination? {
+        if let destination = outline.destination {
+            return destination
+        }
+        if let action = outline.action as? PDFActionGoTo {
+            return action.destination
+        }
+        return nil
+    }
+
+    private func jumpToPDFTOCItem(_ item: ReaderTOCItem) {
+        guard let destination = pdfTOCDestinations[item.href],
+              let page = destination.page,
+              let pageIndex = pdfView.document?.index(for: page) else {
+            return
+        }
+
+        pdfView.go(to: destination)
+        lastPageIndex = pageIndex
+        updatePageLabel()
+        saveSession()
+    }
+
+    private func pdfPageTOCItems(from document: PDFDocument) -> [ReaderTOCItem] {
+        pdfTOCDestinations = [:]
+        return (0..<document.pageCount).compactMap { index in
+            guard let page = document.page(at: index) else { return nil }
+            let id = "pdf-page-\(index)"
+            let bounds = page.bounds(for: pdfView.displayBox)
+            pdfTOCDestinations[id] = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY))
+            return ReaderTOCItem(
+                title: AppText.localized("第 \(index + 1) 页", "Page \(index + 1)"),
+                href: id,
+                level: 0
+            )
+        }
+    }
+
+    private func jumpToWebTOCItem(_ item: ReaderTOCItem) {
+        if item.href.hasPrefix("#") {
+            let fragment = String(item.href.dropFirst())
+            webView.evaluateJavaScript("""
+            document.getElementById(\(jsStringLiteral(fragment)))?.scrollIntoView({behavior:'smooth', block:'start'});
+            """)
+            return
+        }
+
+        webView.evaluateJavaScript("""
+        (() => {
+          const target = Array.from(document.querySelectorAll('[id]')).find(el => el.id && el.id.includes(\(jsStringLiteral(item.title.prefix(16).description))));
+          if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
+        })();
+        """)
     }
 
     private func updateCoverThumbnail(from document: PDFDocument) {
@@ -1086,9 +1425,17 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private func setWebZoom(_ percent: Int) {
         webZoomPercent = min(max(percent, 60), 220)
         zoomField.stringValue = "\(webZoomPercent)%"
-        webView.pageZoom = CGFloat(webZoomPercent) / 100
+        applyWebZoomToPage()
         saveWebProgress()
         window?.makeFirstResponder(webView)
+    }
+
+    private func applyWebZoomToPage() {
+        guard webView != nil else { return }
+        webView.pageZoom = 1
+        webView.evaluateJavaScript("""
+        document.documentElement.style.setProperty('--reader-zoom', '\(Double(webZoomPercent) / 100)');
+        """)
     }
 
     private func scrollWebPage(direction: Int) {
@@ -1361,6 +1708,12 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         decisionHandler(.cancel)
     }
 
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard currentDocumentKind != .pdf else { return }
+        applyWebZoomToPage()
+        zoomField.stringValue = "\(webZoomPercent)%"
+    }
+
     private func markSelectionIfWord(_ selection: PDFSelection?, text: String) {
         guard shouldPersistHighlight(for: text), let selection = selection else { return }
 
@@ -1411,6 +1764,117 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
         let currentPageText = pdfView.currentPage?.string ?? ""
         return characterWindowContext(containing: normalizedSelection, in: currentPageText, radius: 20) ?? ""
+    }
+
+    private func currentSummaryContent(completion: @escaping ((title: String, text: String)?) -> Void) {
+        let title = titleLabel.stringValue
+        if currentDocumentKind == .pdf {
+            let text = normalizeWhitespace(currentPDFPageSummaryText())
+            completion(text.isEmpty ? nil : (title, String(text.prefix(6000))))
+            return
+        }
+
+        currentWebVisibleText { [weak self] visibleText in
+            guard let self else {
+                completion(nil)
+                return
+            }
+            if !visibleText.isEmpty {
+                completion((title, String(visibleText.prefix(6000))))
+                return
+            }
+
+            let fallback = self.currentWebProgressTextWindow()
+            completion(fallback.isEmpty ? nil : (title, fallback))
+        }
+    }
+
+    private func currentWebVisibleText(completion: @escaping (String) -> Void) {
+        let script = """
+        (() => {
+          const blocks = Array.from(document.body.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th,div'));
+          const seen = new Set();
+          const parts = [];
+          const visibleIndexes = [];
+          for (let index = 0; index < blocks.length; index++) {
+            const el = blocks[index];
+            const rect = el.getBoundingClientRect();
+            if (rect.bottom < 0 || rect.top > window.innerHeight || rect.width <= 0 || rect.height <= 0) continue;
+            visibleIndexes.push(index);
+          }
+          if (!visibleIndexes.length) return '';
+          const startIndex = Math.max(0, visibleIndexes[0] - 1);
+          const endIndex = Math.min(blocks.length - 1, visibleIndexes[visibleIndexes.length - 1] + 1);
+          for (let index = startIndex; index <= endIndex; index++) {
+            const el = blocks[index];
+            const text = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
+            if (!text || seen.has(text)) continue;
+            seen.add(text);
+            parts.push(text);
+          }
+          return parts.join('\\n\\n').slice(0, 8000);
+        })();
+        """
+        webView.evaluateJavaScript(script) { value, _ in
+            completion(self.normalizeWhitespace((value as? String) ?? ""))
+        }
+    }
+
+    private func currentWebProgressTextWindow() -> String {
+        let text = normalizeWhitespace(currentWebPlainText)
+        guard !text.isEmpty else { return "" }
+        let center = Int(Double(text.count) * webScrollProgress)
+        let lower = max(0, center - 2200)
+        let upper = min(text.count, center + 3800)
+        let start = text.index(text.startIndex, offsetBy: lower)
+        let end = text.index(text.startIndex, offsetBy: upper)
+        return String(text[start..<end])
+    }
+
+    private func currentPDFPageSummaryText() -> String {
+        guard let document = pdfView.document,
+              let page = pdfView.currentPage else { return "" }
+        let pageIndex = document.index(for: page)
+        let currentText = page.string ?? ""
+        guard !currentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
+
+        let previousText = pageIndex > 0 ? document.page(at: pageIndex - 1)?.string ?? "" : ""
+        let nextText = pageIndex + 1 < document.pageCount ? document.page(at: pageIndex + 1)?.string ?? "" : ""
+
+        let prefix = pdfPreviousPageParagraphTailIfNeeded(currentText: currentText, previousText: previousText)
+        let suffix = pdfNextPageParagraphHeadIfNeeded(currentText: currentText, nextText: nextText)
+        return [prefix, currentText, suffix]
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .joined(separator: "\n\n")
+    }
+
+    private func pdfPreviousPageParagraphTailIfNeeded(currentText: String, previousText: String) -> String {
+        guard !previousText.isEmpty, pdfTextAppearsToStartMidParagraph(currentText) else { return "" }
+        let normalized = previousText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return "" }
+        let start = normalized.lastIndex { "\n\r.!?。！？".contains($0) }
+            .map { normalized.index(after: $0) } ?? normalized.startIndex
+        return String(normalized[start...]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func pdfNextPageParagraphHeadIfNeeded(currentText: String, nextText: String) -> String {
+        guard !nextText.isEmpty, pdfTextAppearsToEndMidParagraph(currentText) else { return "" }
+        let normalized = nextText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return "" }
+        let end = normalized.firstIndex { ".!?。！？\n\r".contains($0) }
+            .map { normalized.index(after: $0) } ?? normalized.endIndex
+        return String(normalized[..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func pdfTextAppearsToStartMidParagraph(_ text: String) -> Bool {
+        guard let first = text.trimmingCharacters(in: .whitespacesAndNewlines).first else { return false }
+        if ",;:，；：)]）".contains(first) { return true }
+        return first.isLowercase
+    }
+
+    private func pdfTextAppearsToEndMidParagraph(_ text: String) -> Bool {
+        guard let last = text.trimmingCharacters(in: .whitespacesAndNewlines).last else { return false }
+        return !".!?。！？”’\"')）".contains(last)
     }
 
     private func sentenceContext(containing selectedText: String, in text: String) -> String? {
@@ -1491,7 +1955,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private func updateZoomLabel() {
         if isEditingZoomField { return }
         guard currentDocumentKind == .pdf else {
-            zoomField.stringValue = "100%"
+            zoomField.stringValue = "\(webZoomPercent)%"
             return
         }
         zoomField.stringValue = "\(Int(round(pdfView.scaleFactor * 100)))%"
@@ -1543,7 +2007,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             guard let self, self.currentDocumentKind != .pdf else { return }
-            self.webView.pageZoom = CGFloat(self.webZoomPercent) / 100
+            self.applyWebZoomToPage()
             self.zoomField.stringValue = "\(self.webZoomPercent)%"
             self.webView.evaluateJavaScript("""
             (() => {
@@ -1621,12 +2085,117 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func installKeyboardPagingMonitor() {
-        guard keyDownMonitor == nil else { return }
-        keyDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        guard localEventMonitor == nil else { return }
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .scrollWheel]) { [weak self] event in
             guard let self = self, event.window === self.window else { return event }
-            guard self.handlePageKey(event) else { return event }
-            return nil
+            switch event.type {
+            case .keyDown:
+                guard self.handlePageKey(event) else { return event }
+                return nil
+            case .scrollWheel:
+                guard self.handlePDFTrackpadScroll(event) else { return event }
+                return nil
+            default:
+                return event
+            }
         }
+    }
+
+    private func handlePDFTrackpadScroll(_ event: NSEvent) -> Bool {
+        guard currentDocumentKind == .pdf,
+              event.hasPreciseScrollingDeltas,
+              abs(event.scrollingDeltaY) > abs(event.scrollingDeltaX),
+              abs(event.scrollingDeltaY) > 0,
+              isMouseEventInsidePDFArea(event) else {
+            return false
+        }
+
+        guard let edgeDirection = pdfTrackpadPageDirectionAtEdge(for: event) else {
+            accumulatedPDFTrackpadScroll = 0
+            didTurnPageForCurrentPDFTrackpadGesture = false
+            return false
+        }
+
+        guard event.momentumPhase == [] else { return true }
+
+        if event.phase == .began {
+            accumulatedPDFTrackpadScroll = 0
+            didTurnPageForCurrentPDFTrackpadGesture = false
+        }
+
+        if event.phase == .ended || event.phase == .cancelled {
+            accumulatedPDFTrackpadScroll = 0
+            didTurnPageForCurrentPDFTrackpadGesture = false
+            return true
+        }
+
+        guard !didTurnPageForCurrentPDFTrackpadGesture else { return true }
+
+        accumulatedPDFTrackpadScroll += abs(event.scrollingDeltaY)
+        let threshold: CGFloat = 95
+        guard abs(accumulatedPDFTrackpadScroll) >= threshold else { return true }
+
+        let now = Date()
+        guard now.timeIntervalSince(lastPDFTrackpadPageTurn) > 0.45 else {
+            accumulatedPDFTrackpadScroll = 0
+            return true
+        }
+
+        lastPDFTrackpadPageTurn = now
+        accumulatedPDFTrackpadScroll = 0
+        didTurnPageForCurrentPDFTrackpadGesture = true
+        turnPageFromScroll(edgeDirection)
+        return true
+    }
+
+    private func pdfTrackpadPageDirectionAtEdge(for event: NSEvent) -> EdgePagingPDFView.ScrollPageDirection? {
+        guard let scrollView = firstScrollView(in: pdfView) else {
+            return pdfTrackpadDirection(forDeltaY: event.scrollingDeltaY)
+        }
+        let clipView = scrollView.contentView
+        guard let documentView = scrollView.documentView else {
+            return pdfTrackpadDirection(forDeltaY: event.scrollingDeltaY)
+        }
+        let clipHeight = clipView.bounds.height
+        let documentHeight = documentView.bounds.height
+        guard documentHeight > clipHeight + 2 else {
+            return pdfTrackpadDirection(forDeltaY: event.scrollingDeltaY)
+        }
+
+        let edgeSlop: CGFloat = 72
+        let scrollerValue = scrollView.verticalScroller?.doubleValue
+        let isAtTop = clipView.bounds.minY <= edgeSlop || scrollerValue.map { $0 <= 0.02 } == true
+        let isAtBottom = clipView.bounds.maxY >= documentHeight - edgeSlop || scrollerValue.map { $0 >= 0.98 } == true
+
+        if isAtTop, event.scrollingDeltaY > 0 {
+            return .previous
+        }
+        if isAtBottom, event.scrollingDeltaY < 0 {
+            return .next
+        }
+        return nil
+    }
+
+    private func pdfTrackpadDirection(forDeltaY deltaY: CGFloat) -> EdgePagingPDFView.ScrollPageDirection {
+        deltaY > 0 ? .previous : .next
+    }
+
+    private func firstScrollView(in view: NSView) -> NSScrollView? {
+        if let scrollView = view as? NSScrollView {
+            return scrollView
+        }
+        for subview in view.subviews {
+            if let scrollView = firstScrollView(in: subview) {
+                return scrollView
+            }
+        }
+        return nil
+    }
+
+    private func isMouseEventInsidePDFArea(_ event: NSEvent) -> Bool {
+        let pointInWindow = event.locationInWindow
+        let point = pdfContainer.convert(pointInWindow, from: nil)
+        return pdfContainer.bounds.contains(point)
     }
 
     private func handlePageKey(_ event: NSEvent) -> Bool {

@@ -5,6 +5,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
     private let client = AIClient()
     private let askButton = GradientButton(title: "", target: nil, action: nil)
+    private let summaryButton = NSButton(title: "", target: nil, action: nil)
+    private let translateButton = NSButton(title: "", target: nil, action: nil)
     private let scrollView = NSScrollView()
     private let transcriptStack = FlippedStackView()
     private let statusRow = NSView()
@@ -15,12 +17,13 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     private let spinner = NSProgressIndicator()
 
     var onAskSelectedText: ((String) -> String?)?
+    var onSummarizeCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onSettingsRequired: (() -> Void)?
 
     private var selectedText = ""
     private var transcriptEntries: [TranscriptEntry] = []
     private var messages: [ChatMessage] = [
-        ChatMessage(role: "system", content: AppText.systemPrompt())
+        ChatMessage(role: "system", content: AIPromptStore.systemPrompt())
     ]
     private var isBusy = false
     private var pendingStreamText = ""
@@ -66,16 +69,57 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         requestAI()
     }
 
+    @objc private func summarizeCurrentContent() {
+        askCurrentContent(mode: .summary)
+    }
+
+    @objc private func translateCurrentContent() {
+        askCurrentContent(mode: .translation)
+    }
+
+    private enum CurrentContentMode {
+        case summary
+        case translation
+    }
+
+    private func askCurrentContent(mode: CurrentContentMode) {
+        guard !isBusy else { return }
+        guard AISettingsStore.hasAPIKeyForSelectedModel else {
+            onSettingsRequired?()
+            return
+        }
+        onSummarizeCurrentContent? { [weak self] content in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard let content,
+                      !content.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    NSSound.beep()
+                    return
+                }
+
+                let title = mode == .summary ? AppText.localized("总结", "Summarize") : AppText.localized("翻译", "Translate")
+                let displayedQuestion = "\(title): \(content.title)"
+                self.appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: false)
+                self.recordTranscript(role: AppText.userRole, text: displayedQuestion)
+                let prompt = mode == .summary
+                    ? AIPromptStore.summaryPrompt(title: content.title, text: content.text)
+                    : AIPromptStore.sentencePrompt(for: content.text)
+                self.messages.append(ChatMessage(role: "user", content: prompt))
+                self.requestAI()
+            }
+        }
+    }
+
     private func isSingleEnglishWord(_ text: String) -> Bool {
         text.range(of: #"^[A-Za-z][A-Za-z'-]*$"#, options: .regularExpression) != nil
     }
 
     private func wordPrompt(for word: String, context: String) -> String {
-        AppText.wordPrompt(for: word, context: context)
+        AIPromptStore.wordPrompt(for: word, context: context)
     }
 
     private func sentencePrompt(for text: String) -> String {
-        AppText.sentencePrompt(for: text)
+        AIPromptStore.sentencePrompt(for: text)
     }
 
     @objc private func sendFollowUp() {
@@ -94,7 +138,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     private func followUpPrompt(for text: String) -> String {
-        AppText.followUpPrompt(context: transcriptContext(), text: text)
+        AIPromptStore.followUpPrompt(context: transcriptContext(), text: text)
     }
 
     private func transcriptContext() -> String {
@@ -197,6 +241,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     private func setBusy(_ busy: Bool, text: String) {
         isBusy = busy
         askButton.isEnabled = !busy && !selectedText.isEmpty
+        summaryButton.isEnabled = !busy
+        translateButton.isEnabled = !busy
         inputField.isEnabled = !busy
         sendButton.isEnabled = !busy
         statusLabel.stringValue = text
@@ -352,6 +398,22 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         askButton.layer?.shadowOffset = CGSize(width: 0, height: -3)
         askButton.translatesAutoresizingMaskIntoConstraints = false
 
+        summaryButton.title = AppText.localized("总结", "Summarize")
+        summaryButton.bezelStyle = .rounded
+        summaryButton.controlSize = .regular
+        summaryButton.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        summaryButton.target = self
+        summaryButton.action = #selector(summarizeCurrentContent)
+        summaryButton.translatesAutoresizingMaskIntoConstraints = false
+
+        translateButton.title = AppText.localized("翻译", "Translate")
+        translateButton.bezelStyle = .rounded
+        translateButton.controlSize = .regular
+        translateButton.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        translateButton.target = self
+        translateButton.action = #selector(translateCurrentContent)
+        translateButton.translatesAutoresizingMaskIntoConstraints = false
+
         scrollView.hasVerticalScroller = true
         scrollView.drawsBackground = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -399,7 +461,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
         inputBar.addSubview(inputField)
         inputBar.addSubview(sendButton)
-        for view in [askButton, scrollView, statusRow, inputBar] {
+        for view in [askButton, summaryButton, translateButton, scrollView, statusRow, inputBar] {
             addSubview(view)
         }
 
@@ -409,7 +471,17 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
             askButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             askButton.heightAnchor.constraint(equalToConstant: 44),
 
-            scrollView.topAnchor.constraint(equalTo: askButton.bottomAnchor, constant: 18),
+            summaryButton.topAnchor.constraint(equalTo: askButton.bottomAnchor, constant: 10),
+            summaryButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            summaryButton.trailingAnchor.constraint(equalTo: centerXAnchor, constant: -5),
+            summaryButton.heightAnchor.constraint(equalToConstant: 32),
+
+            translateButton.topAnchor.constraint(equalTo: summaryButton.topAnchor),
+            translateButton.leadingAnchor.constraint(equalTo: centerXAnchor, constant: 5),
+            translateButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            translateButton.heightAnchor.constraint(equalTo: summaryButton.heightAnchor),
+
+            scrollView.topAnchor.constraint(equalTo: summaryButton.bottomAnchor, constant: 14),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             scrollView.bottomAnchor.constraint(equalTo: statusRow.topAnchor, constant: -8),
@@ -449,9 +521,11 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     func refreshLanguage() {
         inputField.placeholderString = AppText.followUpPlaceholder
         sendButton.image = NSImage(systemSymbolName: "arrow.up.circle.fill", accessibilityDescription: AppText.send)
+        summaryButton.title = AppText.localized("总结", "Summarize")
+        translateButton.title = AppText.localized("翻译", "Translate")
         askButton.needsDisplay = true
         if !messages.isEmpty, messages[0].role == "system" {
-            messages[0] = ChatMessage(role: "system", content: AppText.systemPrompt())
+            messages[0] = ChatMessage(role: "system", content: AIPromptStore.systemPrompt())
         }
     }
 }

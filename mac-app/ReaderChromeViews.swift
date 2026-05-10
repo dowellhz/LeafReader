@@ -10,29 +10,35 @@ final class GradientButton: NSButton {
     }
 
     override var isEnabled: Bool {
-        didSet { needsDisplay = true }
+        didSet {
+            layer?.shadowOpacity = isEnabled ? 0.24 : 0
+            needsDisplay = true
+        }
     }
 
     override func draw(_ dirtyRect: NSRect) {
         let bounds = self.bounds
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 18, yRadius: 18)
-        let alpha: CGFloat = isEnabled ? 1 : 0.42
-        let gradient = NSGradient(colors: [
-            NSColor(red: 0.45, green: 0.18, blue: 0.96, alpha: alpha),
-            NSColor(red: 0.21, green: 0.50, blue: 0.98, alpha: alpha)
-        ])
-        gradient?.draw(in: path, angle: 0)
 
         if isEnabled {
+            let gradient = NSGradient(colors: [
+                NSColor(red: 0.45, green: 0.18, blue: 0.96, alpha: 1),
+                NSColor(red: 0.21, green: 0.50, blue: 0.98, alpha: 1)
+            ])
+            gradient?.draw(in: path, angle: 0)
             NSColor(red: 0.25, green: 0.33, blue: 0.92, alpha: 0.24).setStroke()
-            path.lineWidth = 1
-            path.stroke()
+        } else {
+            NSColor(red: 0.93, green: 0.94, blue: 0.95, alpha: 1).setFill()
+            path.fill()
+            NSColor(red: 0.88, green: 0.89, blue: 0.92, alpha: 1).setStroke()
         }
+        path.lineWidth = 1
+        path.stroke()
 
         let title = AppText.askAI
         let titleAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 16, weight: .semibold),
-            .foregroundColor: NSColor.white
+            .foregroundColor: isEnabled ? NSColor.white : NSColor(red: 0.70, green: 0.71, blue: 0.76, alpha: 1)
         ]
         let previewAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13, weight: .medium),

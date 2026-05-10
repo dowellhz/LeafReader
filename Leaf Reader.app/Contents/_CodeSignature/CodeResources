@@ -4,6 +4,10 @@
 <dict>
 	<key>files</key>
 	<dict>
+		<key>Resources/AIPrompts.json</key>
+		<data>
+		olW5Cl2flCInyG7Llx9Up1uEe3U=
+		</data>
 		<key>Resources/AppIcon.icns</key>
 		<data>
 		d2PH31NnB/ow4mhpAvhUFwzzDsM=
@@ -11,6 +15,13 @@
 	</dict>
 	<key>files2</key>
 	<dict>
+		<key>Resources/AIPrompts.json</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			X3H4e2xifquuCcHZ97VvjqR3IrtIGJTdkgWcmmgomUc=
+			</data>
+		</dict>
 		<key>Resources/AppIcon.icns</key>
 		<dict>
 			<key>hash2</key>

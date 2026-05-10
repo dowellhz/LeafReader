@@ -13,13 +13,23 @@ final class EdgePagingPDFView: PDFView {
     private var lastEdgePageTurn = Date.distantPast
 
     override func scrollWheel(with event: NSEvent) {
-        super.scrollWheel(with: event)
+        if event.phase == .began {
+            accumulatedEdgeScroll = 0
+        }
 
         let deltaY = event.scrollingDeltaY
         guard abs(deltaY) > abs(event.scrollingDeltaX), abs(deltaY) > 0 else {
             accumulatedEdgeScroll = 0
+            super.scrollWheel(with: event)
             return
         }
+
+        if event.hasPreciseScrollingDeltas {
+            super.scrollWheel(with: event)
+            return
+        }
+
+        super.scrollWheel(with: event)
 
         let direction: ScrollPageDirection?
         if deltaY > 0, isScrolledToBottom {
@@ -36,10 +46,14 @@ final class EdgePagingPDFView: PDFView {
         let threshold: CGFloat = event.hasPreciseScrollingDeltas ? 10 : 1
         guard accumulatedEdgeScroll >= threshold else { return }
 
-        let now = Date()
-        guard now.timeIntervalSince(lastEdgePageTurn) > 0.45 else { return }
-        lastEdgePageTurn = now
         accumulatedEdgeScroll = 0
+        turnPage(direction)
+    }
+
+    private func turnPage(_ direction: ScrollPageDirection) {
+        let now = Date()
+        guard now.timeIntervalSince(lastEdgePageTurn) > 0.35 else { return }
+        lastEdgePageTurn = now
         onScrollPastPageEdge?(direction)
     }
 
