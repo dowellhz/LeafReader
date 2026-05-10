@@ -4,40 +4,42 @@
 
 # Leaf Reader
 
-Leaf Reader is a native macOS document reader built with Swift, PDFKit, and WebKit. It supports PDF, EPUB, and DOCX reading with quick navigation, text selection, search, reading progress restore for PDFs, and an integrated AI assistant for explaining selected passages.
+Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is built with Swift, PDFKit, and WebKit, and focuses on a quiet reading experience with fast navigation, document search, reading progress restore, light and dark reader themes, and an optional AI panel for working with selected passages.
 
-![Leaf Reader light mode screenshot](assets/screenshot-light.png)
+![Leaf Reader in light mode](assets/screenshot-light.png)
 
-![Leaf Reader dark mode screenshot](assets/screenshot-dark.png)
+![Leaf Reader in dark mode](assets/screenshot-dark.png)
 
-## Features
+## Highlights
 
-- Open and read local PDF, EPUB, and DOCX files.
-- Navigate pages with toolbar buttons and keyboard paging.
-- Search with the toolbar button or `Command+F`.
-- Zoom in and out with a compact zoom control.
-- Restore the last opened PDF, page, and zoom level.
-- Select text and ask the built-in AI panel for explanations.
-- Configure AI model, API key, and interface language from settings.
+- Open local PDF, EPUB, and DOCX files in one macOS app.
+- Restore the last opened document, page, zoom level, and reading position.
+- Navigate PDFs with toolbar controls, keyboard paging, scroll paging, and direct page-number entry.
+- Search documents with `Command+F`, next and previous result controls, and visible result positioning.
+- Switch between light and dark reader themes for the document area, search overlay, recent files panel, and AI chat panel.
+- Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
+- Configure model, API key, interface language, and reader theme from the in-app settings panel.
+- Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
 
-## Repository Layout
+## Requirements
 
-- `Leaf Reader.app` - built macOS app bundle.
-- `mac-app/*.swift` - native Swift source code.
-- `mac-app/AppIcon.icns` - packaged app icon.
-- `mac-app/AppIconSource.png` - source image for the app icon.
-- `assets/leaf-reader-icon.png` - project icon used in this README.
-- `assets/screenshot.png` - screenshot used in this README.
+- macOS 12.0 or later.
+- Swift toolchain with Cocoa, PDFKit, WebKit, and CryptoKit frameworks.
+- An API key for AI features, configured inside the app settings.
 
 ## Run
+
+Open the checked-in app bundle:
 
 ```sh
 open "Leaf Reader.app"
 ```
 
-## Build
+The app is ad-hoc signed for local testing and distribution.
 
-Compile the Swift source into the existing app bundle:
+## Build From Source
+
+Compile the Swift sources into the existing app bundle:
 
 ```sh
 swiftc mac-app/*.swift \
@@ -48,30 +50,46 @@ swiftc mac-app/*.swift \
   -framework CryptoKit
 ```
 
-Re-sign the app locally after rebuilding:
+Re-sign the rebuilt app:
 
 ```sh
 codesign --force --deep --sign - "Leaf Reader.app"
 ```
 
+Then run it:
+
+```sh
+open "Leaf Reader.app"
+```
+
+## Project Layout
+
+- `Leaf Reader.app` - built macOS application bundle.
+- `mac-app/*.swift` - native Swift source code.
+- `mac-app/AIPrompts.json` - built-in AI prompt definitions.
+- `mac-app/AppIcon.icns` - packaged app icon.
+- `mac-app/AppIconSource.png` - source image for the app icon.
+- `assets/leaf-reader-icon.png` - project icon used in this README.
+- `assets/screenshot-light.png` - light mode screenshot.
+- `assets/screenshot-dark.png` - dark mode screenshot.
+- `release/` - local release artifacts when generated.
+
 ## Release
 
-Version `1.0.4` is tagged as `v1.0.4`.
+Current version: `1.0.4`
 
-Local release artifacts are generated under:
+Git tag: `v1.0.4`
+
+Local release artifacts are expected under:
 
 ```text
 release/1.0.4/
 ```
 
-## Requirements
-
-- macOS 12.0 or later.
-- Swift toolchain with Cocoa, PDFKit, WebKit, and CryptoKit frameworks.
-
 ## Notes
 
 - Bundle identifier: `com.linlu.leafreader`.
-- The checked-in app is ad-hoc signed for local testing and distribution.
-- EPUB and DOCX are rendered through WebKit. DOCX support focuses on readable text content rather than exact Word layout.
-- AI requests use the API key configured locally in the app settings.
+- PDF rendering uses PDFKit.
+- EPUB and DOCX rendering uses WebKit. DOCX support is optimized for readable text extraction rather than exact Word layout fidelity.
+- Search selections are kept separate from AI passage selection so search navigation does not accidentally populate the assistant.
+- AI requests use the model, endpoint, language, and API key configured locally in the settings panel.
