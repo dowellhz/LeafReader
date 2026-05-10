@@ -288,6 +288,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         aiPanel.onSummarizeCurrentContent = { [weak self] completion in
             self?.currentSummaryContent(completion: completion)
         }
+        aiPanel.onTranslateCurrentContent = { [weak self] completion in
+            self?.currentTranslationContent(completion: completion)
+        }
         aiPanel.onSettingsRequired = { [weak self] in
             self?.openAISettings()
         }
@@ -1789,7 +1792,30 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
     }
 
-    private func currentWebVisibleText(completion: @escaping (String) -> Void) {
+    private func currentTranslationContent(completion: @escaping ((title: String, text: String)?) -> Void) {
+        let title = titleLabel.stringValue
+        if currentDocumentKind == .pdf {
+            let text = normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
+            completion(text.isEmpty ? nil : (title, String(text.prefix(9000))))
+            return
+        }
+
+        currentWebVisibleText(preserveLineBreaks: true) { [weak self] visibleText in
+            guard let self else {
+                completion(nil)
+                return
+            }
+            if !visibleText.isEmpty {
+                completion((title, String(visibleText.prefix(9000))))
+                return
+            }
+
+            let fallback = self.normalizeReaderTextPreservingParagraphs(self.currentWebProgressTextWindow())
+            completion(fallback.isEmpty ? nil : (title, fallback))
+        }
+    }
+
+    private func currentWebVisibleText(preserveLineBreaks: Bool = false, completion: @escaping (String) -> Void) {
         let script = """
         (() => {
           const blocks = Array.from(document.body.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th,div'));
@@ -1816,7 +1842,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         })();
         """
         webView.evaluateJavaScript(script) { value, _ in
-            completion(self.normalizeWhitespace((value as? String) ?? ""))
+            let text = (value as? String) ?? ""
+            completion(preserveLineBreaks ? self.normalizeReaderTextPreservingParagraphs(text) : self.normalizeWhitespace(text))
         }
     }
 
@@ -1848,13 +1875,93 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             .joined(separator: "\n\n")
     }
 
+    private func currentPDFPageTranslationText() -> String {
+        guard let document = pdfView.document,
+              let page = pdfView.currentPage else { return "" }
+        let pageIndex = document.index(for: page)
+        let previousPreviousRaw = pageIndex > 1 ? document.page(at: pageIndex - 2)?.string ?? "" : ""
+        let previousRaw = pageIndex > 0 ? document.page(at: pageIndex - 1)?.string ?? "" : ""
+        let nextRaw = pageIndex + 1 < document.pageCount ? document.page(at: pageIndex + 1)?.string ?? "" : ""
+        let nextNextRaw = pageIndex + 2 < document.pageCount ? document.page(at: pageIndex + 2)?.string ?? "" : ""
+        let currentText = stripPDFPageChrome(from: page.string ?? "", previousText: previousRaw, nextText: nextRaw)
+        guard !currentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
+
+        let previousText = pageIndex > 0 ? stripPDFPageChrome(from: previousRaw, previousText: previousPreviousRaw, nextText: page.string ?? "") : ""
+        let nextText = pageIndex + 1 < document.pageCount ? stripPDFPageChrome(from: nextRaw, previousText: page.string ?? "", nextText: nextNextRaw) : ""
+        let prefix = pdfPreviousPageParagraphTailIfNeeded(currentText: currentText, previousText: previousText)
+        let suffix = pdfNextPageParagraphHeadIfNeeded(currentText: currentText, nextText: nextText)
+        let combined = [prefix, currentText, suffix]
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .joined(separator: "\n\n")
+        return stripPDFPageChrome(from: combined, previousText: previousRaw, nextText: nextRaw)
+    }
+
+    private func stripPDFPageChrome(from text: String, previousText: String, nextText: String) -> String {
+        var lines = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let previousEdges = pdfEdgeLines(previousText)
+        let nextEdges = pdfEdgeLines(nextText)
+
+        func isRepeatedPageChrome(_ normalized: String) -> Bool {
+            normalized == normalizePDFChromeLine(titleLabel.stringValue)
+                || previousEdges.contains(normalized)
+                || nextEdges.contains(normalized)
+        }
+
+        func isPageNumberLike(_ normalized: String) -> Bool {
+            normalized.range(of: #"^\d{1,4}$"#, options: .regularExpression) != nil
+                || normalized.range(of: #"^[-–—]?\d{1,4}[-–—]?$"#, options: .regularExpression) != nil
+        }
+
+        func isChromeLine(_ line: String, edgeOnly: Bool) -> Bool {
+            let normalized = normalizePDFChromeLine(line)
+            guard !normalized.isEmpty else { return true }
+            if isRepeatedPageChrome(normalized) { return true }
+            if edgeOnly, isPageNumberLike(normalized) { return true }
+            return false
+        }
+
+        for index in lines.indices.reversed() {
+            let edgeOnly = index < 6 || index >= max(0, lines.count - 6)
+            if isChromeLine(lines[index], edgeOnly: edgeOnly) {
+                lines.remove(at: index)
+            }
+        }
+        for index in lines.indices.prefix(3).reversed() where lines.indices.contains(index) && isChromeLine(lines[index], edgeOnly: true) {
+            lines.remove(at: index)
+        }
+        for index in lines.indices.suffix(3).reversed() where lines.indices.contains(index) && isChromeLine(lines[index], edgeOnly: true) {
+            lines.remove(at: index)
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func pdfEdgeLines(_ text: String) -> Set<String> {
+        let lines = text
+            .components(separatedBy: .newlines)
+            .map { normalizePDFChromeLine($0) }
+            .filter { !$0.isEmpty }
+        return Set(lines.prefix(3) + lines.suffix(3))
+    }
+
+    private func normalizePDFChromeLine(_ text: String) -> String {
+        text
+            .lowercased()
+            .replacingOccurrences(of: #"[^a-z0-9\u{4e00}-\u{9fff}]"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private func pdfPreviousPageParagraphTailIfNeeded(currentText: String, previousText: String) -> String {
         guard !previousText.isEmpty, pdfTextAppearsToStartMidParagraph(currentText) else { return "" }
         let normalized = previousText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else { return "" }
         let start = normalized.lastIndex { "\n\r.!?。！？".contains($0) }
             .map { normalized.index(after: $0) } ?? normalized.startIndex
-        return String(normalized[start...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        return stripPDFPageChrome(from: String(normalized[start...]), previousText: "", nextText: currentText)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func pdfNextPageParagraphHeadIfNeeded(currentText: String, nextText: String) -> String {
@@ -1863,18 +1970,30 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         guard !normalized.isEmpty else { return "" }
         let end = normalized.firstIndex { ".!?。！？\n\r".contains($0) }
             .map { normalized.index(after: $0) } ?? normalized.endIndex
-        return String(normalized[..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
+        return stripPDFPageChrome(from: String(normalized[..<end]), previousText: currentText, nextText: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func pdfTextAppearsToStartMidParagraph(_ text: String) -> Bool {
-        guard let first = text.trimmingCharacters(in: .whitespacesAndNewlines).first else { return false }
+        let lines = text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard let firstLine = lines.first, let first = firstLine.first else { return false }
         if ",;:，；：)]）".contains(first) { return true }
-        return first.isLowercase
+        if first.isLowercase { return true }
+        return firstLine.range(of: #"^(and|but|or|nor|for|so|yet|because|while|when|which|that|who|whom|whose|where|as|if|then|than|to|of|in|on|with|from|by)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
     }
 
     private func pdfTextAppearsToEndMidParagraph(_ text: String) -> Bool {
-        guard let last = text.trimmingCharacters(in: .whitespacesAndNewlines).last else { return false }
-        return !".!?。！？”’\"')）".contains(last)
+        let lines = text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard let lastLine = lines.last, let last = lastLine.last else { return false }
+        if ".!?。！？”’\"')）".contains(last) { return false }
+        if lastLine.range(of: #"[-–—]\s*$"#, options: .regularExpression) != nil { return true }
+        return lastLine.count >= 40 && last.isLetter
     }
 
     private func sentenceContext(containing selectedText: String, in text: String) -> String? {
@@ -1912,6 +2031,16 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private func normalizeWhitespace(_ text: String) -> String {
         text
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func normalizeReaderTextPreservingParagraphs(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .replacingOccurrences(of: #"[ \t]+\n"#, with: "\n", options: .regularExpression)
+            .replacingOccurrences(of: #"\n[ \t]+"#, with: "\n", options: .regularExpression)
+            .replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 

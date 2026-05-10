@@ -142,9 +142,10 @@ enum WebDocumentLoader {
 
     private static func epubManifest(from xml: String) -> [String: String] {
         var result: [String: String] = [:]
-        let pattern = #"<item\b[^>]*\bid=["']([^"']+)["'][^>]*\bhref=["']([^"']+)["'][^>]*/?>"#
-        for match in regexMatches(pattern, in: xml) where match.count >= 3 {
-            result[match[1]] = match[2]
+        for tag in regexMatches(#"<item\b[^>]*?/?>"#, in: xml).compactMap(\.first) {
+            guard let id = firstXMLAttribute("id", in: tag),
+                  let href = firstXMLAttribute("href", in: tag) else { continue }
+            result[id] = href
         }
         return result
     }
@@ -160,8 +161,14 @@ enum WebDocumentLoader {
             return opfDirectory.appendingPathComponent(href.removingPercentEncoding ?? href)
         }
 
-        let coverItemPattern = #"<item\b[^>]*(?:properties=["'][^"']*cover-image[^"']*["']|id=["'][^"']*cover[^"']*["'])[^>]*\bhref=["']([^"']+)["'][^>]*/?>"#
-        if let href = regexMatches(coverItemPattern, in: opfXML).first.flatMap({ $0.count > 1 ? $0[1] : nil }) {
+        if let href = regexMatches(#"<item\b[^>]*?/?>"#, in: opfXML)
+            .compactMap(\.first)
+            .first(where: { tag in
+                let id = firstXMLAttribute("id", in: tag) ?? ""
+                let properties = firstXMLAttribute("properties", in: tag) ?? ""
+                return properties.contains("cover-image") || id.localizedCaseInsensitiveContains("cover")
+            })
+            .flatMap({ firstXMLAttribute("href", in: $0) }) {
             return opfDirectory.appendingPathComponent(href.removingPercentEncoding ?? href)
         }
         return nil
@@ -179,7 +186,10 @@ enum WebDocumentLoader {
             }
         }
 
-        let navHref = regexMatches(#"<item\b[^>]*\bproperties=["'][^"']*nav[^"']*["'][^>]*\bhref=["']([^"']+)["'][^>]*/?>"#, in: opfXML).first.flatMap { $0.count > 1 ? $0[1] : nil }
+        let navHref = regexMatches(#"<item\b[^>]*?/?>"#, in: opfXML)
+            .compactMap(\.first)
+            .first(where: { (firstXMLAttribute("properties", in: $0) ?? "").contains("nav") })
+            .flatMap { firstXMLAttribute("href", in: $0) }
         if let navHref {
             let navURL = opfDirectory.appendingPathComponent(navHref.removingPercentEncoding ?? navHref)
             if let nav = try? String(contentsOf: navURL, encoding: .utf8) {
@@ -218,10 +228,10 @@ enum WebDocumentLoader {
     }
 
     private static func epubStylesheets(from opfXML: String, opfDirectory: URL) -> String {
-        let pattern = #"<item\b[^>]*\bhref=["']([^"']+\.css)["'][^>]*\bmedia-type=["']text/css["'][^>]*/?>|<item\b[^>]*\bmedia-type=["']text/css["'][^>]*\bhref=["']([^"']+\.css)["'][^>]*/?>"#
-        let styles = regexMatches(pattern, in: opfXML).compactMap { match -> String? in
-            let href = match.dropFirst().first { !$0.isEmpty }
-            guard let href else { return nil }
+        let styles = regexMatches(#"<item\b[^>]*?/?>"#, in: opfXML).compactMap { match -> String? in
+            guard let tag = match.first,
+                  (firstXMLAttribute("media-type", in: tag) == "text/css" || (firstXMLAttribute("href", in: tag) ?? "").lowercased().hasSuffix(".css")),
+                  let href = firstXMLAttribute("href", in: tag) else { return nil }
             let cssURL = opfDirectory.appendingPathComponent(href.removingPercentEncoding ?? href)
             guard let css = try? String(contentsOf: cssURL, encoding: .utf8) else { return nil }
             return prepareEPUBCSS(css, baseURL: cssURL.deletingLastPathComponent())

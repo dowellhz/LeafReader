@@ -6,7 +6,9 @@ enum AIPromptStore {
         let word: String
         let sentence: String
         let summary: String
+        let translation: String
         let followUp: String
+        let selectedFollowUp: String
     }
 
     private struct PromptConfig: Decodable {
@@ -41,8 +43,23 @@ enum AIPromptStore {
         render(languageConfig.summary, values: ["title": title, "text": text])
     }
 
+    static func translationPrompt(title: String, text: String) -> String {
+        render(languageConfig.translation, values: ["title": title, "text": text])
+    }
+
     static func followUpPrompt(context: String, text: String) -> String {
         render(languageConfig.followUp, values: ["context": context, "text": text])
+    }
+
+    static func selectedFollowUpPrompt(selectedText: String, context: String, question: String) -> String {
+        render(
+            languageConfig.selectedFollowUp,
+            values: [
+                "selectedText": selectedText,
+                "context": context.isEmpty ? localizedNone : context,
+                "question": question
+            ]
+        )
     }
 
     private static var languageConfig: PromptLanguageConfig {
@@ -88,14 +105,18 @@ enum AIPromptStore {
             word: "翻译下单词：{{word}}\n\n这个词在文章中的上下文：\n{{context}}",
             sentence: "你是英语老师，翻译并解释下面这段英文：\n\n{{text}}",
             summary: "请总结下面的当前阅读内容：\n\n标题：{{title}}\n\n正文：\n{{text}}",
-            followUp: "下面是 AI view 上下文：\n{{context}}\n\n用户继续追问：\n{{text}}"
+            translation: "请把下面内容翻译成自然中文。目标语言：简体中文。只输出中文译文，不要输出英文原文，不要复述原文。除人名、地名、书名、机构名等专有名词外，所有英文句子都必须翻译成中文。每个非空段落开头空两格。不要分析、解释、总结，也不要添加标题或多余说明，不要使用 Markdown 或 **粗体** 标记。严格保持原文段落结构和换行位置，不要合并段落，也不要额外拆分段落。\n\n{{text}}",
+            followUp: "下面是 AI view 上下文：\n{{context}}\n\n用户继续追问：\n{{text}}",
+            selectedFollowUp: "用户选中了下面这段文字，并提出了问题。请优先结合选中文字回答。只回答用户问题，不要自动追加关键词翻译，不要自动解释单词、短语或语法，除非用户问题明确要求，不要套用单词解释模板。\n\n【选中文字】\n{{selectedText}}\n\n【附近上下文】\n{{context}}\n\n【用户问题】\n{{question}}"
         ),
         en: PromptLanguageConfig(
             system: "You are an English reading and vocabulary assistant. Be concise and practical.",
             word: "Explain this word: {{word}}\n\nContext from the article:\n{{context}}",
             sentence: "Explain this English passage:\n\n{{text}}",
             summary: "Summarize the current reading content:\n\nTitle: {{title}}\n\nText:\n{{text}}",
-            followUp: "AI view context:\n{{context}}\n\nUser follow-up:\n{{text}}"
+            translation: "Translate the following content into clear, natural English. Output only the translation. Do not analyze, explain, summarize, add a title, add extra notes, or use Markdown or **bold** markers. Strictly preserve the original paragraph structure and line breaks. Do not merge paragraphs or split them into extra paragraphs.\n\n{{text}}",
+            followUp: "AI view context:\n{{context}}\n\nUser follow-up:\n{{text}}",
+            selectedFollowUp: "The user selected the following passage and asked a question. Answer primarily based on the selected text. Answer only the user question. Do not automatically add keyword translations or word, phrase, or grammar explanations unless explicitly asked. Do not use the vocabulary explanation template.\n\n[Selected text]\n{{selectedText}}\n\n[Nearby context]\n{{context}}\n\n[User question]\n{{question}}"
         )
     )
 }

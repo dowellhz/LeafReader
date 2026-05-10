@@ -18,6 +18,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
     var onAskSelectedText: ((String) -> String?)?
     var onSummarizeCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
+    var onTranslateCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onSettingsRequired: (() -> Void)?
 
     private var selectedText = ""
@@ -27,6 +28,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     ]
     private var isBusy = false
     private var pendingStreamText = ""
+    private var pendingStreamRenderMarkdown = true
+    private var nextAssistantRenderMarkdown = true
     private var streamUpdateWorkItem: DispatchWorkItem?
 
     override init(frame frameRect: NSRect) {
@@ -88,7 +91,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
             onSettingsRequired?()
             return
         }
-        onSummarizeCurrentContent? { [weak self] content in
+        let contentProvider = mode == .translation ? onTranslateCurrentContent : onSummarizeCurrentContent
+        contentProvider? { [weak self] content in
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard let content,
@@ -101,9 +105,12 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
                 let displayedQuestion = "\(title): \(content.title)"
                 self.appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: false)
                 self.recordTranscript(role: AppText.userRole, text: displayedQuestion)
-                let prompt = mode == .summary
-                    ? AIPromptStore.summaryPrompt(title: content.title, text: content.text)
-                    : AIPromptStore.sentencePrompt(for: content.text)
+                if mode == .translation {
+                    self.requestTranslation(title: content.title, text: content.text)
+                    return
+                }
+
+                let prompt = AIPromptStore.summaryPrompt(title: content.title, text: content.text)
                 self.messages.append(ChatMessage(role: "user", content: prompt))
                 self.requestAI()
             }
@@ -138,7 +145,16 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     private func followUpPrompt(for text: String) -> String {
-        AIPromptStore.followUpPrompt(context: transcriptContext(), text: text)
+        let selected = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !selected.isEmpty {
+            let selectedContext = onAskSelectedText?(selected) ?? ""
+            return AIPromptStore.selectedFollowUpPrompt(
+                selectedText: selected,
+                context: selectedContext,
+                question: text
+            )
+        }
+        return AIPromptStore.followUpPrompt(context: transcriptContext(), text: text)
     }
 
     private func transcriptContext() -> String {
@@ -164,26 +180,28 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
     private func requestAI() {
         setBusy(true, text: AppText.thinking)
-        let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating)
+        let renderMarkdown = nextAssistantRenderMarkdown
+        nextAssistantRenderMarkdown = true
+        let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating, renderMarkdown: renderMarkdown)
         var streamedText = ""
         client.sendStream(messages: messages, onDelta: { [weak self, weak assistantBody] delta in
             DispatchQueue.main.async {
                 guard let self = self, let assistantBody = assistantBody else { return }
                 streamedText += delta
                 let visibleText = AIClient.visibleAnswer(from: streamedText)
-                self.scheduleStreamUpdate(assistantBody, text: visibleText.isEmpty ? AppText.generating : visibleText)
+                self.scheduleStreamUpdate(assistantBody, text: visibleText.isEmpty ? AppText.generating : visibleText, renderMarkdown: renderMarkdown)
             }
         }, completion: { [weak self, weak assistantBody] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                self.flushStreamUpdate(assistantBody)
+                self.flushStreamUpdate(assistantBody, renderMarkdown: renderMarkdown)
                 self.setBusy(false, text: "")
                 switch result {
                 case .success(let content):
                     self.recordTranscript(role: AppText.aiRole, text: content)
                     self.messages.append(ChatMessage(role: "assistant", content: content))
                     if let assistantBody = assistantBody {
-                        self.updateBubble(assistantBody, role: AppText.aiRole, text: content)
+                        self.updateBubble(assistantBody, role: AppText.aiRole, text: content, renderMarkdown: renderMarkdown)
                     }
                 case .failure(let error):
                     let message = self.userFacingAIError(error)
@@ -195,6 +213,113 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
                 }
             }
         })
+    }
+
+    private func requestTranslation(title: String, text: String) {
+        setBusy(true, text: AppText.localized("翻译中", "Translating"))
+        let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating, renderMarkdown: false)
+        let chunks = translationChunks(from: text)
+        var translatedChunks = Array(repeating: "", count: chunks.count)
+
+        func translateChunk(_ index: Int) {
+            guard index < chunks.count else {
+                let merged = translatedChunks
+                    .map { indentedTranslationText($0) }
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n\n")
+                recordTranscript(role: AppText.aiRole, text: merged)
+                messages.append(ChatMessage(role: "assistant", content: merged))
+                updateBubble(assistantBody, role: AppText.aiRole, text: merged, renderMarkdown: false)
+                setBusy(false, text: "")
+                return
+            }
+
+            let status = chunks.count > 1
+                ? AppText.localized("翻译中 \(index + 1)/\(chunks.count)", "Translating \(index + 1)/\(chunks.count)")
+                : AppText.localized("翻译中", "Translating")
+            statusLabel.stringValue = status
+            updateBubble(assistantBody, role: AppText.aiRole, text: partialTranslationText(translatedChunks, currentIndex: index), renderMarkdown: false)
+
+            let prompt = AIPromptStore.translationPrompt(title: title, text: chunks[index])
+            client.send(messages: [
+                ChatMessage(role: "system", content: AIPromptStore.systemPrompt()),
+                ChatMessage(role: "user", content: prompt)
+            ]) { [weak self, weak assistantBody] result in
+                DispatchQueue.main.async {
+                    guard let self, let assistantBody else { return }
+                    switch result {
+                    case .success(let content):
+                        translatedChunks[index] = content
+                        self.updateBubble(
+                            assistantBody,
+                            role: AppText.aiRole,
+                            text: self.partialTranslationText(translatedChunks, currentIndex: index + 1),
+                            renderMarkdown: false
+                        )
+                        translateChunk(index + 1)
+                    case .failure(let error):
+                        self.updateBubble(assistantBody, role: AppText.errorRole, text: self.userFacingAIError(error))
+                        self.setBusy(false, text: "")
+                    }
+                }
+            }
+        }
+
+        translateChunk(0)
+    }
+
+    private func translationChunks(from text: String) -> [String] {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 3600 else { return [trimmed] }
+
+        let paragraphs = trimmed.components(separatedBy: "\n\n")
+        guard paragraphs.count > 1 else {
+            let midpoint = trimmed.index(trimmed.startIndex, offsetBy: trimmed.count / 2)
+            let split = trimmed[midpoint...].firstIndex { ".!?。！？\n".contains($0) } ?? midpoint
+            return [
+                String(trimmed[..<split]).trimmingCharacters(in: .whitespacesAndNewlines),
+                String(trimmed[split...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            ].filter { !$0.isEmpty }
+        }
+
+        let target = max(1, trimmed.count / 2)
+        var first: [String] = []
+        var second: [String] = []
+        var firstLength = 0
+        for paragraph in paragraphs {
+            if firstLength < target || second.isEmpty {
+                first.append(paragraph)
+                firstLength += paragraph.count
+            } else {
+                second.append(paragraph)
+            }
+        }
+        return [first.joined(separator: "\n\n"), second.joined(separator: "\n\n")]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func partialTranslationText(_ chunks: [String], currentIndex: Int) -> String {
+        let completed = chunks[..<currentIndex]
+            .map { indentedTranslationText($0) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+        if completed.isEmpty { return AppText.generating }
+        return completed + "\n\n" + AppText.generating
+    }
+
+    private func indentedTranslationText(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .components(separatedBy: "\n")
+            .map { line in
+                let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return "" }
+                return "　　" + trimmed
+            }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func userFacingAIError(_ error: Error) -> String {
@@ -256,7 +381,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     @discardableResult
-    private func appendBubble(role: String, text: String, collapsible: Bool = false) -> NSTextField {
+    private func appendBubble(role: String, text: String, collapsible: Bool = false, renderMarkdown: Bool = true) -> NSTextField {
         let box = NSBox()
         box.boxType = .custom
         box.borderWidth = 1
@@ -266,7 +391,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         box.translatesAutoresizingMaskIntoConstraints = false
 
         let body = NSTextField(wrappingLabelWithString: "")
-        body.attributedStringValue = role == AppText.aiRole ? markdownString(text) : plainString(text)
+        body.attributedStringValue = bubbleString(role: role, text: text, renderMarkdown: renderMarkdown)
         body.maximumNumberOfLines = collapsible ? 1 : 0
         body.isSelectable = false
         body.translatesAutoresizingMaskIntoConstraints = false
@@ -294,31 +419,36 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         return body
     }
 
-    private func updateBubble(_ body: NSTextField, role: String, text: String) {
-        body.attributedStringValue = role == AppText.aiRole ? markdownString(text) : plainString(text)
+    private func updateBubble(_ body: NSTextField, role: String, text: String, renderMarkdown: Bool = true) {
+        body.attributedStringValue = bubbleString(role: role, text: text, renderMarkdown: renderMarkdown)
         body.invalidateIntrinsicContentSize()
         body.superview?.invalidateIntrinsicContentSize()
         transcriptStack.layoutSubtreeIfNeeded()
         body.superview?.scrollToVisible(body.superview?.bounds ?? body.bounds)
     }
 
-    private func scheduleStreamUpdate(_ body: NSTextField, text: String) {
+    private func scheduleStreamUpdate(_ body: NSTextField, text: String, renderMarkdown: Bool) {
         pendingStreamText = text
+        pendingStreamRenderMarkdown = renderMarkdown
         guard streamUpdateWorkItem == nil else { return }
         let workItem = DispatchWorkItem { [weak self, weak body] in
             guard let self, let body else { return }
             self.streamUpdateWorkItem = nil
-            self.updateBubble(body, role: AppText.aiRole, text: self.pendingStreamText)
+            self.updateBubble(body, role: AppText.aiRole, text: self.pendingStreamText, renderMarkdown: self.pendingStreamRenderMarkdown)
         }
         streamUpdateWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
     }
 
-    private func flushStreamUpdate(_ body: NSTextField?) {
+    private func flushStreamUpdate(_ body: NSTextField?, renderMarkdown: Bool) {
         streamUpdateWorkItem?.cancel()
         streamUpdateWorkItem = nil
         guard let body, !pendingStreamText.isEmpty else { return }
-        updateBubble(body, role: AppText.aiRole, text: pendingStreamText)
+        updateBubble(body, role: AppText.aiRole, text: pendingStreamText, renderMarkdown: renderMarkdown)
+    }
+
+    private func bubbleString(role: String, text: String, renderMarkdown: Bool) -> NSAttributedString {
+        role == AppText.aiRole && renderMarkdown ? markdownString(text) : plainString(text)
     }
 
     @objc private func toggleCollapsedBubble(_ recognizer: NSClickGestureRecognizer) {
