@@ -3,6 +3,13 @@ import Cocoa
 final class AIChatPanel: NSView, NSTextFieldDelegate {
     private static let readerBodyFontSize: CGFloat = 15
 
+    struct LinkedWordBubble {
+        let id: String
+        let word: String
+        let question: String
+        let answer: String
+    }
+
     private let client = AIClient()
     private let askButton = GradientButton(title: "", target: nil, action: nil)
     private let summaryButton = NSButton(title: "", target: nil, action: nil)
@@ -21,9 +28,13 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         var text: String
         var renderMarkdown: Bool
         var collapsible: Bool
+        var linkID: String?
     }
 
     var onAskSelectedText: ((String) -> String?)?
+    var onSelectedWordQuestionStarted: ((String) -> String?)?
+    var onLinkedAnswerCompleted: ((String, String, String) -> Void)?
+    var onLinkedBubbleSelected: ((String) -> Void)?
     var onSummarizeCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onTranslateCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onCurrentReadingContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
@@ -42,6 +53,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     private var streamUpdateWorkItem: DispatchWorkItem?
     private var isDarkMode = false
     private var bubbleMetadataByID: [String: BubbleMetadata] = [:]
+    private var bubbleBoxByLinkID: [String: ChatBubbleView] = [:]
+    private var selectedLinkID: String?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -115,6 +128,39 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         restyleTranscript()
     }
 
+    func loadLinkedWordBubbles(_ records: [LinkedWordBubble]) {
+        transcriptStack.arrangedSubviews.forEach { view in
+            transcriptStack.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        bubbleMetadataByID.removeAll()
+        bubbleBoxByLinkID.removeAll()
+        selectedLinkID = nil
+        transcriptEntries.removeAll()
+        messages = [
+            ChatMessage(role: "system", content: AIPromptStore.systemPrompt())
+        ]
+
+        for record in records {
+            appendBubble(role: AppText.userRole, text: record.question, collapsible: false, linkID: record.id)
+            appendBubble(role: AppText.aiRole, text: record.answer, collapsible: false, renderMarkdown: true, linkID: record.id)
+            recordTranscript(role: AppText.userRole, text: record.question)
+            recordTranscript(role: AppText.aiRole, text: record.answer)
+            messages.append(ChatMessage(role: "user", content: record.question))
+            messages.append(ChatMessage(role: "assistant", content: record.answer))
+        }
+    }
+
+    func scrollToLinkedBubble(id: String) {
+        guard let box = bubbleBoxByLinkID[id] else { return }
+        selectedLinkID = id
+        updateLinkedBubbleSelection()
+        setContentVisible(true)
+        DispatchQueue.main.async { [weak box] in
+            box?.scrollToVisible(box?.bounds ?? .zero)
+        }
+    }
+
     @objc private func startQuestion() {
         let text = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isBusy else { return }
@@ -123,13 +169,14 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
             return
         }
 
+        let linkID = isSingleEnglishWord(text) ? onSelectedWordQuestionStarted?(text) : nil
         let selectedContext = onAskSelectedText?(text) ?? nil
         let prompt = isSingleEnglishWord(text) ? wordPrompt(for: text, context: selectedContext ?? "") : sentencePrompt(for: text)
         let displayedQuestion = "\(AppText.explainPrefix): \(text)"
-        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
+        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
         messages.append(ChatMessage(role: "user", content: prompt))
-        requestAI()
+        requestAI(linkID: linkID, linkedQuestion: displayedQuestion)
     }
 
     @objc private func summarizeCurrentContent() {
@@ -314,9 +361,9 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         isEditingFollowUp = true
     }
 
-    private func requestAI() {
+    private func requestAI(linkID: String? = nil, linkedQuestion: String? = nil) {
         setBusy(true, text: AppText.thinking)
-        let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating)
+        let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating, linkID: linkID)
         var streamedText = ""
         client.sendStream(messages: messages, onDelta: { [weak self, weak assistantBody] delta in
             DispatchQueue.main.async {
@@ -336,6 +383,9 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
                     self.messages.append(ChatMessage(role: "assistant", content: content))
                     if let assistantBody = assistantBody {
                         self.updateBubble(assistantBody, role: AppText.aiRole, text: content)
+                    }
+                    if let linkID, let linkedQuestion {
+                        self.onLinkedAnswerCompleted?(linkID, linkedQuestion, content)
                     }
                 case .failure(let error):
                     let message = self.userFacingAIError(error)
@@ -515,7 +565,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     @discardableResult
-    private func appendBubble(role: String, text: String, collapsible: Bool = false, renderMarkdown: Bool = true) -> NSTextField {
+    private func appendBubble(role: String, text: String, collapsible: Bool = false, renderMarkdown: Bool = true, linkID: String? = nil) -> NSTextField {
         let box = ChatBubbleView()
         box.fillColor = bubbleFillColor(role: role)
         box.borderColor = bubbleBorderColor
@@ -529,11 +579,16 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         body.translatesAutoresizingMaskIntoConstraints = false
         let bodyID = UUID().uuidString
         body.identifier = NSUserInterfaceItemIdentifier(bodyID)
-        bubbleMetadataByID[bodyID] = BubbleMetadata(role: role, text: text, renderMarkdown: renderMarkdown, collapsible: collapsible)
+        bubbleMetadataByID[bodyID] = BubbleMetadata(role: role, text: text, renderMarkdown: renderMarkdown, collapsible: collapsible, linkID: linkID)
 
         box.addSubview(body)
         transcriptStack.addArrangedSubview(box)
-        if collapsible {
+        if let linkID {
+            box.identifier = NSUserInterfaceItemIdentifier(linkID)
+            bubbleBoxByLinkID[linkID] = box
+            box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(selectLinkedBubble(_:))))
+            box.toolTip = AppText.localized("跳转到原文位置", "Jump to source location")
+        } else if collapsible {
             box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(toggleCollapsedBubble(_:))))
             box.toolTip = AppText.tapToExpand
         }
@@ -561,7 +616,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
                 role: role,
                 text: text,
                 renderMarkdown: renderMarkdown,
-                collapsible: existingMetadata?.collapsible ?? false
+                collapsible: existingMetadata?.collapsible ?? false,
+                linkID: existingMetadata?.linkID
             )
         }
         body.attributedStringValue = bubbleString(role: role, text: text, renderMarkdown: renderMarkdown)
@@ -605,6 +661,22 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         box.invalidateIntrinsicContentSize()
         transcriptStack.layoutSubtreeIfNeeded()
         box.scrollToVisible(box.bounds)
+    }
+
+    @objc private func selectLinkedBubble(_ recognizer: NSClickGestureRecognizer) {
+        guard let linkID = recognizer.view?.identifier?.rawValue else { return }
+        selectedLinkID = linkID
+        updateLinkedBubbleSelection()
+        onLinkedBubbleSelected?(linkID)
+    }
+
+    private func updateLinkedBubbleSelection() {
+        for (linkID, box) in bubbleBoxByLinkID {
+            box.borderColor = linkID == selectedLinkID
+                ? NSColor.systemBlue.withAlphaComponent(0.9)
+                : bubbleBorderColor
+            box.needsDisplay = true
+        }
     }
 
     private func plainString(_ text: String) -> NSAttributedString {
@@ -719,9 +791,11 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
                     role: metadata.role,
                     text: metadata.text,
                     collapsible: metadata.collapsible,
-                    renderMarkdown: metadata.renderMarkdown
+                    renderMarkdown: metadata.renderMarkdown,
+                    linkID: metadata.linkID
                 )
             }
+            updateLinkedBubbleSelection()
             return
         }
 
@@ -748,6 +822,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
             box.needsDisplay = true
             body.needsDisplay = true
         }
+        updateLinkedBubbleSelection()
         transcriptStack.needsLayout = true
         transcriptStack.layoutSubtreeIfNeeded()
     }

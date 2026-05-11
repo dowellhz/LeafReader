@@ -18,40 +18,6 @@ final class ClickEditableTextField: NSTextField {
     }
 }
 
-private enum ReaderTheme: String, CaseIterable {
-    private static let defaultsKey = "readerTheme"
-
-    case original
-    case dark
-
-    var title: String {
-        switch self {
-        case .original:
-            return AppText.localized("浅色模式", "Light Mode")
-        case .dark:
-            return AppText.localized("深色模式", "Dark Mode")
-        }
-    }
-
-    var helpText: String {
-        AppText.localized("选择 PDF、EPUB 和 DOCX 阅读区域的显示模式。", "Choose the display mode for PDF, EPUB, and DOCX reading views.")
-    }
-
-    static var selected: ReaderTheme {
-        get {
-            guard let rawValue = UserDefaults.standard.string(forKey: defaultsKey),
-                  let theme = ReaderTheme(rawValue: rawValue) else {
-                return .original
-            }
-            return theme
-        }
-        set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: defaultsKey)
-            UserDefaults.standard.synchronize()
-        }
-    }
-}
-
 final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     private static let preferredAIWidthDefaultsKey = "preferredAIWidth"
 
@@ -80,6 +46,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private weak var zoomGroupView: NSView?
     private var currentFileURL: URL?
     private var currentFileMD5: String?
+    private var sessionStore = ReaderSessionStore(fileMD5: nil)
     private var currentDocumentKind: ReaderDocumentKind = .pdf
     private var currentWebPlainText = ""
     private var currentWebSelectedText = ""
@@ -98,6 +65,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var lastSearchQuery = ""
     private var suppressSearchSelectionForAIUntil = Date.distantPast
     private var highlightedSelectionKeys = Set<String>()
+    private var storedWordRecords: [StoredPDFWordRecord] = []
+    private var pdfWordRecordStore: PDFWordRecordStore?
     private var didRegisterSelectionObserver = false
     private var isRestoringSession = false
     private var isEditingZoomField = false
@@ -404,11 +373,17 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
         aiPanel.onAskSelectedText = { [weak self] text in
             guard let self else { return nil }
-            let context = self.contextForCurrentSelection(selectedText: text)
-            if self.currentDocumentKind == .pdf {
-                self.markSelectionIfWord(self.pdfView.currentSelection, text: text)
-            }
-            return context
+            return self.contextForCurrentSelection(selectedText: text)
+        }
+        aiPanel.onSelectedWordQuestionStarted = { [weak self] text in
+            guard let self, self.currentDocumentKind == .pdf else { return nil }
+            return self.persistSelectedWordIfNeeded(self.pdfView.currentSelection, text: text)
+        }
+        aiPanel.onLinkedAnswerCompleted = { [weak self] linkID, question, answer in
+            self?.updateStoredWordAnswer(linkID: linkID, question: question, answer: answer)
+        }
+        aiPanel.onLinkedBubbleSelected = { [weak self] linkID in
+            self?.jumpToStoredWord(linkID: linkID)
         }
         aiPanel.onSummarizeCurrentContent = { [weak self] completion in
             self?.currentSummaryContent(completion: completion)
@@ -514,11 +489,6 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             recentButton.widthAnchor.constraint(equalToConstant: 88),
             recentButton.heightAnchor.constraint(equalToConstant: 30),
 
-            tocButton.leadingAnchor.constraint(equalTo: recentButton.trailingAnchor, constant: 10),
-            tocButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            tocButton.widthAnchor.constraint(equalToConstant: 88),
-            tocButton.heightAnchor.constraint(equalToConstant: 30),
-
             coverImageView.leadingAnchor.constraint(equalTo: openButton.trailingAnchor, constant: 28),
             coverImageView.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
             coverImageView.widthAnchor.constraint(equalToConstant: 28),
@@ -571,6 +541,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             searchOverlay.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             searchOverlay.widthAnchor.constraint(equalToConstant: 560),
             searchOverlay.heightAnchor.constraint(equalToConstant: 70),
+
+            tocButton.trailingAnchor.constraint(equalTo: coverButton.leadingAnchor, constant: -10),
+            tocButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
+            tocButton.widthAnchor.constraint(equalToConstant: 88),
+            tocButton.heightAnchor.constraint(equalToConstant: 30),
 
             coverButton.trailingAnchor.constraint(equalTo: prevButton.leadingAnchor, constant: -12),
             coverButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
@@ -1290,12 +1265,17 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         pdfView.document = document
         currentFileURL = url
         currentFileMD5 = fileMD5(for: url)
+        sessionStore = ReaderSessionStore(fileMD5: currentFileMD5)
+        pdfWordRecordStore = currentFileMD5.map { PDFWordRecordStore(fileMD5: $0) }
         currentWebPlainText = ""
         currentWebSelectedText = ""
-            currentTOCItems = pdfTOCItems(from: document)
-            accumulatedPDFTrackpadScroll = 0
-            didTurnPageForCurrentPDFTrackpadGesture = false
+        currentTOCItems = pdfTOCItems(from: document)
+        accumulatedPDFTrackpadScroll = 0
+        didTurnPageForCurrentPDFTrackpadGesture = false
         highlightedSelectionKeys.removeAll()
+        storedWordRecords = loadStoredWordRecords()
+        restoreStoredWordAnnotations()
+        aiPanel.loadLinkedWordBubbles(pdfWordRecordStore?.linkedWordBubbles(from: storedWordRecords) ?? [])
         searchResults.removeAll()
         searchResultIndex = 0
         lastSearchQuery = ""
@@ -1327,6 +1307,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             pdfView.document = nil
             currentFileURL = url
             currentFileMD5 = fileMD5(for: url)
+            sessionStore = ReaderSessionStore(fileMD5: currentFileMD5)
+            pdfWordRecordStore = nil
             currentWebPlainText = document.plainText
             currentWebSelectedText = ""
             currentWebSelectionContext = ""
@@ -1337,6 +1319,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             webZoomPercent = 100
             webScrollProgress = 0
             highlightedSelectionKeys.removeAll()
+            storedWordRecords.removeAll()
+            aiPanel.loadLinkedWordBubbles([])
             searchResults.removeAll()
             searchResultIndex = 0
             lastSearchQuery = ""
@@ -2141,27 +2125,63 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         zoomField.stringValue = "\(webZoomPercent)%"
     }
 
-    private func markSelectionIfWord(_ selection: PDFSelection?, text: String) {
-        guard shouldPersistHighlight(for: text), let selection = selection else { return }
+    private func persistSelectedWordIfNeeded(_ selection: PDFSelection?, text: String) -> String? {
+        guard shouldPersistHighlight(for: text),
+              let selection,
+              let document = pdfView.document,
+              let page = selection.pages.first else {
+            return nil
+        }
 
-        let lineSelections = selection.selectionsByLine()
-        let selections = lineSelections.isEmpty ? [selection] : lineSelections
-        for lineSelection in selections {
-            for page in lineSelection.pages {
-                let bounds = lineSelection.bounds(for: page).insetBy(dx: -1.5, dy: -1)
-                guard bounds.width > 0, bounds.height > 0 else { continue }
+        let bounds = selection.bounds(for: page).insetBy(dx: -1.5, dy: -1)
+        guard bounds.width > 0, bounds.height > 0 else { return nil }
 
-                let pageIndex = pdfView.document?.index(for: page) ?? -1
-                let key = "\(pageIndex):\(Int(bounds.origin.x.rounded())):\(Int(bounds.origin.y.rounded())):\(Int(bounds.width.rounded())):\(Int(bounds.height.rounded()))"
-                guard !highlightedSelectionKeys.contains(key) else { continue }
-                highlightedSelectionKeys.insert(key)
+        let pageIndex = document.index(for: page)
+        if let existing = pdfWordRecordStore?.existingRecord(in: storedWordRecords, pageIndex: pageIndex, bounds: bounds) {
+            return existing.id
+        }
 
-                let annotation = PDFAnnotation(bounds: bounds, forType: .highlight, withProperties: nil)
-                annotation.color = NSColor.systemYellow.withAlphaComponent(0.68)
-                page.addAnnotation(annotation)
-            }
+        let record = StoredPDFWordRecord(
+            id: UUID().uuidString,
+            word: text.trimmingCharacters(in: .whitespacesAndNewlines),
+            pageIndex: pageIndex,
+            bounds: StoredPDFWordRect(bounds),
+            question: "\(AppText.explainPrefix): \(text.trimmingCharacters(in: .whitespacesAndNewlines))",
+            answer: "",
+            createdAt: Date()
+        )
+        storedWordRecords.append(record)
+        addStoredWordAnnotation(record)
+        saveStoredWordRecords()
+        return record.id
+    }
+
+    private func updateStoredWordAnswer(linkID: String, question: String, answer: String) {
+        guard let index = storedWordRecords.firstIndex(where: { $0.id == linkID }) else { return }
+        storedWordRecords[index].question = question
+        storedWordRecords[index].answer = answer
+        saveStoredWordRecords()
+    }
+
+    private func restoreStoredWordAnnotations() {
+        guard currentDocumentKind == .pdf else { return }
+        for record in storedWordRecords {
+            addStoredWordAnnotation(record)
         }
         pdfView.setNeedsDisplay(pdfView.bounds)
+    }
+
+    private func addStoredWordAnnotation(_ record: StoredPDFWordRecord) {
+        guard let page = pdfView.document?.page(at: record.pageIndex) else { return }
+        let key = pdfWordRecordStore?.recordKey(pageIndex: record.pageIndex, bounds: record.bounds.cgRect)
+            ?? "\(record.pageIndex):\(Int(record.bounds.x.rounded())):\(Int(record.bounds.y.rounded())):\(Int(record.bounds.width.rounded())):\(Int(record.bounds.height.rounded()))"
+        guard !highlightedSelectionKeys.contains(key) else { return }
+        highlightedSelectionKeys.insert(key)
+
+        let annotation = PDFAnnotation(bounds: record.bounds.cgRect, forType: .highlight, withProperties: nil)
+        annotation.color = NSColor.systemYellow.withAlphaComponent(0.68)
+        annotation.contents = "leaf-word:\(record.id)"
+        page.addAnnotation(annotation)
     }
 
     private func contextForCurrentSelection(selectedText: String) -> String {
@@ -2581,24 +2601,77 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         return document.index(for: page)
     }
 
+    private func loadStoredWordRecords() -> [StoredPDFWordRecord] {
+        pdfWordRecordStore?.load() ?? []
+    }
+
+    private func saveStoredWordRecords() {
+        pdfWordRecordStore?.save(storedWordRecords)
+    }
+
+    private func storedWordID(at event: NSEvent) -> String? {
+        guard currentDocumentKind == .pdf else { return nil }
+        let pointInPDFView = pdfView.convert(event.locationInWindow, from: nil)
+        guard let page = pdfView.page(for: pointInPDFView, nearest: false) else { return nil }
+        let pointOnPage = pdfView.convert(pointInPDFView, to: page)
+
+        if let annotation = page.annotation(at: pointOnPage),
+           let id = storedWordID(from: annotation) {
+            return id
+        }
+
+        return page.annotations
+            .first { annotation in
+                annotation.bounds.contains(pointOnPage) && storedWordID(from: annotation) != nil
+            }
+            .flatMap(storedWordID(from:))
+    }
+
+    private func storedWordID(from annotation: PDFAnnotation) -> String? {
+        guard let contents = annotation.contents,
+              contents.hasPrefix("leaf-word:") else {
+            return nil
+        }
+        return String(contents.dropFirst("leaf-word:".count))
+    }
+
+    private func jumpToStoredWord(linkID: String) {
+        guard let record = storedWordRecords.first(where: { $0.id == linkID }),
+              let page = pdfView.document?.page(at: record.pageIndex) else {
+            return
+        }
+        setAIPanelCollapsed(false, animated: true)
+        let destination = PDFDestination(
+            page: page,
+            at: NSPoint(x: record.bounds.cgRect.minX, y: record.bounds.cgRect.maxY + 80)
+        )
+        pdfView.go(to: destination)
+        lastPageIndex = record.pageIndex
+        updatePageLabel()
+        saveSession()
+    }
+
+    private func selectStoredWord(linkID: String) {
+        guard storedWordRecords.contains(where: { $0.id == linkID }) else { return }
+        setAIPanelCollapsed(false, animated: true)
+        aiPanel.scrollToLinkedBubble(id: linkID)
+    }
+
     private func fileMD5(for url: URL) -> String? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         let digest = Insecure.MD5.hash(data: data)
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    private func bookSessionKey(_ suffix: String) -> String? {
-        guard let md5 = currentFileMD5 else { return nil }
-        return "bookSession.\(md5).\(suffix)"
-    }
-
     private func restoreWebProgressAfterLoad() {
-        guard currentDocumentKind != .pdf, let progressKey = bookSessionKey("webProgress") else { return }
-        let progress = min(max(UserDefaults.standard.double(forKey: progressKey), 0), 1)
-        webScrollProgress = progress
-        pageLabel.stringValue = "\(Int(round(progress * 100)))%"
-        let percent = UserDefaults.standard.integer(forKey: bookSessionKey("webZoom") ?? "")
-        if percent >= 60, percent <= 220 {
+        guard currentDocumentKind != .pdf,
+              let progress = sessionStore.loadWebProgress() else {
+            return
+        }
+        let scrollProgress = progress.scrollProgress
+        webScrollProgress = scrollProgress
+        pageLabel.stringValue = "\(Int(round(scrollProgress * 100)))%"
+        if let percent = progress.zoomPercent {
             webZoomPercent = percent
             zoomField.stringValue = "\(webZoomPercent)%"
         }
@@ -2609,7 +2682,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             self.webView.evaluateJavaScript("""
             (() => {
               const height = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-              window.scrollTo(0, height * \(progress));
+              window.scrollTo(0, height * \(scrollProgress));
             })();
             """)
         }
@@ -2617,21 +2690,15 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     private func saveWebProgress() {
         guard !isRestoringSession, currentDocumentKind != .pdf else { return }
-        guard let progressKey = bookSessionKey("webProgress"), let zoomKey = bookSessionKey("webZoom") else { return }
         let now = Date()
         guard now.timeIntervalSince(lastWebProgressSave) > 0.5 else { return }
         lastWebProgressSave = now
-        UserDefaults.standard.set(webScrollProgress, forKey: progressKey)
-        UserDefaults.standard.set(webZoomPercent, forKey: zoomKey)
+        sessionStore.saveWebProgress(scrollProgress: webScrollProgress, zoomPercent: webZoomPercent)
     }
 
     private func restoreBookProgressOrGoHome() {
         guard let document = pdfView.document else { return }
-        guard
-            let pageKey = bookSessionKey("pageIndex"),
-            let scaleKey = bookSessionKey("scale"),
-            UserDefaults.standard.object(forKey: pageKey) != nil
-        else {
+        guard let progress = sessionStore.loadPDFProgress() else {
             if let firstPage = document.page(at: 0) {
                 pdfView.go(to: firstPage)
             }
@@ -2639,14 +2706,14 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             return
         }
 
-        let pageIndex = UserDefaults.standard.integer(forKey: pageKey)
+        let pageIndex = progress.pageIndex
         if pageIndex >= 0, pageIndex < document.pageCount, let page = document.page(at: pageIndex) {
             pdfView.go(to: page)
         } else if let firstPage = document.page(at: 0) {
             pdfView.go(to: firstPage)
         }
 
-        let scale = UserDefaults.standard.double(forKey: scaleKey)
+        let scale = progress.scale
         if scale >= 0.1, scale <= 8 {
             pdfView.scaleFactor = scale
         }
@@ -2655,23 +2722,17 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private func saveSession() {
         if isRestoringSession { return }
         guard let url = currentFileURL else { return }
-        let bookmark = (try? url.bookmarkData(options: .withSecurityScope)) ?? Data()
-        UserDefaults.standard.set(bookmark, forKey: "lastPDFBookmark")
+        sessionStore.saveLastDocumentURL(url)
         guard currentDocumentKind == .pdf else {
             saveWebProgress()
             return
         }
         let pageIndex = pdfView.document?.index(for: pdfView.currentPage ?? PDFPage()) ?? 0
-        if let pageKey = bookSessionKey("pageIndex"), let scaleKey = bookSessionKey("scale") {
-            UserDefaults.standard.set(pageIndex, forKey: pageKey)
-            UserDefaults.standard.set(pdfView.scaleFactor, forKey: scaleKey)
-        }
+        sessionStore.savePDFProgress(pageIndex: pageIndex, scale: pdfView.scaleFactor)
     }
 
     private func restoreSession() {
-        guard let bookmark = UserDefaults.standard.data(forKey: "lastPDFBookmark"), !bookmark.isEmpty else { return }
-        var stale = false
-        guard let url = try? URL(resolvingBookmarkData: bookmark, options: .withSecurityScope, bookmarkDataIsStale: &stale), !stale else { return }
+        guard let url = sessionStore.restoreLastDocumentURL() else { return }
 
         isRestoringSession = true
         loadDocument(url)
@@ -2693,6 +2754,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 guard self.handlePDFTrackpadScroll(event) else { return event }
                 return nil
             case .leftMouseDown:
+                if self.handleStoredWordClick(event) {
+                    return nil
+                }
                 self.clearAISelectionIfClickingReader(event)
                 self.hideSearchOverlayIfClickingReader(event)
                 return event
@@ -2700,6 +2764,15 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 return event
             }
         }
+    }
+
+    private func handleStoredWordClick(_ event: NSEvent) -> Bool {
+        guard isMouseEventInsidePDFArea(event),
+              let linkID = storedWordID(at: event) else {
+            return false
+        }
+        selectStoredWord(linkID: linkID)
+        return true
     }
 
     private func clearAISelectionIfClickingReader(_ event: NSEvent) {
