@@ -12,8 +12,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
     private let client = AIClient()
     private let askButton = GradientButton(title: "", target: nil, action: nil)
-    private let summaryButton = NSButton(title: "", target: nil, action: nil)
-    private let translateButton = NSButton(title: "", target: nil, action: nil)
+    private let summaryButton = CapsuleChromeButton(title: "", target: nil, action: nil)
+    private let translateButton = CapsuleChromeButton(title: "", target: nil, action: nil)
     private let scrollView = NSScrollView()
     private let transcriptStack = FlippedStackView()
     private let statusRow = NSView()
@@ -122,6 +122,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         inputBar.layer?.borderWidth = enabled ? 1 : 0
         inputBar.layer?.borderColor = NSColor(red: 0.22, green: 0.26, blue: 0.32, alpha: 1).cgColor
         inputField.textColor = primaryTextColor
+        summaryButton.isDark = enabled
+        translateButton.isDark = enabled
         sendButton.contentTintColor = enabled
             ? NSColor(red: 0.32, green: 0.55, blue: 1, alpha: 1)
             : NSColor(red: 0.0, green: 0.35, blue: 0.9, alpha: 1)
@@ -843,17 +845,17 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         askButton.translatesAutoresizingMaskIntoConstraints = false
 
         summaryButton.title = AppText.localized("总结", "Summarize")
-        summaryButton.bezelStyle = .rounded
         summaryButton.controlSize = .regular
         summaryButton.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        summaryButton.isDark = isDarkMode
         summaryButton.target = self
         summaryButton.action = #selector(summarizeCurrentContent)
         summaryButton.translatesAutoresizingMaskIntoConstraints = false
 
         translateButton.title = AppText.localized("翻译", "Translate")
-        translateButton.bezelStyle = .rounded
         translateButton.controlSize = .regular
         translateButton.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        translateButton.isDark = isDarkMode
         translateButton.target = self
         translateButton.action = #selector(translateCurrentContent)
         translateButton.translatesAutoresizingMaskIntoConstraints = false
@@ -967,6 +969,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         sendButton.image = NSImage(systemSymbolName: "arrow.up.circle.fill", accessibilityDescription: AppText.send)
         summaryButton.title = AppText.localized("总结", "Summarize")
         translateButton.title = AppText.localized("翻译", "Translate")
+        summaryButton.needsDisplay = true
+        translateButton.needsDisplay = true
         askButton.needsDisplay = true
         if !messages.isEmpty, messages[0].role == "system" {
             messages[0] = ChatMessage(role: "system", content: AIPromptStore.systemPrompt())

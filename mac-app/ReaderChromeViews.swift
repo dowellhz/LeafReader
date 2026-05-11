@@ -111,6 +111,72 @@ final class SideHandleButton: NSButton {
     }
 }
 
+final class CapsuleChromeButton: NSButton {
+    var isDark = false {
+        didSet { needsDisplay = true }
+    }
+
+    override var isHighlighted: Bool {
+        didSet { needsDisplay = true }
+    }
+
+    override var isEnabled: Bool {
+        didSet { needsDisplay = true }
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        isBordered = false
+        focusRingType = .none
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let rect = bounds.insetBy(dx: 0.5, dy: 0.5)
+        let path = NSBezierPath(roundedRect: rect, xRadius: 7, yRadius: 7)
+
+        let fillColor: NSColor
+        let strokeColor: NSColor
+        let textColor: NSColor
+        if isDark {
+            fillColor = NSColor(red: isHighlighted ? 0.15 : 0.09, green: isHighlighted ? 0.18 : 0.11, blue: isHighlighted ? 0.23 : 0.15, alpha: 1)
+            strokeColor = NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1)
+            textColor = isEnabled ? NSColor(red: 0.86, green: 0.89, blue: 0.94, alpha: 1) : NSColor(red: 0.45, green: 0.49, blue: 0.55, alpha: 1)
+        } else {
+            fillColor = NSColor(red: isHighlighted ? 0.92 : 1.0, green: isHighlighted ? 0.94 : 1.0, blue: isHighlighted ? 0.97 : 1.0, alpha: 1)
+            strokeColor = NSColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 1)
+            textColor = isEnabled ? NSColor(red: 0.12, green: 0.14, blue: 0.18, alpha: 1) : NSColor(red: 0.64, green: 0.67, blue: 0.72, alpha: 1)
+        }
+
+        fillColor.setFill()
+        path.fill()
+        strokeColor.setStroke()
+        path.lineWidth = 1
+        path.stroke()
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineBreakMode = .byTruncatingTail
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+            .foregroundColor: textColor,
+            .paragraphStyle: paragraph
+        ]
+        let textRect = bounds.insetBy(dx: 8, dy: 0)
+        let titleSize = title.size(withAttributes: attrs)
+        let drawRect = NSRect(
+            x: textRect.minX,
+            y: max(0, (bounds.height - titleSize.height) / 2),
+            width: textRect.width,
+            height: titleSize.height
+        )
+        (title as NSString).draw(in: drawRect, withAttributes: attrs)
+    }
+}
+
 final class ResizeHandleView: NSView {
     var onDragDeltaX: ((CGFloat) -> Void)?
 

@@ -20,6 +20,8 @@ final class ClickEditableTextField: NSTextField {
 
 final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     private static let preferredAIWidthDefaultsKey = "preferredAIWidth"
+    private static let minimumReadablePDFScale: CGFloat = 1.0
+    private static let capsuleButtonIdentifier = NSUserInterfaceItemIdentifier("leafReaderCapsuleButton")
 
     private var pdfView: EdgePagingPDFView!
     private var webView: WKWebView!
@@ -81,7 +83,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private weak var aiSettingsThemePopup: NSPopUpButton?
     private weak var aiSettingsSecureKeyField: NSSecureTextField?
     private weak var aiSettingsPlainKeyField: NSTextField?
-    private var recentDocumentsPanel: NSWindow?
+    private var recentDocumentsPanelController: RecentDocumentsPanelController?
     private var aiHandleLeadingConstraint: NSLayoutConstraint!
     private var aiPanelWidthConstraint: NSLayoutConstraint!
     private var localEventMonitor: Any?
@@ -640,7 +642,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private func iconButton(symbol: String, action: Selector) -> NSButton {
         let button = NSButton(title: "", target: self, action: action)
         button.isBordered = false
-        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        setSystemImage(symbol, on: button)
         button.imageScaling = .scaleProportionallyDown
         button.contentTintColor = NSColor(red: 0.08, green: 0.09, blue: 0.12, alpha: 1)
         return button
@@ -654,14 +656,31 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func capsuleButton(title: String, symbol: String, action: Selector, imageOnRight: Bool = false) -> NSButton {
-        let button = NSButton(title: title, target: self, action: action)
-        button.bezelStyle = .rounded
+        let button = CapsuleChromeButton(title: title, target: self, action: action)
+        button.identifier = Self.capsuleButtonIdentifier
         button.controlSize = .regular
         button.font = NSFont.systemFont(ofSize: 13)
-        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
-        button.imageScaling = .scaleProportionallyDown
-        button.imagePosition = imageOnRight ? .imageRight : .imageLeft
+        button.isDark = ReaderTheme.selected == .dark
         return button
+    }
+
+    private func setSystemImage(_ symbol: String, on button: NSButton, accessibilityDescription: String? = nil) {
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: accessibilityDescription)
+        if button.image == nil, button.title.isEmpty {
+            button.title = accessibilityDescription ?? ""
+        }
+    }
+
+    private func capsuleAttributedTitle(_ title: String, isDark: Bool) -> NSAttributedString {
+        NSAttributedString(
+            string: title,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+                .foregroundColor: isDark
+                    ? NSColor(red: 0.86, green: 0.89, blue: 0.94, alpha: 1)
+                    : NSColor(red: 0.12, green: 0.14, blue: 0.18, alpha: 1)
+            ]
+        )
     }
 
     private func divider() -> NSView {
@@ -679,6 +698,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         recentButton.title = AppText.localized("最近", "Recent")
         prevButton.title = AppText.prev
         nextButton.title = AppText.next
+        for button in [coverButton, tocButton, recentButton, prevButton, nextButton] {
+            if let capsule = button as? CapsuleChromeButton {
+                capsule.isDark = ReaderTheme.selected == .dark
+            }
+        }
         if pdfView.document == nil {
             pageLabel.stringValue = AppText.noPDF
         }
@@ -686,11 +710,6 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             systemSymbolName: window?.styleMask.contains(.fullScreen) == true ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
             accessibilityDescription: fullScreenButton.title
         )
-        coverButton.image = NSImage(systemSymbolName: "book.closed", accessibilityDescription: AppText.cover)
-        tocButton.image = NSImage(systemSymbolName: "list.bullet", accessibilityDescription: tocButton.title)
-        recentButton.image = NSImage(systemSymbolName: "clock.arrow.circlepath", accessibilityDescription: recentButton.title)
-        prevButton.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: AppText.prev)
-        nextButton.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: AppText.next)
     }
 
     private func applyReaderTheme() {
@@ -751,7 +770,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             label.textColor = textColor
         }
         if let button = view as? NSButton {
-            button.contentTintColor = secondaryColor
+            if button.identifier == Self.capsuleButtonIdentifier {
+                (button as? CapsuleChromeButton)?.isDark = isDark
+            } else {
+                button.contentTintColor = secondaryColor
+            }
         }
         if view !== aiPanel, view !== searchOverlay {
             for subview in view.subviews {
@@ -1338,7 +1361,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         webWordRecordStore = nil
         currentWebPlainText = ""
         currentWebSelectedText = ""
-        currentTOCItems = pdfTOCItems(from: document)
+        let toc = ReaderTOCHelper.pdfTOCItems(from: document, displayBox: pdfView.displayBox)
+        currentTOCItems = toc.items
+        pdfTOCDestinations = toc.destinations
         accumulatedPDFTrackpadScroll = 0
         didTurnPageForCurrentPDFTrackpadGesture = false
         highlightedSelectionKeys.removeAll()
@@ -1441,201 +1466,21 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             NSSound.beep()
             return
         }
-
-        let panel = SettingsPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 720, height: 540),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
+        let controller = RecentDocumentsPanelController()
+        recentDocumentsPanelController = controller
+        controller.show(
+            items: items,
+            attachedTo: window,
+            onOpen: { [weak self] path in
+                self?.loadDocument(URL(fileURLWithPath: path))
+            },
+            onClear: {
+                RecentDocumentsStore.clear()
+            },
+            onClose: { [weak self] in
+                self?.recentDocumentsPanelController = nil
+            }
         )
-        let isDark = ReaderTheme.selected == .dark
-        let panelBackground = isDark
-            ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
-            : NSColor.white
-        let primaryText = isDark
-            ? NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
-            : NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
-        panel.backgroundColor = .clear
-        panel.appearance = isDark ? NSAppearance(named: .darkAqua) : NSAppearance(named: .aqua)
-        panel.isOpaque = false
-        panel.isReleasedWhenClosed = false
-
-        let content = NSView()
-        content.wantsLayer = true
-        content.layer?.backgroundColor = panelBackground.cgColor
-        content.layer?.borderWidth = isDark ? 1 : 0
-        content.layer?.borderColor = NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1).cgColor
-        content.layer?.cornerRadius = 12
-        content.layer?.masksToBounds = false
-        content.layer?.shadowColor = NSColor.black.cgColor
-        content.layer?.shadowOpacity = 0.18
-        content.layer?.shadowRadius = 24
-        content.layer?.shadowOffset = CGSize(width: 0, height: -8)
-        content.translatesAutoresizingMaskIntoConstraints = false
-        panel.contentView = content
-
-        let title = NSTextField(labelWithString: AppText.localized("最近阅读", "Recent Reading"))
-        title.font = NSFont.systemFont(ofSize: 16, weight: .semibold)
-        title.textColor = primaryText
-        title.translatesAutoresizingMaskIntoConstraints = false
-
-        let closeButton = NSButton(title: "", target: self, action: #selector(closeRecentDocumentsPanel(_:)))
-        closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: AppText.close)
-        closeButton.isBordered = false
-        closeButton.contentTintColor = primaryText
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
-
-        let clearButton = NSButton(title: AppText.localized("清空", "Clear"), target: self, action: #selector(clearRecentDocuments(_:)))
-        clearButton.bezelStyle = .rounded
-        clearButton.controlSize = .regular
-        clearButton.font = NSFont.systemFont(ofSize: 13)
-        clearButton.translatesAutoresizingMaskIntoConstraints = false
-
-        let scrollView = NSScrollView()
-        scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-
-        let stack = FlippedStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 10
-        stack.edgeInsets = NSEdgeInsets(top: 2, left: 0, bottom: 2, right: 12)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.documentView = stack
-
-        for item in items {
-            let row = recentDocumentRow(for: item)
-            stack.addArrangedSubview(row)
-            row.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -12).isActive = true
-        }
-
-        for view in [title, closeButton, clearButton, scrollView] {
-            content.addSubview(view)
-        }
-
-        NSLayoutConstraint.activate([
-            title.topAnchor.constraint(equalTo: content.topAnchor, constant: 28),
-            title.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 52),
-
-            closeButton.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
-            closeButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -22),
-            closeButton.widthAnchor.constraint(equalToConstant: 34),
-            closeButton.heightAnchor.constraint(equalToConstant: 34),
-
-            clearButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            clearButton.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -10),
-            clearButton.widthAnchor.constraint(equalToConstant: 76),
-
-            scrollView.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 28),
-            scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 52),
-            scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -52),
-            scrollView.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -30),
-
-            stack.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
-        ])
-
-        recentDocumentsPanel = panel
-        window?.beginSheet(panel)
-    }
-
-    private func recentDocumentRow(for item: RecentDocumentItem) -> NSView {
-        let isDark = ReaderTheme.selected == .dark
-        let primaryText = isDark
-            ? NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
-            : NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
-        let secondaryText = isDark
-            ? NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
-            : NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
-        let row = NSView()
-        row.wantsLayer = true
-        row.layer?.backgroundColor = (isDark
-            ? NSColor(red: 0.13, green: 0.15, blue: 0.19, alpha: 1)
-            : NSColor(red: 0.975, green: 0.98, blue: 0.988, alpha: 1)
-        ).cgColor
-        row.layer?.borderWidth = isDark ? 1 : 0
-        row.layer?.borderColor = NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1).cgColor
-        row.layer?.cornerRadius = 8
-        row.translatesAutoresizingMaskIntoConstraints = false
-
-        let icon = NSImageView()
-        icon.image = NSImage(systemSymbolName: iconName(forRecentKind: item.kind), accessibilityDescription: item.kind)
-        icon.contentTintColor = secondaryText
-        icon.translatesAutoresizingMaskIntoConstraints = false
-
-        let title = NSTextField(labelWithString: item.title)
-        title.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
-        title.textColor = primaryText
-        title.lineBreakMode = .byTruncatingTail
-        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        title.translatesAutoresizingMaskIntoConstraints = false
-
-        let subtitle = NSTextField(labelWithString: "\(item.kind)  ·  \(URL(fileURLWithPath: item.path).deletingLastPathComponent().path)")
-        subtitle.font = NSFont.systemFont(ofSize: 12)
-        subtitle.textColor = secondaryText
-        subtitle.lineBreakMode = .byTruncatingMiddle
-        subtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        subtitle.translatesAutoresizingMaskIntoConstraints = false
-
-        let openButton = NSButton(title: AppText.localized("打开", "Open"), target: self, action: #selector(openRecentDocumentFromButton(_:)))
-        openButton.bezelStyle = .rounded
-        openButton.controlSize = .regular
-        openButton.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        openButton.identifier = NSUserInterfaceItemIdentifier(item.path)
-        openButton.translatesAutoresizingMaskIntoConstraints = false
-
-        for view in [icon, title, subtitle, openButton] {
-            row.addSubview(view)
-        }
-
-        NSLayoutConstraint.activate([
-            row.heightAnchor.constraint(equalToConstant: 70),
-            icon.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 18),
-            icon.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 24),
-            icon.heightAnchor.constraint(equalToConstant: 24),
-
-            title.topAnchor.constraint(equalTo: row.topAnchor, constant: 13),
-            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 18),
-            title.trailingAnchor.constraint(equalTo: openButton.leadingAnchor, constant: -18),
-
-            subtitle.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 6),
-            subtitle.leadingAnchor.constraint(equalTo: title.leadingAnchor),
-            subtitle.trailingAnchor.constraint(equalTo: title.trailingAnchor),
-
-            openButton.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -24),
-            openButton.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            openButton.widthAnchor.constraint(equalToConstant: 82)
-        ])
-        return row
-    }
-
-    private func iconName(forRecentKind kind: String) -> String {
-        switch kind {
-        case "EPUB":
-            return "book.closed"
-        case "DOCX":
-            return "doc.text"
-        default:
-            return "doc.richtext"
-        }
-    }
-
-    @objc private func openRecentDocumentFromButton(_ sender: NSButton) {
-        guard let path = sender.identifier?.rawValue else { return }
-        closeRecentDocumentsPanel(sender)
-        loadDocument(URL(fileURLWithPath: path))
-    }
-
-    @objc private func clearRecentDocuments(_ sender: NSButton) {
-        RecentDocumentsStore.clear()
-        closeRecentDocumentsPanel(sender)
-    }
-
-    @objc private func closeRecentDocumentsPanel(_ sender: Any?) {
-        guard let panel = recentDocumentsPanel else { return }
-        panel.sheetParent?.endSheet(panel)
-        recentDocumentsPanel = nil
     }
 
     @objc private func selectTableOfContentsItem(_ sender: NSMenuItem) {
@@ -1646,42 +1491,6 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         } else {
             jumpToWebTOCItem(item)
         }
-    }
-
-    private func pdfTOCItems(from document: PDFDocument) -> [ReaderTOCItem] {
-        pdfTOCDestinations = [:]
-        guard let root = document.outlineRoot else { return pdfPageTOCItems(from: document) }
-        var items: [ReaderTOCItem] = []
-
-        func walk(_ outline: PDFOutline, level: Int) {
-            for index in 0..<outline.numberOfChildren {
-                guard let child = outline.child(at: index) else { continue }
-                if let destination = pdfDestination(for: child) {
-                    let title = child.label?.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let id = "pdf-toc-\(items.count)"
-                    pdfTOCDestinations[id] = destination
-                    items.append(ReaderTOCItem(
-                        title: title?.isEmpty == false ? title! : AppText.localized("未命名目录", "Untitled"),
-                        href: id,
-                        level: min(level, 4)
-                    ))
-                }
-                walk(child, level: level + 1)
-            }
-        }
-
-        walk(root, level: 0)
-        return items.isEmpty ? pdfPageTOCItems(from: document) : items
-    }
-
-    private func pdfDestination(for outline: PDFOutline) -> PDFDestination? {
-        if let destination = outline.destination {
-            return destination
-        }
-        if let action = outline.action as? PDFActionGoTo {
-            return action.destination
-        }
-        return nil
     }
 
     private func jumpToPDFTOCItem(_ item: ReaderTOCItem) {
@@ -1698,36 +1507,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         saveSession()
     }
 
-    private func pdfPageTOCItems(from document: PDFDocument) -> [ReaderTOCItem] {
-        pdfTOCDestinations = [:]
-        return (0..<document.pageCount).compactMap { index in
-            guard let page = document.page(at: index) else { return nil }
-            let id = "pdf-page-\(index)"
-            let bounds = page.bounds(for: pdfView.displayBox)
-            pdfTOCDestinations[id] = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY))
-            return ReaderTOCItem(
-                title: AppText.localized("第 \(index + 1) 页", "Page \(index + 1)"),
-                href: id,
-                level: 0
-            )
-        }
-    }
-
     private func jumpToWebTOCItem(_ item: ReaderTOCItem) {
-        if item.href.hasPrefix("#") {
-            let fragment = String(item.href.dropFirst())
-            webView.evaluateJavaScript("""
-            document.getElementById(\(jsStringLiteral(fragment)))?.scrollIntoView({behavior:'smooth', block:'start'});
-            """)
-            return
-        }
-
-        webView.evaluateJavaScript("""
-        (() => {
-          const target = Array.from(document.querySelectorAll('[id]')).find(el => el.id && el.id.includes(\(jsStringLiteral(item.title.prefix(16).description))));
-          if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
-        })();
-        """)
+        webView.evaluateJavaScript(ReaderTOCHelper.webJumpScript(for: item))
     }
 
     private func updateCoverThumbnail(from document: PDFDocument) {
@@ -1762,6 +1543,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             setWebZoom(webZoomPercent + 10)
             return
         }
+        pdfView.autoScales = false
         pdfView.scaleFactor = min(pdfView.scaleFactor * 1.25, 8)
         updateZoomLabel()
         saveSession()
@@ -1772,6 +1554,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             setWebZoom(webZoomPercent - 10)
             return
         }
+        pdfView.autoScales = false
         pdfView.scaleFactor = max(pdfView.scaleFactor * 0.8, 0.1)
         updateZoomLabel()
         saveSession()
@@ -1800,6 +1583,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             updateZoomLabel()
             return
         }
+        pdfView.autoScales = false
         pdfView.scaleFactor = min(max(percent, 10), 800) / 100
         updateZoomLabel()
         saveSession()
@@ -2321,38 +2105,43 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
         guard currentDocumentKind == .pdf else {
             if !currentWebSelectionContext.isEmpty {
-                return sentenceContext(containing: normalizedSelection, in: currentWebSelectionContext)
-                    ?? characterWindowContext(containing: normalizedSelection, in: currentWebSelectionContext, radius: 40)
+                return ReaderAIContextBuilder.selectedTextContext(
+                    selectedText: normalizedSelection,
+                    sourceText: currentWebSelectionContext,
+                    radius: 40
+                )
                     ?? currentWebSelectionContext
             }
-            return sentenceContext(containing: normalizedSelection, in: currentWebPlainText)
-                ?? characterWindowContext(containing: normalizedSelection, in: currentWebPlainText, radius: 40)
-                ?? ""
+            return ReaderAIContextBuilder.selectedTextContext(
+                selectedText: normalizedSelection,
+                sourceText: currentWebPlainText,
+                radius: 40
+            ) ?? ""
         }
 
         if let selection = pdfView.currentSelection,
            let page = selection.pages.first {
             let pageText = page.string ?? ""
-            if let context = sentenceContext(containing: normalizedSelection, in: pageText) {
+            if let context = ReaderAIContextBuilder.selectedTextContext(selectedText: normalizedSelection, sourceText: pageText, radius: 20) {
                 return context
             }
 
             let bounds = selection.bounds(for: page)
             let expandedBounds = bounds.insetBy(dx: -120, dy: -36)
             if let nearbyText = page.selection(for: expandedBounds)?.string,
-               let context = sentenceContext(containing: normalizedSelection, in: nearbyText) ?? characterWindowContext(containing: normalizedSelection, in: nearbyText, radius: 20) {
+               let context = ReaderAIContextBuilder.selectedTextContext(selectedText: normalizedSelection, sourceText: nearbyText, radius: 20) {
                 return context
             }
         }
 
         let currentPageText = pdfView.currentPage?.string ?? ""
-        return characterWindowContext(containing: normalizedSelection, in: currentPageText, radius: 20) ?? ""
+        return ReaderAIContextBuilder.selectedTextContext(selectedText: normalizedSelection, sourceText: currentPageText, radius: 20) ?? ""
     }
 
     private func currentSummaryContent(completion: @escaping ((title: String, text: String)?) -> Void) {
         let title = titleLabel.stringValue
         if currentDocumentKind == .pdf {
-            let text = normalizeWhitespace(currentPDFPageSummaryText())
+            let text = ReaderAIContextBuilder.normalizeWhitespace(currentPDFPageSummaryText())
             completion(text.isEmpty ? nil : (title, String(text.prefix(6000))))
             return
         }
@@ -2375,7 +2164,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private func currentTranslationContent(completion: @escaping ((title: String, text: String)?) -> Void) {
         let title = titleLabel.stringValue
         if currentDocumentKind == .pdf {
-            let text = normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
+            let text = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
             completion(text.isEmpty ? nil : (title, String(text.prefix(9000))))
             return
         }
@@ -2390,7 +2179,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 return
             }
 
-            let fallback = self.normalizeReaderTextPreservingParagraphs(self.currentWebProgressTextWindow())
+            let fallback = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(self.currentWebProgressTextWindow())
             completion(fallback.isEmpty ? nil : (title, fallback))
         }
     }
@@ -2398,7 +2187,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private func currentReadingQuestionContent(completion: @escaping ((title: String, text: String)?) -> Void) {
         let title = titleLabel.stringValue
         if currentDocumentKind == .pdf {
-            let text = normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
+            let text = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
             completion(text.isEmpty ? nil : (title, String(text.prefix(5000))))
             return
         }
@@ -2413,242 +2202,37 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 return
             }
 
-            let fallback = self.normalizeReaderTextPreservingParagraphs(self.currentWebProgressTextWindow())
+            let fallback = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(self.currentWebProgressTextWindow())
             completion(fallback.isEmpty ? nil : (title, String(fallback.prefix(5000))))
         }
     }
 
     private func currentWebVisibleText(preserveLineBreaks: Bool = false, completion: @escaping (String) -> Void) {
-        let selector = preserveLineBreaks
-            ? "h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th"
-            : "h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th,div"
-        let surroundingBlockCount = preserveLineBreaks ? 0 : 1
-        let script = """
-        (() => {
-          const blocks = Array.from(document.body.querySelectorAll('\(selector)'));
-          const seen = new Set();
-          const parts = [];
-          const visibleIndexes = [];
-          for (let index = 0; index < blocks.length; index++) {
-            const el = blocks[index];
-            const rect = el.getBoundingClientRect();
-            if (rect.bottom < 0 || rect.top > window.innerHeight || rect.width <= 0 || rect.height <= 0) continue;
-            visibleIndexes.push(index);
-          }
-          if (!visibleIndexes.length) return '';
-          const startIndex = Math.max(0, visibleIndexes[0] - \(surroundingBlockCount));
-          const endIndex = Math.min(blocks.length - 1, visibleIndexes[visibleIndexes.length - 1] + \(surroundingBlockCount));
-          for (let index = startIndex; index <= endIndex; index++) {
-            const el = blocks[index];
-            const text = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
-            if (!text || seen.has(text)) continue;
-            seen.add(text);
-            parts.push(text);
-          }
-          return parts.join('\\n\\n').slice(0, 8000);
-        })();
-        """
+        let script = ReaderAIContextBuilder.visibleWebTextScript(preserveLineBreaks: preserveLineBreaks)
         webView.evaluateJavaScript(script) { value, _ in
             let text = (value as? String) ?? ""
-            completion(preserveLineBreaks ? self.normalizeReaderTextPreservingParagraphs(text) : self.normalizeWhitespace(text))
+            completion(ReaderAIContextBuilder.normalizeVisibleWebText(text, preserveLineBreaks: preserveLineBreaks))
         }
     }
 
     private func currentWebProgressTextWindow() -> String {
-        let text = normalizeWhitespace(currentWebPlainText)
-        guard !text.isEmpty else { return "" }
-        let center = Int(Double(text.count) * webScrollProgress)
-        let lower = max(0, center - 2200)
-        let upper = min(text.count, center + 3800)
-        let start = text.index(text.startIndex, offsetBy: lower)
-        let end = text.index(text.startIndex, offsetBy: upper)
-        return String(text[start..<end])
+        ReaderAIContextBuilder.webProgressTextWindow(plainText: currentWebPlainText, progress: webScrollProgress)
     }
 
     private func currentPDFPageSummaryText() -> String {
         guard let document = pdfView.document,
               let page = pdfView.currentPage else { return "" }
-        let pageIndex = document.index(for: page)
-        let currentText = page.string ?? ""
-        guard !currentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
-
-        let previousText = pageIndex > 0 ? document.page(at: pageIndex - 1)?.string ?? "" : ""
-        let nextText = pageIndex + 1 < document.pageCount ? document.page(at: pageIndex + 1)?.string ?? "" : ""
-
-        let prefix = pdfPreviousPageParagraphTailIfNeeded(currentText: currentText, previousText: previousText)
-        let suffix = pdfNextPageParagraphHeadIfNeeded(currentText: currentText, nextText: nextText)
-        return [prefix, currentText, suffix]
-            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .joined(separator: "\n\n")
+        return ReaderAIContextBuilder.pdfPageSummaryText(document: document, page: page)
     }
 
     private func currentPDFPageTranslationText() -> String {
         guard let document = pdfView.document,
               let page = pdfView.currentPage else { return "" }
-        let pageIndex = document.index(for: page)
-        let previousPreviousRaw = pageIndex > 1 ? document.page(at: pageIndex - 2)?.string ?? "" : ""
-        let previousRaw = pageIndex > 0 ? document.page(at: pageIndex - 1)?.string ?? "" : ""
-        let nextRaw = pageIndex + 1 < document.pageCount ? document.page(at: pageIndex + 1)?.string ?? "" : ""
-        let nextNextRaw = pageIndex + 2 < document.pageCount ? document.page(at: pageIndex + 2)?.string ?? "" : ""
-        let currentText = stripPDFPageChrome(from: page.string ?? "", previousText: previousRaw, nextText: nextRaw)
-        guard !currentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
-
-        let previousText = pageIndex > 0 ? stripPDFPageChrome(from: previousRaw, previousText: previousPreviousRaw, nextText: page.string ?? "") : ""
-        let nextText = pageIndex + 1 < document.pageCount ? stripPDFPageChrome(from: nextRaw, previousText: page.string ?? "", nextText: nextNextRaw) : ""
-        let prefix = pdfPreviousPageParagraphTailIfNeeded(currentText: currentText, previousText: previousText)
-        let suffix = pdfNextPageParagraphHeadIfNeeded(currentText: currentText, nextText: nextText)
-        let combined = [prefix, currentText, suffix]
-            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .joined(separator: "\n\n")
-        return stripPDFPageChrome(from: combined, previousText: previousRaw, nextText: nextRaw)
-    }
-
-    private func stripPDFPageChrome(from text: String, previousText: String, nextText: String) -> String {
-        var lines = text
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-            .components(separatedBy: "\n")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        let previousEdges = pdfEdgeLines(previousText)
-        let nextEdges = pdfEdgeLines(nextText)
-
-        func isRepeatedPageChrome(_ normalized: String) -> Bool {
-            normalized == normalizePDFChromeLine(titleLabel.stringValue)
-                || previousEdges.contains(normalized)
-                || nextEdges.contains(normalized)
-        }
-
-        func isPageNumberLike(_ normalized: String) -> Bool {
-            normalized.range(of: #"^\d{1,4}$"#, options: .regularExpression) != nil
-                || normalized.range(of: #"^[-–—]?\d{1,4}[-–—]?$"#, options: .regularExpression) != nil
-        }
-
-        func isChromeLine(_ line: String, edgeOnly: Bool) -> Bool {
-            let normalized = normalizePDFChromeLine(line)
-            guard !normalized.isEmpty else { return true }
-            if isRepeatedPageChrome(normalized) { return true }
-            if edgeOnly, isPageNumberLike(normalized) { return true }
-            return false
-        }
-
-        for index in lines.indices.reversed() {
-            let edgeOnly = index < 6 || index >= max(0, lines.count - 6)
-            if isChromeLine(lines[index], edgeOnly: edgeOnly) {
-                lines.remove(at: index)
-            }
-        }
-        for index in lines.indices.prefix(3).reversed() where lines.indices.contains(index) && isChromeLine(lines[index], edgeOnly: true) {
-            lines.remove(at: index)
-        }
-        for index in lines.indices.suffix(3).reversed() where lines.indices.contains(index) && isChromeLine(lines[index], edgeOnly: true) {
-            lines.remove(at: index)
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    private func pdfEdgeLines(_ text: String) -> Set<String> {
-        let lines = text
-            .components(separatedBy: .newlines)
-            .map { normalizePDFChromeLine($0) }
-            .filter { !$0.isEmpty }
-        return Set(lines.prefix(3) + lines.suffix(3))
-    }
-
-    private func normalizePDFChromeLine(_ text: String) -> String {
-        text
-            .lowercased()
-            .replacingOccurrences(of: #"[^a-z0-9\u{4e00}-\u{9fff}]"#, with: "", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func pdfPreviousPageParagraphTailIfNeeded(currentText: String, previousText: String) -> String {
-        guard !previousText.isEmpty, pdfTextAppearsToStartMidParagraph(currentText) else { return "" }
-        let normalized = previousText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else { return "" }
-        let start = normalized.lastIndex { "\n\r.!?。！？".contains($0) }
-            .map { normalized.index(after: $0) } ?? normalized.startIndex
-        return stripPDFPageChrome(from: String(normalized[start...]), previousText: "", nextText: currentText)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func pdfNextPageParagraphHeadIfNeeded(currentText: String, nextText: String) -> String {
-        guard !nextText.isEmpty, pdfTextAppearsToEndMidParagraph(currentText) else { return "" }
-        let normalized = nextText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else { return "" }
-        let end = normalized.firstIndex { ".!?。！？\n\r".contains($0) }
-            .map { normalized.index(after: $0) } ?? normalized.endIndex
-        return stripPDFPageChrome(from: String(normalized[..<end]), previousText: currentText, nextText: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func pdfTextAppearsToStartMidParagraph(_ text: String) -> Bool {
-        let lines = text
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        guard let firstLine = lines.first, let first = firstLine.first else { return false }
-        if ",;:，；：)]）".contains(first) { return true }
-        if first.isLowercase { return true }
-        return firstLine.range(of: #"^(and|but|or|nor|for|so|yet|because|while|when|which|that|who|whom|whose|where|as|if|then|than|to|of|in|on|with|from|by)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
-    }
-
-    private func pdfTextAppearsToEndMidParagraph(_ text: String) -> Bool {
-        let lines = text
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        guard let lastLine = lines.last, let last = lastLine.last else { return false }
-        if ".!?。！？”’\"')）".contains(last) { return false }
-        if lastLine.range(of: #"[-–—]\s*$"#, options: .regularExpression) != nil { return true }
-        return lastLine.count >= 40 && last.isLetter
-    }
-
-    private func sentenceContext(containing selectedText: String, in text: String) -> String? {
-        let normalizedText = normalizeWhitespace(text)
-        let normalizedSelection = normalizeWhitespace(selectedText)
-        guard !normalizedText.isEmpty, !normalizedSelection.isEmpty else { return nil }
-        guard let range = normalizedText.range(of: normalizedSelection, options: [.caseInsensitive, .diacriticInsensitive]) else {
-            return nil
-        }
-
-        let sentenceStart = normalizedText[..<range.lowerBound].lastIndex { char in
-            ".!?。！？\n".contains(char)
-        }.map { normalizedText.index(after: $0) } ?? normalizedText.startIndex
-        let sentenceEnd = normalizedText[range.upperBound...].firstIndex { char in
-            ".!?。！？\n".contains(char)
-        }.map { normalizedText.index(after: $0) } ?? normalizedText.endIndex
-        let sentence = normalizeWhitespace(String(normalizedText[sentenceStart..<sentenceEnd]))
-        guard sentence.count > normalizedSelection.count else { return nil }
-        return sentence
-    }
-
-    private func characterWindowContext(containing selectedText: String, in text: String, radius: Int) -> String? {
-        let normalizedText = normalizeWhitespace(text)
-        let normalizedSelection = normalizeWhitespace(selectedText)
-        guard !normalizedText.isEmpty, !normalizedSelection.isEmpty else { return nil }
-        guard let range = normalizedText.range(of: normalizedSelection, options: [.caseInsensitive, .diacriticInsensitive]) else {
-            return nil
-        }
-
-        let prefixStart = normalizedText.index(range.lowerBound, offsetBy: -radius, limitedBy: normalizedText.startIndex) ?? normalizedText.startIndex
-        let suffixEnd = normalizedText.index(range.upperBound, offsetBy: radius, limitedBy: normalizedText.endIndex) ?? normalizedText.endIndex
-        return normalizeWhitespace(String(normalizedText[prefixStart..<suffixEnd]))
-    }
-
-    private func normalizeWhitespace(_ text: String) -> String {
-        text
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func normalizeReaderTextPreservingParagraphs(_ text: String) -> String {
-        text
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-            .replacingOccurrences(of: #"[ \t]+\n"#, with: "\n", options: .regularExpression)
-            .replacingOccurrences(of: #"\n[ \t]+"#, with: "\n", options: .regularExpression)
-            .replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return ReaderAIContextBuilder.pdfPageTranslationText(
+            document: document,
+            page: page,
+            title: titleLabel.stringValue
+        )
     }
 
     private func shouldPersistHighlight(for text: String) -> Bool {
@@ -2858,7 +2442,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             if let firstPage = document.page(at: 0) {
                 pdfView.go(to: firstPage)
             }
-            pdfView.autoScales = true
+            applyReadablePDFScale()
             return
         }
 
@@ -2871,8 +2455,14 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
         let scale = progress.scale
         if scale >= 0.1, scale <= 8 {
-            pdfView.scaleFactor = scale
+            applyReadablePDFScale(scale)
         }
+    }
+
+    private func applyReadablePDFScale(_ scale: CGFloat = ReaderWindowController.minimumReadablePDFScale) {
+        pdfView.autoScales = false
+        pdfView.scaleFactor = min(max(scale, Self.minimumReadablePDFScale), 8)
+        updateZoomLabel()
     }
 
     private func saveSession() {
