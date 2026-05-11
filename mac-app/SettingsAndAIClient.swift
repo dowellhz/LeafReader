@@ -95,6 +95,10 @@ enum LocalEncryptedStore {
 
 enum AISettingsStore {
     static let selectedModelKey = "selectedAIModelID"
+    static let customModelID = "custom"
+    static let customEndpointKey = "customAIEndpointURL"
+    static let customModelNameKey = "customAIModelName"
+    private static let fallbackCustomEndpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
 
     static let models: [AIModelConfig] = [
         AIModelConfig(
@@ -152,12 +156,22 @@ enum AISettingsStore {
             endpoint: URL(string: "https://api.anthropic.com/v1/messages")!,
             model: "claude-3-5-haiku-latest",
             supportsThinkingToggle: false
+        ),
+        AIModelConfig(
+            id: customModelID,
+            provider: "custom",
+            displayName: AppText.localized("其他", "Other"),
+            endpoint: fallbackCustomEndpoint,
+            model: "custom-model",
+            supportsThinkingToggle: false
         )
     ]
 
     static var selectedModel: AIModelConfig {
         let selectedID = UserDefaults.standard.string(forKey: selectedModelKey)
-        return models.first { $0.id == selectedID } ?? models[0]
+        let model = models.first { $0.id == selectedID } ?? models[0]
+        guard model.id == customModelID else { return model }
+        return customModelConfig()
     }
 
     static var hasAPIKeyForSelectedModel: Bool {
@@ -180,9 +194,13 @@ enum AISettingsStore {
         return ""
     }
 
-    static func save(modelID: String, apiKey: String) {
+    static func save(modelID: String, apiKey: String, customEndpoint: String = "", customModelName: String = "") {
         guard let model = models.first(where: { $0.id == modelID }) else { return }
         UserDefaults.standard.set(modelID, forKey: selectedModelKey)
+        if modelID == customModelID {
+            saveCustomEndpoint(customEndpoint)
+            saveCustomModelName(customModelName)
+        }
         LocalEncryptedStore.save(apiKey, forKey: encryptedAPIKeyDefaultsKey(for: model.provider))
         UserDefaults.standard.removeObject(forKey: apiKeyDefaultsKey(for: model.provider))
         UserDefaults.standard.synchronize()
@@ -194,6 +212,71 @@ enum AISettingsStore {
 
     static func encryptedAPIKeyDefaultsKey(for provider: String) -> String {
         "encryptedApiKey.\(provider)"
+    }
+
+    static var customEndpointString: String {
+        UserDefaults.standard.string(forKey: customEndpointKey)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? fallbackCustomEndpoint.absoluteString
+    }
+
+    static var customModelName: String {
+        let saved = UserDefaults.standard.string(forKey: customModelNameKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return saved.isEmpty ? "custom-model" : saved
+    }
+
+    static func customModelConfig() -> AIModelConfig {
+        let endpoint = validEndpoint(from: customEndpointString) ?? fallbackCustomEndpoint
+        return AIModelConfig(
+            id: customModelID,
+            provider: "custom",
+            displayName: AppText.localized("其他", "Other"),
+            endpoint: endpoint,
+            model: customModelName,
+            supportsThinkingToggle: false
+        )
+    }
+
+    static func customValidationError(endpoint: String, modelName: String) -> String? {
+        let trimmedEndpoint = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedModelName = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedEndpoint.isEmpty {
+            return AppText.localized("请输入自定义 URL。", "Enter a custom URL.")
+        }
+        if validEndpoint(from: trimmedEndpoint) == nil {
+            return AppText.localized("自定义 URL 必须是有效的 http 或 https 地址。", "The custom URL must be a valid http or https address.")
+        }
+        if trimmedModelName.isEmpty {
+            return AppText.localized("请输入模型 ID。", "Enter a model ID.")
+        }
+        return nil
+    }
+
+    private static func saveCustomEndpoint(_ endpoint: String) {
+        let trimmed = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        if validEndpoint(from: trimmed) != nil {
+            UserDefaults.standard.set(trimmed, forKey: customEndpointKey)
+        } else if trimmed.isEmpty {
+            UserDefaults.standard.removeObject(forKey: customEndpointKey)
+        }
+    }
+
+    private static func saveCustomModelName(_ modelName: String) {
+        let trimmed = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            UserDefaults.standard.removeObject(forKey: customModelNameKey)
+        } else {
+            UserDefaults.standard.set(trimmed, forKey: customModelNameKey)
+        }
+    }
+
+    private static func validEndpoint(from string: String) -> URL? {
+        guard let url = URL(string: string),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              url.host != nil else {
+            return nil
+        }
+        return url
     }
 }
 

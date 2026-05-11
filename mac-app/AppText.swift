@@ -71,8 +71,8 @@ enum AppText {
     static var followUpPlaceholder: String { localized("继续追问", "Ask a follow-up") }
     static var send: String { localized("发送", "Send") }
     static var noPDF: String { localized("No PDF", "No PDF") }
-    static var fullScreen: String { localized("全屏", "Full Screen") }
-    static var windowed: String { localized("窗口", "Windowed") }
+    static var fullScreen: String { localized("全屏", "Full") }
+    static var windowed: String { localized("窗口", "Window") }
     static var cover: String { localized("首页", "Cover") }
     static var prev: String { localized("上一页", "Prev") }
     static var next: String { localized("下一页", "Next") }

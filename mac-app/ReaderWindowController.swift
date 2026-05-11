@@ -43,6 +43,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var prevButton: NSButton!
     private var nextButton: NSButton!
     private var searchButton: NSButton!
+    private var searchUnderlineButton: SearchUnderlineButton!
     private weak var toolbarView: NSView?
     private weak var bottomBarView: NSView?
     private weak var zoomGroupView: NSView?
@@ -77,12 +78,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var isEditingPageField = false
     private var isAIPanelCollapsed = true
     private var preferredAIWidth: CGFloat = ReaderWindowController.loadPreferredAIWidth()
-    private var aiSettingsPanel: NSWindow?
-    private weak var aiSettingsModelPopup: NSPopUpButton?
-    private weak var aiSettingsLanguagePopup: NSPopUpButton?
-    private weak var aiSettingsThemePopup: NSPopUpButton?
-    private weak var aiSettingsSecureKeyField: NSSecureTextField?
-    private weak var aiSettingsPlainKeyField: NSTextField?
+    private var aiSettingsPanelController: AISettingsPanelController?
     private var recentDocumentsPanelController: RecentDocumentsPanelController?
     private var aiHandleLeadingConstraint: NSLayoutConstraint!
     private var aiPanelWidthConstraint: NSLayoutConstraint!
@@ -386,6 +382,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         pageLabel.target = self
         pageLabel.action = #selector(applyPageFromField)
         pageLabel.toolTip = AppText.localized("输入页码后按回车跳转", "Enter a page number and press Return")
+        searchUnderlineButton = SearchUnderlineButton(title: "", target: self, action: #selector(showSearchOverlay))
+        searchUnderlineButton.toolTip = AppText.localized("搜索文档", "Search document")
+        searchUnderlineButton.isDark = ReaderTheme.selected == .dark
         searchButton = iconButton(symbol: "magnifyingglass", action: #selector(showSearchOverlay))
         searchButton.toolTip = AppText.localized("搜索文档", "Search document")
 
@@ -484,7 +483,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         searchOverlay.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(searchOverlay, positioned: .above, relativeTo: contentArea)
 
-        for view in [openButton, titleLabel, coverImageView, zoomGroup, pageLabel, searchButton!, fullScreenButton!] {
+        for view in [openButton, titleLabel, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, fullScreenButton!] {
             view.translatesAutoresizingMaskIntoConstraints = false
             toolbar.addSubview(view)
         }
@@ -598,13 +597,19 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             pageLabel.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
             pageLabel.widthAnchor.constraint(equalToConstant: 140),
 
-            searchButton.leadingAnchor.constraint(equalTo: pageLabel.trailingAnchor, constant: 6),
+            searchUnderlineButton.leadingAnchor.constraint(equalTo: pageLabel.trailingAnchor, constant: 6),
+            searchUnderlineButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
+            searchUnderlineButton.widthAnchor.constraint(equalToConstant: 74),
+            searchUnderlineButton.heightAnchor.constraint(equalToConstant: 28),
+
+            searchButton.leadingAnchor.constraint(equalTo: searchUnderlineButton.trailingAnchor, constant: 2),
             searchButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
             searchButton.widthAnchor.constraint(equalToConstant: 28),
             searchButton.heightAnchor.constraint(equalToConstant: 28),
 
             fullScreenButton.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor, constant: -14),
             fullScreenButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
+            fullScreenButton.widthAnchor.constraint(equalToConstant: 76),
             fullScreenButton.heightAnchor.constraint(equalToConstant: 30),
 
             searchOverlay.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
@@ -745,6 +750,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             ? NSColor(red: 0.20, green: 0.24, blue: 0.29, alpha: 1)
             : NSColor(red: 0.86, green: 0.88, blue: 0.91, alpha: 1)
         ).cgColor
+        searchUnderlineButton?.isDark = isDark
         applyChromeTheme(to: window?.contentView, isDark: isDark)
         aiPanel.setDarkMode(isDark)
         searchOverlay.setDarkMode(isDark)
@@ -857,346 +863,14 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func openAISettings() {
-        let selectedModel = AISettingsStore.selectedModel
-        let settingsFontSize: CGFloat = 15
-        let isDark = ReaderTheme.selected == .dark
-        let panelBackground = isDark
-            ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
-            : NSColor.white
-        let primaryText = isDark
-            ? NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
-            : NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
-        let secondaryText = isDark
-            ? NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
-            : NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
-        let panel = SettingsPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 740, height: 790),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        panel.appearance = isDark ? NSAppearance(named: .darkAqua) : NSAppearance(named: .aqua)
-        panel.backgroundColor = .clear
-        panel.isOpaque = false
-        panel.isReleasedWhenClosed = false
-
-        let content = NSView()
-        content.wantsLayer = true
-        content.layer?.backgroundColor = panelBackground.cgColor
-        content.layer?.borderWidth = isDark ? 1 : 0
-        content.layer?.borderColor = NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1).cgColor
-        content.layer?.cornerRadius = 12
-        content.layer?.masksToBounds = false
-        content.layer?.shadowColor = NSColor.black.cgColor
-        content.layer?.shadowOpacity = 0.18
-        content.layer?.shadowRadius = 24
-        content.layer?.shadowOffset = CGSize(width: 0, height: -8)
-        content.translatesAutoresizingMaskIntoConstraints = false
-        panel.contentView = content
-
-        let titleLabel = NSTextField(labelWithString: AppText.settings)
-        titleLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
-        titleLabel.textColor = primaryText
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        let closeButton = NSButton(title: "", target: self, action: #selector(cancelAISettings(_:)))
-        closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: AppText.close)
-        closeButton.isBordered = false
-        closeButton.contentTintColor = primaryText
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
-
-        let modelHelpLabel = NSTextField(labelWithString: AppText.modelHelp)
-        modelHelpLabel.font = NSFont.systemFont(ofSize: settingsFontSize)
-        modelHelpLabel.textColor = secondaryText
-        modelHelpLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        let keyHelpLabel = NSTextField(labelWithString: AppText.keyHelp)
-        keyHelpLabel.font = NSFont.systemFont(ofSize: settingsFontSize)
-        keyHelpLabel.textColor = secondaryText
-        keyHelpLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        let languageHelpLabel = NSTextField(labelWithString: AppText.languageHelp)
-        languageHelpLabel.font = NSFont.systemFont(ofSize: settingsFontSize)
-        languageHelpLabel.textColor = secondaryText
-        languageHelpLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        let themeHelpLabel = NSTextField(labelWithString: ReaderTheme.selected.helpText)
-        themeHelpLabel.font = NSFont.systemFont(ofSize: settingsFontSize)
-        themeHelpLabel.textColor = secondaryText
-        themeHelpLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        let modelLabel = NSTextField(labelWithString: AppText.model)
-        modelLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
-        modelLabel.textColor = primaryText
-        modelLabel.translatesAutoresizingMaskIntoConstraints = false
-        let modelPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-        modelPopup.controlSize = .large
-        modelPopup.font = NSFont.systemFont(ofSize: settingsFontSize)
-        modelPopup.translatesAutoresizingMaskIntoConstraints = false
-        for model in AISettingsStore.models {
-            modelPopup.addItem(withTitle: model.displayName)
-            modelPopup.lastItem?.representedObject = model.id
+        guard let window else { return }
+        let controller = AISettingsPanelController()
+        controller.onSaved = { [weak self] in
+            self?.refreshLanguageUI()
+            self?.applyReaderTheme()
         }
-        if let index = AISettingsStore.models.firstIndex(where: { $0.id == selectedModel.id }) {
-            modelPopup.selectItem(at: index)
-        }
-
-        let languageLabel = NSTextField(labelWithString: AppText.language)
-        languageLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
-        languageLabel.textColor = primaryText
-        languageLabel.translatesAutoresizingMaskIntoConstraints = false
-        let languagePopup = NSPopUpButton(frame: .zero, pullsDown: false)
-        languagePopup.controlSize = .large
-        languagePopup.font = NSFont.systemFont(ofSize: settingsFontSize)
-        languagePopup.translatesAutoresizingMaskIntoConstraints = false
-        for language in AppText.Language.allCases {
-            languagePopup.addItem(withTitle: language.title)
-            languagePopup.lastItem?.representedObject = language.rawValue
-        }
-        if let index = AppText.Language.allCases.firstIndex(of: AppText.selectedLanguage) {
-            languagePopup.selectItem(at: index)
-        }
-
-        let themeLabel = NSTextField(labelWithString: AppText.localized("模式", "Mode"))
-        themeLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
-        themeLabel.textColor = primaryText
-        themeLabel.translatesAutoresizingMaskIntoConstraints = false
-        let themePopup = NSPopUpButton(frame: .zero, pullsDown: false)
-        themePopup.controlSize = .large
-        themePopup.font = NSFont.systemFont(ofSize: settingsFontSize)
-        themePopup.translatesAutoresizingMaskIntoConstraints = false
-        for theme in ReaderTheme.allCases {
-            themePopup.addItem(withTitle: theme.title)
-            themePopup.lastItem?.representedObject = theme.rawValue
-        }
-        if let index = ReaderTheme.allCases.firstIndex(of: ReaderTheme.selected) {
-            themePopup.selectItem(at: index)
-        }
-
-        let keyLabel = NSTextField(labelWithString: "API Key")
-        keyLabel.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
-        keyLabel.textColor = primaryText
-        keyLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        let keyField = APIKeySecureTextField(string: AISettingsStore.apiKey(for: selectedModel))
-        keyField.placeholderString = AppText.apiKeyPlaceholder
-        keyField.controlSize = .small
-        keyField.font = NSFont.systemFont(ofSize: settingsFontSize)
-        keyField.isBordered = true
-        keyField.drawsBackground = true
-        keyField.isEditable = true
-        keyField.isSelectable = true
-        keyField.isEnabled = true
-        keyField.textColor = primaryText
-        keyField.backgroundColor = isDark ? NSColor(red: 0.08, green: 0.10, blue: 0.13, alpha: 1) : .white
-        keyField.translatesAutoresizingMaskIntoConstraints = false
-
-        let plainKeyField = APIKeyTextField(string: AISettingsStore.apiKey(for: selectedModel))
-        plainKeyField.placeholderString = AppText.apiKeyPlaceholder
-        plainKeyField.controlSize = .small
-        plainKeyField.font = NSFont.systemFont(ofSize: settingsFontSize)
-        plainKeyField.isBordered = true
-        plainKeyField.drawsBackground = true
-        plainKeyField.isEditable = true
-        plainKeyField.isSelectable = true
-        plainKeyField.isEnabled = true
-        plainKeyField.isHidden = true
-        plainKeyField.textColor = primaryText
-        plainKeyField.backgroundColor = keyField.backgroundColor
-        plainKeyField.translatesAutoresizingMaskIntoConstraints = false
-
-        let eyeButton = NSButton(title: "", target: self, action: #selector(toggleAISettingsAPIKeyVisibility(_:)))
-        eyeButton.image = NSImage(systemSymbolName: "eye", accessibilityDescription: AppText.showAPIKey)
-        eyeButton.isBordered = false
-        eyeButton.contentTintColor = secondaryText
-        eyeButton.translatesAutoresizingMaskIntoConstraints = false
-
-        let cancelButton = NSButton(title: AppText.cancel, target: nil, action: nil)
-        cancelButton.bezelStyle = .rounded
-        cancelButton.controlSize = .large
-        cancelButton.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .medium)
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        let saveButton = NSButton(title: AppText.confirm, target: nil, action: nil)
-        saveButton.bezelStyle = .rounded
-        saveButton.controlSize = .large
-        saveButton.font = NSFont.systemFont(ofSize: settingsFontSize, weight: .semibold)
-        saveButton.keyEquivalent = "\r"
-        saveButton.translatesAutoresizingMaskIntoConstraints = false
-
-        modelPopup.target = self
-        modelPopup.action = #selector(aiSettingsModelChanged(_:))
-        modelPopup.identifier = NSUserInterfaceItemIdentifier("modelPopup")
-        languagePopup.identifier = NSUserInterfaceItemIdentifier("languagePopup")
-        themePopup.identifier = NSUserInterfaceItemIdentifier("themePopup")
-        keyField.identifier = NSUserInterfaceItemIdentifier("keyField")
-        plainKeyField.identifier = NSUserInterfaceItemIdentifier("plainKeyField")
-        for view in [titleLabel, closeButton, modelLabel, modelPopup, modelHelpLabel, languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, keyLabel, keyField, plainKeyField, eyeButton, keyHelpLabel, cancelButton, saveButton] {
-            content.addSubview(view)
-        }
-
-        NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: content.topAnchor, constant: 44),
-            titleLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 48),
-            titleLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -48),
-
-            closeButton.topAnchor.constraint(equalTo: content.topAnchor, constant: 34),
-            closeButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -34),
-            closeButton.widthAnchor.constraint(equalToConstant: 36),
-            closeButton.heightAnchor.constraint(equalToConstant: 36),
-
-            modelLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 66),
-            modelLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            modelPopup.topAnchor.constraint(equalTo: modelLabel.bottomAnchor, constant: 14),
-            modelPopup.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            modelPopup.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            modelPopup.heightAnchor.constraint(equalToConstant: 54),
-            modelHelpLabel.topAnchor.constraint(equalTo: modelPopup.bottomAnchor, constant: 12),
-            modelHelpLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            modelHelpLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-
-            keyLabel.topAnchor.constraint(equalTo: modelHelpLabel.bottomAnchor, constant: 30),
-            keyLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            keyField.topAnchor.constraint(equalTo: keyLabel.bottomAnchor, constant: 10),
-            keyField.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            keyField.trailingAnchor.constraint(equalTo: eyeButton.leadingAnchor, constant: -10),
-            keyField.heightAnchor.constraint(equalToConstant: 34),
-            plainKeyField.topAnchor.constraint(equalTo: keyField.topAnchor),
-            plainKeyField.leadingAnchor.constraint(equalTo: keyField.leadingAnchor),
-            plainKeyField.trailingAnchor.constraint(equalTo: keyField.trailingAnchor),
-            plainKeyField.heightAnchor.constraint(equalTo: keyField.heightAnchor),
-            eyeButton.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            eyeButton.centerYAnchor.constraint(equalTo: keyField.centerYAnchor),
-            eyeButton.widthAnchor.constraint(equalToConstant: 28),
-            eyeButton.heightAnchor.constraint(equalToConstant: 28),
-            keyHelpLabel.topAnchor.constraint(equalTo: keyField.bottomAnchor, constant: 10),
-            keyHelpLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            keyHelpLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-
-            languageLabel.topAnchor.constraint(equalTo: keyHelpLabel.bottomAnchor, constant: 30),
-            languageLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            languagePopup.topAnchor.constraint(equalTo: languageLabel.bottomAnchor, constant: 14),
-            languagePopup.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            languagePopup.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            languagePopup.heightAnchor.constraint(equalToConstant: 54),
-            languageHelpLabel.topAnchor.constraint(equalTo: languagePopup.bottomAnchor, constant: 12),
-            languageHelpLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            languageHelpLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-
-            themeLabel.topAnchor.constraint(equalTo: languageHelpLabel.bottomAnchor, constant: 26),
-            themeLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            themePopup.topAnchor.constraint(equalTo: themeLabel.bottomAnchor, constant: 14),
-            themePopup.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            themePopup.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            themePopup.heightAnchor.constraint(equalToConstant: 54),
-            themeHelpLabel.topAnchor.constraint(equalTo: themePopup.bottomAnchor, constant: 12),
-            themeHelpLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            themeHelpLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-
-            saveButton.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            saveButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -36),
-            saveButton.widthAnchor.constraint(equalToConstant: 118),
-            saveButton.heightAnchor.constraint(equalToConstant: 44),
-            cancelButton.trailingAnchor.constraint(equalTo: saveButton.leadingAnchor, constant: -16),
-            cancelButton.centerYAnchor.constraint(equalTo: saveButton.centerYAnchor),
-            cancelButton.widthAnchor.constraint(equalToConstant: 118),
-            cancelButton.heightAnchor.constraint(equalToConstant: 44)
-        ])
-
-        cancelButton.target = self
-        cancelButton.action = #selector(cancelAISettings(_:))
-        closeButton.target = self
-        closeButton.action = #selector(cancelAISettings(_:))
-        saveButton.target = self
-        saveButton.action = #selector(saveAISettings(_:))
-        saveButton.identifier = NSUserInterfaceItemIdentifier("saveAISettings")
-
-        aiSettingsPanel = panel
-        aiSettingsModelPopup = modelPopup
-        aiSettingsLanguagePopup = languagePopup
-        aiSettingsThemePopup = themePopup
-        aiSettingsSecureKeyField = keyField
-        aiSettingsPlainKeyField = plainKeyField
-
-        window?.beginSheet(panel) { _ in }
-        DispatchQueue.main.async {
-            panel.makeKey()
-            panel.makeFirstResponder(keyField)
-        }
-    }
-
-    @objc private func saveAISettings(_ sender: NSButton) {
-        guard
-            let panel = aiSettingsPanel,
-            let modelPopup = aiSettingsModelPopup,
-            let keyField = currentAISettingsKeyField()
-        else { return }
-
-        let modelID = modelPopup.selectedItem?.representedObject as? String ?? AISettingsStore.selectedModel.id
-        if let rawLanguage = aiSettingsLanguagePopup?.selectedItem?.representedObject as? String,
-           let language = AppText.Language(rawValue: rawLanguage) {
-            AppText.selectedLanguage = language
-        }
-        if let rawTheme = aiSettingsThemePopup?.selectedItem?.representedObject as? String,
-           let theme = ReaderTheme(rawValue: rawTheme) {
-            ReaderTheme.selected = theme
-        }
-        AISettingsStore.save(modelID: modelID, apiKey: keyField.stringValue)
-        refreshLanguageUI()
-        applyReaderTheme()
-        panel.sheetParent?.endSheet(panel)
-    }
-
-    @objc private func cancelAISettings(_ sender: NSButton) {
-        guard let panel = aiSettingsPanel else { return }
-        panel.sheetParent?.endSheet(panel)
-    }
-
-    @objc private func aiSettingsModelChanged(_ sender: NSPopUpButton) {
-        guard
-            let modelID = sender.selectedItem?.representedObject as? String,
-            let model = AISettingsStore.models.first(where: { $0.id == modelID })
-        else { return }
-
-        let key = AISettingsStore.apiKey(for: model)
-        aiSettingsSecureKeyField?.stringValue = key
-        aiSettingsPlainKeyField?.stringValue = key
-    }
-
-    @objc private func toggleAISettingsAPIKeyVisibility(_ sender: NSButton) {
-        guard let secureField = aiSettingsSecureKeyField, let plainField = aiSettingsPlainKeyField else { return }
-        if plainField.isHidden {
-            plainField.stringValue = secureField.stringValue
-            plainField.isHidden = false
-            secureField.isHidden = true
-            sender.image = NSImage(systemSymbolName: "eye.slash", accessibilityDescription: AppText.hideAPIKey)
-            window?.makeFirstResponder(plainField)
-        } else {
-            secureField.stringValue = plainField.stringValue
-            secureField.isHidden = false
-            plainField.isHidden = true
-            sender.image = NSImage(systemSymbolName: "eye", accessibilityDescription: AppText.showAPIKey)
-            window?.makeFirstResponder(secureField)
-        }
-    }
-
-    private func currentAISettingsKeyField() -> NSTextField? {
-        if let plainField = aiSettingsPlainKeyField, !plainField.isHidden {
-            return plainField
-        }
-        return aiSettingsSecureKeyField
-    }
-
-    private func findKeyField(in view: NSView) -> NSTextField? {
-        if let keyField = view as? NSTextField,
-           keyField.identifier?.rawValue == "keyField" || keyField.identifier?.rawValue == "plainKeyField" {
-            return keyField
-        }
-        for subview in view.subviews {
-            if let keyField = findKeyField(in: subview) {
-                return keyField
-            }
-        }
-        return nil
+        aiSettingsPanelController = controller
+        controller.show(attachedTo: window)
     }
 
     @objc private func toggleAIPanel() {
@@ -1334,7 +1008,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func configureOpenPanel(_ panel: NSOpenPanel) {
-        panel.allowedFileTypes = ["pdf", "epub", "docx"]
+        panel.allowedContentTypes = [.pdf, .epub, .init(filenameExtension: "docx")].compactMap { $0 }
         panel.allowsOtherFileTypes = false
     }
 
@@ -2640,6 +2314,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             showSearchOverlay()
             return true
         }
+        if handleReaderCommandShortcut(event) {
+            return true
+        }
 
         let disallowedModifiers: NSEvent.ModifierFlags = [.command, .option, .control]
         guard event.modifierFlags.intersection(disallowedModifiers).isEmpty else { return false }
@@ -2655,6 +2332,116 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         default:
             return false
         }
+    }
+
+    private func handleReaderCommandShortcut(_ event: NSEvent) -> Bool {
+        guard event.modifierFlags.contains(.command),
+              event.modifierFlags.intersection([.option, .control]).isEmpty,
+              !isEditingTextInput,
+              !isFirstResponderInsideAIView,
+              let key = event.charactersIgnoringModifiers?.lowercased() else {
+            return false
+        }
+
+        switch key {
+        case "a":
+            selectAllReaderContent()
+            return true
+        case "c":
+            copyReaderSelectionToClipboard()
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func selectAllReaderContent() {
+        if currentDocumentKind == .pdf {
+            guard let page = pdfView.currentPage,
+                  let selection = page.selection(for: page.bounds(for: pdfView.displayBox)) else {
+                return
+            }
+            pdfView.setCurrentSelection(selection, animate: false)
+            selectionChanged()
+            return
+        }
+
+        webView.evaluateJavaScript("""
+        (() => {
+          const viewportTop = 0;
+          const viewportBottom = window.innerHeight || document.documentElement.clientHeight || 0;
+          const viewportLeft = 0;
+          const viewportRight = window.innerWidth || document.documentElement.clientWidth || 0;
+          const isVisibleRect = (rect) =>
+            rect.width > 0 &&
+            rect.height > 0 &&
+            rect.bottom >= viewportTop &&
+            rect.top <= viewportBottom &&
+            rect.right >= viewportLeft &&
+            rect.left <= viewportRight;
+          const isSelectableTextNode = (node) => {
+            if (!node.nodeValue || !node.nodeValue.trim()) return false;
+            const parent = node.parentElement;
+            if (!parent) return false;
+            const style = window.getComputedStyle(parent);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            const visible = Array.from(range.getClientRects()).some(isVisibleRect);
+            range.detach?.();
+            return visible;
+          };
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+            acceptNode: (node) => isSelectableTextNode(node)
+              ? NodeFilter.FILTER_ACCEPT
+              : NodeFilter.FILTER_REJECT
+          });
+          let first = null;
+          let last = null;
+          let node;
+          while ((node = walker.nextNode())) {
+            if (!first) first = node;
+            last = node;
+          }
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          if (!first || !last) return "";
+          const range = document.createRange();
+          range.setStart(first, 0);
+          range.setEnd(last, last.nodeValue.length);
+          selection.addRange(range);
+          return String(selection || "");
+        })();
+        """) { [weak self] result, _ in
+            let text = (result as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            self?.currentWebSelectedText = text.count > 1 ? text : ""
+            self?.currentWebSelectionContext = text
+            self?.aiPanel.setSelectedText(self?.currentWebSelectedText ?? "")
+        }
+    }
+
+    private func copyReaderSelectionToClipboard() {
+        if currentDocumentKind == .pdf {
+            copyTextToClipboard(pdfView.currentSelection?.string)
+            return
+        }
+
+        webView.evaluateJavaScript("String(window.getSelection ? window.getSelection() : '')") { [weak self] result, _ in
+            let text = result as? String
+            self?.copyTextToClipboard(text)
+        }
+    }
+
+    private func copyTextToClipboard(_ text: String?) {
+        let value = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !value.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
+    }
+
+    private var isFirstResponderInsideAIView: Bool {
+        guard let responder = window?.firstResponder as? NSView else { return false }
+        return responder === aiPanel || responder.isDescendant(of: aiPanel)
     }
 
     private var isEditingTextInput: Bool {

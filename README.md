@@ -14,7 +14,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 Download the latest macOS installer:
 
-[Leaf Reader 1.0.4 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.0.4/LeafReader-1.0.4.pkg)
+[Leaf Reader 1.1.0 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.1.0/LeafReader-1.1.0.pkg)
 
 ## Highlights
 
@@ -82,18 +82,18 @@ open "Leaf Reader.app"
 
 ## Release
 
-Current version: `1.0.4`
+Current version: `1.1.0`
 
-Git tag: `v1.0.4`
+Git tag: `v1.1.0`
 
 Latest installer:
 
-[Leaf Reader-1.0.4.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.0.4/LeafReader-1.0.4.pkg)
+[Leaf Reader-1.1.0.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.1.0/LeafReader-1.1.0.pkg)
 
 Local release artifacts are expected under:
 
 ```text
-release/1.0.4/
+release/1.1.0/
 ```
 
 ## Notes

@@ -1,5 +1,57 @@
 import Cocoa
 
+private final class ChatInputTextField: NSTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.modifierFlags.contains(.command),
+              let key = event.charactersIgnoringModifiers?.lowercased() else {
+            return super.performKeyEquivalent(with: event)
+        }
+
+        switch key {
+        case "a":
+            currentEditor()?.selectAll(nil)
+            return true
+        case "c":
+            copySelectionToClipboard()
+            return true
+        case "x":
+            copySelectionToClipboard()
+            currentEditor()?.delete(nil)
+            return true
+        case "v":
+            pasteFromClipboard()
+            return true
+        default:
+            return super.performKeyEquivalent(with: event)
+        }
+    }
+
+    private func copySelectionToClipboard() {
+        guard let editor = currentEditor() else { return }
+        let selectedRange = editor.selectedRange
+        guard selectedRange.length > 0,
+              let range = Range(selectedRange, in: editor.string) else {
+            return
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(String(editor.string[range]), forType: .string)
+    }
+
+    private func pasteFromClipboard() {
+        guard let text = NSPasteboard.general.string(forType: .string) else { return }
+        let singleLineText = text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        if let editor = currentEditor() {
+            editor.replaceCharacters(in: editor.selectedRange, with: singleLineText)
+        } else {
+            stringValue += singleLineText
+        }
+    }
+}
+
 final class AIChatPanel: NSView, NSTextFieldDelegate {
     private static let readerBodyFontSize: CGFloat = 15
 
@@ -19,7 +71,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     private let statusRow = NSView()
     private let statusLabel = NSTextField(labelWithString: "")
     private let inputBar = NSView()
-    private let inputField = NSTextField(string: "")
+    private let inputField = ChatInputTextField(string: "")
     private let sendButton = NSButton(title: "", target: nil, action: nil)
     private let spinner = NSProgressIndicator()
 

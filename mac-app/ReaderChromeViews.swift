@@ -134,6 +134,14 @@ final class CapsuleChromeButton: NSButton {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override var intrinsicContentSize: NSSize {
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 13, weight: .medium)
+        ]
+        let textWidth = title.size(withAttributes: attrs).width
+        return NSSize(width: max(64, ceil(textWidth) + 28), height: 30)
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         let rect = bounds.insetBy(dx: 0.5, dy: 0.5)
         let path = NSBezierPath(roundedRect: rect, xRadius: 7, yRadius: 7)
@@ -174,6 +182,39 @@ final class CapsuleChromeButton: NSButton {
             height: titleSize.height
         )
         (title as NSString).draw(in: drawRect, withAttributes: attrs)
+    }
+}
+
+final class SearchUnderlineButton: NSButton {
+    var isDark = false {
+        didSet { needsDisplay = true }
+    }
+
+    override var isHighlighted: Bool {
+        didSet { needsDisplay = true }
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        isBordered = false
+        focusRingType = .none
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let lineColor = isDark
+            ? NSColor(red: 0.42, green: 0.48, blue: 0.56, alpha: isHighlighted ? 1 : 0.8)
+            : NSColor(red: 0.72, green: 0.76, blue: 0.82, alpha: isHighlighted ? 1 : 0.9)
+        lineColor.setStroke()
+        let path = NSBezierPath()
+        path.lineWidth = 1.5
+        let underlineY = bounds.isEmpty ? 0 : bounds.height - 4
+        path.move(to: NSPoint(x: 0, y: underlineY))
+        path.line(to: NSPoint(x: bounds.width, y: underlineY))
+        path.stroke()
     }
 }
 
