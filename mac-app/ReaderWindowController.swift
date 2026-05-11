@@ -67,6 +67,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var highlightedSelectionKeys = Set<String>()
     private var storedWordRecords: [StoredPDFWordRecord] = []
     private var pdfWordRecordStore: PDFWordRecordStore?
+    private var storedWebWordRecords: [StoredWebWordRecord] = []
+    private var webWordRecordStore: WebWordRecordStore?
     private var didRegisterSelectionObserver = false
     private var isRestoringSession = false
     private var isEditingZoomField = false
@@ -141,6 +143,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let userContentController = WKUserContentController()
         userContentController.add(self, name: "selectionChanged")
         userContentController.add(self, name: "scrollChanged")
+        userContentController.add(self, name: "webWordClicked")
         userContentController.addUserScript(WKUserScript(
             source: """
             (() => {
@@ -154,8 +157,63 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 style.textContent = `
                   ::highlight(leaf-reader-selection) { background: rgba(255, 221, 87, .62); color: inherit; }
                   .leaf-reader-selection-highlight { background: rgba(255, 221, 87, .62); color: inherit; }
+                  .leaf-reader-linked-word { background: rgba(255, 221, 87, .62); border-radius: 3px; cursor: pointer; }
                 `;
                 document.head.appendChild(style);
+              };
+              window.leafReaderFindTextRange = (word, context) => {
+                const normalizedWord = String(word || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+                const normalizedContext = String(context || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+                if (!normalizedWord) return null;
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+                let node;
+                while ((node = walker.nextNode())) {
+                  const value = node.nodeValue || '';
+                  const lower = value.toLowerCase();
+                  let index = lower.indexOf(normalizedWord);
+                  while (index >= 0) {
+                    const block = node.parentElement?.closest('p,li,blockquote,pre,td,th,h1,h2,h3,h4,h5,h6,div');
+                    const source = (block ? (block.innerText || block.textContent || '') : value).replace(/\\s+/g, ' ').trim().toLowerCase();
+                    if (!normalizedContext || source.includes(normalizedContext.slice(0, Math.min(80, normalizedContext.length)))) {
+                      const range = document.createRange();
+                      range.setStart(node, index);
+                      range.setEnd(node, index + normalizedWord.length);
+                      return range;
+                    }
+                    index = lower.indexOf(normalizedWord, index + normalizedWord.length);
+                  }
+                }
+                return null;
+              };
+              window.leafReaderRestoreWordHighlights = (records) => {
+                installSelectionHighlightStyle();
+                document.querySelectorAll('span.leaf-reader-linked-word').forEach((span) => {
+                  const parent = span.parentNode;
+                  if (!parent) return;
+                  while (span.firstChild) parent.insertBefore(span.firstChild, span);
+                  parent.removeChild(span);
+                  parent.normalize();
+                });
+                for (const record of records || []) {
+                  try {
+                    const range = window.leafReaderFindTextRange(record.word, record.context);
+                    if (!range) continue;
+                    const span = document.createElement('span');
+                    span.className = 'leaf-reader-linked-word';
+                    span.dataset.leafWordId = record.id;
+                    range.surroundContents(span);
+                  } catch (_) {}
+                }
+              };
+              window.leafReaderScrollToWord = (id, fallbackProgress) => {
+                const target = document.querySelector(`span.leaf-reader-linked-word[data-leaf-word-id="${CSS.escape(String(id || ''))}"]`);
+                if (target) {
+                  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  return true;
+                }
+                const height = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+                window.scrollTo({ top: height * Math.max(0, Math.min(1, Number(fallbackProgress || 0))), behavior: 'smooth' });
+                return false;
               };
               const clearSpanHighlights = () => {
                 document.querySelectorAll('span.leaf-reader-selection-highlight').forEach((span) => {
@@ -221,6 +279,13 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 if (selection) selection.removeAllRanges();
                 window.webkit.messageHandlers.selectionChanged.postMessage({ text: "", context: "" });
               });
+              document.addEventListener("click", (event) => {
+                const target = event.target?.closest?.('span.leaf-reader-linked-word');
+                if (!target) return;
+                event.preventDefault();
+                event.stopPropagation();
+                window.webkit.messageHandlers.webWordClicked.postMessage(String(target.dataset.leafWordId || ''));
+              }, true);
               document.addEventListener("selectionchange", () => setTimeout(sendSelection, 0));
               document.addEventListener("mouseup", () => {
                 sendSelection();
@@ -376,14 +441,17 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             return self.contextForCurrentSelection(selectedText: text)
         }
         aiPanel.onSelectedWordQuestionStarted = { [weak self] text in
-            guard let self, self.currentDocumentKind == .pdf else { return nil }
-            return self.persistSelectedWordIfNeeded(self.pdfView.currentSelection, text: text)
+            guard let self else { return nil }
+            if self.currentDocumentKind == .pdf {
+                return self.persistSelectedWordIfNeeded(self.pdfView.currentSelection, text: text)
+            }
+            return self.persistSelectedWebWordIfNeeded(text: text)
         }
         aiPanel.onLinkedAnswerCompleted = { [weak self] linkID, question, answer in
-            self?.updateStoredWordAnswer(linkID: linkID, question: question, answer: answer)
+            self?.updateStoredLinkedWordAnswer(linkID: linkID, question: question, answer: answer)
         }
         aiPanel.onLinkedBubbleSelected = { [weak self] linkID in
-            self?.jumpToStoredWord(linkID: linkID)
+            self?.jumpToStoredLinkedWord(linkID: linkID)
         }
         aiPanel.onSummarizeCurrentContent = { [weak self] completion in
             self?.currentSummaryContent(completion: completion)
@@ -1267,6 +1335,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         currentFileMD5 = fileMD5(for: url)
         sessionStore = ReaderSessionStore(fileMD5: currentFileMD5)
         pdfWordRecordStore = currentFileMD5.map { PDFWordRecordStore(fileMD5: $0) }
+        webWordRecordStore = nil
         currentWebPlainText = ""
         currentWebSelectedText = ""
         currentTOCItems = pdfTOCItems(from: document)
@@ -1274,6 +1343,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         didTurnPageForCurrentPDFTrackpadGesture = false
         highlightedSelectionKeys.removeAll()
         storedWordRecords = loadStoredWordRecords()
+        storedWebWordRecords.removeAll()
         restoreStoredWordAnnotations()
         aiPanel.loadLinkedWordBubbles(pdfWordRecordStore?.linkedWordBubbles(from: storedWordRecords) ?? [])
         searchResults.removeAll()
@@ -1309,6 +1379,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             currentFileMD5 = fileMD5(for: url)
             sessionStore = ReaderSessionStore(fileMD5: currentFileMD5)
             pdfWordRecordStore = nil
+            webWordRecordStore = currentFileMD5.map { WebWordRecordStore(fileMD5: $0) }
             currentWebPlainText = document.plainText
             currentWebSelectedText = ""
             currentWebSelectionContext = ""
@@ -1320,7 +1391,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             webScrollProgress = 0
             highlightedSelectionKeys.removeAll()
             storedWordRecords.removeAll()
-            aiPanel.loadLinkedWordBubbles([])
+            storedWebWordRecords = loadStoredWebWordRecords()
+            aiPanel.loadLinkedWordBubbles(webWordRecordStore?.linkedWordBubbles(from: storedWebWordRecords) ?? [])
             searchResults.removeAll()
             searchResultIndex = 0
             lastSearchQuery = ""
@@ -2077,6 +2149,15 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             saveWebProgress()
             return
         }
+        if message.name == "webWordClicked" {
+            guard currentDocumentKind != .pdf,
+                  let linkID = message.body as? String,
+                  !linkID.isEmpty else {
+                return
+            }
+            selectStoredLinkedWord(linkID: linkID)
+            return
+        }
         guard message.name == "selectionChanged" else { return }
         guard Date() >= suppressSearchSelectionForAIUntil else {
             clearSearchSelectionForAI()
@@ -2121,6 +2202,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard currentDocumentKind != .pdf else { return }
         applyWebReaderTheme()
+        restoreStoredWebWordHighlights()
         applyWebZoomToPage()
         zoomField.stringValue = "\(webZoomPercent)%"
     }
@@ -2156,11 +2238,44 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         return record.id
     }
 
-    private func updateStoredWordAnswer(linkID: String, question: String, answer: String) {
-        guard let index = storedWordRecords.firstIndex(where: { $0.id == linkID }) else { return }
-        storedWordRecords[index].question = question
-        storedWordRecords[index].answer = answer
-        saveStoredWordRecords()
+    private func persistSelectedWebWordIfNeeded(text: String) -> String? {
+        guard shouldPersistHighlight(for: text),
+              currentDocumentKind != .pdf else {
+            return nil
+        }
+        let word = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let context = currentWebSelectionContext.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let existing = webWordRecordStore?.existingRecord(in: storedWebWordRecords, word: word, context: context) {
+            return existing.id
+        }
+
+        let record = StoredWebWordRecord(
+            id: UUID().uuidString,
+            word: word,
+            context: context,
+            scrollProgress: webScrollProgress,
+            question: "\(AppText.explainPrefix): \(word)",
+            answer: "",
+            createdAt: Date()
+        )
+        storedWebWordRecords.append(record)
+        saveStoredWebWordRecords()
+        restoreStoredWebWordHighlights()
+        return record.id
+    }
+
+    private func updateStoredLinkedWordAnswer(linkID: String, question: String, answer: String) {
+        if let index = storedWordRecords.firstIndex(where: { $0.id == linkID }) {
+            storedWordRecords[index].question = question
+            storedWordRecords[index].answer = answer
+            saveStoredWordRecords()
+            return
+        }
+        if let index = storedWebWordRecords.firstIndex(where: { $0.id == linkID }) {
+            storedWebWordRecords[index].question = question
+            storedWebWordRecords[index].answer = answer
+            saveStoredWebWordRecords()
+        }
     }
 
     private func restoreStoredWordAnnotations() {
@@ -2182,6 +2297,22 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         annotation.color = NSColor.systemYellow.withAlphaComponent(0.68)
         annotation.contents = "leaf-word:\(record.id)"
         page.addAnnotation(annotation)
+    }
+
+    private func restoreStoredWebWordHighlights() {
+        guard currentDocumentKind != .pdf, !storedWebWordRecords.isEmpty else { return }
+        let payload = storedWebWordRecords.map {
+            [
+                "id": $0.id,
+                "word": $0.word,
+                "context": $0.context
+            ]
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+        webView.evaluateJavaScript("window.leafReaderRestoreWordHighlights(\(json));")
     }
 
     private func contextForCurrentSelection(selectedText: String) -> String {
@@ -2609,6 +2740,14 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         pdfWordRecordStore?.save(storedWordRecords)
     }
 
+    private func loadStoredWebWordRecords() -> [StoredWebWordRecord] {
+        webWordRecordStore?.load() ?? []
+    }
+
+    private func saveStoredWebWordRecords() {
+        webWordRecordStore?.save(storedWebWordRecords)
+    }
+
     private func storedWordID(at event: NSEvent) -> String? {
         guard currentDocumentKind == .pdf else { return nil }
         let pointInPDFView = pdfView.convert(event.locationInWindow, from: nil)
@@ -2635,7 +2774,15 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         return String(contents.dropFirst("leaf-word:".count))
     }
 
-    private func jumpToStoredWord(linkID: String) {
+    private func jumpToStoredLinkedWord(linkID: String) {
+        if storedWebWordRecords.contains(where: { $0.id == linkID }) {
+            jumpToStoredWebWord(linkID: linkID)
+            return
+        }
+        jumpToStoredPDFWord(linkID: linkID)
+    }
+
+    private func jumpToStoredPDFWord(linkID: String) {
         guard let record = storedWordRecords.first(where: { $0.id == linkID }),
               let page = pdfView.document?.page(at: record.pageIndex) else {
             return
@@ -2651,8 +2798,17 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         saveSession()
     }
 
-    private func selectStoredWord(linkID: String) {
-        guard storedWordRecords.contains(where: { $0.id == linkID }) else { return }
+    private func jumpToStoredWebWord(linkID: String) {
+        guard let record = storedWebWordRecords.first(where: { $0.id == linkID }) else { return }
+        setAIPanelCollapsed(false, animated: true)
+        webView.evaluateJavaScript("window.leafReaderScrollToWord(\(jsStringLiteral(linkID)), \(record.scrollProgress));")
+    }
+
+    private func selectStoredLinkedWord(linkID: String) {
+        guard storedWordRecords.contains(where: { $0.id == linkID })
+                || storedWebWordRecords.contains(where: { $0.id == linkID }) else {
+            return
+        }
         setAIPanelCollapsed(false, animated: true)
         aiPanel.scrollToLinkedBubble(id: linkID)
     }
@@ -2771,7 +2927,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
               let linkID = storedWordID(at: event) else {
             return false
         }
-        selectStoredWord(linkID: linkID)
+        selectStoredLinkedWord(linkID: linkID)
         return true
     }
 
