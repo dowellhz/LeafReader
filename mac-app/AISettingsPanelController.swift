@@ -1,5 +1,48 @@
 import Cocoa
 
+private final class SettingsTextField: NSTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.modifierFlags.contains(.command),
+              let editor = currentEditor(),
+              let key = event.charactersIgnoringModifiers?.lowercased() else {
+            return super.performKeyEquivalent(with: event)
+        }
+
+        switch key {
+        case "a":
+            editor.selectAll(nil)
+            return true
+        case "c":
+            copySelection(from: editor)
+            return true
+        case "x":
+            copySelection(from: editor)
+            editor.delete(nil)
+            return true
+        case "v":
+            pasteClipboard(into: editor)
+            return true
+        default:
+            return super.performKeyEquivalent(with: event)
+        }
+    }
+
+    private func copySelection(from editor: NSText) {
+        let selectedRange = editor.selectedRange
+        guard selectedRange.length > 0,
+              let range = Range(selectedRange, in: editor.string) else {
+            return
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(String(editor.string[range]), forType: .string)
+    }
+
+    private func pasteClipboard(into editor: NSText) {
+        guard let text = NSPasteboard.general.string(forType: .string) else { return }
+        editor.replaceCharacters(in: editor.selectedRange, with: text)
+    }
+}
+
 final class AISettingsPanelController {
     var onSaved: (() -> Void)?
 
@@ -33,7 +76,7 @@ final class AISettingsPanelController {
             : NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
 
         let panel = SettingsPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 740, height: 900),
+            contentRect: NSRect(x: 0, y: 0, width: 680, height: 720),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -42,6 +85,7 @@ final class AISettingsPanelController {
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.isReleasedWhenClosed = false
+        panel.isMovableByWindowBackground = true
 
         let content = NSView()
         content.wantsLayer = true
@@ -64,6 +108,16 @@ final class AISettingsPanelController {
         closeButton.contentTintColor = primaryText
         closeButton.translatesAutoresizingMaskIntoConstraints = false
 
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        let formContent = NSView()
+        formContent.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.documentView = formContent
+
         let modelLabel = label(AppText.model, size: settingsFontSize, weight: .semibold, color: primaryText)
         let modelHelpLabel = label(AppText.modelHelp, size: settingsFontSize, color: secondaryText)
         let modelPopup = NSPopUpButton(frame: .zero, pullsDown: false)
@@ -78,9 +132,9 @@ final class AISettingsPanelController {
             modelPopup.selectItem(at: index)
         }
 
-        let customEndpointLabel = label(AppText.localized("自定义 URL", "Custom URL"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let customEndpointField = inputField(AISettingsStore.customEndpointString, placeholder: "https://api.example.com/v1/chat/completions", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
-        let customModelLabel = label(AppText.localized("模型 ID", "Model ID"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let customEndpointLabel = label(AppText.localized("自定义 / Azure URL", "Custom / Azure URL"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let customEndpointField = inputField(AISettingsStore.customEndpointString, placeholder: "https://resource.openai.azure.com/openai/deployments/deployment/chat/completions?api-version=2024-10-21", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
+        let customModelLabel = label(AppText.localized("模型 ID / Azure 部署名", "Model ID / Azure Deployment"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let customModelField = inputField(AISettingsStore.customModelName, placeholder: "gpt-4o-mini", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
 
         let keyLabel = label("API Key", size: settingsFontSize, weight: .semibold, color: primaryText)
@@ -126,93 +180,107 @@ final class AISettingsPanelController {
         keyField.identifier = NSUserInterfaceItemIdentifier("keyField")
         plainKeyField.identifier = NSUserInterfaceItemIdentifier("plainKeyField")
 
-        for view in [titleLabel, closeButton, modelLabel, modelPopup, modelHelpLabel, customEndpointLabel, customEndpointField, customModelLabel, customModelField, keyLabel, keyField, plainKeyField, eyeButton, keyHelpLabel, languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, cancelButton, saveButton] {
+        for view in [titleLabel, closeButton, scrollView, cancelButton, saveButton] {
             content.addSubview(view)
         }
+        for view in [modelLabel, modelPopup, modelHelpLabel, customEndpointLabel, customEndpointField, customModelLabel, customModelField, keyLabel, keyField, plainKeyField, eyeButton, keyHelpLabel, languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel] {
+            formContent.addSubview(view)
+        }
 
-        let keyTopWithCustom = keyLabel.topAnchor.constraint(equalTo: customModelField.bottomAnchor, constant: 24)
-        let keyTopWithoutCustom = keyLabel.topAnchor.constraint(equalTo: modelHelpLabel.bottomAnchor, constant: 30)
+        let keyTopWithCustom = keyLabel.topAnchor.constraint(equalTo: customModelField.bottomAnchor, constant: 18)
+        let keyTopWithoutCustom = keyLabel.topAnchor.constraint(equalTo: modelHelpLabel.bottomAnchor, constant: 22)
         keyTopWithCustomConstraint = keyTopWithCustom
         keyTopWithoutCustomConstraint = keyTopWithoutCustom
 
         NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: content.topAnchor, constant: 44),
-            titleLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 48),
-            titleLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -48),
-            closeButton.topAnchor.constraint(equalTo: content.topAnchor, constant: 34),
-            closeButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -34),
+            titleLabel.topAnchor.constraint(equalTo: content.topAnchor, constant: 28),
+            titleLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 40),
+            titleLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -40),
+            closeButton.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
+            closeButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -24),
             closeButton.widthAnchor.constraint(equalToConstant: 36),
             closeButton.heightAnchor.constraint(equalToConstant: 36),
 
-            modelLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 66),
-            modelLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            modelPopup.topAnchor.constraint(equalTo: modelLabel.bottomAnchor, constant: 14),
-            modelPopup.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            modelPopup.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            modelPopup.heightAnchor.constraint(equalToConstant: 54),
-            modelHelpLabel.topAnchor.constraint(equalTo: modelPopup.bottomAnchor, constant: 12),
-            modelHelpLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            modelHelpLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 18),
+            scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 40),
+            scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -40),
+            scrollView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -18),
+            formContent.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
+            formContent.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
+            formContent.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
+            formContent.bottomAnchor.constraint(equalTo: scrollView.contentView.bottomAnchor),
+            formContent.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
 
-            customEndpointLabel.topAnchor.constraint(equalTo: modelHelpLabel.bottomAnchor, constant: 24),
-            customEndpointLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            customEndpointField.topAnchor.constraint(equalTo: customEndpointLabel.bottomAnchor, constant: 10),
-            customEndpointField.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            customEndpointField.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            modelLabel.topAnchor.constraint(equalTo: formContent.topAnchor, constant: 4),
+            modelLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            modelPopup.topAnchor.constraint(equalTo: modelLabel.bottomAnchor, constant: 8),
+            modelPopup.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            modelPopup.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            modelPopup.heightAnchor.constraint(equalToConstant: 44),
+            modelHelpLabel.topAnchor.constraint(equalTo: modelPopup.bottomAnchor, constant: 8),
+            modelHelpLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            modelHelpLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+
+            customEndpointLabel.topAnchor.constraint(equalTo: modelHelpLabel.bottomAnchor, constant: 18),
+            customEndpointLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            customEndpointField.topAnchor.constraint(equalTo: customEndpointLabel.bottomAnchor, constant: 8),
+            customEndpointField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            customEndpointField.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
             customEndpointField.heightAnchor.constraint(equalToConstant: 34),
-            customModelLabel.topAnchor.constraint(equalTo: customEndpointField.bottomAnchor, constant: 14),
-            customModelLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            customModelField.topAnchor.constraint(equalTo: customModelLabel.bottomAnchor, constant: 10),
-            customModelField.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            customModelField.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            customModelLabel.topAnchor.constraint(equalTo: customEndpointField.bottomAnchor, constant: 10),
+            customModelLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            customModelField.topAnchor.constraint(equalTo: customModelLabel.bottomAnchor, constant: 8),
+            customModelField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            customModelField.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
             customModelField.heightAnchor.constraint(equalToConstant: 34),
 
             keyTopWithCustom,
-            keyLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            keyField.topAnchor.constraint(equalTo: keyLabel.bottomAnchor, constant: 10),
-            keyField.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            keyLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            keyField.topAnchor.constraint(equalTo: keyLabel.bottomAnchor, constant: 8),
+            keyField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
             keyField.trailingAnchor.constraint(equalTo: eyeButton.leadingAnchor, constant: -10),
             keyField.heightAnchor.constraint(equalToConstant: 34),
             plainKeyField.topAnchor.constraint(equalTo: keyField.topAnchor),
             plainKeyField.leadingAnchor.constraint(equalTo: keyField.leadingAnchor),
             plainKeyField.trailingAnchor.constraint(equalTo: keyField.trailingAnchor),
             plainKeyField.heightAnchor.constraint(equalTo: keyField.heightAnchor),
-            eyeButton.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            eyeButton.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
             eyeButton.centerYAnchor.constraint(equalTo: keyField.centerYAnchor),
             eyeButton.widthAnchor.constraint(equalToConstant: 28),
             eyeButton.heightAnchor.constraint(equalToConstant: 28),
-            keyHelpLabel.topAnchor.constraint(equalTo: keyField.bottomAnchor, constant: 10),
-            keyHelpLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            keyHelpLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            keyHelpLabel.topAnchor.constraint(equalTo: keyField.bottomAnchor, constant: 8),
+            keyHelpLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            keyHelpLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
 
-            languageLabel.topAnchor.constraint(equalTo: keyHelpLabel.bottomAnchor, constant: 30),
-            languageLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            languagePopup.topAnchor.constraint(equalTo: languageLabel.bottomAnchor, constant: 14),
-            languagePopup.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            languagePopup.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            languagePopup.heightAnchor.constraint(equalToConstant: 54),
-            languageHelpLabel.topAnchor.constraint(equalTo: languagePopup.bottomAnchor, constant: 12),
-            languageHelpLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            languageHelpLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            languageLabel.topAnchor.constraint(equalTo: keyHelpLabel.bottomAnchor, constant: 22),
+            languageLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            languagePopup.topAnchor.constraint(equalTo: languageLabel.bottomAnchor, constant: 8),
+            languagePopup.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            languagePopup.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            languagePopup.heightAnchor.constraint(equalToConstant: 44),
+            languageHelpLabel.topAnchor.constraint(equalTo: languagePopup.bottomAnchor, constant: 8),
+            languageHelpLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            languageHelpLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
 
-            themeLabel.topAnchor.constraint(equalTo: languageHelpLabel.bottomAnchor, constant: 26),
-            themeLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            themePopup.topAnchor.constraint(equalTo: themeLabel.bottomAnchor, constant: 14),
-            themePopup.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            themePopup.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            themePopup.heightAnchor.constraint(equalToConstant: 54),
-            themeHelpLabel.topAnchor.constraint(equalTo: themePopup.bottomAnchor, constant: 12),
-            themeHelpLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            themeHelpLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            themeLabel.topAnchor.constraint(equalTo: languageHelpLabel.bottomAnchor, constant: 20),
+            themeLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            themePopup.topAnchor.constraint(equalTo: themeLabel.bottomAnchor, constant: 8),
+            themePopup.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            themePopup.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            themePopup.heightAnchor.constraint(equalToConstant: 44),
+            themeHelpLabel.topAnchor.constraint(equalTo: themePopup.bottomAnchor, constant: 8),
+            themeHelpLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            themeHelpLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            themeHelpLabel.bottomAnchor.constraint(equalTo: formContent.bottomAnchor, constant: -8),
 
-            saveButton.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            saveButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -36),
-            saveButton.widthAnchor.constraint(equalToConstant: 118),
-            saveButton.heightAnchor.constraint(equalToConstant: 44),
+            saveButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -40),
+            saveButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -28),
+            saveButton.widthAnchor.constraint(equalToConstant: 104),
+            saveButton.heightAnchor.constraint(equalToConstant: 38),
             cancelButton.trailingAnchor.constraint(equalTo: saveButton.leadingAnchor, constant: -16),
             cancelButton.centerYAnchor.constraint(equalTo: saveButton.centerYAnchor),
-            cancelButton.widthAnchor.constraint(equalToConstant: 118),
-            cancelButton.heightAnchor.constraint(equalToConstant: 44)
+            cancelButton.widthAnchor.constraint(equalToConstant: 104),
+            cancelButton.heightAnchor.constraint(equalToConstant: 38)
         ])
 
         self.panel = panel
@@ -232,7 +300,11 @@ final class AISettingsPanelController {
         }
         DispatchQueue.main.async {
             panel.makeKey()
-            panel.makeFirstResponder(keyField)
+            if selectedModel.id == AISettingsStore.customModelID {
+                panel.makeFirstResponder(customEndpointField)
+            } else {
+                panel.makeFirstResponder(keyField)
+            }
         }
     }
 
@@ -285,13 +357,13 @@ final class AISettingsPanelController {
             plainField.isHidden = false
             secureField.isHidden = true
             sender.image = NSImage(systemSymbolName: "eye.slash", accessibilityDescription: AppText.hideAPIKey)
-            parentWindow?.makeFirstResponder(plainField)
+            panel?.makeFirstResponder(plainField)
         } else {
             secureField.stringValue = plainField.stringValue
             secureField.isHidden = false
             plainField.isHidden = true
             sender.image = NSImage(systemSymbolName: "eye", accessibilityDescription: AppText.showAPIKey)
-            parentWindow?.makeFirstResponder(secureField)
+            panel?.makeFirstResponder(secureField)
         }
     }
 
@@ -333,7 +405,7 @@ final class AISettingsPanelController {
     }
 
     private func inputField(_ text: String, placeholder: String, fontSize: CGFloat, textColor: NSColor, backgroundColor: NSColor) -> NSTextField {
-        let field = NSTextField(string: text)
+        let field = SettingsTextField(string: text)
         field.placeholderString = placeholder
         field.controlSize = .small
         field.font = NSFont.systemFont(ofSize: fontSize)

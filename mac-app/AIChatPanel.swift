@@ -2,23 +2,32 @@ import Cocoa
 
 private final class ChatInputTextField: NSTextField {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.modifierFlags.contains(.command),
+        guard event.modifierFlags.contains(.command) || event.modifierFlags.contains(.control),
               let key = event.charactersIgnoringModifiers?.lowercased() else {
             return super.performKeyEquivalent(with: event)
         }
 
         switch key {
         case "a":
+            guard event.modifierFlags.contains(.command) else {
+                return super.performKeyEquivalent(with: event)
+            }
             currentEditor()?.selectAll(nil)
             return true
         case "c":
             copySelectionToClipboard()
             return true
         case "x":
+            guard event.modifierFlags.contains(.command) else {
+                return super.performKeyEquivalent(with: event)
+            }
             copySelectionToClipboard()
             currentEditor()?.delete(nil)
             return true
         case "v":
+            guard event.modifierFlags.contains(.command) else {
+                return super.performKeyEquivalent(with: event)
+            }
             pasteFromClipboard()
             return true
         default:
@@ -49,6 +58,28 @@ private final class ChatInputTextField: NSTextField {
         } else {
             stringValue += singleLineText
         }
+    }
+}
+
+private final class ChatBubbleTextField: NSTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard (event.modifierFlags.contains(.command) || event.modifierFlags.contains(.control)),
+              event.charactersIgnoringModifiers?.lowercased() == "c" else {
+            return super.performKeyEquivalent(with: event)
+        }
+        return copySelectionToClipboard() || super.performKeyEquivalent(with: event)
+    }
+
+    private func copySelectionToClipboard() -> Bool {
+        guard let editor = currentEditor() else { return false }
+        let selectedRange = editor.selectedRange
+        guard selectedRange.length > 0,
+              let range = Range(selectedRange, in: editor.string) else {
+            return false
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(String(editor.string[range]), forType: .string)
+        return true
     }
 }
 
@@ -626,10 +657,10 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         box.cornerRadius = 8
         box.translatesAutoresizingMaskIntoConstraints = false
 
-        let body = NSTextField(wrappingLabelWithString: "")
+        let body = ChatBubbleTextField(wrappingLabelWithString: "")
         body.attributedStringValue = bubbleString(role: role, text: text, renderMarkdown: renderMarkdown)
         body.maximumNumberOfLines = collapsible ? 1 : 0
-        body.isSelectable = false
+        body.isSelectable = true
         body.translatesAutoresizingMaskIntoConstraints = false
         let bodyID = UUID().uuidString
         body.identifier = NSUserInterfaceItemIdentifier(bodyID)

@@ -9,39 +9,70 @@ final class SettingsPanel: NSPanel {
 
 final class APIKeySecureTextField: NSSecureTextField {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "v" {
-            pasteFromClipboard()
-            return true
+        guard event.modifierFlags.contains(.command),
+              let editor = currentEditor(),
+              let key = event.charactersIgnoringModifiers?.lowercased() else {
+            return super.performKeyEquivalent(with: event)
         }
-        return super.performKeyEquivalent(with: event)
+
+        switch key {
+        case "a":
+            editor.selectAll(nil)
+            return true
+        case "v":
+            pasteFromClipboard(into: editor)
+            return true
+        default:
+            return super.performKeyEquivalent(with: event)
+        }
     }
 
-    private func pasteFromClipboard() {
+    private func pasteFromClipboard(into editor: NSText) {
         guard let text = NSPasteboard.general.string(forType: .string) else { return }
-        if let editor = currentEditor() {
-            editor.replaceCharacters(in: editor.selectedRange, with: text)
-        } else {
-            stringValue += text
-        }
+        editor.replaceCharacters(in: editor.selectedRange, with: text)
     }
 }
 
 final class APIKeyTextField: NSTextField {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "v" {
-            pasteFromClipboard()
-            return true
+        guard event.modifierFlags.contains(.command),
+              let editor = currentEditor(),
+              let key = event.charactersIgnoringModifiers?.lowercased() else {
+            return super.performKeyEquivalent(with: event)
         }
-        return super.performKeyEquivalent(with: event)
+
+        switch key {
+        case "a":
+            editor.selectAll(nil)
+            return true
+        case "c":
+            copySelection(from: editor)
+            return true
+        case "x":
+            copySelection(from: editor)
+            editor.delete(nil)
+            return true
+        case "v":
+            pasteFromClipboard(into: editor)
+            return true
+        default:
+            return super.performKeyEquivalent(with: event)
+        }
     }
 
-    private func pasteFromClipboard() {
-        guard let text = NSPasteboard.general.string(forType: .string) else { return }
-        if let editor = currentEditor() {
-            editor.replaceCharacters(in: editor.selectedRange, with: text)
-        } else {
-            stringValue += text
+    private func copySelection(from editor: NSText) {
+        let selectedRange = editor.selectedRange
+        guard selectedRange.length > 0,
+              let range = Range(selectedRange, in: editor.string) else {
+            return
         }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(String(editor.string[range]), forType: .string)
+    }
+
+    private func pasteFromClipboard(into editor: NSText) {
+        guard let text = NSPasteboard.general.string(forType: .string) else { return }
+        editor.replaceCharacters(in: editor.selectedRange, with: text)
     }
 }
 
@@ -52,6 +83,26 @@ struct AIModelConfig {
     let endpoint: URL
     let model: String
     let supportsThinkingToggle: Bool
+
+    var usesAzureAPIKeyHeader: Bool {
+        guard provider == AISettingsStore.customProviderID,
+              let host = endpoint.host?.lowercased() else {
+            return false
+        }
+        return host.hasSuffix(".openai.azure.com")
+            || host.hasSuffix(".services.ai.azure.com")
+            || host.hasSuffix(".cognitiveservices.azure.com")
+    }
+
+    var usesAzureDeploymentEndpoint: Bool {
+        guard usesAzureAPIKeyHeader else { return false }
+        return endpoint.path.lowercased().contains("/openai/deployments/")
+    }
+
+    var usesResponsesEndpoint: Bool {
+        let path = endpoint.path.lowercased()
+        return path.hasSuffix("/openai/responses") || path.hasSuffix("/openai/v1/responses")
+    }
 }
 
 enum LocalEncryptedStore {
@@ -96,6 +147,7 @@ enum LocalEncryptedStore {
 enum AISettingsStore {
     static let selectedModelKey = "selectedAIModelID"
     static let customModelID = "custom"
+    static let customProviderID = "custom"
     static let customEndpointKey = "customAIEndpointURL"
     static let customModelNameKey = "customAIModelName"
     private static let fallbackCustomEndpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
@@ -159,7 +211,7 @@ enum AISettingsStore {
         ),
         AIModelConfig(
             id: customModelID,
-            provider: "custom",
+            provider: customProviderID,
             displayName: AppText.localized("其他", "Other"),
             endpoint: fallbackCustomEndpoint,
             model: "custom-model",
@@ -228,7 +280,7 @@ enum AISettingsStore {
         let endpoint = validEndpoint(from: customEndpointString) ?? fallbackCustomEndpoint
         return AIModelConfig(
             id: customModelID,
-            provider: "custom",
+            provider: customProviderID,
             displayName: AppText.localized("其他", "Other"),
             endpoint: endpoint,
             model: customModelName,
@@ -401,12 +453,33 @@ final class AIClient {
         if config.provider == "claude" {
             request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
             request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        } else if config.usesAzureAPIKeyHeader {
+            request.setValue(apiKey, forHTTPHeaderField: "api-key")
         } else {
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         }
     }
 
     private static func payload(for config: AIModelConfig, messages: [ChatMessage], stream: Bool) -> [String: Any] {
+        if config.usesResponsesEndpoint {
+            var payload: [String: Any] = [
+                "model": config.model,
+                "input": responsesInput(from: messages),
+                "max_output_tokens": 2048
+            ]
+            let instructions = messages
+                .filter { $0.role == "system" }
+                .map(\.content)
+                .joined(separator: "\n\n")
+            if !instructions.isEmpty {
+                payload["instructions"] = instructions
+            }
+            if stream {
+                payload["stream"] = true
+            }
+            return payload
+        }
+
         if config.provider == "claude" {
             let system = messages
                 .filter { $0.role == "system" }
@@ -433,11 +506,13 @@ final class AIClient {
         }
 
         var payload: [String: Any] = [
-            "model": config.model,
             "messages": messages.map { ["role": $0.role, "content": $0.content] },
             "temperature": 0.4,
             "max_tokens": 2048
         ]
+        if !config.usesAzureDeploymentEndpoint {
+            payload["model"] = config.model
+        }
         if stream {
             payload["stream"] = true
         }
@@ -447,6 +522,16 @@ final class AIClient {
         return payload
     }
 
+    private static func responsesInput(from messages: [ChatMessage]) -> String {
+        messages
+            .filter { $0.role != "system" }
+            .map { message in
+                let label = message.role == "assistant" ? "Assistant" : "User"
+                return "\(label):\n\(message.content)"
+            }
+            .joined(separator: "\n\n")
+    }
+
     private static func responseText(from json: [String: Any]?, provider: String) -> String? {
         guard let json else { return nil }
         if provider == "claude" {
@@ -454,6 +539,21 @@ final class AIClient {
             return content.compactMap { block in
                 block["text"] as? String
             }.joined()
+        }
+
+        if let outputText = json["output_text"] as? String {
+            return outputText
+        }
+        if let output = json["output"] as? [[String: Any]] {
+            let text = output.compactMap { item -> String? in
+                guard let content = item["content"] as? [[String: Any]] else { return nil }
+                return content.compactMap { block in
+                    (block["text"] as? String) ?? (block["content"] as? String)
+                }.joined()
+            }.joined()
+            if !text.isEmpty {
+                return text
+            }
         }
 
         guard
@@ -478,6 +578,13 @@ final class AIClient {
         if jsonString == "[DONE]" { return nil }
         guard let data = jsonString.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+
+        if let type = json["type"] as? String, type == "response.output_text.delta" {
+            return json["delta"] as? String
+        }
+        if let type = json["type"] as? String, type == "response.completed" {
             return nil
         }
 
