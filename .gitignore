@@ -3,11 +3,8 @@
 *.zip
 *.pkg
 
-# Track the distributable app bundle at the repository root, but keep
-# generated release folders out of git.
+# Generated app bundles and release folders stay out of git.
 *.app/
-!Leaf Reader.app/
-!Leaf Reader.app/**
 
 # Local build outputs
 mac-app/Leaf Reader

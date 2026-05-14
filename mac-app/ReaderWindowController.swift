@@ -40,6 +40,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var coverButton: NSButton!
     private var tocButton: NSButton!
     private var recentButton: NSButton!
+    private var vocabularyButton: NSButton!
     private var prevButton: NSButton!
     private var nextButton: NSButton!
     private var searchButton: NSButton!
@@ -396,6 +397,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         fullScreenButton = capsuleButton(title: AppText.fullScreen, symbol: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullScreen))
         tocButton = capsuleButton(title: AppText.localized("目录", "TOC"), symbol: "list.bullet", action: #selector(showTableOfContents))
         recentButton = capsuleButton(title: AppText.localized("最近", "Recent"), symbol: "clock.arrow.circlepath", action: #selector(showRecentDocuments))
+        vocabularyButton = capsuleButton(title: AppText.localized("单词本", "Words"), symbol: "text.book.closed", action: #selector(showVocabularyBook))
         coverButton = capsuleButton(title: AppText.cover, symbol: "book.closed", action: #selector(goToCover))
         prevButton = capsuleButton(title: AppText.prev, symbol: "chevron.left", action: #selector(prevPage))
         nextButton = capsuleButton(title: AppText.next, symbol: "chevron.right", action: #selector(nextPage), imageOnRight: true)
@@ -496,7 +498,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             toolbar.addSubview(view)
         }
 
-        for view in [settingsButton, recentButton!, tocButton!, coverButton!, prevButton!, nextButton!] {
+        for view in [settingsButton, recentButton!, vocabularyButton!, tocButton!, coverButton!, prevButton!, nextButton!] {
             view.translatesAutoresizingMaskIntoConstraints = false
             bottomBar.addSubview(view)
         }
@@ -565,6 +567,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             recentButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
             recentButton.widthAnchor.constraint(equalToConstant: 88),
             recentButton.heightAnchor.constraint(equalToConstant: 30),
+
+            vocabularyButton.leadingAnchor.constraint(equalTo: recentButton.trailingAnchor, constant: 10),
+            vocabularyButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
+            vocabularyButton.widthAnchor.constraint(equalToConstant: 92),
+            vocabularyButton.heightAnchor.constraint(equalToConstant: 30),
 
             coverImageView.leadingAnchor.constraint(equalTo: openButton.trailingAnchor, constant: 28),
             coverImageView.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
@@ -709,9 +716,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         coverButton.title = AppText.cover
         tocButton.title = AppText.localized("目录", "TOC")
         recentButton.title = AppText.localized("最近", "Recent")
+        vocabularyButton.title = AppText.localized("单词本", "Words")
         prevButton.title = AppText.prev
         nextButton.title = AppText.next
-        for button in [coverButton, tocButton, recentButton, prevButton, nextButton] {
+        for button in [coverButton, tocButton, recentButton, vocabularyButton, prevButton, nextButton] {
             if let capsule = button as? CapsuleChromeButton {
                 capsule.isDark = ReaderTheme.selected == .dark
             }
@@ -1165,6 +1173,32 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 self?.recentDocumentsPanelController = nil
             }
         )
+    }
+
+    @objc private func showVocabularyBook() {
+        let records: [(word: String, answer: String, location: String)]
+        if currentDocumentKind == .pdf {
+            records = storedWordRecords
+                .filter { !$0.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                .map { ($0.word, $0.answer, AppText.localized("第 \($0.pageIndex + 1) 页", "p. \($0.pageIndex + 1)")) }
+        } else {
+            records = storedWebWordRecords
+                .filter { !$0.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                .map { ($0.word, $0.answer, AppText.localized("网页", "Web")) }
+        }
+        guard !records.isEmpty else {
+            NSSound.beep()
+            return
+        }
+
+        let content = records.prefix(80).map { record in
+            "• \(record.word)  \(record.location)\n\(String(record.answer.prefix(180)))"
+        }.joined(separator: "\n\n")
+        let alert = NSAlert()
+        alert.messageText = AppText.localized("本书单词本", "Book Vocabulary")
+        alert.informativeText = content
+        alert.addButton(withTitle: AppText.confirm)
+        alert.runModal()
     }
 
     @objc private func selectTableOfContentsItem(_ sender: NSMenuItem) {
@@ -1903,6 +1937,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
 
         let currentPageText = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
+        let chapterText = currentPDFNearbyPagesText()
         crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: currentPageText) { [weak self] retrievalQuery in
             DispatchQueue.main.async {
                 guard let self else {
@@ -1926,10 +1961,12 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                             currentPageIndex: self.currentPageIndex(),
                             queryEmbedding: queryEmbedding
                         ) ?? []
+                        self.appendEvidenceBubbles(evidence)
                         completion(AIPromptStore.documentAgentPrompt(
                             title: self.documentTitleForAI(),
                             question: question,
                             currentPageText: String(currentPageText.prefix(3500)),
+                            chapterText: String(chapterText.prefix(5000)),
                             searchResults: PDFDocumentAgentIndex.evidenceText(evidence),
                             context: context
                         ))
@@ -1937,6 +1974,41 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 }
             }
         }
+    }
+
+    private func currentPDFNearbyPagesText() -> String {
+        guard let document = pdfView.document,
+              let currentIndex = currentPageIndex() else { return "" }
+        let lower = max(0, currentIndex - 2)
+        let upper = min(document.pageCount - 1, currentIndex + 2)
+        let parts = (lower...upper).compactMap { index -> String? in
+            guard index != currentIndex,
+                  let page = document.page(at: index) else { return nil }
+            let text = ReaderAIContextBuilder.pdfPageTranslationText(document: document, page: page, title: titleLabel.stringValue)
+            let normalized = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(text)
+            guard !normalized.isEmpty else { return nil }
+            return "[Page \(index + 1)]\n\(String(normalized.prefix(1200)))"
+        }
+        return parts.joined(separator: "\n\n")
+    }
+
+    private func appendEvidenceBubbles(_ evidence: [PDFDocumentAgentEvidence]) {
+        if evidence.isEmpty {
+            aiPanel.appendNotice(AppText.localized("未检索到明确文档依据，将主要结合当前问题和阅读上下文回答。", "No strong document evidence was found; the answer will rely mostly on the question and reading context."))
+            return
+        }
+        if let top = evidence.first, top.score < 6 {
+            aiPanel.appendNotice(AppText.localized("文档依据较弱，回答会以谨慎判断为主。", "Document evidence is weak; the answer will be cautious."))
+        }
+        let bubbles = evidence.prefix(4).map { item in
+            AIChatPanel.LinkedWordBubble(
+                id: "pdf-page:\(item.pageIndex)",
+                word: "Page \(item.pageNumber)",
+                question: AppText.localized("检索依据 第 \(item.pageNumber) 页", "Source p. \(item.pageNumber)"),
+                answer: String(item.text.prefix(500))
+            )
+        }
+        aiPanel.appendReferenceBubbles(bubbles)
     }
 
     private func documentTitleForAI() -> String {
@@ -2034,6 +2106,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         } ?? []
         guard !missing.isEmpty else { return }
 
+        aiPanel.appendNotice(AppText.localized("正在增强文档索引：本次处理 \(missing.count) 个片段。", "Enhancing document index: processing \(missing.count) chunks."))
         isPreparingPDFEmbeddings = true
         embeddingClient.embed(texts: missing.map(\.text), config: config) { [weak self] result in
             DispatchQueue.main.async {
@@ -2091,9 +2164,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     private func shouldPersistHighlight(for text: String) -> Bool {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard normalized.count <= 40 else { return false }
-        guard normalized.rangeOfCharacter(from: .whitespacesAndNewlines) == nil else { return false }
-        return normalized.range(of: #"[A-Za-z]"#, options: .regularExpression) != nil
+        guard normalized.count <= 80 else { return false }
+        let words = normalized.split { $0.isWhitespace || $0.isNewline }
+        guard (1...5).contains(words.count) else { return false }
+        return normalized.range(of: #"^[A-Za-z][A-Za-z'’-]*(\s+[A-Za-z][A-Za-z'’-]*){0,4}$"#, options: .regularExpression) != nil
     }
 
     func pdfViewWillChangeScaleFactor(_ sender: PDFView) {
@@ -2213,11 +2287,28 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func jumpToStoredLinkedWord(linkID: String) {
+        if linkID.hasPrefix("pdf-page:") {
+            let rawPage = String(linkID.dropFirst("pdf-page:".count))
+            if let pageIndex = Int(rawPage) {
+                jumpToPDFPage(index: pageIndex)
+            }
+            return
+        }
         if storedWebWordRecords.contains(where: { $0.id == linkID }) {
             jumpToStoredWebWord(linkID: linkID)
             return
         }
         jumpToStoredPDFWord(linkID: linkID)
+    }
+
+    private func jumpToPDFPage(index: Int) {
+        guard let page = pdfView.document?.page(at: index) else { return }
+        setAIPanelCollapsed(false, animated: true)
+        let bounds = page.bounds(for: pdfView.displayBox)
+        pdfView.go(to: PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY)))
+        lastPageIndex = index
+        updatePageLabel()
+        saveSession()
     }
 
     private func jumpToStoredPDFWord(linkID: String) {

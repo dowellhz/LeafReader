@@ -257,6 +257,23 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         }
     }
 
+    func appendReferenceBubbles(_ records: [LinkedWordBubble]) {
+        guard !records.isEmpty else { return }
+        for record in records {
+            appendBubble(
+                role: AppText.localized("依据", "Source"),
+                text: "\(record.question)\n\(record.answer)",
+                collapsible: false,
+                renderMarkdown: false,
+                linkID: record.id
+            )
+        }
+    }
+
+    func appendNotice(_ text: String) {
+        appendBubble(role: AppText.localized("提示", "Note"), text: text, collapsible: false, renderMarkdown: false)
+    }
+
     @objc private func startQuestion() {
         let text = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isBusy else { return }

@@ -35,25 +35,30 @@ Download the latest macOS installer:
 
 ## Run
 
-Open the checked-in app bundle:
+Open a locally built app bundle:
 
 ```sh
 open "Leaf Reader.app"
 ```
 
-The app is ad-hoc signed for local testing and distribution.
+The app bundle is generated locally and is not committed to git.
 
 ## Build From Source
 
-Compile the Swift sources into the existing app bundle:
+Create the app bundle directory if needed, then compile the Swift sources:
 
 ```sh
+mkdir -p "Leaf Reader.app/Contents/MacOS" "Leaf Reader.app/Contents/Resources"
+cp mac-app/Info.plist "Leaf Reader.app/Contents/Info.plist"
+cp mac-app/AIPrompts.json "Leaf Reader.app/Contents/Resources/AIPrompts.json"
+cp mac-app/AppIcon.icns "Leaf Reader.app/Contents/Resources/AppIcon.icns"
 swiftc mac-app/*.swift \
   -o "Leaf Reader.app/Contents/MacOS/Leaf Reader" \
   -framework Cocoa \
   -framework PDFKit \
   -framework WebKit \
-  -framework CryptoKit
+  -framework CryptoKit \
+  -lsqlite3
 ```
 
 Re-sign the rebuilt app:
@@ -70,7 +75,7 @@ open "Leaf Reader.app"
 
 ## Project Layout
 
-- `Leaf Reader.app` - built macOS application bundle.
+- `Leaf Reader.app` - generated macOS application bundle, ignored by git.
 - `mac-app/*.swift` - native Swift source code.
 - `mac-app/AIPrompts.json` - built-in AI prompt definitions.
 - `mac-app/AppIcon.icns` - packaged app icon.

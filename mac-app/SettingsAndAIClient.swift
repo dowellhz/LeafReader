@@ -150,7 +150,11 @@ enum AISettingsStore {
     static let customProviderID = "custom"
     static let customEndpointKey = "customAIEndpointURL"
     static let customModelNameKey = "customAIModelName"
+    static let embeddingEndpointKey = "embeddingEndpointURL"
+    static let embeddingModelNameKey = "embeddingModelName"
     private static let fallbackCustomEndpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
+    private static let fallbackEmbeddingEndpoint = URL(string: "https://api.openai.com/v1/embeddings")!
+    static let fallbackEmbeddingModelName = "text-embedding-3-small"
 
     static let models: [AIModelConfig] = [
         AIModelConfig(
@@ -274,6 +278,36 @@ enum AISettingsStore {
     static var customModelName: String {
         let saved = UserDefaults.standard.string(forKey: customModelNameKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return saved.isEmpty ? "custom-model" : saved
+    }
+
+    static var embeddingEndpointString: String {
+        UserDefaults.standard.string(forKey: embeddingEndpointKey)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? fallbackEmbeddingEndpoint.absoluteString
+    }
+
+    static var embeddingModelName: String {
+        let saved = UserDefaults.standard.string(forKey: embeddingModelNameKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return saved.isEmpty ? fallbackEmbeddingModelName : saved
+    }
+
+    static var embeddingEndpoint: URL {
+        validEndpoint(from: embeddingEndpointString) ?? fallbackEmbeddingEndpoint
+    }
+
+    static func saveEmbedding(endpoint: String, modelName: String) {
+        let endpointValue = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        if validEndpoint(from: endpointValue) != nil {
+            UserDefaults.standard.set(endpointValue, forKey: embeddingEndpointKey)
+        } else if endpointValue.isEmpty {
+            UserDefaults.standard.removeObject(forKey: embeddingEndpointKey)
+        }
+
+        let modelValue = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if modelValue.isEmpty {
+            UserDefaults.standard.removeObject(forKey: embeddingModelNameKey)
+        } else {
+            UserDefaults.standard.set(modelValue, forKey: embeddingModelNameKey)
+        }
     }
 
     static func customModelConfig() -> AIModelConfig {

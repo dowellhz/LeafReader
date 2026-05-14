@@ -57,6 +57,8 @@ final class AISettingsPanelController {
     private weak var customEndpointField: NSTextField?
     private weak var customModelLabel: NSTextField?
     private weak var customModelField: NSTextField?
+    private weak var embeddingEndpointField: NSTextField?
+    private weak var embeddingModelField: NSTextField?
     private weak var cacheStatusLabel: NSTextField?
     private var keyTopWithCustomConstraint: NSLayoutConstraint?
     private var keyTopWithoutCustomConstraint: NSLayoutConstraint?
@@ -160,6 +162,11 @@ final class AISettingsPanelController {
         let themeHelpLabel = label(ReaderTheme.selected.helpText, size: settingsFontSize, color: secondaryText)
         let themePopup = popup(items: ReaderTheme.allCases.map { ($0.title, $0.rawValue) }, selected: ReaderTheme.selected.rawValue, fontSize: settingsFontSize)
 
+        let embeddingLabel = label(AppText.localized("向量模型", "Embedding Model"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let embeddingEndpointField = inputField(AISettingsStore.embeddingEndpointString, placeholder: "https://api.openai.com/v1/embeddings", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
+        let embeddingModelField = inputField(AISettingsStore.embeddingModelName, placeholder: AISettingsStore.fallbackEmbeddingModelName, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
+        let embeddingHelpLabel = label(AppText.localized("用于 PDF 向量检索。默认使用 OpenAI text-embedding-3-small，也可填兼容接口。", "Used for PDF vector retrieval. Defaults to OpenAI text-embedding-3-small; compatible endpoints can be used."), size: settingsFontSize, color: secondaryText)
+
         let cacheLabel = label(AppText.localized("AI 向量缓存", "AI Vector Cache"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let cacheStatusLabel = label(vectorCacheStatusText(), size: settingsFontSize, color: secondaryText)
         let clearVectorCacheButton = NSButton(title: AppText.localized("清除 AI 向量缓存", "Clear AI Vector Cache"), target: self, action: #selector(clearVectorCache(_:)))
@@ -192,7 +199,7 @@ final class AISettingsPanelController {
         for view in [titleLabel, closeButton, scrollView, cancelButton, saveButton] {
             content.addSubview(view)
         }
-        for view in [modelLabel, modelPopup, modelHelpLabel, customEndpointLabel, customEndpointField, customModelLabel, customModelField, keyLabel, keyField, plainKeyField, eyeButton, keyHelpLabel, languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, cacheLabel, cacheStatusLabel, clearVectorCacheButton] {
+        for view in [modelLabel, modelPopup, modelHelpLabel, customEndpointLabel, customEndpointField, customModelLabel, customModelField, keyLabel, keyField, plainKeyField, eyeButton, keyHelpLabel, languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, embeddingLabel, embeddingEndpointField, embeddingModelField, embeddingHelpLabel, cacheLabel, cacheStatusLabel, clearVectorCacheButton] {
             formContent.addSubview(view)
         }
 
@@ -281,7 +288,21 @@ final class AISettingsPanelController {
             themeHelpLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
             themeHelpLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
 
-            cacheLabel.topAnchor.constraint(equalTo: themeHelpLabel.bottomAnchor, constant: 20),
+            embeddingLabel.topAnchor.constraint(equalTo: themeHelpLabel.bottomAnchor, constant: 20),
+            embeddingLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            embeddingEndpointField.topAnchor.constraint(equalTo: embeddingLabel.bottomAnchor, constant: 8),
+            embeddingEndpointField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            embeddingEndpointField.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            embeddingEndpointField.heightAnchor.constraint(equalToConstant: 34),
+            embeddingModelField.topAnchor.constraint(equalTo: embeddingEndpointField.bottomAnchor, constant: 8),
+            embeddingModelField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            embeddingModelField.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            embeddingModelField.heightAnchor.constraint(equalToConstant: 34),
+            embeddingHelpLabel.topAnchor.constraint(equalTo: embeddingModelField.bottomAnchor, constant: 8),
+            embeddingHelpLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            embeddingHelpLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+
+            cacheLabel.topAnchor.constraint(equalTo: embeddingHelpLabel.bottomAnchor, constant: 20),
             cacheLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
             cacheStatusLabel.topAnchor.constraint(equalTo: cacheLabel.bottomAnchor, constant: 8),
             cacheStatusLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
@@ -312,6 +333,8 @@ final class AISettingsPanelController {
         self.customEndpointField = customEndpointField
         self.customModelLabel = customModelLabel
         self.customModelField = customModelField
+        self.embeddingEndpointField = embeddingEndpointField
+        self.embeddingModelField = embeddingModelField
         self.cacheStatusLabel = cacheStatusLabel
         updateCustomModelFields(for: selectedModel.id)
 
@@ -351,6 +374,10 @@ final class AISettingsPanelController {
             apiKey: keyField.stringValue,
             customEndpoint: customEndpoint,
             customModelName: customModelName
+        )
+        AISettingsStore.saveEmbedding(
+            endpoint: embeddingEndpointField?.stringValue ?? "",
+            modelName: embeddingModelField?.stringValue ?? ""
         )
         onSaved?()
         panel.sheetParent?.endSheet(panel)

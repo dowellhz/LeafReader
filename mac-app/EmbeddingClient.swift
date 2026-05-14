@@ -20,8 +20,8 @@ final class EmbeddingClient {
         if chatConfig.provider == "openai" {
             return EmbeddingModelConfig(
                 provider: "openai",
-                endpoint: URL(string: "https://api.openai.com/v1/embeddings")!,
-                model: "text-embedding-3-small",
+                endpoint: AISettingsStore.embeddingEndpoint,
+                model: AISettingsStore.embeddingModelName,
                 apiKey: apiKey
             )
         }
@@ -31,13 +31,10 @@ final class EmbeddingClient {
             return nil
         }
 
-        let endpointString = chatConfig.endpoint.absoluteString
-            .replacingOccurrences(of: "/chat/completions", with: "/embeddings")
-        guard let endpoint = URL(string: endpointString) else { return nil }
         return EmbeddingModelConfig(
             provider: AISettingsStore.customProviderID,
-            endpoint: endpoint,
-            model: "text-embedding-3-small",
+            endpoint: AISettingsStore.embeddingEndpoint,
+            model: AISettingsStore.embeddingModelName,
             apiKey: apiKey
         )
     }
