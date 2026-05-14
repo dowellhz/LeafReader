@@ -131,7 +131,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var onSummarizeCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onTranslateCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onCurrentReadingContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
-    var onDocumentQuestionPrompt: ((String, String) -> String?)?
+    var onDocumentQuestionPrompt: ((String, String, @escaping (String?) -> Void) -> Void)?
     var onSettingsRequired: (() -> Void)?
 
     private var selectedText = ""
@@ -397,15 +397,30 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
             return
         }
 
-        guard let onCurrentReadingContent else {
-            messages.append(ChatMessage(role: "user", content: AIPromptStore.followUpPrompt(context: transcriptContext(), text: question)))
-            requestAI()
+        let context = transcriptContext()
+        if let onDocumentQuestionPrompt {
+            setBusy(true, text: AppText.thinking)
+            onDocumentQuestionPrompt(question, context) { [weak self] prompt in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.setBusy(false, text: "")
+                    if let prompt {
+                        self.messages.append(ChatMessage(role: "user", content: prompt))
+                        self.requestAI()
+                        return
+                    }
+                    self.enqueueCurrentReadingFollowUp(question: question, context: context)
+                }
+            }
             return
         }
 
-        let context = transcriptContext()
-        if let prompt = onDocumentQuestionPrompt?(question, context) {
-            messages.append(ChatMessage(role: "user", content: prompt))
+        enqueueCurrentReadingFollowUp(question: question, context: context)
+    }
+
+    private func enqueueCurrentReadingFollowUp(question: String, context: String) {
+        guard let onCurrentReadingContent else {
+            messages.append(ChatMessage(role: "user", content: AIPromptStore.followUpPrompt(context: context, text: question)))
             requestAI()
             return
         }

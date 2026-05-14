@@ -75,8 +75,9 @@ final class PDFEmbeddingStore {
             sqlite3_bind_double(statement, 8, Date().timeIntervalSince1970)
             sqlite3_step(statement)
         }
-        pruneIfNeeded(maximumBytes: Self.defaultMaximumCacheBytes)
-        vacuum()
+        if pruneIfNeeded(maximumBytes: Self.defaultMaximumCacheBytes) {
+            vacuum()
+        }
     }
 
     func deleteDocument(documentID: String) {
@@ -99,12 +100,16 @@ final class PDFEmbeddingStore {
         scalarInt(sql: "SELECT COUNT(DISTINCT document_id) FROM embeddings")
     }
 
-    func pruneIfNeeded(maximumBytes: Int64) {
-        guard maximumBytes > 0 else { return }
+    @discardableResult
+    func pruneIfNeeded(maximumBytes: Int64) -> Bool {
+        guard maximumBytes > 0 else { return false }
+        var didDelete = false
         while cacheSizeBytes() > maximumBytes {
             guard let oldestDocumentID = oldestDocumentID() else { break }
-            deleteDocument(documentID: oldestDocumentID)
+            execute(sql: "DELETE FROM embeddings WHERE document_id = ?", bindings: [oldestDocumentID])
+            didDelete = true
         }
+        return didDelete
     }
 
     private func createTables() {

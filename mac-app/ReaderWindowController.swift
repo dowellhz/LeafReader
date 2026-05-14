@@ -468,8 +468,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         aiPanel.onCurrentReadingContent = { [weak self] completion in
             self?.currentReadingQuestionContent(completion: completion)
         }
-        aiPanel.onDocumentQuestionPrompt = { [weak self] question, context in
-            self?.documentAgentPrompt(question: question, context: context)
+        aiPanel.onDocumentQuestionPrompt = { [weak self] question, context, completion in
+            self?.documentAgentPrompt(question: question, context: context, completion: completion)
         }
         aiPanel.onSettingsRequired = { [weak self] in
             self?.openAISettings()
@@ -1891,10 +1891,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
     }
 
-    private func documentAgentPrompt(question: String, context: String) -> String? {
+    private func documentAgentPrompt(question: String, context: String, completion: @escaping (String?) -> Void) {
         guard currentDocumentKind == .pdf,
               let document = pdfView.document else {
-            return nil
+            completion(nil)
+            return
         }
 
         if pdfAgentIndex == nil {
@@ -1902,26 +1903,40 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
 
         let currentPageText = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
-        let retrievalQuery = crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: currentPageText)
-        let combinedRetrievalQuestion = [question, retrievalQuery]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: "\n")
-
-        preparePDFEmbeddingsIfPossible()
-        let queryEmbedding = blockingQueryEmbedding(for: combinedRetrievalQuestion.isEmpty ? question : combinedRetrievalQuestion)
-        let evidence = pdfAgentIndex?.search(
-            question: combinedRetrievalQuestion.isEmpty ? question : combinedRetrievalQuestion,
-            currentPageIndex: currentPageIndex(),
-            queryEmbedding: queryEmbedding
-        ) ?? []
-        return AIPromptStore.documentAgentPrompt(
-            title: documentTitleForAI(),
-            question: question,
-            currentPageText: String(currentPageText.prefix(3500)),
-            searchResults: PDFDocumentAgentIndex.evidenceText(evidence),
-            context: context
-        )
+        crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: currentPageText) { [weak self] retrievalQuery in
+            DispatchQueue.main.async {
+                guard let self else {
+                    completion(nil)
+                    return
+                }
+                let combinedRetrievalQuestion = [question, retrievalQuery]
+                    .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+                let retrievalQuestion = combinedRetrievalQuestion.isEmpty ? question : combinedRetrievalQuestion
+                self.preparePDFEmbeddingsIfPossible()
+                self.queryEmbedding(for: retrievalQuestion) { [weak self] queryEmbedding in
+                    DispatchQueue.main.async {
+                        guard let self else {
+                            completion(nil)
+                            return
+                        }
+                        let evidence = self.pdfAgentIndex?.search(
+                            question: retrievalQuestion,
+                            currentPageIndex: self.currentPageIndex(),
+                            queryEmbedding: queryEmbedding
+                        ) ?? []
+                        completion(AIPromptStore.documentAgentPrompt(
+                            title: self.documentTitleForAI(),
+                            question: question,
+                            currentPageText: String(currentPageText.prefix(3500)),
+                            searchResults: PDFDocumentAgentIndex.evidenceText(evidence),
+                            context: context
+                        ))
+                    }
+                }
+            }
+        }
     }
 
     private func documentTitleForAI() -> String {
@@ -1943,11 +1958,16 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         return title.isEmpty ? titleLabel.stringValue : title
     }
 
-    private func crossLingualRetrievalQueryIfNeeded(question: String, currentPageText: String) -> String? {
+    private func crossLingualRetrievalQueryIfNeeded(
+        question: String,
+        currentPageText: String,
+        completion: @escaping (String?) -> Void
+    ) {
         guard questionLooksMostlyChinese(question),
               textLooksMostlyEnglish(currentPageText),
               AISettingsStore.hasAPIKeyForSelectedModel else {
-            return nil
+            completion(nil)
+            return
         }
 
         let prompt = """
@@ -1962,8 +1982,6 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         Chinese question:
         \(question)
         """
-        let semaphore = DispatchSemaphore(value: 0)
-        var query: String?
         retrievalQueryClient.send(messages: [
             ChatMessage(role: "system", content: "You create concise English search queries."),
             ChatMessage(role: "user", content: prompt)
@@ -1972,12 +1990,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 let cleaned = text
                     .replacingOccurrences(of: #"^[\"“”']+|[\"“”']+$"#, with: "", options: .regularExpression)
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-                query = cleaned.isEmpty ? nil : String(cleaned.prefix(240))
+                completion(cleaned.isEmpty ? nil : String(cleaned.prefix(240)))
+                return
             }
-            semaphore.signal()
+            completion(nil)
         }
-        _ = semaphore.wait(timeout: .now() + 3)
-        return query
     }
 
     private func questionLooksMostlyChinese(_ text: String) -> Bool {
@@ -2030,20 +2047,18 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
     }
 
-    private func blockingQueryEmbedding(for question: String) -> [Float]? {
-        guard EmbeddingClient.configFromCurrentAISettings() != nil else { return nil }
-        guard let config = EmbeddingClient.configFromCurrentAISettings() else { return nil }
-
-        let semaphore = DispatchSemaphore(value: 0)
-        var embedding: [Float]?
+    private func queryEmbedding(for question: String, completion: @escaping ([Float]?) -> Void) {
+        guard let config = EmbeddingClient.configFromCurrentAISettings() else {
+            completion(nil)
+            return
+        }
         embeddingClient.embed(texts: [question], config: config) { result in
             if case .success(let embeddings) = result {
-                embedding = embeddings.first
+                completion(embeddings.first)
+                return
             }
-            semaphore.signal()
+            completion(nil)
         }
-        _ = semaphore.wait(timeout: .now() + 4)
-        return embedding
     }
 
     private func currentWebVisibleText(preserveLineBreaks: Bool = false, completion: @escaping (String) -> Void) {
