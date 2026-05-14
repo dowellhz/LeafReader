@@ -57,6 +57,7 @@ final class AISettingsPanelController {
     private weak var customEndpointField: NSTextField?
     private weak var customModelLabel: NSTextField?
     private weak var customModelField: NSTextField?
+    private weak var cacheStatusLabel: NSTextField?
     private var keyTopWithCustomConstraint: NSLayoutConstraint?
     private var keyTopWithoutCustomConstraint: NSLayoutConstraint?
 
@@ -159,6 +160,14 @@ final class AISettingsPanelController {
         let themeHelpLabel = label(ReaderTheme.selected.helpText, size: settingsFontSize, color: secondaryText)
         let themePopup = popup(items: ReaderTheme.allCases.map { ($0.title, $0.rawValue) }, selected: ReaderTheme.selected.rawValue, fontSize: settingsFontSize)
 
+        let cacheLabel = label(AppText.localized("AI 向量缓存", "AI Vector Cache"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let cacheStatusLabel = label(vectorCacheStatusText(), size: settingsFontSize, color: secondaryText)
+        let clearVectorCacheButton = NSButton(title: AppText.localized("清除 AI 向量缓存", "Clear AI Vector Cache"), target: self, action: #selector(clearVectorCache(_:)))
+        clearVectorCacheButton.bezelStyle = .rounded
+        clearVectorCacheButton.controlSize = .regular
+        clearVectorCacheButton.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        clearVectorCacheButton.translatesAutoresizingMaskIntoConstraints = false
+
         let cancelButton = NSButton(title: AppText.cancel, target: self, action: #selector(cancel(_:)))
         cancelButton.bezelStyle = .rounded
         cancelButton.controlSize = .large
@@ -183,7 +192,7 @@ final class AISettingsPanelController {
         for view in [titleLabel, closeButton, scrollView, cancelButton, saveButton] {
             content.addSubview(view)
         }
-        for view in [modelLabel, modelPopup, modelHelpLabel, customEndpointLabel, customEndpointField, customModelLabel, customModelField, keyLabel, keyField, plainKeyField, eyeButton, keyHelpLabel, languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel] {
+        for view in [modelLabel, modelPopup, modelHelpLabel, customEndpointLabel, customEndpointField, customModelLabel, customModelField, keyLabel, keyField, plainKeyField, eyeButton, keyHelpLabel, languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, cacheLabel, cacheStatusLabel, clearVectorCacheButton] {
             formContent.addSubview(view)
         }
 
@@ -271,7 +280,17 @@ final class AISettingsPanelController {
             themeHelpLabel.topAnchor.constraint(equalTo: themePopup.bottomAnchor, constant: 8),
             themeHelpLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
             themeHelpLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
-            themeHelpLabel.bottomAnchor.constraint(equalTo: formContent.bottomAnchor, constant: -8),
+
+            cacheLabel.topAnchor.constraint(equalTo: themeHelpLabel.bottomAnchor, constant: 20),
+            cacheLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            cacheStatusLabel.topAnchor.constraint(equalTo: cacheLabel.bottomAnchor, constant: 8),
+            cacheStatusLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            cacheStatusLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            clearVectorCacheButton.topAnchor.constraint(equalTo: cacheStatusLabel.bottomAnchor, constant: 10),
+            clearVectorCacheButton.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            clearVectorCacheButton.widthAnchor.constraint(equalToConstant: 180),
+            clearVectorCacheButton.heightAnchor.constraint(equalToConstant: 32),
+            clearVectorCacheButton.bottomAnchor.constraint(equalTo: formContent.bottomAnchor, constant: -8),
 
             saveButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -40),
             saveButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -28),
@@ -293,6 +312,7 @@ final class AISettingsPanelController {
         self.customEndpointField = customEndpointField
         self.customModelLabel = customModelLabel
         self.customModelField = customModelField
+        self.cacheStatusLabel = cacheStatusLabel
         updateCustomModelFields(for: selectedModel.id)
 
         window.beginSheet(panel) { [weak self] _ in
@@ -339,6 +359,24 @@ final class AISettingsPanelController {
     @objc private func cancel(_ sender: NSButton) {
         guard let panel else { return }
         panel.sheetParent?.endSheet(panel)
+    }
+
+    @objc private func clearVectorCache(_ sender: NSButton) {
+        let alert = NSAlert()
+        alert.messageText = AppText.localized("清除 AI 向量缓存？", "Clear AI vector cache?")
+        alert.informativeText = AppText.localized(
+            "这会删除本机已缓存的 PDF 向量索引。之后再次使用文档问答时，会按需重新生成。",
+            "This deletes locally cached PDF vector indexes. They will be regenerated on demand when document Q&A is used again."
+        )
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: AppText.localized("清除", "Clear"))
+        alert.addButton(withTitle: AppText.cancel)
+        guard let panel else { return }
+        alert.beginSheetModal(for: panel) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            PDFEmbeddingStore()?.deleteAll()
+            self?.cacheStatusLabel?.stringValue = self?.vectorCacheStatusText() ?? ""
+        }
     }
 
     @objc private func modelChanged(_ sender: NSPopUpButton) {
@@ -394,6 +432,32 @@ final class AISettingsPanelController {
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppText.confirm)
         alert.beginSheetModal(for: panel)
+    }
+
+    private func vectorCacheStatusText() -> String {
+        guard let store = PDFEmbeddingStore() else {
+            return AppText.localized("缓存不可用", "Cache unavailable")
+        }
+        let size = formatBytes(store.cacheSizeBytes())
+        let count = store.documentCount()
+        return AppText.localized(
+            "当前占用 \(size)，已缓存 \(count) 本 PDF。超过 1GB 会自动删除最久未使用的文档缓存。",
+            "Using \(size), \(count) cached PDF(s). When it exceeds 1GB, the least recently used document cache is removed automatically."
+        )
+    }
+
+    private func formatBytes(_ bytes: Int64) -> String {
+        let units = ["B", "KB", "MB", "GB"]
+        var value = Double(bytes)
+        var index = 0
+        while value >= 1024, index < units.count - 1 {
+            value /= 1024
+            index += 1
+        }
+        if index == 0 {
+            return "\(Int(value)) \(units[index])"
+        }
+        return String(format: "%.1f %@", value, units[index])
     }
 
     private func label(_ text: String, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor) -> NSTextField {

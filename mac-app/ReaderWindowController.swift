@@ -66,6 +66,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var searchResults: [PDFSelection] = []
     private var searchResultIndex = 0
     private var lastSearchQuery = ""
+    private var pdfAgentIndex: PDFDocumentAgentIndex?
+    private var pdfEmbeddingStore = PDFEmbeddingStore()
+    private let embeddingClient = EmbeddingClient()
+    private let retrievalQueryClient = AIClient()
+    private var isPreparingPDFEmbeddings = false
     private var suppressSearchSelectionForAIUntil = Date.distantPast
     private var highlightedSelectionKeys = Set<String>()
     private var storedWordRecords: [StoredPDFWordRecord] = []
@@ -462,6 +467,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
         aiPanel.onCurrentReadingContent = { [weak self] completion in
             self?.currentReadingQuestionContent(completion: completion)
+        }
+        aiPanel.onDocumentQuestionPrompt = { [weak self] question, context in
+            self?.documentAgentPrompt(question: question, context: context)
         }
         aiPanel.onSettingsRequired = { [weak self] in
             self?.openAISettings()
@@ -1035,6 +1043,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         webWordRecordStore = nil
         currentWebPlainText = ""
         currentWebSelectedText = ""
+        pdfAgentIndex = nil
         let toc = ReaderTOCHelper.pdfTOCItems(from: document, displayBox: pdfView.displayBox)
         currentTOCItems = toc.items
         pdfTOCDestinations = toc.destinations
@@ -1079,6 +1088,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             sessionStore = ReaderSessionStore(fileMD5: currentFileMD5)
             pdfWordRecordStore = nil
             webWordRecordStore = currentFileMD5.map { WebWordRecordStore(fileMD5: $0) }
+            pdfAgentIndex = nil
             currentWebPlainText = document.plainText
             currentWebSelectedText = ""
             currentWebSelectionContext = ""
@@ -1879,6 +1889,161 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             let fallback = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(self.currentWebProgressTextWindow())
             completion(fallback.isEmpty ? nil : (title, String(fallback.prefix(5000))))
         }
+    }
+
+    private func documentAgentPrompt(question: String, context: String) -> String? {
+        guard currentDocumentKind == .pdf,
+              let document = pdfView.document else {
+            return nil
+        }
+
+        if pdfAgentIndex == nil {
+            pdfAgentIndex = PDFDocumentAgentIndex(document: document, title: titleLabel.stringValue)
+        }
+
+        let currentPageText = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
+        let retrievalQuery = crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: currentPageText)
+        let combinedRetrievalQuestion = [question, retrievalQuery]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+
+        preparePDFEmbeddingsIfPossible()
+        let queryEmbedding = blockingQueryEmbedding(for: combinedRetrievalQuestion.isEmpty ? question : combinedRetrievalQuestion)
+        let evidence = pdfAgentIndex?.search(
+            question: combinedRetrievalQuestion.isEmpty ? question : combinedRetrievalQuestion,
+            currentPageIndex: currentPageIndex(),
+            queryEmbedding: queryEmbedding
+        ) ?? []
+        return AIPromptStore.documentAgentPrompt(
+            title: documentTitleForAI(),
+            question: question,
+            currentPageText: String(currentPageText.prefix(3500)),
+            searchResults: PDFDocumentAgentIndex.evidenceText(evidence),
+            context: context
+        )
+    }
+
+    private func documentTitleForAI() -> String {
+        var title = titleLabel.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let removableSuffixes = [
+            " - PDF Room",
+            "- PDF Room",
+            " PDF Room",
+            "-Chinese-translated",
+            "-translated",
+            "_Chinese-translated"
+        ]
+        for suffix in removableSuffixes where title.localizedCaseInsensitiveContains(suffix) {
+            title = title.replacingOccurrences(of: suffix, with: "", options: [.caseInsensitive])
+        }
+        title = title
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: " -_").union(.whitespacesAndNewlines))
+        return title.isEmpty ? titleLabel.stringValue : title
+    }
+
+    private func crossLingualRetrievalQueryIfNeeded(question: String, currentPageText: String) -> String? {
+        guard questionLooksMostlyChinese(question),
+              textLooksMostlyEnglish(currentPageText),
+              AISettingsStore.hasAPIKeyForSelectedModel else {
+            return nil
+        }
+
+        let prompt = """
+        Convert the user's Chinese document-search question into one concise English search query for retrieving passages from an English book.
+
+        Requirements:
+        - Output only the English search query.
+        - Keep names, places, book-specific terms, and quoted words.
+        - Do not answer the question.
+        - Do not add explanations.
+
+        Chinese question:
+        \(question)
+        """
+        let semaphore = DispatchSemaphore(value: 0)
+        var query: String?
+        retrievalQueryClient.send(messages: [
+            ChatMessage(role: "system", content: "You create concise English search queries."),
+            ChatMessage(role: "user", content: prompt)
+        ]) { result in
+            if case .success(let text) = result {
+                let cleaned = text
+                    .replacingOccurrences(of: #"^[\"“”']+|[\"“”']+$"#, with: "", options: .regularExpression)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                query = cleaned.isEmpty ? nil : String(cleaned.prefix(240))
+            }
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 3)
+        return query
+    }
+
+    private func questionLooksMostlyChinese(_ text: String) -> Bool {
+        let scalars = text.unicodeScalars
+        let chineseCount = scalars.filter { $0.value >= 0x4E00 && $0.value <= 0x9FFF }.count
+        let letterCount = scalars.filter { CharacterSet.letters.contains($0) }.count
+        return chineseCount >= 2 && chineseCount * 2 >= max(1, letterCount)
+    }
+
+    private func textLooksMostlyEnglish(_ text: String) -> Bool {
+        let sample = String(text.prefix(1200))
+        let scalars = sample.unicodeScalars
+        let latinCount = scalars.filter {
+            ($0.value >= 0x41 && $0.value <= 0x5A) || ($0.value >= 0x61 && $0.value <= 0x7A)
+        }.count
+        let chineseCount = scalars.filter { $0.value >= 0x4E00 && $0.value <= 0x9FFF }.count
+        return latinCount >= 80 && latinCount > chineseCount * 4
+    }
+
+    private func preparePDFEmbeddingsIfPossible() {
+        guard !isPreparingPDFEmbeddings,
+              let documentID = currentFileMD5,
+              let index = pdfAgentIndex,
+              let config = EmbeddingClient.configFromCurrentAISettings(),
+              let store = pdfEmbeddingStore else {
+            return
+        }
+
+        let chunks = index.indexableChunks.map {
+            PDFEmbeddingChunk(id: $0.id, pageIndex: $0.pageIndex, chunkIndex: $0.chunkIndex, text: $0.text)
+        }
+        let cached = store.embeddings(documentID: documentID, model: config.cacheModelID, chunkIDs: chunks.map(\.id))
+        pdfAgentIndex?.applyEmbeddings(cached)
+
+        let missing = pdfAgentIndex?.missingEmbeddingChunks(limit: 24).map {
+            PDFEmbeddingChunk(id: $0.id, pageIndex: $0.pageIndex, chunkIndex: $0.chunkIndex, text: $0.text)
+        } ?? []
+        guard !missing.isEmpty else { return }
+
+        isPreparingPDFEmbeddings = true
+        embeddingClient.embed(texts: missing.map(\.text), config: config) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.isPreparingPDFEmbeddings = false
+                guard case .success(let embeddings) = result else { return }
+                store.save(documentID: documentID, model: config.cacheModelID, chunks: missing, embeddings: embeddings)
+                let mapped = Dictionary(uniqueKeysWithValues: zip(missing.map(\.id), embeddings))
+                self.pdfAgentIndex?.applyEmbeddings(mapped)
+            }
+        }
+    }
+
+    private func blockingQueryEmbedding(for question: String) -> [Float]? {
+        guard EmbeddingClient.configFromCurrentAISettings() != nil else { return nil }
+        guard let config = EmbeddingClient.configFromCurrentAISettings() else { return nil }
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var embedding: [Float]?
+        embeddingClient.embed(texts: [question], config: config) { result in
+            if case .success(let embeddings) = result {
+                embedding = embeddings.first
+            }
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 4)
+        return embedding
     }
 
     private func currentWebVisibleText(preserveLineBreaks: Bool = false, completion: @escaping (String) -> Void) {

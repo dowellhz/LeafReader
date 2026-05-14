@@ -62,6 +62,16 @@ private final class ChatInputTextField: NSTextField {
 }
 
 private final class ChatBubbleTextField: NSTextField {
+    var onInteractionEnded: ((ChatBubbleTextField) -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        super.mouseDown(with: event)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.onInteractionEnded?(self)
+        }
+    }
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard (event.modifierFlags.contains(.command) || event.modifierFlags.contains(.control)),
               event.charactersIgnoringModifiers?.lowercased() == "c" else {
@@ -121,6 +131,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var onSummarizeCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onTranslateCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onCurrentReadingContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
+    var onDocumentQuestionPrompt: ((String, String) -> String?)?
     var onSettingsRequired: (() -> Void)?
 
     private var selectedText = ""
@@ -260,6 +271,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         let displayedQuestion = "\(AppText.explainPrefix): \(text)"
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
+        clearSelectedText()
         messages.append(ChatMessage(role: "user", content: prompt))
         requestAI(linkID: linkID, linkedQuestion: displayedQuestion)
     }
@@ -391,17 +403,24 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
             return
         }
 
+        let context = transcriptContext()
+        if let prompt = onDocumentQuestionPrompt?(question, context) {
+            messages.append(ChatMessage(role: "user", content: prompt))
+            requestAI()
+            return
+        }
+
         onCurrentReadingContent { [weak self] content in
             DispatchQueue.main.async {
                 guard let self else { return }
                 if let content, !content.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     self.messages.append(ChatMessage(role: "user", content: AIPromptStore.readingFollowUpPrompt(
                         readingText: content.text,
-                        context: self.transcriptContext(),
+                        context: context,
                         question: question
                     )))
                 } else {
-                    self.messages.append(ChatMessage(role: "user", content: AIPromptStore.followUpPrompt(context: self.transcriptContext(), text: question)))
+                    self.messages.append(ChatMessage(role: "user", content: AIPromptStore.followUpPrompt(context: context, text: question)))
                 }
                 self.requestAI()
             }
@@ -434,6 +453,11 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     func controlTextDidEndEditing(_ obj: Notification) {
+        if let bubble = obj.object as? ChatBubbleTextField {
+            restoreBubbleRendering(bubble)
+            return
+        }
+
         guard obj.object as? NSTextField === inputField else { return }
         isEditingFollowUp = false
         if let movement = obj.userInfo?["NSTextMovement"] as? Int, movement == NSReturnTextMovement {
@@ -442,6 +466,14 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     func controlTextDidBeginEditing(_ obj: Notification) {
+        if let bubble = obj.object as? ChatBubbleTextField {
+            DispatchQueue.main.async { [weak self, weak bubble] in
+                guard let self, let bubble else { return }
+                self.restoreBubbleRendering(bubble)
+            }
+            return
+        }
+
         guard obj.object as? NSTextField === inputField else { return }
         isEditingFollowUp = true
     }
@@ -661,6 +693,11 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         body.attributedStringValue = bubbleString(role: role, text: text, renderMarkdown: renderMarkdown)
         body.maximumNumberOfLines = collapsible ? 1 : 0
         body.isSelectable = true
+        body.allowsEditingTextAttributes = true
+        body.delegate = self
+        body.onInteractionEnded = { [weak self] bubble in
+            self?.restoreBubbleRendering(bubble)
+        }
         body.translatesAutoresizingMaskIntoConstraints = false
         let bodyID = UUID().uuidString
         body.identifier = NSUserInterfaceItemIdentifier(bodyID)
@@ -710,6 +747,21 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         body.superview?.invalidateIntrinsicContentSize()
         transcriptStack.layoutSubtreeIfNeeded()
         body.superview?.scrollToVisible(body.superview?.bounds ?? body.bounds)
+    }
+
+    private func restoreBubbleRendering(_ body: NSTextField) {
+        guard let bodyID = body.identifier?.rawValue,
+              let metadata = bubbleMetadataByID[bodyID] else {
+            return
+        }
+        body.attributedStringValue = bubbleString(
+            role: metadata.role,
+            text: metadata.text,
+            renderMarkdown: metadata.renderMarkdown
+        )
+        body.invalidateIntrinsicContentSize()
+        body.superview?.invalidateIntrinsicContentSize()
+        transcriptStack.layoutSubtreeIfNeeded()
     }
 
     private func scheduleStreamUpdate(_ body: NSTextField, text: String) {
@@ -783,33 +835,85 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
                 continue
             }
 
-            let cleaned = line
-                .replacingOccurrences(of: "**", with: "")
-                .replacingOccurrences(of: "__", with: "")
-
-            let isHeading = (cleaned.hasPrefix("【") && cleaned.contains("】")) || cleaned.hasPrefix("#")
-            let isBoldLine = (line.hasPrefix("**") && line.hasSuffix("**")) || (line.hasPrefix("__") && line.hasSuffix("__"))
-            let isBullet = cleaned.hasPrefix("- ") || cleaned.hasPrefix("* ") || cleaned.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil
-            let display = cleaned
-                .replacingOccurrences(of: #"^#+\s*"#, with: "", options: .regularExpression)
-                .replacingOccurrences(of: #"^[-*]\s+"#, with: "• ", options: .regularExpression)
-
+            let parsed = markdownLine(line)
+            let baseFont = parsed.isHeading || parsed.isBoldLine
+                ? NSFont.boldSystemFont(ofSize: parsed.fontSize)
+                : NSFont.systemFont(ofSize: parsed.fontSize)
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: (isHeading || isBoldLine) ? NSFont.boldSystemFont(ofSize: Self.readerBodyFontSize) : NSFont.systemFont(ofSize: Self.readerBodyFontSize),
+                .font: baseFont,
                 .foregroundColor: primaryTextColor,
-                .paragraphStyle: paragraphStyle(spacing: isHeading ? 10 : 8, headIndent: isBullet ? 18 : 0)
+                .paragraphStyle: paragraphStyle(
+                    spacing: parsed.isHeading ? 10 : 8,
+                    headIndent: parsed.isBullet ? 18 : 0,
+                    firstLineHeadIndent: 0
+                )
             ]
-            output.append(NSAttributedString(string: display + "\n", attributes: attrs))
+            let rendered = NSMutableAttributedString(string: parsed.display + "\n", attributes: attrs)
+            applyInlineMarkdown(to: rendered, baseFontSize: parsed.fontSize)
+            output.append(rendered)
         }
 
         return output
     }
 
-    private func paragraphStyle(spacing: CGFloat, headIndent: CGFloat = 0) -> NSParagraphStyle {
+    private func markdownLine(_ line: String) -> (display: String, isHeading: Bool, isBoldLine: Bool, isBullet: Bool, fontSize: CGFloat) {
+        var display = line
+        var isHeading = false
+        var fontSize = Self.readerBodyFontSize
+
+        if let range = display.range(of: #"^#{1,6}\s+"#, options: .regularExpression) {
+            let marker = String(display[range]).trimmingCharacters(in: .whitespaces)
+            display.removeSubrange(range)
+            isHeading = true
+            fontSize = marker.count <= 1 ? 18 : (marker.count == 2 ? 16 : 15)
+        } else if display.hasPrefix("【"), display.contains("】") {
+            isHeading = true
+            fontSize = 15
+        }
+
+        let isBullet = display.range(of: #"^[-*]\s+"#, options: .regularExpression) != nil
+            || display.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil
+        display = display
+            .replacingOccurrences(of: #"^[-*]\s+"#, with: "• ", options: .regularExpression)
+
+        let trimmed = display.trimmingCharacters(in: .whitespaces)
+        let isBoldLine = (trimmed.hasPrefix("**") && trimmed.hasSuffix("**") && trimmed.count > 4)
+            || (trimmed.hasPrefix("__") && trimmed.hasSuffix("__") && trimmed.count > 4)
+
+        return (display, isHeading, isBoldLine, isBullet, fontSize)
+    }
+
+    private func applyInlineMarkdown(to attributed: NSMutableAttributedString, baseFontSize: CGFloat) {
+        applyDelimitedStyle(to: attributed, delimiter: "**", font: NSFont.boldSystemFont(ofSize: baseFontSize))
+        applyDelimitedStyle(to: attributed, delimiter: "__", font: NSFont.boldSystemFont(ofSize: baseFontSize))
+        applyDelimitedStyle(to: attributed, delimiter: "`", font: NSFont.monospacedSystemFont(ofSize: max(12, baseFontSize - 1), weight: .regular))
+    }
+
+    private func applyDelimitedStyle(to attributed: NSMutableAttributedString, delimiter: String, font: NSFont) {
+        while true {
+            let full = attributed.string as NSString
+            let start = full.range(of: delimiter)
+            guard start.location != NSNotFound else { return }
+            let searchStart = start.location + start.length
+            let searchRange = NSRange(location: searchStart, length: full.length - searchStart)
+            let end = full.range(of: delimiter, options: [], range: searchRange)
+            guard end.location != NSNotFound else { return }
+
+            attributed.deleteCharacters(in: end)
+            attributed.deleteCharacters(in: start)
+            let styledRange = NSRange(location: start.location, length: end.location - searchStart)
+            if styledRange.length > 0 {
+                attributed.addAttribute(.font, value: font, range: styledRange)
+            }
+        }
+    }
+
+    private func paragraphStyle(spacing: CGFloat, headIndent: CGFloat = 0, firstLineHeadIndent: CGFloat? = nil) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
         style.lineSpacing = 5
         style.paragraphSpacing = spacing
         style.headIndent = headIndent
+        style.firstLineHeadIndent = firstLineHeadIndent ?? headIndent
         return style
     }
 
