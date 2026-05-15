@@ -145,16 +145,36 @@ enum LocalEncryptedStore {
 }
 
 enum AISettingsStore {
+    struct EmbeddingEndpointOption {
+        let id: String
+        let title: String
+        let endpoint: String
+        let defaultModel: String
+    }
+
     static let selectedModelKey = "selectedAIModelID"
     static let customModelID = "custom"
     static let customProviderID = "custom"
     static let customEndpointKey = "customAIEndpointURL"
     static let customModelNameKey = "customAIModelName"
+    static let embeddingProviderID = "embedding"
     static let embeddingEndpointKey = "embeddingEndpointURL"
     static let embeddingModelNameKey = "embeddingModelName"
     private static let fallbackCustomEndpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private static let fallbackEmbeddingEndpoint = URL(string: "https://api.openai.com/v1/embeddings")!
     static let fallbackEmbeddingModelName = "text-embedding-3-small"
+    static let customEmbeddingEndpointID = "other"
+    static let embeddingEndpointOptions: [EmbeddingEndpointOption] = [
+        EmbeddingEndpointOption(id: "openai", title: AppText.localized("OpenAI 向量", "OpenAI Embeddings"), endpoint: "https://api.openai.com/v1/embeddings", defaultModel: "text-embedding-3-small"),
+        EmbeddingEndpointOption(id: "jina", title: AppText.localized("Jina AI 向量", "Jina AI Embeddings"), endpoint: "https://api.jina.ai/v1/embeddings", defaultModel: "jina-embeddings-v3"),
+        EmbeddingEndpointOption(id: "voyage", title: AppText.localized("Voyage AI 向量", "Voyage AI Embeddings"), endpoint: "https://api.voyageai.com/v1/embeddings", defaultModel: "voyage-3-large"),
+        EmbeddingEndpointOption(id: "siliconflow", title: AppText.localized("硅基流动向量", "SiliconFlow Embeddings"), endpoint: "https://api.siliconflow.com/v1/embeddings", defaultModel: "BAAI/bge-m3"),
+        EmbeddingEndpointOption(id: "dashscope", title: AppText.localized("阿里云百炼向量", "Alibaba DashScope Embeddings"), endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings", defaultModel: "text-embedding-v4"),
+        EmbeddingEndpointOption(id: "ollama", title: AppText.localized("Ollama 本地向量", "Ollama Local Embeddings"), endpoint: "http://127.0.0.1:11434/api/embed", defaultModel: "nomic-embed-text"),
+        EmbeddingEndpointOption(id: "lmstudio", title: AppText.localized("LM Studio 本地向量", "LM Studio Local Embeddings"), endpoint: "http://127.0.0.1:1234/v1/embeddings", defaultModel: "text-embedding-nomic-embed-text-v1.5"),
+        EmbeddingEndpointOption(id: "llamacpp", title: AppText.localized("llama.cpp 本地向量", "llama.cpp Local Embeddings"), endpoint: "http://127.0.0.1:8080/v1/embeddings", defaultModel: "nomic-embed-text"),
+        EmbeddingEndpointOption(id: customEmbeddingEndpointID, title: AppText.localized("其他", "Other"), endpoint: "", defaultModel: "")
+    ]
 
     static let models: [AIModelConfig] = [
         AIModelConfig(
@@ -294,7 +314,28 @@ enum AISettingsStore {
         validEndpoint(from: embeddingEndpointString) ?? fallbackEmbeddingEndpoint
     }
 
-    static func saveEmbedding(endpoint: String, modelName: String) {
+    static var selectedEmbeddingEndpointOption: EmbeddingEndpointOption {
+        let savedEndpoint = embeddingEndpointString
+        return embeddingEndpointOptions.first { $0.endpoint == savedEndpoint } ?? embeddingEndpointOptions.last!
+    }
+
+    static var embeddingAPIKey: String {
+        let key = LocalEncryptedStore.string(forKey: encryptedAPIKeyDefaultsKey(for: embeddingProviderID))
+        if !key.isEmpty {
+            return key
+        }
+
+        if let legacyKey = UserDefaults.standard.string(forKey: apiKeyDefaultsKey(for: embeddingProviderID))?.trimmingCharacters(in: .whitespacesAndNewlines), !legacyKey.isEmpty {
+            LocalEncryptedStore.save(legacyKey, forKey: encryptedAPIKeyDefaultsKey(for: embeddingProviderID))
+            UserDefaults.standard.removeObject(forKey: apiKeyDefaultsKey(for: embeddingProviderID))
+            UserDefaults.standard.synchronize()
+            return legacyKey
+        }
+
+        return ""
+    }
+
+    static func saveEmbedding(endpoint: String, modelName: String, apiKey: String) {
         let endpointValue = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
         if validEndpoint(from: endpointValue) != nil {
             UserDefaults.standard.set(endpointValue, forKey: embeddingEndpointKey)
@@ -308,6 +349,10 @@ enum AISettingsStore {
         } else {
             UserDefaults.standard.set(modelValue, forKey: embeddingModelNameKey)
         }
+
+        LocalEncryptedStore.save(apiKey, forKey: encryptedAPIKeyDefaultsKey(for: embeddingProviderID))
+        UserDefaults.standard.removeObject(forKey: apiKeyDefaultsKey(for: embeddingProviderID))
+        UserDefaults.standard.synchronize()
     }
 
     static func customModelConfig() -> AIModelConfig {

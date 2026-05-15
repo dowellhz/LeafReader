@@ -13,27 +13,13 @@ struct EmbeddingModelConfig {
 
 final class EmbeddingClient {
     static func configFromCurrentAISettings() -> EmbeddingModelConfig? {
-        let chatConfig = AISettingsStore.selectedModel
-        let apiKey = AISettingsStore.apiKey(for: chatConfig)
-        guard !apiKey.isEmpty else { return nil }
-
-        if chatConfig.provider == "openai" {
-            return EmbeddingModelConfig(
-                provider: "openai",
-                endpoint: AISettingsStore.embeddingEndpoint,
-                model: AISettingsStore.embeddingModelName,
-                apiKey: apiKey
-            )
-        }
-
-        guard chatConfig.provider == AISettingsStore.customProviderID,
-              chatConfig.endpoint.path.lowercased().contains("/chat/completions") else {
-            return nil
-        }
+        let endpoint = AISettingsStore.embeddingEndpoint
+        let apiKey = AISettingsStore.embeddingAPIKey
+        guard !apiKey.isEmpty || endpoint.isLocalEmbeddingEndpoint else { return nil }
 
         return EmbeddingModelConfig(
-            provider: AISettingsStore.customProviderID,
-            endpoint: AISettingsStore.embeddingEndpoint,
+            provider: AISettingsStore.embeddingProviderID,
+            endpoint: endpoint,
             model: AISettingsStore.embeddingModelName,
             apiKey: apiKey
         )
@@ -50,11 +36,10 @@ final class EmbeddingClient {
         request.httpMethod = "POST"
         request.timeoutInterval = 45
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
-        let payload: [String: Any] = [
-            "model": config.model,
-            "input": cleanedTexts
-        ]
+        if !config.apiKey.isEmpty {
+            request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
+        }
+        let payload = requestPayload(texts: cleanedTexts, config: config)
 
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: payload)
@@ -86,26 +71,9 @@ final class EmbeddingClient {
 
             do {
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-                guard let rows = json?["data"] as? [[String: Any]] else {
+                guard let embeddings = self.parseEmbeddings(from: json, expectedCount: cleanedTexts.count, config: config) else {
                     throw NSError(domain: config.provider, code: -2, userInfo: [
                         NSLocalizedDescriptionKey: "Unexpected embedding response"
-                    ])
-                }
-                let sortedRows = rows.sorted {
-                    (($0["index"] as? Int) ?? 0) < (($1["index"] as? Int) ?? 0)
-                }
-                let embeddings = sortedRows.compactMap { row -> [Float]? in
-                    if let values = row["embedding"] as? [Double] {
-                        return values.map(Float.init)
-                    }
-                    if let values = row["embedding"] as? [Float] {
-                        return values
-                    }
-                    return nil
-                }
-                guard embeddings.count == cleanedTexts.count else {
-                    throw NSError(domain: config.provider, code: -3, userInfo: [
-                        NSLocalizedDescriptionKey: "Embedding count mismatch"
                     ])
                 }
                 completion(.success(embeddings))
@@ -113,5 +81,66 @@ final class EmbeddingClient {
                 completion(.failure(error))
             }
         }.resume()
+    }
+
+    private func requestPayload(texts: [String], config: EmbeddingModelConfig) -> [String: Any] {
+        if config.endpoint.path.lowercased() == "/api/embed" {
+            return [
+                "model": config.model,
+                "input": texts
+            ]
+        }
+
+        return [
+            "model": config.model,
+            "input": texts
+        ]
+    }
+
+    private func parseEmbeddings(from json: [String: Any]?, expectedCount: Int, config: EmbeddingModelConfig) -> [[Float]]? {
+        if let rows = json?["data"] as? [[String: Any]] {
+            let sortedRows = rows.sorted {
+                (($0["index"] as? Int) ?? 0) < (($1["index"] as? Int) ?? 0)
+            }
+            let embeddings = sortedRows.compactMap { row -> [Float]? in
+                normalizedFloatArray(row["embedding"])
+            }
+            return embeddings.count == expectedCount ? embeddings : nil
+        }
+
+        if let values = json?["embeddings"] as? [[Double]] {
+            let embeddings = values.map { $0.map(Float.init) }
+            return embeddings.count == expectedCount ? embeddings : nil
+        }
+
+        if let values = json?["embeddings"] as? [[Float]] {
+            return values.count == expectedCount ? values : nil
+        }
+
+        if expectedCount == 1, let embedding = normalizedFloatArray(json?["embedding"]) {
+            return [embedding]
+        }
+
+        return nil
+    }
+
+    private func normalizedFloatArray(_ value: Any?) -> [Float]? {
+        if let values = value as? [Double] {
+            return values.map(Float.init)
+        }
+        if let values = value as? [Float] {
+            return values
+        }
+        if let values = value as? [NSNumber] {
+            return values.map { $0.floatValue }
+        }
+        return nil
+    }
+}
+
+private extension URL {
+    var isLocalEmbeddingEndpoint: Bool {
+        guard let host = host?.lowercased() else { return false }
+        return host == "localhost" || host == "127.0.0.1" || host == "::1"
     }
 }

@@ -52,16 +52,22 @@ final class AISettingsPanelController {
     private weak var languagePopup: NSPopUpButton?
     private weak var themePopup: NSPopUpButton?
     private weak var secureKeyField: NSSecureTextField?
-    private weak var plainKeyField: NSTextField?
     private weak var customEndpointLabel: NSTextField?
     private weak var customEndpointField: NSTextField?
     private weak var customModelLabel: NSTextField?
     private weak var customModelField: NSTextField?
+    private weak var embeddingProviderPopup: NSPopUpButton?
+    private weak var embeddingEndpointLabel: NSTextField?
     private weak var embeddingEndpointField: NSTextField?
     private weak var embeddingModelField: NSTextField?
+    private weak var embeddingKeyField: NSSecureTextField?
     private weak var cacheStatusLabel: NSTextField?
     private var keyTopWithCustomConstraint: NSLayoutConstraint?
     private var keyTopWithoutCustomConstraint: NSLayoutConstraint?
+    private var embeddingModelTopWithCustomEndpointConstraint: NSLayoutConstraint?
+    private var embeddingModelTopWithoutCustomEndpointConstraint: NSLayoutConstraint?
+    private var isClosing = false
+    private var shouldNotifySavedAfterClose = false
 
     func show(attachedTo window: NSWindow) {
         parentWindow = window
@@ -113,6 +119,8 @@ final class AISettingsPanelController {
 
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = false
+        scrollView.verticalScrollElasticity = .allowed
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -144,15 +152,6 @@ final class AISettingsPanelController {
         let keyHelpLabel = label(AppText.keyHelp, size: settingsFontSize, color: secondaryText)
         let keyField = APIKeySecureTextField(string: AISettingsStore.apiKey(for: selectedModel))
         configureKeyField(keyField, placeholder: AppText.apiKeyPlaceholder, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
-        let plainKeyField = APIKeyTextField(string: AISettingsStore.apiKey(for: selectedModel))
-        configureKeyField(plainKeyField, placeholder: AppText.apiKeyPlaceholder, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
-        plainKeyField.isHidden = true
-
-        let eyeButton = NSButton(title: "", target: self, action: #selector(toggleAPIKeyVisibility(_:)))
-        eyeButton.image = NSImage(systemSymbolName: "eye", accessibilityDescription: AppText.showAPIKey)
-        eyeButton.isBordered = false
-        eyeButton.contentTintColor = secondaryText
-        eyeButton.translatesAutoresizingMaskIntoConstraints = false
 
         let languageLabel = label(AppText.language, size: settingsFontSize, weight: .semibold, color: primaryText)
         let languageHelpLabel = label(AppText.languageHelp, size: settingsFontSize, color: secondaryText)
@@ -162,10 +161,17 @@ final class AISettingsPanelController {
         let themeHelpLabel = label(ReaderTheme.selected.helpText, size: settingsFontSize, color: secondaryText)
         let themePopup = popup(items: ReaderTheme.allCases.map { ($0.title, $0.rawValue) }, selected: ReaderTheme.selected.rawValue, fontSize: settingsFontSize)
 
-        let embeddingLabel = label(AppText.localized("向量模型", "Embedding Model"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let selectedEmbeddingEndpoint = AISettingsStore.selectedEmbeddingEndpointOption
+        let embeddingLabel = label(AppText.localized("向量服务", "Embedding Service"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let embeddingProviderPopup = popup(items: AISettingsStore.embeddingEndpointOptions.map { ($0.title, $0.id) }, selected: selectedEmbeddingEndpoint.id, fontSize: settingsFontSize)
+        let embeddingEndpointLabel = label(AppText.localized("接口 URL", "Endpoint URL"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let embeddingEndpointField = inputField(AISettingsStore.embeddingEndpointString, placeholder: "https://api.openai.com/v1/embeddings", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
+        let embeddingModelNameLabel = label(AppText.localized("向量模型", "Embedding Model"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let embeddingModelField = inputField(AISettingsStore.embeddingModelName, placeholder: AISettingsStore.fallbackEmbeddingModelName, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
-        let embeddingHelpLabel = label(AppText.localized("用于 PDF 向量检索。默认使用 OpenAI text-embedding-3-small，也可填兼容接口。", "Used for PDF vector retrieval. Defaults to OpenAI text-embedding-3-small; compatible endpoints can be used."), size: settingsFontSize, color: secondaryText)
+        let embeddingKeyLabel = label(AppText.localized("向量 API Key", "Embedding API Key"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let embeddingKeyField = APIKeySecureTextField(string: AISettingsStore.embeddingAPIKey)
+        configureKeyField(embeddingKeyField, placeholder: AppText.apiKeyPlaceholder, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
+        let embeddingHelpLabel = label(AppText.localized("用于 PDF 向量检索。聊天模型和向量模型可以使用不同 API Key。默认使用 OpenAI text-embedding-3-small，也可填兼容接口。", "Used for PDF vector retrieval. Chat and embedding models can use different API keys. Defaults to OpenAI text-embedding-3-small; compatible endpoints can be used."), size: settingsFontSize, color: secondaryText)
 
         let cacheLabel = label(AppText.localized("AI 向量缓存", "AI Vector Cache"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let cacheStatusLabel = label(vectorCacheStatusText(), size: settingsFontSize, color: secondaryText)
@@ -190,23 +196,36 @@ final class AISettingsPanelController {
 
         modelPopup.target = self
         modelPopup.action = #selector(modelChanged(_:))
+        embeddingProviderPopup.target = self
+        embeddingProviderPopup.action = #selector(embeddingProviderChanged(_:))
         modelPopup.identifier = NSUserInterfaceItemIdentifier("modelPopup")
         languagePopup.identifier = NSUserInterfaceItemIdentifier("languagePopup")
         themePopup.identifier = NSUserInterfaceItemIdentifier("themePopup")
         keyField.identifier = NSUserInterfaceItemIdentifier("keyField")
-        plainKeyField.identifier = NSUserInterfaceItemIdentifier("plainKeyField")
+        embeddingProviderPopup.identifier = NSUserInterfaceItemIdentifier("embeddingProviderPopup")
+        embeddingEndpointField.identifier = NSUserInterfaceItemIdentifier("embeddingEndpointField")
+        embeddingModelField.identifier = NSUserInterfaceItemIdentifier("embeddingModelField")
+        embeddingKeyField.identifier = NSUserInterfaceItemIdentifier("embeddingKeyField")
 
         for view in [titleLabel, closeButton, scrollView, cancelButton, saveButton] {
             content.addSubview(view)
         }
-        for view in [modelLabel, modelPopup, modelHelpLabel, customEndpointLabel, customEndpointField, customModelLabel, customModelField, keyLabel, keyField, plainKeyField, eyeButton, keyHelpLabel, languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, embeddingLabel, embeddingEndpointField, embeddingModelField, embeddingHelpLabel, cacheLabel, cacheStatusLabel, clearVectorCacheButton] {
+        for view in [modelLabel, modelPopup, modelHelpLabel, customEndpointLabel, customEndpointField, customModelLabel, customModelField, keyLabel, keyField, keyHelpLabel, languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, embeddingLabel, embeddingProviderPopup, embeddingEndpointLabel, embeddingEndpointField, embeddingModelNameLabel, embeddingModelField, embeddingKeyLabel, embeddingKeyField, embeddingHelpLabel, cacheLabel, cacheStatusLabel, clearVectorCacheButton] {
             formContent.addSubview(view)
         }
 
         let keyTopWithCustom = keyLabel.topAnchor.constraint(equalTo: customModelField.bottomAnchor, constant: 18)
         let keyTopWithoutCustom = keyLabel.topAnchor.constraint(equalTo: modelHelpLabel.bottomAnchor, constant: 22)
+        let formMinHeight = formContent.heightAnchor.constraint(greaterThanOrEqualTo: scrollView.contentView.heightAnchor)
+        formMinHeight.priority = .defaultLow
+        let fieldWidthMultiplier: CGFloat = 0.70
+        let labelColumnWidth: CGFloat = 132
+        let embeddingModelTopWithCustomEndpoint = embeddingModelNameLabel.topAnchor.constraint(equalTo: embeddingEndpointField.bottomAnchor, constant: 10)
+        let embeddingModelTopWithoutCustomEndpoint = embeddingModelNameLabel.topAnchor.constraint(equalTo: embeddingProviderPopup.bottomAnchor, constant: 10)
         keyTopWithCustomConstraint = keyTopWithCustom
         keyTopWithoutCustomConstraint = keyTopWithoutCustom
+        embeddingModelTopWithCustomEndpointConstraint = embeddingModelTopWithCustomEndpoint
+        embeddingModelTopWithoutCustomEndpointConstraint = embeddingModelTopWithoutCustomEndpoint
 
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: content.topAnchor, constant: 28),
@@ -224,82 +243,98 @@ final class AISettingsPanelController {
             formContent.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
             formContent.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
             formContent.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
-            formContent.bottomAnchor.constraint(equalTo: scrollView.contentView.bottomAnchor),
             formContent.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
+            formMinHeight,
 
             modelLabel.topAnchor.constraint(equalTo: formContent.topAnchor, constant: 4),
             modelLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            modelPopup.topAnchor.constraint(equalTo: modelLabel.bottomAnchor, constant: 8),
-            modelPopup.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            modelPopup.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            modelLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            modelPopup.topAnchor.constraint(equalTo: formContent.topAnchor, constant: 4),
+            modelPopup.leadingAnchor.constraint(equalTo: formContent.leadingAnchor, constant: labelColumnWidth),
+            modelPopup.widthAnchor.constraint(equalTo: formContent.widthAnchor, multiplier: fieldWidthMultiplier),
             modelPopup.heightAnchor.constraint(equalToConstant: 44),
             modelHelpLabel.topAnchor.constraint(equalTo: modelPopup.bottomAnchor, constant: 8),
-            modelHelpLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            modelHelpLabel.leadingAnchor.constraint(equalTo: modelPopup.leadingAnchor),
             modelHelpLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
 
             customEndpointLabel.topAnchor.constraint(equalTo: modelHelpLabel.bottomAnchor, constant: 18),
             customEndpointLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            customEndpointField.topAnchor.constraint(equalTo: customEndpointLabel.bottomAnchor, constant: 8),
-            customEndpointField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            customEndpointField.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            customEndpointLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            customEndpointField.topAnchor.constraint(equalTo: customEndpointLabel.topAnchor),
+            customEndpointField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor, constant: labelColumnWidth),
+            customEndpointField.widthAnchor.constraint(equalTo: formContent.widthAnchor, multiplier: fieldWidthMultiplier),
             customEndpointField.heightAnchor.constraint(equalToConstant: 34),
             customModelLabel.topAnchor.constraint(equalTo: customEndpointField.bottomAnchor, constant: 10),
             customModelLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            customModelField.topAnchor.constraint(equalTo: customModelLabel.bottomAnchor, constant: 8),
-            customModelField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            customModelField.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            customModelLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            customModelField.topAnchor.constraint(equalTo: customModelLabel.topAnchor),
+            customModelField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor, constant: labelColumnWidth),
+            customModelField.widthAnchor.constraint(equalTo: formContent.widthAnchor, multiplier: fieldWidthMultiplier),
             customModelField.heightAnchor.constraint(equalToConstant: 34),
 
             keyTopWithCustom,
             keyLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            keyField.topAnchor.constraint(equalTo: keyLabel.bottomAnchor, constant: 8),
-            keyField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            keyField.trailingAnchor.constraint(equalTo: eyeButton.leadingAnchor, constant: -10),
+            keyLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            keyField.topAnchor.constraint(equalTo: keyLabel.topAnchor),
+            keyField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor, constant: labelColumnWidth),
+            keyField.widthAnchor.constraint(equalTo: formContent.widthAnchor, multiplier: fieldWidthMultiplier),
             keyField.heightAnchor.constraint(equalToConstant: 34),
-            plainKeyField.topAnchor.constraint(equalTo: keyField.topAnchor),
-            plainKeyField.leadingAnchor.constraint(equalTo: keyField.leadingAnchor),
-            plainKeyField.trailingAnchor.constraint(equalTo: keyField.trailingAnchor),
-            plainKeyField.heightAnchor.constraint(equalTo: keyField.heightAnchor),
-            eyeButton.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
-            eyeButton.centerYAnchor.constraint(equalTo: keyField.centerYAnchor),
-            eyeButton.widthAnchor.constraint(equalToConstant: 28),
-            eyeButton.heightAnchor.constraint(equalToConstant: 28),
             keyHelpLabel.topAnchor.constraint(equalTo: keyField.bottomAnchor, constant: 8),
-            keyHelpLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            keyHelpLabel.leadingAnchor.constraint(equalTo: keyField.leadingAnchor),
             keyHelpLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
 
             languageLabel.topAnchor.constraint(equalTo: keyHelpLabel.bottomAnchor, constant: 22),
             languageLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            languagePopup.topAnchor.constraint(equalTo: languageLabel.bottomAnchor, constant: 8),
-            languagePopup.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            languagePopup.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            languageLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            languagePopup.topAnchor.constraint(equalTo: languageLabel.topAnchor),
+            languagePopup.leadingAnchor.constraint(equalTo: formContent.leadingAnchor, constant: labelColumnWidth),
+            languagePopup.widthAnchor.constraint(equalTo: formContent.widthAnchor, multiplier: fieldWidthMultiplier),
             languagePopup.heightAnchor.constraint(equalToConstant: 44),
             languageHelpLabel.topAnchor.constraint(equalTo: languagePopup.bottomAnchor, constant: 8),
-            languageHelpLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            languageHelpLabel.leadingAnchor.constraint(equalTo: languagePopup.leadingAnchor),
             languageHelpLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
 
             themeLabel.topAnchor.constraint(equalTo: languageHelpLabel.bottomAnchor, constant: 20),
             themeLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            themePopup.topAnchor.constraint(equalTo: themeLabel.bottomAnchor, constant: 8),
-            themePopup.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            themePopup.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            themeLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            themePopup.topAnchor.constraint(equalTo: themeLabel.topAnchor),
+            themePopup.leadingAnchor.constraint(equalTo: formContent.leadingAnchor, constant: labelColumnWidth),
+            themePopup.widthAnchor.constraint(equalTo: formContent.widthAnchor, multiplier: fieldWidthMultiplier),
             themePopup.heightAnchor.constraint(equalToConstant: 44),
             themeHelpLabel.topAnchor.constraint(equalTo: themePopup.bottomAnchor, constant: 8),
-            themeHelpLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            themeHelpLabel.leadingAnchor.constraint(equalTo: themePopup.leadingAnchor),
             themeHelpLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
 
             embeddingLabel.topAnchor.constraint(equalTo: themeHelpLabel.bottomAnchor, constant: 20),
             embeddingLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            embeddingEndpointField.topAnchor.constraint(equalTo: embeddingLabel.bottomAnchor, constant: 8),
-            embeddingEndpointField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            embeddingEndpointField.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            embeddingLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            embeddingProviderPopup.topAnchor.constraint(equalTo: embeddingLabel.topAnchor),
+            embeddingProviderPopup.leadingAnchor.constraint(equalTo: formContent.leadingAnchor, constant: labelColumnWidth),
+            embeddingProviderPopup.widthAnchor.constraint(equalTo: formContent.widthAnchor, multiplier: fieldWidthMultiplier),
+            embeddingProviderPopup.heightAnchor.constraint(equalToConstant: 44),
+            embeddingEndpointLabel.topAnchor.constraint(equalTo: embeddingProviderPopup.bottomAnchor, constant: 10),
+            embeddingEndpointLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            embeddingEndpointLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            embeddingEndpointField.topAnchor.constraint(equalTo: embeddingEndpointLabel.topAnchor),
+            embeddingEndpointField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor, constant: labelColumnWidth),
+            embeddingEndpointField.widthAnchor.constraint(equalTo: formContent.widthAnchor, multiplier: fieldWidthMultiplier),
             embeddingEndpointField.heightAnchor.constraint(equalToConstant: 34),
-            embeddingModelField.topAnchor.constraint(equalTo: embeddingEndpointField.bottomAnchor, constant: 8),
-            embeddingModelField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
-            embeddingModelField.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
+            embeddingModelTopWithCustomEndpoint,
+            embeddingModelNameLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            embeddingModelNameLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            embeddingModelField.topAnchor.constraint(equalTo: embeddingModelNameLabel.topAnchor),
+            embeddingModelField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor, constant: labelColumnWidth),
+            embeddingModelField.widthAnchor.constraint(equalTo: formContent.widthAnchor, multiplier: fieldWidthMultiplier),
             embeddingModelField.heightAnchor.constraint(equalToConstant: 34),
-            embeddingHelpLabel.topAnchor.constraint(equalTo: embeddingModelField.bottomAnchor, constant: 8),
-            embeddingHelpLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            embeddingKeyLabel.topAnchor.constraint(equalTo: embeddingModelField.bottomAnchor, constant: 10),
+            embeddingKeyLabel.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            embeddingKeyLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            embeddingKeyField.topAnchor.constraint(equalTo: embeddingKeyLabel.topAnchor),
+            embeddingKeyField.leadingAnchor.constraint(equalTo: formContent.leadingAnchor, constant: labelColumnWidth),
+            embeddingKeyField.widthAnchor.constraint(equalTo: formContent.widthAnchor, multiplier: fieldWidthMultiplier),
+            embeddingKeyField.heightAnchor.constraint(equalToConstant: 34),
+            embeddingHelpLabel.topAnchor.constraint(equalTo: embeddingKeyField.bottomAnchor, constant: 8),
+            embeddingHelpLabel.leadingAnchor.constraint(equalTo: embeddingKeyField.leadingAnchor),
             embeddingHelpLabel.trailingAnchor.constraint(equalTo: formContent.trailingAnchor, constant: -8),
 
             cacheLabel.topAnchor.constraint(equalTo: embeddingHelpLabel.bottomAnchor, constant: 20),
@@ -328,19 +363,20 @@ final class AISettingsPanelController {
         self.languagePopup = languagePopup
         self.themePopup = themePopup
         self.secureKeyField = keyField
-        self.plainKeyField = plainKeyField
         self.customEndpointLabel = customEndpointLabel
         self.customEndpointField = customEndpointField
         self.customModelLabel = customModelLabel
         self.customModelField = customModelField
+        self.embeddingProviderPopup = embeddingProviderPopup
+        self.embeddingEndpointLabel = embeddingEndpointLabel
         self.embeddingEndpointField = embeddingEndpointField
         self.embeddingModelField = embeddingModelField
+        self.embeddingKeyField = embeddingKeyField
         self.cacheStatusLabel = cacheStatusLabel
         updateCustomModelFields(for: selectedModel.id)
+        updateEmbeddingEndpointFields(for: selectedEmbeddingEndpoint.id, fillDefaults: false)
 
-        window.beginSheet(panel) { [weak self] _ in
-            self?.panel = nil
-        }
+        showPanel(panel, attachedTo: window)
         DispatchQueue.main.async {
             panel.makeKey()
             if selectedModel.id == AISettingsStore.customModelID {
@@ -351,8 +387,19 @@ final class AISettingsPanelController {
         }
     }
 
+    private func showPanel(_ panel: NSWindow, attachedTo parent: NSWindow) {
+        let parentFrame = parent.frame
+        let origin = NSPoint(
+            x: parentFrame.midX - panel.frame.width / 2,
+            y: parentFrame.midY - panel.frame.height / 2
+        )
+        panel.setFrameOrigin(origin)
+        parent.addChildWindow(panel, ordered: .above)
+        panel.makeKeyAndOrderFront(nil)
+    }
+
     @objc private func save(_ sender: NSButton) {
-        guard let panel, let modelPopup, let keyField = currentKeyField() else { return }
+        guard let panel, let modelPopup, let keyField = secureKeyField else { return }
         let modelID = modelPopup.selectedItem?.representedObject as? String ?? AISettingsStore.selectedModel.id
         let customEndpoint = customEndpointField?.stringValue ?? ""
         let customModelName = customModelField?.stringValue ?? ""
@@ -375,17 +422,34 @@ final class AISettingsPanelController {
             customEndpoint: customEndpoint,
             customModelName: customModelName
         )
+        let embeddingEndpoint = selectedEmbeddingEndpointForSave()?.endpoint ?? (embeddingEndpointField?.stringValue ?? "")
         AISettingsStore.saveEmbedding(
-            endpoint: embeddingEndpointField?.stringValue ?? "",
-            modelName: embeddingModelField?.stringValue ?? ""
+            endpoint: embeddingEndpoint,
+            modelName: embeddingModelField?.stringValue ?? "",
+            apiKey: embeddingKeyField?.stringValue ?? ""
         )
-        onSaved?()
-        panel.sheetParent?.endSheet(panel)
+        closePanel(notifySaved: true)
     }
 
     @objc private func cancel(_ sender: NSButton) {
-        guard let panel else { return }
-        panel.sheetParent?.endSheet(panel)
+        closePanel(notifySaved: false)
+    }
+
+    private func closePanel(notifySaved: Bool) {
+        guard let panel, !isClosing else { return }
+        isClosing = true
+        shouldNotifySavedAfterClose = notifySaved
+        parentWindow?.removeChildWindow(panel)
+        panel.orderOut(nil)
+        self.panel = nil
+        isClosing = false
+        let shouldNotifySaved = shouldNotifySavedAfterClose
+        shouldNotifySavedAfterClose = false
+        if shouldNotifySaved {
+            DispatchQueue.main.async { [weak self] in
+                self?.onSaved?()
+            }
+        }
     }
 
     @objc private func clearVectorCache(_ sender: NSButton) {
@@ -398,11 +462,10 @@ final class AISettingsPanelController {
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppText.localized("清除", "Clear"))
         alert.addButton(withTitle: AppText.cancel)
-        guard let panel else { return }
-        alert.beginSheetModal(for: panel) { [weak self] response in
-            guard response == .alertFirstButtonReturn else { return }
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
             PDFEmbeddingStore()?.deleteAll()
-            self?.cacheStatusLabel?.stringValue = self?.vectorCacheStatusText() ?? ""
+            cacheStatusLabel?.stringValue = vectorCacheStatusText()
         }
     }
 
@@ -411,32 +474,12 @@ final class AISettingsPanelController {
               let model = AISettingsStore.models.first(where: { $0.id == modelID }) else { return }
         let key = AISettingsStore.apiKey(for: model)
         secureKeyField?.stringValue = key
-        plainKeyField?.stringValue = key
         updateCustomModelFields(for: modelID)
     }
 
-    @objc private func toggleAPIKeyVisibility(_ sender: NSButton) {
-        guard let secureField = secureKeyField, let plainField = plainKeyField else { return }
-        if plainField.isHidden {
-            plainField.stringValue = secureField.stringValue
-            plainField.isHidden = false
-            secureField.isHidden = true
-            sender.image = NSImage(systemSymbolName: "eye.slash", accessibilityDescription: AppText.hideAPIKey)
-            panel?.makeFirstResponder(plainField)
-        } else {
-            secureField.stringValue = plainField.stringValue
-            secureField.isHidden = false
-            plainField.isHidden = true
-            sender.image = NSImage(systemSymbolName: "eye", accessibilityDescription: AppText.showAPIKey)
-            panel?.makeFirstResponder(secureField)
-        }
-    }
-
-    private func currentKeyField() -> NSTextField? {
-        if let plainField = plainKeyField, !plainField.isHidden {
-            return plainField
-        }
-        return secureKeyField
+    @objc private func embeddingProviderChanged(_ sender: NSPopUpButton) {
+        guard let optionID = sender.selectedItem?.representedObject as? String else { return }
+        updateEmbeddingEndpointFields(for: optionID, fillDefaults: true)
     }
 
     private func updateCustomModelFields(for modelID: String) {
@@ -452,13 +495,48 @@ final class AISettingsPanelController {
         panel?.contentView?.layoutSubtreeIfNeeded()
     }
 
+    private func updateEmbeddingEndpointFields(for optionID: String, fillDefaults: Bool) {
+        guard let option = AISettingsStore.embeddingEndpointOptions.first(where: { $0.id == optionID }) else { return }
+        let isCustom = option.id == AISettingsStore.customEmbeddingEndpointID
+        embeddingEndpointLabel?.isHidden = !isCustom
+        embeddingEndpointField?.isHidden = !isCustom
+        embeddingEndpointField?.isEnabled = isCustom
+        embeddingModelTopWithCustomEndpointConstraint?.isActive = isCustom
+        embeddingModelTopWithoutCustomEndpointConstraint?.isActive = !isCustom
+
+        if isCustom {
+            if fillDefaults {
+                embeddingEndpointField?.stringValue = ""
+                embeddingModelField?.stringValue = ""
+                embeddingKeyField?.stringValue = ""
+            }
+        } else {
+            embeddingEndpointField?.stringValue = option.endpoint
+            if fillDefaults || embeddingModelField?.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
+                embeddingModelField?.stringValue = option.defaultModel
+            }
+        }
+        panel?.contentView?.layoutSubtreeIfNeeded()
+    }
+
+    private func selectedEmbeddingEndpointForSave() -> AISettingsStore.EmbeddingEndpointOption? {
+        guard let optionID = embeddingProviderPopup?.selectedItem?.representedObject as? String,
+              let option = AISettingsStore.embeddingEndpointOptions.first(where: { $0.id == optionID }) else {
+            return nil
+        }
+        if option.id == AISettingsStore.customEmbeddingEndpointID {
+            return AISettingsStore.EmbeddingEndpointOption(id: option.id, title: option.title, endpoint: embeddingEndpointField?.stringValue ?? "", defaultModel: "")
+        }
+        return option
+    }
+
     private func showValidationAlert(message: String, in panel: NSWindow) {
         let alert = NSAlert()
         alert.messageText = AppText.localized("设置无效", "Invalid Settings")
         alert.informativeText = message
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppText.confirm)
-        alert.beginSheetModal(for: panel)
+        alert.runModal()
     }
 
     private func vectorCacheStatusText() -> String {
@@ -508,6 +586,26 @@ final class AISettingsPanelController {
         field.backgroundColor = backgroundColor
         field.translatesAutoresizingMaskIntoConstraints = false
         return field
+    }
+
+    private func comboField(items: [String], selected: String, placeholder: String, fontSize: CGFloat, textColor: NSColor, backgroundColor: NSColor) -> NSComboBox {
+        let comboBox = NSComboBox()
+        comboBox.addItems(withObjectValues: items)
+        comboBox.stringValue = selected.isEmpty ? placeholder : selected
+        comboBox.placeholderString = placeholder
+        comboBox.completes = true
+        comboBox.usesDataSource = false
+        comboBox.numberOfVisibleItems = min(8, max(1, items.count))
+        comboBox.controlSize = .small
+        comboBox.font = NSFont.systemFont(ofSize: fontSize)
+        comboBox.isBordered = true
+        comboBox.drawsBackground = true
+        comboBox.isEditable = true
+        comboBox.isSelectable = true
+        comboBox.textColor = textColor
+        comboBox.backgroundColor = backgroundColor
+        comboBox.translatesAutoresizingMaskIntoConstraints = false
+        return comboBox
     }
 
     private func configureKeyField(_ field: NSTextField, placeholder: String, fontSize: CGFloat, textColor: NSColor, backgroundColor: NSColor) {

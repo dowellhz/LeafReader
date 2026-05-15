@@ -1,10 +1,13 @@
 import Cocoa
 
 final class RecentDocumentsPanelController: NSObject {
+    private weak var parentWindow: NSWindow?
     private var panel: NSWindow?
     private var onOpen: ((String) -> Void)?
     private var onClear: (() -> Void)?
     private var onClose: (() -> Void)?
+    private var pendingOpenPath: String?
+    private var isClosing = false
 
     func show(
         items: [RecentDocumentItem],
@@ -16,6 +19,7 @@ final class RecentDocumentsPanelController: NSObject {
         self.onOpen = onOpen
         self.onClear = onClear
         self.onClose = onClose
+        self.parentWindow = window
 
         let panel = SettingsPanel(
             contentRect: NSRect(x: 0, y: 0, width: 720, height: 540),
@@ -111,20 +115,48 @@ final class RecentDocumentsPanelController: NSObject {
         ])
 
         self.panel = panel
-        window?.beginSheet(panel)
+        showPanel(panel, attachedTo: window)
+    }
+
+    private func showPanel(_ panel: NSWindow, attachedTo parent: NSWindow?) {
+        if let parent {
+            let parentFrame = parent.frame
+            let origin = NSPoint(
+                x: parentFrame.midX - panel.frame.width / 2,
+                y: parentFrame.midY - panel.frame.height / 2
+            )
+            panel.setFrameOrigin(origin)
+            parent.addChildWindow(panel, ordered: .above)
+            panel.makeKeyAndOrderFront(nil)
+        } else {
+            panel.center()
+            panel.makeKeyAndOrderFront(nil)
+        }
     }
 
     func close() {
-        guard let panel else { return }
-        panel.sheetParent?.endSheet(panel)
+        guard let panel, !isClosing else { return }
+        isClosing = true
+        parentWindow?.removeChildWindow(panel)
+        panel.orderOut(nil)
+        let openPath = pendingOpenPath
+        pendingOpenPath = nil
         self.panel = nil
-        onClose?()
+        isClosing = false
+        let onClose = self.onClose
+        let onOpen = self.onOpen
+        DispatchQueue.main.async {
+            onClose?()
+            if let openPath {
+                onOpen?(openPath)
+            }
+        }
     }
 
     @objc private func openRecentDocumentFromButton(_ sender: NSButton) {
         guard let path = sender.identifier?.rawValue else { return }
+        pendingOpenPath = path
         close()
-        onOpen?(path)
     }
 
     @objc private func clearRecentDocuments(_ sender: NSButton) {

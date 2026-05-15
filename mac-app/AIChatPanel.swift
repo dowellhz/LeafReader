@@ -114,7 +114,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     private let inputBar = NSView()
     private let inputField = ChatInputTextField(string: "")
     private let sendButton = NSButton(title: "", target: nil, action: nil)
-    private let spinner = NSProgressIndicator()
+    private let loadingDots = LoadingDotsView()
 
     private struct BubbleMetadata {
         var role: String
@@ -282,9 +282,10 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
             return
         }
 
-        let linkID = isSingleEnglishWord(text) ? onSelectedWordQuestionStarted?(text) : nil
+        let isVocabularyItem = isVocabularySelection(text)
+        let linkID = isVocabularyItem ? onSelectedWordQuestionStarted?(text) : nil
         let selectedContext = onAskSelectedText?(text) ?? nil
-        let prompt = isSingleEnglishWord(text) ? wordPrompt(for: text, context: selectedContext ?? "") : sentencePrompt(for: text)
+        let prompt = isVocabularyItem ? wordPrompt(for: text, context: selectedContext ?? "") : sentencePrompt(for: text)
         let displayedQuestion = "\(AppText.explainPrefix): \(text)"
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
@@ -375,8 +376,12 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         }
     }
 
-    private func isSingleEnglishWord(_ text: String) -> Bool {
-        text.range(of: #"^[A-Za-z][A-Za-z'-]*$"#, options: .regularExpression) != nil
+    private func isVocabularySelection(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalized.count <= 80 else { return false }
+        let words = normalized.split { $0.isWhitespace || $0.isNewline }
+        guard (1...5).contains(words.count) else { return false }
+        return normalized.range(of: #"^[A-Za-z][A-Za-z'’-]*(\s+[A-Za-z][A-Za-z'’-]*){0,4}$"#, options: .regularExpression) != nil
     }
 
     private func wordPrompt(for word: String, context: String) -> String {
@@ -705,11 +710,11 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         sendButton.isEnabled = !busy
         statusLabel.stringValue = text
         if busy {
-            spinner.isHidden = false
-            spinner.startAnimation(nil)
+            loadingDots.isHidden = false
+            loadingDots.startAnimating()
         } else {
-            spinner.stopAnimation(nil)
-            spinner.isHidden = true
+            loadingDots.stopAnimating()
+            loadingDots.isHidden = true
         }
     }
 
@@ -857,87 +862,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     private func markdownString(_ text: String) -> NSAttributedString {
-        let output = NSMutableAttributedString()
-        let lines = text.components(separatedBy: .newlines)
-
-        for rawLine in lines {
-            let line = rawLine.trimmingCharacters(in: .whitespaces)
-            if line.isEmpty {
-                output.append(NSAttributedString(string: "\n"))
-                continue
-            }
-
-            let parsed = markdownLine(line)
-            let baseFont = parsed.isHeading || parsed.isBoldLine
-                ? NSFont.boldSystemFont(ofSize: parsed.fontSize)
-                : NSFont.systemFont(ofSize: parsed.fontSize)
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: baseFont,
-                .foregroundColor: primaryTextColor,
-                .paragraphStyle: paragraphStyle(
-                    spacing: parsed.isHeading ? 10 : 8,
-                    headIndent: parsed.isBullet ? 18 : 0,
-                    firstLineHeadIndent: 0
-                )
-            ]
-            let rendered = NSMutableAttributedString(string: parsed.display + "\n", attributes: attrs)
-            applyInlineMarkdown(to: rendered, baseFontSize: parsed.fontSize)
-            output.append(rendered)
-        }
-
-        return output
-    }
-
-    private func markdownLine(_ line: String) -> (display: String, isHeading: Bool, isBoldLine: Bool, isBullet: Bool, fontSize: CGFloat) {
-        var display = line
-        var isHeading = false
-        var fontSize = Self.readerBodyFontSize
-
-        if let range = display.range(of: #"^#{1,6}\s+"#, options: .regularExpression) {
-            let marker = String(display[range]).trimmingCharacters(in: .whitespaces)
-            display.removeSubrange(range)
-            isHeading = true
-            fontSize = marker.count <= 1 ? 18 : (marker.count == 2 ? 16 : 15)
-        } else if display.hasPrefix("【"), display.contains("】") {
-            isHeading = true
-            fontSize = 15
-        }
-
-        let isBullet = display.range(of: #"^[-*]\s+"#, options: .regularExpression) != nil
-            || display.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil
-        display = display
-            .replacingOccurrences(of: #"^[-*]\s+"#, with: "• ", options: .regularExpression)
-
-        let trimmed = display.trimmingCharacters(in: .whitespaces)
-        let isBoldLine = (trimmed.hasPrefix("**") && trimmed.hasSuffix("**") && trimmed.count > 4)
-            || (trimmed.hasPrefix("__") && trimmed.hasSuffix("__") && trimmed.count > 4)
-
-        return (display, isHeading, isBoldLine, isBullet, fontSize)
-    }
-
-    private func applyInlineMarkdown(to attributed: NSMutableAttributedString, baseFontSize: CGFloat) {
-        applyDelimitedStyle(to: attributed, delimiter: "**", font: NSFont.boldSystemFont(ofSize: baseFontSize))
-        applyDelimitedStyle(to: attributed, delimiter: "__", font: NSFont.boldSystemFont(ofSize: baseFontSize))
-        applyDelimitedStyle(to: attributed, delimiter: "`", font: NSFont.monospacedSystemFont(ofSize: max(12, baseFontSize - 1), weight: .regular))
-    }
-
-    private func applyDelimitedStyle(to attributed: NSMutableAttributedString, delimiter: String, font: NSFont) {
-        while true {
-            let full = attributed.string as NSString
-            let start = full.range(of: delimiter)
-            guard start.location != NSNotFound else { return }
-            let searchStart = start.location + start.length
-            let searchRange = NSRange(location: searchStart, length: full.length - searchStart)
-            let end = full.range(of: delimiter, options: [], range: searchRange)
-            guard end.location != NSNotFound else { return }
-
-            attributed.deleteCharacters(in: end)
-            attributed.deleteCharacters(in: start)
-            let styledRange = NSRange(location: start.location, length: end.location - searchStart)
-            if styledRange.length > 0 {
-                attributed.addAttribute(.font, value: font, range: styledRange)
-            }
-        }
+        MarkdownRenderer.render(text, fontSize: Self.readerBodyFontSize, textColor: primaryTextColor)
     }
 
     private func paragraphStyle(spacing: CGFloat, headIndent: CGFloat = 0, firstLineHeadIndent: CGFloat? = nil) -> NSParagraphStyle {
@@ -1093,13 +1018,11 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         statusLabel.textColor = NSColor(red: 0.42, green: 0.44, blue: 0.49, alpha: 1)
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        spinner.style = .spinning
-        spinner.controlSize = .small
-        spinner.isHidden = true
-        spinner.translatesAutoresizingMaskIntoConstraints = false
+        loadingDots.isHidden = true
+        loadingDots.translatesAutoresizingMaskIntoConstraints = false
 
         statusRow.translatesAutoresizingMaskIntoConstraints = false
-        statusRow.addSubview(spinner)
+        statusRow.addSubview(loadingDots)
         statusRow.addSubview(statusLabel)
 
         inputBar.wantsLayer = true
@@ -1162,9 +1085,11 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
             statusRow.bottomAnchor.constraint(equalTo: inputBar.topAnchor, constant: -8),
             statusRow.heightAnchor.constraint(equalToConstant: 18),
 
-            spinner.leadingAnchor.constraint(equalTo: statusRow.leadingAnchor),
-            spinner.centerYAnchor.constraint(equalTo: statusRow.centerYAnchor),
-            statusLabel.leadingAnchor.constraint(equalTo: spinner.trailingAnchor, constant: 8),
+            loadingDots.leadingAnchor.constraint(equalTo: statusRow.leadingAnchor),
+            loadingDots.centerYAnchor.constraint(equalTo: statusRow.centerYAnchor),
+            loadingDots.widthAnchor.constraint(equalToConstant: 22),
+            loadingDots.heightAnchor.constraint(equalToConstant: 10),
+            statusLabel.leadingAnchor.constraint(equalTo: loadingDots.trailingAnchor, constant: 8),
             statusLabel.trailingAnchor.constraint(equalTo: statusRow.trailingAnchor),
             statusLabel.centerYAnchor.constraint(equalTo: statusRow.centerYAnchor),
 
@@ -1232,5 +1157,49 @@ private final class ChatBubbleView: NSView {
         borderColor.setStroke()
         path.lineWidth = 1
         path.stroke()
+    }
+}
+
+private final class LoadingDotsView: NSView {
+    private var timer: Timer?
+    private var phase = 0
+
+    func startAnimating() {
+        timer?.invalidate()
+        phase = 0
+        needsDisplay = true
+        timer = Timer.scheduledTimer(withTimeInterval: 0.22, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.phase = (self.phase + 1) % 3
+            self.needsDisplay = true
+        }
+    }
+
+    func stopAnimating() {
+        timer?.invalidate()
+        timer = nil
+        phase = 0
+        needsDisplay = true
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil {
+            stopAnimating()
+        }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        let activeColor = NSColor.systemBlue.withAlphaComponent(0.95)
+        let inactiveColor = NSColor.systemBlue.withAlphaComponent(0.28)
+        let radius: CGFloat = 3
+        let y = bounds.midY - radius
+        for index in 0..<3 {
+            let color = index == phase ? activeColor : inactiveColor
+            color.setFill()
+            let x = CGFloat(index) * 8 + 1
+            NSBezierPath(ovalIn: NSRect(x: x, y: y, width: radius * 2, height: radius * 2)).fill()
+        }
     }
 }

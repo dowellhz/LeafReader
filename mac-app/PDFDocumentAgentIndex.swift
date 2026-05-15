@@ -40,6 +40,10 @@ final class PDFDocumentAgentIndex {
         chunks.map { ($0.id, $0.pageIndex, $0.chunkIndex, $0.text) }
     }
 
+    var embeddingCoverage: (embedded: Int, total: Int) {
+        (chunks.filter { $0.embedding != nil }.count, chunks.count)
+    }
+
     func search(question: String, currentPageIndex: Int?, limit: Int = 6) -> [PDFDocumentAgentEvidence] {
         search(question: question, currentPageIndex: currentPageIndex, queryEmbedding: nil, limit: limit)
     }
@@ -86,9 +90,24 @@ final class PDFDocumentAgentIndex {
             .map { $0 }
     }
 
-    func missingEmbeddingChunks(limit: Int = 48) -> [(id: String, pageIndex: Int, chunkIndex: Int, text: String)] {
-        chunks
-            .filter { $0.embedding == nil }
+    func missingEmbeddingChunks(limit: Int = 48, preferredPageIndex: Int? = nil, preferredRadius: Int = 2) -> [(id: String, pageIndex: Int, chunkIndex: Int, text: String)] {
+        let missing = chunks.filter { $0.embedding == nil }
+        let ordered: [Chunk]
+        if let preferredPageIndex {
+            ordered = missing.sorted { lhs, rhs in
+                let lhsDistance = abs(lhs.pageIndex - preferredPageIndex)
+                let rhsDistance = abs(rhs.pageIndex - preferredPageIndex)
+                let lhsPriority = lhsDistance <= preferredRadius ? 0 : 1
+                let rhsPriority = rhsDistance <= preferredRadius ? 0 : 1
+                if lhsPriority != rhsPriority { return lhsPriority < rhsPriority }
+                if lhsDistance != rhsDistance { return lhsDistance < rhsDistance }
+                if lhs.pageIndex != rhs.pageIndex { return lhs.pageIndex < rhs.pageIndex }
+                return lhs.chunkIndex < rhs.chunkIndex
+            }
+        } else {
+            ordered = missing
+        }
+        return ordered
             .prefix(limit)
             .map { ($0.id, $0.pageIndex, $0.chunkIndex, $0.text) }
     }
