@@ -99,14 +99,17 @@ final class AISettingsPanelController {
         let content = NSView()
         content.wantsLayer = true
         content.layer?.backgroundColor = panelBackground.cgColor
-        content.layer?.borderWidth = isDark ? 1 : 0
-        content.layer?.borderColor = NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1).cgColor
+        content.layer?.borderWidth = 1.5
+        content.layer?.borderColor = (isDark
+            ? NSColor(red: 0.32, green: 0.38, blue: 0.46, alpha: 1)
+            : NSColor(red: 0.78, green: 0.82, blue: 0.90, alpha: 1)
+        ).cgColor
         content.layer?.cornerRadius = 12
         content.layer?.masksToBounds = false
         content.layer?.shadowColor = NSColor.black.cgColor
-        content.layer?.shadowOpacity = 0.18
-        content.layer?.shadowRadius = 24
-        content.layer?.shadowOffset = CGSize(width: 0, height: -8)
+        content.layer?.shadowOpacity = isDark ? 0.34 : 0.22
+        content.layer?.shadowRadius = 28
+        content.layer?.shadowOffset = CGSize(width: 0, height: -10)
         content.translatesAutoresizingMaskIntoConstraints = false
         panel.contentView = content
 

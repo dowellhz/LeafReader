@@ -27,6 +27,17 @@ Download the latest macOS installer:
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
 
+## What's New in 1.2
+
+- Renamed the assistant entry point to `学英语` and improved selected-word and short-phrase explanations.
+- Added Markdown rendering for AI answers, reference bubbles, and the book vocabulary panel.
+- Added PDF vector retrieval for document Q&A, with current-page priority, background indexing, cache reuse, and index progress in the bottom toolbar.
+- Added separate embedding service settings, including OpenAI-compatible providers, local embedding endpoints, custom endpoints, and a separate embedding API key.
+- Improved Chinese-to-English retrieval queries when asking Chinese questions about English books.
+- Redesigned the settings panel with scrolling layout, clearer fields, and a more visible window edge.
+- Reworked the book vocabulary panel into a scrollable card view.
+- Improved app stability by replacing fragile sheet-based panels with child windows.
+
 ## Requirements
 
 - macOS 12.0 or later.
