@@ -36,6 +36,17 @@ final class PDFDocumentAgentIndex {
         chunks = builtChunks
     }
 
+    init(text: String) {
+        let sections = Self.sections(from: text)
+        chunks = sections.enumerated().flatMap { sectionIndex, sectionText in
+            Self.chunks(from: sectionText, pageIndex: sectionIndex)
+        }
+    }
+
+    var locationCount: Int {
+        Set(chunks.map(\.pageIndex)).count
+    }
+
     var indexableChunks: [(id: String, pageIndex: Int, chunkIndex: Int, text: String)] {
         chunks.map { ($0.id, $0.pageIndex, $0.chunkIndex, $0.text) }
     }
@@ -121,18 +132,57 @@ final class PDFDocumentAgentIndex {
         }
     }
 
-    static func evidenceText(_ evidence: [PDFDocumentAgentEvidence], maxCharacters: Int = 7000) -> String {
+    static func evidenceText(_ evidence: [PDFDocumentAgentEvidence], locationName: String = "Page", maxCharacters: Int = 7000) -> String {
         var remaining = maxCharacters
         var parts: [String] = []
         for item in evidence {
             guard remaining > 0 else { break }
             let text = String(item.text.prefix(max(0, min(remaining, 1400))))
             guard !text.isEmpty else { continue }
-            let part = "[Page \(item.pageNumber)]\n\(text)"
+            let part = "[\(locationName) \(item.pageNumber)]\n\(text)"
             parts.append(part)
             remaining -= part.count
         }
         return parts.joined(separator: "\n\n")
+    }
+
+    private static func sections(from text: String, targetLength: Int = 2600) -> [String] {
+        let normalized = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(text)
+        guard !normalized.isEmpty else { return [] }
+
+        let paragraphs = normalized
+            .components(separatedBy: "\n\n")
+            .map { ReaderAIContextBuilder.normalizeWhitespace($0) }
+            .filter { !$0.isEmpty }
+
+        var sections: [String] = []
+        var current = ""
+
+        func flush() {
+            let text = current.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty {
+                sections.append(text)
+            }
+            current = ""
+        }
+
+        for paragraph in paragraphs {
+            if current.count + paragraph.count > targetLength {
+                flush()
+            }
+            if paragraph.count > targetLength * 2 {
+                var start = paragraph.startIndex
+                while start < paragraph.endIndex {
+                    let end = paragraph.index(start, offsetBy: targetLength, limitedBy: paragraph.endIndex) ?? paragraph.endIndex
+                    sections.append(String(paragraph[start..<end]))
+                    start = end
+                }
+                continue
+            }
+            current = current.isEmpty ? paragraph : "\(current)\n\(paragraph)"
+        }
+        flush()
+        return sections
     }
 
     private static func chunks(from text: String, pageIndex: Int) -> [Chunk] {

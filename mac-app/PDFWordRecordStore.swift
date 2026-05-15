@@ -23,6 +23,7 @@ struct StoredPDFWordRecord: Codable {
     let word: String
     let pageIndex: Int
     let bounds: StoredPDFWordRect
+    var context: String?
     var question: String
     var answer: String
     let createdAt: Date

@@ -37,11 +37,11 @@ final class GradientButton: NSButton {
 
         let title = AppText.askAI
         let titleAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 16, weight: .semibold),
+            .font: AppFont.semibold(ofSize: 16),
             .foregroundColor: isEnabled ? NSColor.white : NSColor(red: 0.70, green: 0.71, blue: 0.76, alpha: 1)
         ]
         let previewAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+            .font: AppFont.semibold(ofSize: 13),
             .foregroundColor: NSColor.white.withAlphaComponent(0.86)
         ]
 
@@ -136,7 +136,7 @@ final class CapsuleChromeButton: NSButton {
 
     override var intrinsicContentSize: NSSize {
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13, weight: .medium)
+            .font: AppFont.semibold(ofSize: 13)
         ]
         let textWidth = title.size(withAttributes: attrs).width
         return NSSize(width: max(64, ceil(textWidth) + 28), height: 30)
@@ -169,7 +169,7 @@ final class CapsuleChromeButton: NSButton {
         paragraph.alignment = .center
         paragraph.lineBreakMode = .byTruncatingTail
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+            .font: AppFont.semibold(ofSize: 13),
             .foregroundColor: textColor,
             .paragraphStyle: paragraph
         ]

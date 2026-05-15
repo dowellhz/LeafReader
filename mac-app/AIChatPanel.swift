@@ -1,3 +1,4 @@
+import AVFoundation
 import Cocoa
 
 private final class ChatInputTextField: NSTextField {
@@ -93,6 +94,22 @@ private final class ChatBubbleTextField: NSTextField {
     }
 }
 
+private final class WordSpeakerButton: NSButton {
+    var spokenWord: String?
+
+    override var acceptsFirstResponder: Bool { false }
+
+    override func mouseDown(with event: NSEvent) {
+        if isEnabled, let action {
+            NSApp.sendAction(action, to: target, from: self)
+        }
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+}
+
 final class AIChatPanel: NSView, NSTextFieldDelegate {
     private static let readerBodyFontSize: CGFloat = 15
 
@@ -115,6 +132,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     private let inputField = ChatInputTextField(string: "")
     private let sendButton = NSButton(title: "", target: nil, action: nil)
     private let loadingDots = LoadingDotsView()
+    private let speechSynthesizer = AVSpeechSynthesizer()
 
     private struct BubbleMetadata {
         var role: String
@@ -238,9 +256,9 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         ]
 
         for record in records {
-            appendBubble(role: AppText.userRole, text: record.question, collapsible: false, linkID: record.id)
+            appendBubble(role: AppText.userRole, text: vocabularyBubbleTitle(for: record.word), collapsible: false, linkID: record.id)
             appendBubble(role: AppText.aiRole, text: record.answer, collapsible: false, renderMarkdown: true, linkID: record.id)
-            recordTranscript(role: AppText.userRole, text: record.question)
+            recordTranscript(role: AppText.userRole, text: vocabularyBubbleTitle(for: record.word))
             recordTranscript(role: AppText.aiRole, text: record.answer)
             messages.append(ChatMessage(role: "user", content: record.question))
             messages.append(ChatMessage(role: "assistant", content: record.answer))
@@ -252,8 +270,9 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         selectedLinkID = id
         updateLinkedBubbleSelection()
         setContentVisible(true)
-        DispatchQueue.main.async { [weak box] in
-            box?.scrollToVisible(box?.bounds ?? .zero)
+        DispatchQueue.main.async { [weak self, weak box] in
+            guard let self, let box else { return }
+            self.scrollTranscriptToTop(of: box)
         }
     }
 
@@ -283,10 +302,11 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         }
 
         let isVocabularyItem = isVocabularySelection(text)
+        speakSelectedWordIfNeeded(text)
         let linkID = isVocabularyItem ? onSelectedWordQuestionStarted?(text) : nil
         let selectedContext = onAskSelectedText?(text) ?? nil
         let prompt = isVocabularyItem ? wordPrompt(for: text, context: selectedContext ?? "") : sentencePrompt(for: text)
-        let displayedQuestion = "\(AppText.explainPrefix): \(text)"
+        let displayedQuestion = isVocabularyItem ? vocabularyBubbleTitle(for: text) : "\(AppText.explainPrefix): \(text)"
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
         clearSelectedText()
@@ -382,6 +402,30 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         let words = normalized.split { $0.isWhitespace || $0.isNewline }
         guard (1...5).contains(words.count) else { return false }
         return normalized.range(of: #"^[A-Za-z][A-Za-z'’-]*(\s+[A-Za-z][A-Za-z'’-]*){0,4}$"#, options: .regularExpression) != nil
+    }
+
+    private func isSingleEnglishWord(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalized.count <= 40 else { return false }
+        return normalized.range(of: #"^[A-Za-z][A-Za-z'’-]*$"#, options: .regularExpression) != nil
+    }
+
+    private func speakSelectedWordIfNeeded(_ text: String) {
+        guard AISettingsStore.speakSelectedWordEnabled,
+              isSingleEnglishWord(text) else {
+            return
+        }
+        speakWord(text)
+    }
+
+    private func speakWord(_ text: String) {
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(at: .immediate)
+        }
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
+        speechSynthesizer.speak(utterance)
     }
 
     private func wordPrompt(for word: String, context: String) -> String {
@@ -747,24 +791,59 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         bubbleMetadataByID[bodyID] = BubbleMetadata(role: role, text: text, renderMarkdown: renderMarkdown, collapsible: collapsible, linkID: linkID)
 
         box.addSubview(body)
+        let speakerButton: NSButton?
+        if let word = speakerWordForBubble(role: role, text: text, linkID: linkID) {
+            let button = WordSpeakerButton(title: "", target: self, action: #selector(playBubbleWord(_:)))
+            button.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: AppText.localized("播放发音", "Play pronunciation"))
+            button.isBordered = false
+            button.contentTintColor = NSColor.systemBlue
+            button.imageScaling = .scaleProportionallyDown
+            button.imagePosition = .imageOnly
+            button.identifier = NSUserInterfaceItemIdentifier(word)
+            button.spokenWord = word
+            button.toolTip = AppText.localized("播放单词发音", "Play word pronunciation")
+            button.translatesAutoresizingMaskIntoConstraints = false
+            box.addSubview(button)
+            speakerButton = button
+            body.setContentHuggingPriority(.required, for: .horizontal)
+            body.setContentCompressionResistancePriority(.required, for: .horizontal)
+        } else {
+            speakerButton = nil
+        }
         transcriptStack.addArrangedSubview(box)
         if let linkID {
             box.identifier = NSUserInterfaceItemIdentifier(linkID)
-            bubbleBoxByLinkID[linkID] = box
-            box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(selectLinkedBubble(_:))))
-            box.toolTip = AppText.localized("跳转到原文位置", "Jump to source location")
+            if bubbleBoxByLinkID[linkID] == nil || speakerButton != nil {
+                bubbleBoxByLinkID[linkID] = box
+            }
+            if speakerButton == nil {
+                box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(selectLinkedBubble(_:))))
+                box.toolTip = AppText.localized("跳转到原文位置", "Jump to source location")
+            }
         } else if collapsible {
             box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(toggleCollapsedBubble(_:))))
             box.toolTip = AppText.tapToExpand
         }
 
-        NSLayoutConstraint.activate([
+        var constraints: [NSLayoutConstraint] = [
             box.widthAnchor.constraint(equalTo: transcriptStack.widthAnchor),
             body.topAnchor.constraint(equalTo: box.topAnchor, constant: 12),
             body.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 12),
-            body.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -12),
             body.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -12)
-        ])
+        ]
+        if let speakerButton {
+            constraints.append(contentsOf: [
+                body.trailingAnchor.constraint(lessThanOrEqualTo: box.trailingAnchor, constant: -78),
+                speakerButton.leadingAnchor.constraint(equalTo: body.trailingAnchor, constant: 2),
+                speakerButton.trailingAnchor.constraint(lessThanOrEqualTo: box.trailingAnchor, constant: -12),
+                speakerButton.centerYAnchor.constraint(equalTo: body.centerYAnchor),
+                speakerButton.widthAnchor.constraint(equalToConstant: 54),
+                speakerButton.heightAnchor.constraint(equalToConstant: 54)
+            ])
+        } else {
+            constraints.append(body.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -12))
+        }
+        NSLayoutConstraint.activate(constraints)
 
         DispatchQueue.main.async { [weak self, weak box] in
             guard let self = self, let box = box else { return }
@@ -772,6 +851,21 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
             box.scrollToVisible(box.bounds)
         }
         return body
+    }
+
+    private func speakerWordForBubble(role: String, text: String, linkID: String?) -> String? {
+        guard linkID != nil, role == AppText.userRole else { return nil }
+        let rawWord = vocabularyWord(from: text)
+        return isSingleEnglishWord(rawWord) ? rawWord : nil
+    }
+
+    @objc private func playBubbleWord(_ sender: NSButton) {
+        let candidate = (sender as? WordSpeakerButton)?.spokenWord ?? sender.identifier?.rawValue
+        guard let word = candidate,
+              isSingleEnglishWord(word) else {
+            return
+        }
+        speakWord(word)
     }
 
     private func updateBubble(_ body: NSTextField, role: String, text: String, renderMarkdown: Bool = true) {
@@ -827,7 +921,10 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     private func bubbleString(role: String, text: String, renderMarkdown: Bool) -> NSAttributedString {
-        role == AppText.aiRole && renderMarkdown ? markdownString(text) : plainString(text)
+        if role == AppText.userRole, isVocabularyBubbleTitle(text) {
+            return vocabularyTitleString(text)
+        }
+        return role == AppText.aiRole && renderMarkdown ? markdownString(text) : plainString(text)
     }
 
     @objc private func toggleCollapsedBubble(_ recognizer: NSClickGestureRecognizer) {
@@ -844,10 +941,19 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     @objc private func selectLinkedBubble(_ recognizer: NSClickGestureRecognizer) {
-        guard let linkID = recognizer.view?.identifier?.rawValue else { return }
+        guard let box = recognizer.view as? ChatBubbleView,
+              !isClickOnBubbleButton(recognizer, in: box),
+              let linkID = box.identifier?.rawValue else { return }
         selectedLinkID = linkID
         updateLinkedBubbleSelection()
         onLinkedBubbleSelected?(linkID)
+    }
+
+    private func isClickOnBubbleButton(_ recognizer: NSClickGestureRecognizer, in box: ChatBubbleView) -> Bool {
+        let location = recognizer.location(in: box)
+        return box.subviews.contains { subview in
+            subview is NSButton && subview.frame.contains(location)
+        }
     }
 
     private func updateLinkedBubbleSelection() {
@@ -859,9 +965,57 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         }
     }
 
+    private func scrollTranscriptToTop(of box: NSView) {
+        transcriptStack.layoutSubtreeIfNeeded()
+        guard let documentView = scrollView.documentView else {
+            box.scrollToVisible(box.bounds)
+            return
+        }
+        let boxFrame = box.convert(box.bounds, to: documentView)
+        let clipView = scrollView.contentView
+        var origin = clipView.bounds.origin
+        origin.y = min(
+            max(0, boxFrame.minY - 8),
+            max(0, documentView.bounds.height - clipView.bounds.height)
+        )
+        origin.x = 0
+        clipView.animator().setBoundsOrigin(origin)
+        scrollView.reflectScrolledClipView(clipView)
+    }
+
     private func plainString(_ text: String) -> NSAttributedString {
         NSAttributedString(string: text, attributes: [
             .font: NSFont.systemFont(ofSize: Self.readerBodyFontSize),
+            .foregroundColor: primaryTextColor,
+            .paragraphStyle: paragraphStyle(spacing: 8)
+        ])
+    }
+
+    private func vocabularyBubbleTitle(for word: String) -> String {
+        "\(AppText.localized("单词", "Word"))：\(word.trimmingCharacters(in: .whitespacesAndNewlines))"
+    }
+
+    private func isVocabularyBubbleTitle(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.hasPrefix("单词：")
+            || normalized.hasPrefix("单词:")
+            || normalized.lowercased().hasPrefix("word:")
+            || isSingleEnglishWord(normalized)
+    }
+
+    private func vocabularyWord(from text: String) -> String {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        for separator in ["：", ":"] {
+            if let range = normalized.range(of: separator) {
+                return String(normalized[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        return normalized
+    }
+
+    private func vocabularyTitleString(_ text: String) -> NSAttributedString {
+        NSAttributedString(string: text, attributes: [
+            .font: AppFont.semibold(ofSize: Self.readerBodyFontSize),
             .foregroundColor: primaryTextColor,
             .paragraphStyle: paragraphStyle(spacing: 8)
         ])
@@ -996,7 +1150,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
         summaryButton.title = AppText.localized("总结", "Summarize")
         summaryButton.controlSize = .regular
-        summaryButton.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        summaryButton.font = AppFont.semibold(ofSize: 13)
         summaryButton.isDark = isDarkMode
         summaryButton.target = self
         summaryButton.action = #selector(summarizeCurrentContent)
@@ -1004,7 +1158,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
         translateButton.title = AppText.localized("翻译", "Translate")
         translateButton.controlSize = .regular
-        translateButton.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        translateButton.font = AppFont.semibold(ofSize: 13)
         translateButton.isDark = isDarkMode
         translateButton.target = self
         translateButton.action = #selector(translateCurrentContent)

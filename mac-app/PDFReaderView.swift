@@ -2,7 +2,7 @@ import Cocoa
 import PDFKit
 
 final class EdgePagingPDFView: PDFView {
-    enum ScrollPageDirection {
+    enum ScrollPageDirection: Equatable {
         case previous
         case next
     }

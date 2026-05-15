@@ -146,7 +146,7 @@ enum AIPromptStore {
     private static let fallbackConfig = PromptConfig(
         zh: PromptLanguageConfig(
             system: "你是一名英语学习助手。回答要简洁清晰，优先帮助用户看懂和会用。",
-            word: "翻译下单词：{{word}}\n\n这个词在文章中的上下文：\n{{context}}",
+            word: "翻译下单词：{{word}}\n\n这个词在文章中的上下文：\n{{context}}\n\n输出要求：不要在回答第一行重复输出单词标题，直接从发音开始。",
             sentence: "你是英语老师，翻译并解释下面这段英文：\n\n{{text}}",
             summary: "请总结下面的当前阅读内容：\n\n标题：{{title}}\n\n正文：\n{{text}}",
             translation: "请把下面内容翻译成自然中文。目标语言：简体中文。只输出中文译文，不要输出英文原文，不要复述原文。除人名、地名、书名、机构名等专有名词外，所有英文句子都必须翻译成中文。每个非空段落开头空两格。不要分析、解释、总结，也不要添加标题或多余说明，不要使用 Markdown 或 **粗体** 标记。严格保持原文段落结构和换行位置，不要合并段落，也不要额外拆分段落。\n\n{{text}}",
@@ -157,7 +157,7 @@ enum AIPromptStore {
         ),
         en: PromptLanguageConfig(
             system: "You are an English reading and vocabulary assistant. Be concise and practical.",
-            word: "Explain this word: {{word}}\n\nContext from the article:\n{{context}}",
+            word: "Explain this word: {{word}}\n\nContext from the article:\n{{context}}\n\nOutput requirement: do not repeat the word as a first-line title. Start directly with pronunciation.",
             sentence: "Explain this English passage:\n\n{{text}}",
             summary: "Summarize the current reading content:\n\nTitle: {{title}}\n\nText:\n{{text}}",
             translation: "Translate the following content into clear, natural English. Output only the translation. Do not analyze, explain, summarize, add a title, add extra notes, or use Markdown or **bold** markers. Strictly preserve the original paragraph structure and line breaks. Do not merge paragraphs or split them into extra paragraphs.\n\n{{text}}",
