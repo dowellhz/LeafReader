@@ -28,7 +28,7 @@ enum AIPromptStore {
     }
 
     static func wordPrompt(for word: String, context: String = "") -> String {
-        render(
+        return render(
             languageConfig.word,
             values: [
                 "word": word,
@@ -81,15 +81,19 @@ enum AIPromptStore {
         currentPageText: String,
         chapterText: String,
         searchResults: String,
-        context: String
+        context: String,
+        currentTextTitle: String? = nil,
+        nearbyTextTitle: String? = nil
     ) -> String {
-        render(
+        let currentTitle = currentTextTitle ?? (AppText.isChinese ? "当前页内容" : "Current page text")
+        let nearbyTitle = nearbyTextTitle ?? (AppText.isChinese ? "当前章节或附近页面" : "Current chapter or nearby pages")
+        return render(
             languageConfig.documentAgent,
             values: [
                 "title": title,
                 "question": question,
-                "currentPageSection": optionalSection(title: AppText.isChinese ? "当前页内容" : "Current page text", body: currentPageText),
-                "chapterSection": optionalSection(title: AppText.isChinese ? "当前章节或附近页面" : "Current chapter or nearby pages", body: chapterText),
+                "currentPageSection": optionalSection(title: currentTitle, body: currentPageText),
+                "chapterSection": optionalSection(title: nearbyTitle, body: chapterText),
                 "searchResultsSection": optionalSection(title: AppText.isChinese ? "文档检索结果" : "Document search results", body: searchResults),
                 "context": context.isEmpty ? localizedNone : context
             ]

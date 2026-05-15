@@ -20,6 +20,7 @@ final class ClickEditableTextField: NSTextField {
 
 final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     private static let preferredAIWidthDefaultsKey = "preferredAIWidth"
+    private static let pdfTwoPageModeDefaultsKey = "pdfTwoPageMode"
     private static let minimumReadablePDFScale: CGFloat = 1.0
     private static let capsuleButtonIdentifier = NSUserInterfaceItemIdentifier("leafReaderCapsuleButton")
 
@@ -43,6 +44,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var vocabularyButton: NSButton!
     private var prevButton: NSButton!
     private var nextButton: NSButton!
+    private var pageLayoutButton: NSButton!
     private var searchButton: NSButton!
     private var searchUnderlineButton: SearchUnderlineButton!
     private let embeddingStatusLabel = NSTextField(labelWithString: "")
@@ -404,6 +406,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         coverButton = capsuleButton(title: AppText.cover, symbol: "book.closed", action: #selector(goToCover))
         prevButton = capsuleButton(title: AppText.prev, symbol: "chevron.left", action: #selector(prevPage))
         nextButton = capsuleButton(title: AppText.next, symbol: "chevron.right", action: #selector(nextPage), imageOnRight: true)
+        pageLayoutButton = capsuleButton(title: "", symbol: "rectangle.split.2x1", action: #selector(togglePDFPageLayout))
+        pageLayoutButton.toolTip = AppText.localized("切换单页/双页浏览", "Toggle single/two-page view")
+        updatePDFPageLayoutButton()
 
         pdfContainer.translatesAutoresizingMaskIntoConstraints = false
         contentArea.addSubview(pdfContainer)
@@ -506,7 +511,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         embeddingStatusLabel.lineBreakMode = .byTruncatingMiddle
         embeddingStatusLabel.isHidden = true
 
-        for view in [settingsButton, recentButton!, vocabularyButton!, tocButton!, coverButton!, prevButton!, nextButton!, embeddingStatusLabel] {
+        for view in [settingsButton, recentButton!, vocabularyButton!, tocButton!, coverButton!, prevButton!, nextButton!, pageLayoutButton!, embeddingStatusLabel] {
             view.translatesAutoresizingMaskIntoConstraints = false
             bottomBar.addSubview(view)
         }
@@ -658,10 +663,14 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             nextButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
             nextButton.widthAnchor.constraint(equalToConstant: 84),
             nextButton.heightAnchor.constraint(equalToConstant: 30),
+            pageLayoutButton.leadingAnchor.constraint(equalTo: nextButton.trailingAnchor, constant: 28),
+            pageLayoutButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
+            pageLayoutButton.widthAnchor.constraint(equalToConstant: 84),
+            pageLayoutButton.heightAnchor.constraint(equalToConstant: 30),
 
             embeddingStatusLabel.trailingAnchor.constraint(equalTo: bottomBar.trailingAnchor, constant: -18),
             embeddingStatusLabel.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            embeddingStatusLabel.leadingAnchor.constraint(greaterThanOrEqualTo: nextButton.trailingAnchor, constant: 16),
+            embeddingStatusLabel.leadingAnchor.constraint(greaterThanOrEqualTo: pageLayoutButton.trailingAnchor, constant: 16),
             embeddingStatusLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 280)
         ])
 
@@ -732,7 +741,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         vocabularyButton.title = AppText.localized("单词本", "Words")
         prevButton.title = AppText.prev
         nextButton.title = AppText.next
-        for button in [coverButton, tocButton, recentButton, vocabularyButton, prevButton, nextButton] {
+        updatePDFPageLayoutButton()
+        for button in [coverButton, tocButton, recentButton, vocabularyButton, prevButton, nextButton, pageLayoutButton] {
             if let capsule = button as? CapsuleChromeButton {
                 capsule.isDark = ReaderTheme.selected == .dark
             }
@@ -1081,6 +1091,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         searchOverlay.setResultText("")
         titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
         updateCoverThumbnail(from: document)
+        pageLayoutButton.isHidden = false
+        applyPDFPageLayout(animated: false)
 
         if !didRegisterSelectionObserver {
             didRegisterSelectionObserver = true
@@ -1136,6 +1148,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 coverImageView.image = NSImage(systemSymbolName: kind == .epub ? "book.closed" : "doc.text", accessibilityDescription: nil)
             }
             coverImageView.isHidden = false
+            pageLayoutButton.isHidden = true
             pageLabel.stringValue = "0%"
             zoomField.stringValue = "100%"
             webView.loadHTMLString(document.html, baseURL: document.baseURL)
@@ -1555,6 +1568,52 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         scrollCurrentPageToTop()
         updatePageLabel()
         saveSession()
+    }
+
+    @objc private func togglePDFPageLayout() {
+        guard currentDocumentKind == .pdf else { return }
+        let nextValue = !UserDefaults.standard.bool(forKey: Self.pdfTwoPageModeDefaultsKey)
+        UserDefaults.standard.set(nextValue, forKey: Self.pdfTwoPageModeDefaultsKey)
+        applyPDFPageLayout(animated: true)
+        saveSession()
+        window?.makeFirstResponder(pdfView)
+    }
+
+    private func applyPDFPageLayout(animated: Bool) {
+        guard currentDocumentKind == .pdf else { return }
+        let currentPage = pdfView.currentPage
+        let currentPageIndex = currentPage.flatMap { pdfView.document?.index(for: $0) }
+        let isTwoPage = UserDefaults.standard.bool(forKey: Self.pdfTwoPageModeDefaultsKey)
+        let targetMode: PDFDisplayMode = isTwoPage ? .twoUp : .singlePage
+        guard pdfView.displayMode != targetMode || pdfView.displaysAsBook else {
+            updatePDFPageLayoutButton()
+            return
+        }
+        pageLayoutButton?.isEnabled = false
+        pdfView.displayMode = targetMode
+        pdfView.displaysAsBook = false
+        pdfView.autoScales = false
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if let currentPage,
+               let currentPageIndex,
+               self.pdfView.document?.index(for: self.pdfView.currentPage ?? PDFPage()) != currentPageIndex {
+                self.pdfView.go(to: currentPage)
+            }
+            self.pageLayoutButton?.isEnabled = true
+            self.updateZoomLabel()
+        }
+        updatePDFPageLayoutButton()
+    }
+
+    private func updatePDFPageLayoutButton() {
+        let isTwoPage = UserDefaults.standard.bool(forKey: Self.pdfTwoPageModeDefaultsKey)
+        pageLayoutButton?.title = isTwoPage
+            ? AppText.localized("单页", "Single")
+            : AppText.localized("双页", "Two-up")
+        pageLayoutButton?.toolTip = isTwoPage
+            ? AppText.localized("切换到单页浏览", "Switch to single-page view")
+            : AppText.localized("切换到双页浏览", "Switch to two-page view")
     }
 
     private func setWebZoom(_ percent: Int) {
@@ -2045,77 +2104,123 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func currentSummaryContent(completion: @escaping ((title: String, text: String)?) -> Void) {
-        let title = titleLabel.stringValue
-        if currentDocumentKind == .pdf {
-            let text = ReaderAIContextBuilder.normalizeWhitespace(currentPDFPageSummaryText())
-            completion(text.isEmpty ? nil : (title, String(text.prefix(6000))))
-            return
-        }
-
-        currentWebVisibleText { [weak self] visibleText in
-            guard let self else {
+        currentReadingContextSnapshot(preserveLineBreaks: false) { snapshot in
+            guard let snapshot else {
                 completion(nil)
                 return
             }
-            if !visibleText.isEmpty {
-                completion((title, String(visibleText.prefix(6000))))
-                return
-            }
-
-            let fallback = self.currentWebProgressTextWindow()
-            completion(fallback.isEmpty ? nil : (title, fallback))
+            let text = ReaderAIContextBuilder.normalizeWhitespace(snapshot.readingText)
+            completion(text.isEmpty ? nil : (snapshot.currentContentTitle, String(text.prefix(6000))))
         }
     }
 
     private func currentTranslationContent(completion: @escaping ((title: String, text: String)?) -> Void) {
-        let title = titleLabel.stringValue
-        if currentDocumentKind == .pdf {
-            let text = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
-            completion(text.isEmpty ? nil : (title, String(text.prefix(9000))))
-            return
-        }
-
-        currentWebVisibleText(preserveLineBreaks: true) { [weak self] visibleText in
-            guard let self else {
+        currentReadingContextSnapshot(preserveLineBreaks: true) { snapshot in
+            guard let snapshot else {
                 completion(nil)
                 return
             }
-            if !visibleText.isEmpty {
-                completion((title, String(visibleText.prefix(9000))))
-                return
-            }
-
-            let fallback = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(self.currentWebProgressTextWindow())
-            completion(fallback.isEmpty ? nil : (title, fallback))
+            let text = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(snapshot.readingText)
+            completion(text.isEmpty ? nil : (snapshot.currentContentTitle, String(text.prefix(9000))))
         }
     }
 
     private func currentReadingQuestionContent(completion: @escaping ((title: String, text: String)?) -> Void) {
-        let title = titleLabel.stringValue
+        currentReadingContextSnapshot(preserveLineBreaks: true) { snapshot in
+            guard let snapshot else {
+                completion(nil)
+                return
+            }
+            let text = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(snapshot.readingText)
+            completion(text.isEmpty ? nil : (snapshot.currentContentTitle, String(text.prefix(5000))))
+        }
+    }
+
+    private func currentReadingContextSnapshot(
+        preserveLineBreaks: Bool,
+        completion: @escaping (ReadingContextSnapshot?) -> Void
+    ) {
+        let title = documentTitleForAI()
         if currentDocumentKind == .pdf {
-            let text = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
-            completion(text.isEmpty ? nil : (title, String(text.prefix(5000))))
+            let visibleText = preserveLineBreaks
+                ? ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
+                : ReaderAIContextBuilder.normalizeWhitespace(currentPDFPageSummaryText())
+            let nearbyText = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(currentPDFNearbyPagesText())
+            let selectedText = (pdfView.currentSelection?.string ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let selectedContext = selectedText.isEmpty ? "" : contextForCurrentSelection(selectedText: selectedText)
+            completion(ReadingContextSnapshot(
+                title: title,
+                documentKind: .pdf,
+                locationLabel: currentPDFLocationLabel(),
+                visibleText: visibleText,
+                nearbyText: nearbyText,
+                selectedText: selectedText,
+                selectedContext: selectedContext
+            ))
             return
         }
 
-        currentWebVisibleText(preserveLineBreaks: true) { [weak self] visibleText in
+        currentWebVisibleText(preserveLineBreaks: preserveLineBreaks) { [weak self] visibleText in
             guard let self else {
                 completion(nil)
                 return
             }
-            if !visibleText.isEmpty {
-                completion((title, String(visibleText.prefix(5000))))
-                return
-            }
-
-            let fallback = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(self.currentWebProgressTextWindow())
-            completion(fallback.isEmpty ? nil : (title, String(fallback.prefix(5000))))
+            let nearbyText = preserveLineBreaks
+                ? ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(self.currentWebProgressTextWindow())
+                : ReaderAIContextBuilder.normalizeWhitespace(self.currentWebProgressTextWindow())
+            let selectedText = self.currentWebSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let selectedContext = selectedText.isEmpty ? "" : self.contextForCurrentSelection(selectedText: selectedText)
+            completion(ReadingContextSnapshot(
+                title: title,
+                documentKind: self.currentDocumentKind,
+                locationLabel: self.currentWebLocationLabel(),
+                visibleText: visibleText,
+                nearbyText: nearbyText,
+                selectedText: selectedText,
+                selectedContext: selectedContext
+            ))
         }
     }
 
+    private func currentPDFLocationLabel() -> String {
+        guard let document = pdfView.document,
+              let page = pdfView.currentPage else {
+            return ""
+        }
+        let index = document.index(for: page)
+        return AppText.localized("第 \(index + 1) / \(document.pageCount) 页", "Page \(index + 1) / \(document.pageCount)")
+    }
+
+    private func currentWebLocationLabel() -> String {
+        let percent = min(100, max(0, Int(round(webScrollProgress * 100))))
+        let kind = currentDocumentKind == .epub ? "EPUB" : "DOCX"
+        return AppText.localized("\(kind) 约 \(percent)% 位置", "\(kind) about \(percent)%")
+    }
+
     private func documentAgentPrompt(question: String, context: String, completion: @escaping (String?) -> Void) {
-        guard currentDocumentKind == .pdf,
-              let document = pdfView.document else {
+        currentReadingContextSnapshot(preserveLineBreaks: true) { [weak self] snapshot in
+            DispatchQueue.main.async {
+                guard let self, let snapshot else {
+                    completion(nil)
+                    return
+                }
+                if self.currentDocumentKind == .pdf {
+                    self.pdfDocumentAgentPrompt(question: question, context: context, snapshot: snapshot, completion: completion)
+                    return
+                }
+                self.webDocumentAgentPrompt(question: question, context: context, snapshot: snapshot, completion: completion)
+            }
+        }
+    }
+
+    private func pdfDocumentAgentPrompt(
+        question: String,
+        context: String,
+        snapshot: ReadingContextSnapshot,
+        completion: @escaping (String?) -> Void
+    ) {
+        guard let document = pdfView.document else {
             completion(nil)
             return
         }
@@ -2124,8 +2229,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             pdfAgentIndex = PDFDocumentAgentIndex(document: document, title: titleLabel.stringValue)
         }
 
-        let currentPageText = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
-        let chapterText = currentPDFNearbyPagesText()
+        let currentPageText = snapshot.visibleText
+        let chapterText = snapshot.nearbyText
+        let combinedContext = combinedReadingContext(base: context, snapshot: snapshot)
         crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: currentPageText) { [weak self] retrievalQuery in
             DispatchQueue.main.async {
                 guard let self else {
@@ -2165,13 +2271,45 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                                 currentPageText: String(currentPageText.prefix(3500)),
                                 chapterText: String(chapterText.prefix(5000)),
                                 searchResults: searchResults,
-                                context: context
+                                context: combinedContext
                             ))
                         }
                     }
                 }
             }
         }
+    }
+
+    private func webDocumentAgentPrompt(
+        question: String,
+        context: String,
+        snapshot: ReadingContextSnapshot,
+        completion: @escaping (String?) -> Void
+    ) {
+        let combinedContext = combinedReadingContext(base: context, snapshot: snapshot)
+        completion(AIPromptStore.documentAgentPrompt(
+            title: snapshot.title,
+            question: question,
+            currentPageText: String(snapshot.visibleText.prefix(3500)),
+            chapterText: String(snapshot.nearbyText.prefix(5000)),
+            searchResults: "",
+            context: combinedContext,
+            currentTextTitle: AppText.localized("当前可见内容", "Current visible text"),
+            nearbyTextTitle: AppText.localized("当前阅读位置附近内容", "Nearby reading text")
+        ))
+    }
+
+    private func combinedReadingContext(base: String, snapshot: ReadingContextSnapshot) -> String {
+        var parts: [String] = []
+        let trimmedBase = base.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedBase.isEmpty, trimmedBase != AppText.none {
+            parts.append(trimmedBase)
+        }
+        let snapshotContext = snapshot.contextText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !snapshotContext.isEmpty {
+            parts.append(snapshotContext)
+        }
+        return String(parts.joined(separator: "\n\n").suffix(6000))
     }
 
     private func currentPDFNearbyPagesText() -> String {
@@ -2535,6 +2673,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     func pdfViewWillChangeScaleFactor(_ sender: PDFView) {
         updateZoomLabel()
+        DispatchQueue.main.async { [weak self] in
+            self?.updateZoomLabel()
+            self?.saveSession()
+        }
     }
 
     func pdfViewPageChanged(_ sender: PDFView) {
@@ -2805,6 +2947,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 guard self.handlePageKey(event) else { return event }
                 return nil
             case .scrollWheel:
+                DispatchQueue.main.async { [weak self] in
+                    self?.updateZoomLabel()
+                }
                 guard self.handlePDFTrackpadScroll(event) else { return event }
                 return nil
             case .leftMouseDown:

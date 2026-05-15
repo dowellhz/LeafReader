@@ -407,19 +407,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     private func enqueueFollowUp(question: String) {
-        let selected = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !selected.isEmpty {
-            let selectedContext = onAskSelectedText?(selected) ?? ""
-            messages.append(ChatMessage(role: "user", content: AIPromptStore.selectedFollowUpPrompt(
-                selectedText: selected,
-                context: selectedContext,
-                question: question
-            )))
-            requestAI()
-            return
-        }
-
-        let context = transcriptContext()
+        let context = followUpContextIncludingSelection()
         if let onDocumentQuestionPrompt {
             setBusy(true, text: AppText.thinking)
             onDocumentQuestionPrompt(question, context) { [weak self] prompt in
@@ -438,6 +426,24 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         }
 
         enqueueCurrentReadingFollowUp(question: question, context: context)
+    }
+
+    private func followUpContextIncludingSelection() -> String {
+        let transcript = transcriptContext()
+        let selected = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !selected.isEmpty else { return transcript }
+
+        let nearbyContext = (onAskSelectedText?(selected) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        var parts: [String] = []
+        if transcript != AppText.none {
+            parts.append("【对话上下文】\n\(transcript)")
+        }
+        parts.append("【当前选中内容】\n\(selected)")
+        if !nearbyContext.isEmpty, nearbyContext != selected {
+            parts.append("【选中内容附近上下文】\n\(nearbyContext)")
+        }
+        return String(parts.joined(separator: "\n\n").suffix(3000))
     }
 
     private func enqueueCurrentReadingFollowUp(question: String, context: String) {
