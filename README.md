@@ -6,9 +6,17 @@
 
 Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is built with Swift, PDFKit, and WebKit, and focuses on a quiet reading experience with fast navigation, document search, reading progress restore, light and dark reader themes, and an optional AI panel for working with selected passages.
 
-![Leaf Reader in light mode](assets/screenshot-light.png)
+## Screenshots
 
-![Leaf Reader in dark mode](assets/screenshot-dark.png)
+![Leaf Reader word learning in light mode](assets/reader-light-ai-word.png)
+
+![Leaf Reader bookshelf](assets/reader-bookshelf.png)
+
+![Leaf Reader settings](assets/reader-settings.png)
+
+![Leaf Reader passage explanation in dark mode](assets/reader-dark-ai.png)
+
+![Leaf Reader vocabulary book in dark mode](assets/reader-dark-vocabulary.png)
 
 ## Download
 
@@ -101,8 +109,11 @@ open "Leaf Reader.app"
 - `mac-app/AppIcon.icns` - packaged app icon.
 - `mac-app/AppIconSource.png` - source image for the app icon.
 - `assets/leaf-reader-icon.png` - project icon used in this README.
-- `assets/screenshot-light.png` - light mode screenshot.
-- `assets/screenshot-dark.png` - dark mode screenshot.
+- `assets/reader-light-ai-word.png` - light mode word-learning screenshot.
+- `assets/reader-bookshelf.png` - bookshelf screenshot.
+- `assets/reader-settings.png` - settings panel screenshot.
+- `assets/reader-dark-ai.png` - dark mode AI reading screenshot.
+- `assets/reader-dark-vocabulary.png` - dark mode vocabulary book screenshot.
 - `release/` - local release artifacts when generated.
 
 ## Release
