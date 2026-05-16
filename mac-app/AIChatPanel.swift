@@ -128,11 +128,17 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     private let transcriptStack = FlippedStackView()
     private let statusRow = NSView()
     private let statusLabel = NSTextField(labelWithString: "")
+    private let cancelRequestButton = NSButton(title: "", target: nil, action: nil)
     private let inputBar = NSView()
     private let inputField = ChatInputTextField(string: "")
     private let sendButton = NSButton(title: "", target: nil, action: nil)
     private let loadingDots = LoadingDotsView()
     private let speechSynthesizer = AVSpeechSynthesizer()
+    private var currentStreamTask: Task<Void, Never>?
+    private var activeRequestID: UUID?
+    private var cancelledRequestIDs = Set<UUID>()
+    private weak var activeAssistantBody: NSTextField?
+    private var lastFailedAIRequest: FailedAIRequest?
 
     private struct BubbleMetadata {
         var role: String
@@ -142,9 +148,17 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         var linkID: String?
     }
 
+    private struct FailedAIRequest {
+        let messages: [ChatMessage]
+        let linkID: String?
+        let linkedQuestion: String?
+    }
+
     var onAskSelectedText: ((String) -> String?)?
     var onSelectedWordQuestionStarted: ((String) -> String?)?
+    var onLinkedWordAnswerAvailable: ((String) -> String?)?
     var onLinkedAnswerCompleted: ((String, String, String) -> Void)?
+    var onLinkedAnswerFailed: ((String) -> Void)?
     var onLinkedBubbleSelected: ((String) -> Void)?
     var onSummarizeCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onTranslateCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
@@ -310,6 +324,15 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
         clearSelectedText()
+        if let linkID,
+           let reusedAnswer = onLinkedWordAnswerAvailable?(linkID),
+           !reusedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            appendBubble(role: AppText.aiRole, text: reusedAnswer, collapsible: false, renderMarkdown: true, linkID: linkID)
+            recordTranscript(role: AppText.aiRole, text: reusedAnswer)
+            messages.append(ChatMessage(role: "user", content: prompt))
+            messages.append(ChatMessage(role: "assistant", content: reusedAnswer))
+            return
+        }
         messages.append(ChatMessage(role: "user", content: prompt))
         requestAI(linkID: linkID, linkedQuestion: displayedQuestion)
     }
@@ -566,12 +589,18 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     private func requestAI(linkID: String? = nil, linkedQuestion: String? = nil) {
+        let requestID = UUID()
+        activeRequestID = requestID
+        let requestMessages = messages
+        lastFailedAIRequest = nil
         setBusy(true, text: AppText.thinking)
         let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating, linkID: linkID)
+        activeAssistantBody = assistantBody
         var streamedText = ""
-        client.sendStream(messages: messages, onDelta: { [weak self, weak assistantBody] delta in
+        currentStreamTask = client.sendStream(messages: messages, onDelta: { [weak self, weak assistantBody] delta in
             DispatchQueue.main.async {
                 guard let self = self, let assistantBody = assistantBody else { return }
+                guard self.activeRequestID == requestID else { return }
                 streamedText += delta
                 let visibleText = AIClient.visibleAnswer(from: streamedText)
                 self.scheduleStreamUpdate(assistantBody, text: visibleText.isEmpty ? AppText.generating : visibleText)
@@ -579,6 +608,13 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         }, completion: { [weak self, weak assistantBody] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                guard self.activeRequestID == requestID || self.cancelledRequestIDs.contains(requestID) else { return }
+                if self.cancelledRequestIDs.remove(requestID) != nil {
+                    return
+                }
+                self.activeRequestID = nil
+                self.currentStreamTask = nil
+                self.activeAssistantBody = nil
                 self.flushStreamUpdate(assistantBody)
                 self.setBusy(false, text: "")
                 switch result {
@@ -589,18 +625,86 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
                         self.updateBubble(assistantBody, role: AppText.aiRole, text: content)
                     }
                     if let linkID, let linkedQuestion {
-                        self.onLinkedAnswerCompleted?(linkID, linkedQuestion, content)
+                        let visible = AIClient.visibleAnswer(from: content).trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !visible.isEmpty {
+                            self.onLinkedAnswerCompleted?(linkID, linkedQuestion, visible)
+                        }
                     }
                 case .failure(let error):
+                    self.lastFailedAIRequest = FailedAIRequest(messages: requestMessages, linkID: linkID, linkedQuestion: linkedQuestion)
                     let message = self.userFacingAIError(error)
                     if streamedText.isEmpty, let assistantBody = assistantBody {
                         self.updateBubble(assistantBody, role: AppText.errorRole, text: message)
                     } else {
                         self.appendBubble(role: AppText.errorRole, text: message)
                     }
+                    self.appendRetryButton()
                 }
             }
         })
+    }
+
+    private func appendRetryButton() {
+        let row = NSView()
+        row.translatesAutoresizingMaskIntoConstraints = false
+
+        let button = NSButton(title: AppText.localized("重试", "Retry"), target: self, action: #selector(retryLastFailedRequest(_:)))
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.backgroundColor = NSColor.systemBlue.cgColor
+        button.layer?.cornerRadius = 7
+        button.attributedTitle = NSAttributedString(
+            string: AppText.localized("重试", "Retry"),
+            attributes: [
+                .font: AppFont.semibold(ofSize: 13),
+                .foregroundColor: NSColor.white
+            ]
+        )
+        button.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(button)
+        transcriptStack.addArrangedSubview(row)
+
+        NSLayoutConstraint.activate([
+            row.widthAnchor.constraint(equalTo: transcriptStack.widthAnchor),
+            row.heightAnchor.constraint(equalToConstant: 38),
+            button.topAnchor.constraint(equalTo: row.topAnchor, constant: 4),
+            button.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 12),
+            button.widthAnchor.constraint(equalToConstant: 72),
+            button.heightAnchor.constraint(equalToConstant: 30)
+        ])
+
+        DispatchQueue.main.async { [weak self, weak row] in
+            guard let self, let row else { return }
+            self.transcriptStack.layoutSubtreeIfNeeded()
+            row.scrollToVisible(row.bounds)
+        }
+    }
+
+    @objc private func retryLastFailedRequest(_ sender: NSButton) {
+        guard !isBusy, let request = lastFailedAIRequest else { return }
+        lastFailedAIRequest = nil
+        messages = request.messages
+        requestAI(linkID: request.linkID, linkedQuestion: request.linkedQuestion)
+    }
+
+    @objc private func cancelCurrentRequest() {
+        guard isBusy else { return }
+        if let activeRequestID {
+            cancelledRequestIDs.insert(activeRequestID)
+        }
+        if let linkID = activeAssistantBody?.superview?.identifier?.rawValue {
+            onLinkedAnswerFailed?(linkID)
+        }
+        activeRequestID = nil
+        currentStreamTask?.cancel()
+        currentStreamTask = nil
+        if let activeAssistantBody {
+            updateBubble(activeAssistantBody, role: AppText.localized("提示", "Note"), text: AppText.localized("已取消。", "Cancelled."), renderMarkdown: false)
+        } else {
+            appendBubble(role: AppText.localized("提示", "Note"), text: AppText.localized("已取消。", "Cancelled."), collapsible: false, renderMarkdown: false)
+        }
+        activeAssistantBody = nil
+        setBusy(false, text: "")
     }
 
     private func requestTranslation(title: String, text: String) {
@@ -761,10 +865,12 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         statusLabel.stringValue = text
         if busy {
             loadingDots.isHidden = false
+            cancelRequestButton.isHidden = false
             loadingDots.startAnimating()
         } else {
             loadingDots.stopAnimating()
             loadingDots.isHidden = true
+            cancelRequestButton.isHidden = true
         }
     }
 
@@ -1180,10 +1286,18 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
         loadingDots.isHidden = true
         loadingDots.translatesAutoresizingMaskIntoConstraints = false
+        cancelRequestButton.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: AppText.cancel)
+        cancelRequestButton.isBordered = false
+        cancelRequestButton.contentTintColor = NSColor(red: 0.48, green: 0.50, blue: 0.56, alpha: 1)
+        cancelRequestButton.target = self
+        cancelRequestButton.action = #selector(cancelCurrentRequest)
+        cancelRequestButton.isHidden = true
+        cancelRequestButton.translatesAutoresizingMaskIntoConstraints = false
 
         statusRow.translatesAutoresizingMaskIntoConstraints = false
         statusRow.addSubview(loadingDots)
         statusRow.addSubview(statusLabel)
+        statusRow.addSubview(cancelRequestButton)
 
         inputBar.wantsLayer = true
         inputBar.layer?.backgroundColor = NSColor(red: 0.93, green: 0.94, blue: 0.95, alpha: 1).cgColor
@@ -1250,8 +1364,12 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
             loadingDots.widthAnchor.constraint(equalToConstant: 22),
             loadingDots.heightAnchor.constraint(equalToConstant: 10),
             statusLabel.leadingAnchor.constraint(equalTo: loadingDots.trailingAnchor, constant: 8),
-            statusLabel.trailingAnchor.constraint(equalTo: statusRow.trailingAnchor),
+            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: cancelRequestButton.leadingAnchor, constant: -8),
             statusLabel.centerYAnchor.constraint(equalTo: statusRow.centerYAnchor),
+            cancelRequestButton.trailingAnchor.constraint(equalTo: statusRow.trailingAnchor),
+            cancelRequestButton.centerYAnchor.constraint(equalTo: statusRow.centerYAnchor),
+            cancelRequestButton.widthAnchor.constraint(equalToConstant: 22),
+            cancelRequestButton.heightAnchor.constraint(equalToConstant: 22),
 
             inputBar.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             inputBar.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),

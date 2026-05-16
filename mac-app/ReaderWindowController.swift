@@ -27,8 +27,26 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let createdAt: Date
     }
 
+    private struct PendingPDFWordRecord {
+        let id: String
+        let word: String
+        let pageIndex: Int
+        let bounds: StoredPDFWordRect
+        let context: String
+        let createdAt: Date
+    }
+
+    private struct PendingWebWordRecord {
+        let id: String
+        let word: String
+        let context: String
+        let scrollProgress: Double
+        let createdAt: Date
+    }
+
     private static let preferredAIWidthDefaultsKey = "preferredAIWidth"
     private static let pdfTwoPageModeDefaultsKey = "pdfTwoPageMode"
+    private static let fileMD5CacheDefaultsKey = "fileMD5Cache"
     private static let minimumReadablePDFScale: CGFloat = 1.0
     private static let capsuleButtonIdentifier = NSUserInterfaceItemIdentifier("leafReaderCapsuleButton")
 
@@ -70,6 +88,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var currentWebSelectionContext = ""
     private var currentTOCItems: [ReaderTOCItem] = []
     private var pdfTOCDestinations: [String: PDFDestination] = [:]
+    private var pdfTOCGeneration = 0
     private var webZoomPercent = 100
     private var webScrollProgress: Double = 0
     private var lastWebProgressSave = Date.distantPast
@@ -82,19 +101,29 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var searchResultIndex = 0
     private var lastSearchQuery = ""
     private var pdfAgentIndex: PDFDocumentAgentIndex?
+    private var isBuildingDocumentAgentIndex = false
+    private var documentAgentIndexGeneration = 0
+    private var pendingDocumentAgentIndexCallbacks: [() -> Void] = []
     private var pdfEmbeddingStore = PDFEmbeddingStore()
     private let embeddingClient = EmbeddingClient()
     private let retrievalQueryClient = AIClient()
     private var isPreparingPDFEmbeddings = false
     private var isEmbeddingBackfillPaused = false
+    private var embeddingBackfillNeedsRetry = false
     private var queuedEmbeddingPriorityPageIndex: Int?
     private var pendingEmbeddingReadyCallbacks: [() -> Void] = []
     private var embeddingBackfillGeneration = 0
+    private var scheduledEmbeddingCacheRestoreWorkItem: DispatchWorkItem?
+    private var scheduledEmbeddingWarmupWorkItem: DispatchWorkItem?
+    private var lastReaderInteractionAt = Date()
+    private var pendingSessionSaveWorkItem: DispatchWorkItem?
     private var suppressSearchSelectionForAIUntil = Date.distantPast
     private var highlightedSelectionKeys = Set<String>()
     private var storedWordRecords: [StoredPDFWordRecord] = []
+    private var pendingPDFWordRecords: [String: PendingPDFWordRecord] = [:]
     private var pdfWordRecordStore: PDFWordRecordStore?
     private var storedWebWordRecords: [StoredWebWordRecord] = []
+    private var pendingWebWordRecords: [String: PendingWebWordRecord] = [:]
     private var webWordRecordStore: WebWordRecordStore?
     private var currentVocabularyExportRecords: [VocabularyExportRecord] = []
     private var didRegisterSelectionObserver = false
@@ -105,6 +134,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     private var preferredAIWidth: CGFloat = ReaderWindowController.loadPreferredAIWidth()
     private var aiSettingsPanelController: AISettingsPanelController?
     private var recentDocumentsPanelController: RecentDocumentsPanelController?
+    private weak var vocabularyPanel: NSWindow?
+    private var vocabularyPanelActivationObserver: NSObjectProtocol?
     private var aiHandleLeadingConstraint: NSLayoutConstraint!
     private var aiPanelWidthConstraint: NSLayoutConstraint!
     private var localEventMonitor: Any?
@@ -140,6 +171,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         if let localEventMonitor {
             NSEvent.removeMonitor(localEventMonitor)
         }
+        removeVocabularyPanelActivationObserver()
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "selectionChanged")
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "scrollChanged")
         NotificationCenter.default.removeObserver(self)
@@ -346,7 +378,6 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         bottomBar.layer?.borderColor = NSColor(red: 0.88, green: 0.9, blue: 0.93, alpha: 1).cgColor
         bottomBar.layer?.borderWidth = 1
 
-        let openButton = iconButton(symbol: "folder", action: #selector(openPDF))
         let settingsButton = iconButton(symbol: "gearshape", action: #selector(openAISettings))
         titleLabel.font = AppFont.semibold(ofSize: 15)
         titleLabel.textColor = NSColor(red: 0.1, green: 0.11, blue: 0.14, alpha: 1)
@@ -484,6 +515,12 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         aiPanel.onLinkedAnswerCompleted = { [weak self] linkID, question, answer in
             self?.updateStoredLinkedWordAnswer(linkID: linkID, question: question, answer: answer)
         }
+        aiPanel.onLinkedAnswerFailed = { [weak self] linkID in
+            self?.discardPendingLinkedWord(linkID: linkID)
+        }
+        aiPanel.onLinkedWordAnswerAvailable = { [weak self] linkID in
+            self?.linkedWordAnswer(for: linkID)
+        }
         aiPanel.onLinkedBubbleSelected = { [weak self] linkID in
             self?.jumpToStoredLinkedWord(linkID: linkID)
         }
@@ -519,7 +556,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         searchOverlay.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(searchOverlay, positioned: .above, relativeTo: contentArea)
 
-        for view in [openButton, titleLabel, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, pageLayoutButton!, fullScreenButton!] {
+        for view in [titleLabel, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, pageLayoutButton!, fullScreenButton!] {
             view.translatesAutoresizingMaskIntoConstraints = false
             toolbar.addSubview(view)
         }
@@ -586,11 +623,6 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             aiHandleButton.widthAnchor.constraint(equalToConstant: SideHandleButton.handleWidth),
             aiHandleButton.heightAnchor.constraint(equalToConstant: SideHandleButton.handleHeight),
 
-            openButton.leadingAnchor.constraint(equalTo: toolbar.leadingAnchor, constant: 112),
-            openButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
-            openButton.widthAnchor.constraint(equalToConstant: 24),
-            openButton.heightAnchor.constraint(equalToConstant: 24),
-
             settingsButton.leadingAnchor.constraint(equalTo: bottomBar.leadingAnchor, constant: 18),
             settingsButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
             settingsButton.widthAnchor.constraint(equalToConstant: 24),
@@ -606,7 +638,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             vocabularyButton.widthAnchor.constraint(equalToConstant: 92),
             vocabularyButton.heightAnchor.constraint(equalToConstant: 30),
 
-            coverImageView.leadingAnchor.constraint(equalTo: openButton.trailingAnchor, constant: 28),
+            coverImageView.leadingAnchor.constraint(equalTo: toolbar.leadingAnchor, constant: 128),
             coverImageView.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
             coverImageView.widthAnchor.constraint(equalToConstant: 28),
             coverImageView.heightAnchor.constraint(equalToConstant: 38),
@@ -1122,9 +1154,15 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         currentWebPlainText = ""
         currentWebSelectedText = ""
         pdfAgentIndex = nil
-        let toc = ReaderTOCHelper.pdfTOCItems(from: document, displayBox: pdfView.displayBox)
-        currentTOCItems = toc.items
-        pdfTOCDestinations = toc.destinations
+        isBuildingDocumentAgentIndex = false
+        documentAgentIndexGeneration += 1
+        pendingDocumentAgentIndexCallbacks.removeAll()
+        pendingPDFWordRecords.removeAll()
+        pendingWebWordRecords.removeAll()
+        cancelScheduledEmbeddingWarmup()
+        currentTOCItems = []
+        pdfTOCDestinations = [:]
+        schedulePDFTOCBuild(for: url, displayBox: pdfView.displayBox)
         accumulatedPDFTrackpadScroll = 0
         didTurnPageForCurrentPDFTrackpadGesture = false
         lastPDFTrackpadEdgeDirection = nil
@@ -1157,6 +1195,24 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         scheduleDocumentEmbeddingWarmup(priorityPageIndex: currentEmbeddingPriorityIndex())
     }
 
+    private func schedulePDFTOCBuild(for url: URL, displayBox: PDFDisplayBox) {
+        pdfTOCGeneration += 1
+        let generation = pdfTOCGeneration
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let document = PDFDocument(url: url) else { return }
+            let toc = ReaderTOCHelper.pdfTOCItems(from: document, displayBox: displayBox)
+            DispatchQueue.main.async {
+                guard let self,
+                      self.pdfTOCGeneration == generation,
+                      self.currentFileURL == url else {
+                    return
+                }
+                self.currentTOCItems = toc.items
+                self.pdfTOCDestinations = toc.destinations
+            }
+        }
+    }
+
     private func loadWebDocument(_ url: URL, kind: ReaderDocumentKind) {
         do {
             let document = try WebDocumentLoader.load(url: url)
@@ -1171,6 +1227,12 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             pdfWordRecordStore = nil
             webWordRecordStore = currentFileMD5.map { WebWordRecordStore(fileMD5: $0) }
             pdfAgentIndex = nil
+            isBuildingDocumentAgentIndex = false
+            documentAgentIndexGeneration += 1
+            pendingDocumentAgentIndexCallbacks.removeAll()
+            pendingPDFWordRecords.removeAll()
+            pendingWebWordRecords.removeAll()
+            cancelScheduledEmbeddingWarmup()
             currentWebPlainText = document.plainText
             currentWebSelectedText = ""
             currentWebSelectionContext = ""
@@ -1246,10 +1308,52 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             onClear: {
                 RecentDocumentsStore.clear()
             },
+            onRemoveItem: { path in
+                RecentDocumentsStore.remove(path: path)
+            },
+            onClearVectorCache: { [weak self] path in
+                self?.clearVectorCacheForShelfItem(path: path)
+            },
+            onClearWordRecords: { [weak self] path in
+                self?.clearWordRecordsForShelfItem(path: path)
+            },
             onClose: { [weak self] in
                 self?.recentDocumentsPanelController = nil
             }
         )
+    }
+
+    private func clearVectorCacheForShelfItem(path: String) {
+        guard let documentID = fileMD5(for: URL(fileURLWithPath: path)) else {
+            NSSound.beep()
+            return
+        }
+        pdfEmbeddingStore?.deleteDocument(documentID: documentID)
+        if currentFileMD5 == documentID {
+            embeddingBackfillGeneration += 1
+            isPreparingPDFEmbeddings = false
+            isEmbeddingBackfillPaused = false
+            queuedEmbeddingPriorityPageIndex = nil
+            pdfAgentIndex = nil
+            documentAgentIndexGeneration += 1
+            pendingDocumentAgentIndexCallbacks.removeAll()
+            embeddingStatusLabel.stringValue = AppText.localized("向量索引：已清除当前书", "Embedding: current book cleared")
+            embeddingStatusLabel.isHidden = false
+            updateEmbeddingControlButtons()
+        }
+    }
+
+    private func clearWordRecordsForShelfItem(path: String) {
+        guard let documentID = fileMD5(for: URL(fileURLWithPath: path)) else {
+            NSSound.beep()
+            return
+        }
+        if currentFileMD5 == documentID {
+            clearCurrentBookWordRecords()
+            return
+        }
+        PDFWordRecordStore(fileMD5: documentID).save([])
+        WebWordRecordStore(fileMD5: documentID).save([])
     }
 
     @objc private func showVocabularyBook() {
@@ -1279,13 +1383,14 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                     )
                 }
         }
-        guard !records.isEmpty else {
+        let aggregatedRecords = aggregateVocabularyRecords(records)
+        guard !aggregatedRecords.isEmpty else {
             NSSound.beep()
             return
         }
-        currentVocabularyExportRecords = records
+        currentVocabularyExportRecords = aggregatedRecords
 
-        let panel = NSPanel(
+        let panel = SettingsPanel(
             contentRect: NSRect(x: 0, y: 0, width: 600, height: 680),
             styleMask: [.borderless],
             backing: .buffered,
@@ -1308,7 +1413,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         root.layer?.shadowOpacity = isDark ? 0.42 : 0.24
         root.layer?.shadowRadius = 32
         root.layer?.shadowOffset = CGSize(width: 0, height: -12)
-        root.translatesAutoresizingMaskIntoConstraints = false
+        root.frame = NSRect(origin: .zero, size: panel.contentRect(forFrameRect: panel.frame).size)
+        root.autoresizingMask = [.width, .height]
+        root.translatesAutoresizingMaskIntoConstraints = true
         panel.contentView = root
 
         let title = NSTextField(labelWithString: AppText.localized("本书单词本", "Book Vocabulary"))
@@ -1335,7 +1442,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         stack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.documentView = stack
 
-        for record in records.prefix(120) {
+        for record in aggregatedRecords.prefix(120) {
             stack.addArrangedSubview(vocabularyCard(word: record.word, answer: record.answer, location: record.location, isDark: isDark))
         }
 
@@ -1396,22 +1503,88 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             closeButton.heightAnchor.constraint(equalToConstant: 36)
         ])
 
-        if let window {
-            let frame = window.frame
-            panel.setFrameOrigin(NSPoint(x: frame.midX - panel.frame.width / 2, y: frame.midY - panel.frame.height / 2))
-            window.addChildWindow(panel, ordered: .above)
-            panel.makeKeyAndOrderFront(nil)
-        } else {
-            panel.center()
-            panel.makeKeyAndOrderFront(nil)
+        vocabularyPanel = panel
+        installVocabularyPanelActivationObserver()
+        ModalOverlayManager.shared.present(panel, attachedTo: window)
+    }
+
+    private func aggregateVocabularyRecords(_ records: [VocabularyExportRecord]) -> [VocabularyExportRecord] {
+        var order: [String] = []
+        var grouped: [String: [VocabularyExportRecord]] = [:]
+        for record in records.sorted(by: { $0.createdAt < $1.createdAt }) {
+            let key = record.word
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            guard !key.isEmpty else { continue }
+            if grouped[key] == nil {
+                order.append(key)
+                grouped[key] = []
+            }
+            grouped[key]?.append(record)
+        }
+
+        return order.compactMap { key in
+            guard let group = grouped[key], let first = group.first else { return nil }
+            var seenLocations = Set<String>()
+            let locations = group.map(\.location).filter { location in
+                guard !seenLocations.contains(location) else { return false }
+                seenLocations.insert(location)
+                return true
+            }
+            let locationText: String
+            if group.count > 1 {
+                locationText = AppText.localized(
+                    "出现 \(group.count) 次：\(locations.prefix(6).joined(separator: "、"))",
+                    "\(group.count) occurrences: \(locations.prefix(6).joined(separator: ", "))"
+                )
+            } else {
+                locationText = first.location
+            }
+            let context = group
+                .map(\.context)
+                .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? ""
+            let answer = group
+                .map(\.answer)
+                .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? first.answer
+            return VocabularyExportRecord(
+                word: first.word,
+                answer: answer,
+                location: locationText,
+                context: context,
+                createdAt: first.createdAt
+            )
         }
     }
 
     @objc private func closeVocabularyBook(_ sender: NSButton) {
         guard sender.identifier?.rawValue == "closeVocabularyBook",
               let panel = sender.window else { return }
-        window?.removeChildWindow(panel)
-        panel.orderOut(nil)
+        closeVocabularyPanel(panel)
+    }
+
+    private func closeVocabularyPanel(_ panel: NSWindow) {
+        removeVocabularyPanelActivationObserver()
+        ModalOverlayManager.shared.dismiss(panel, attachedTo: window)
+        vocabularyPanel = nil
+    }
+
+    private func installVocabularyPanelActivationObserver() {
+        removeVocabularyPanelActivationObserver()
+        vocabularyPanelActivationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: NSApp,
+            queue: .main
+        ) { [weak self] _ in
+            guard let panel = self?.vocabularyPanel else { return }
+            ModalOverlayManager.shared.reactivate(panel)
+        }
+    }
+
+    private func removeVocabularyPanelActivationObserver() {
+        if let vocabularyPanelActivationObserver {
+            NotificationCenter.default.removeObserver(vocabularyPanelActivationObserver)
+            self.vocabularyPanelActivationObserver = nil
+        }
     }
 
     @objc private func exportVocabularyMarkdown(_ sender: NSButton) {
@@ -1670,6 +1843,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func zoomIn() {
+        markReaderInteraction()
         guard currentDocumentKind == .pdf else {
             setWebZoom(webZoomPercent + 10)
             return
@@ -1681,6 +1855,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func zoomOut() {
+        markReaderInteraction()
         guard currentDocumentKind == .pdf else {
             setWebZoom(webZoomPercent - 10)
             return
@@ -1692,6 +1867,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func applyZoomFromField() {
+        markReaderInteraction()
         guard currentDocumentKind == .pdf else {
             let raw = zoomField.stringValue
                 .replacingOccurrences(of: "%", with: "")
@@ -1760,6 +1936,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func prevPage() {
+        markReaderInteraction()
         clearAISelectionForNavigation()
         guard currentDocumentKind == .pdf else {
             scrollWebPage(direction: -1)
@@ -1772,6 +1949,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     @objc private func nextPage() {
+        markReaderInteraction()
         clearAISelectionForNavigation()
         guard currentDocumentKind == .pdf else {
             scrollWebPage(direction: 1)
@@ -2113,6 +2291,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func handlePDFPageChange() {
+        markReaderInteraction()
         let newPageIndex = currentPageIndex()
         guard newPageIndex != lastPageIndex else {
             updatePageLabel()
@@ -2143,6 +2322,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "scrollChanged" {
             guard currentDocumentKind != .pdf else { return }
+            markReaderInteraction()
             let progress = message.body as? Double ?? 0
             webScrollProgress = progress
             pageLabel.stringValue = "\(Int(round(progress * 100)))%"
@@ -2222,21 +2402,33 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         if let existing = pdfWordRecordStore?.existingRecord(in: storedWordRecords, pageIndex: pageIndex, bounds: bounds) {
             return existing.id
         }
+        if let reusable = reusablePDFWordRecord(for: text) {
+            let record = StoredPDFWordRecord(
+                id: UUID().uuidString,
+                word: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                pageIndex: pageIndex,
+                bounds: StoredPDFWordRect(bounds),
+                context: contextForCurrentSelection(selectedText: text),
+                question: reusable.question,
+                answer: reusable.answer,
+                createdAt: Date()
+            )
+            storedWordRecords.append(record)
+            addStoredWordAnnotation(record)
+            saveStoredWordRecords()
+            return record.id
+        }
 
-        let record = StoredPDFWordRecord(
-            id: UUID().uuidString,
+        let id = UUID().uuidString
+        pendingPDFWordRecords[id] = PendingPDFWordRecord(
+            id: id,
             word: text.trimmingCharacters(in: .whitespacesAndNewlines),
             pageIndex: pageIndex,
             bounds: StoredPDFWordRect(bounds),
             context: contextForCurrentSelection(selectedText: text),
-            question: text.trimmingCharacters(in: .whitespacesAndNewlines),
-            answer: "",
             createdAt: Date()
         )
-        storedWordRecords.append(record)
-        addStoredWordAnnotation(record)
-        saveStoredWordRecords()
-        return record.id
+        return id
     }
 
     private func persistSelectedWebWordIfNeeded(text: String) -> String? {
@@ -2249,34 +2441,121 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         if let existing = webWordRecordStore?.existingRecord(in: storedWebWordRecords, word: word, context: context) {
             return existing.id
         }
+        if let reusable = reusableWebWordRecord(for: word) {
+            let record = StoredWebWordRecord(
+                id: UUID().uuidString,
+                word: word,
+                context: context,
+                scrollProgress: webScrollProgress,
+                question: reusable.question,
+                answer: reusable.answer,
+                createdAt: Date()
+            )
+            storedWebWordRecords.append(record)
+            saveStoredWebWordRecords()
+            restoreStoredWebWordHighlights()
+            return record.id
+        }
 
-        let record = StoredWebWordRecord(
-            id: UUID().uuidString,
+        let id = UUID().uuidString
+        pendingWebWordRecords[id] = PendingWebWordRecord(
+            id: id,
             word: word,
             context: context,
             scrollProgress: webScrollProgress,
-            question: word,
-            answer: "",
             createdAt: Date()
         )
-        storedWebWordRecords.append(record)
-        saveStoredWebWordRecords()
-        restoreStoredWebWordHighlights()
-        return record.id
+        return id
     }
 
     private func updateStoredLinkedWordAnswer(linkID: String, question: String, answer: String) {
+        let trimmedAnswer = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedAnswer.isEmpty else {
+            pendingPDFWordRecords.removeValue(forKey: linkID)
+            pendingWebWordRecords.removeValue(forKey: linkID)
+            return
+        }
+
         if let index = storedWordRecords.firstIndex(where: { $0.id == linkID }) {
             storedWordRecords[index].question = question
-            storedWordRecords[index].answer = answer
+            storedWordRecords[index].answer = trimmedAnswer
             saveStoredWordRecords()
             return
         }
         if let index = storedWebWordRecords.firstIndex(where: { $0.id == linkID }) {
             storedWebWordRecords[index].question = question
-            storedWebWordRecords[index].answer = answer
+            storedWebWordRecords[index].answer = trimmedAnswer
             saveStoredWebWordRecords()
+            return
         }
+
+        if let pending = pendingPDFWordRecords.removeValue(forKey: linkID) {
+            let record = StoredPDFWordRecord(
+                id: pending.id,
+                word: pending.word,
+                pageIndex: pending.pageIndex,
+                bounds: pending.bounds,
+                context: pending.context,
+                question: question,
+                answer: trimmedAnswer,
+                createdAt: pending.createdAt
+            )
+            storedWordRecords.append(record)
+            addStoredWordAnnotation(record)
+            saveStoredWordRecords()
+            return
+        }
+
+        if let pending = pendingWebWordRecords.removeValue(forKey: linkID) {
+            let record = StoredWebWordRecord(
+                id: pending.id,
+                word: pending.word,
+                context: pending.context,
+                scrollProgress: pending.scrollProgress,
+                question: question,
+                answer: trimmedAnswer,
+                createdAt: pending.createdAt
+            )
+            storedWebWordRecords.append(record)
+            saveStoredWebWordRecords()
+            restoreStoredWebWordHighlights()
+        }
+    }
+
+    private func discardPendingLinkedWord(linkID: String) {
+        pendingPDFWordRecords.removeValue(forKey: linkID)
+        pendingWebWordRecords.removeValue(forKey: linkID)
+    }
+
+    private func linkedWordAnswer(for linkID: String) -> String? {
+        if let record = storedWordRecords.first(where: { $0.id == linkID }) {
+            return record.answer
+        }
+        if let record = storedWebWordRecords.first(where: { $0.id == linkID }) {
+            return record.answer
+        }
+        return nil
+    }
+
+    private func reusablePDFWordRecord(for word: String) -> StoredPDFWordRecord? {
+        let normalized = normalizedVocabularyKey(word)
+        return storedWordRecords.first {
+            normalizedVocabularyKey($0.word) == normalized && !$0.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    private func reusableWebWordRecord(for word: String) -> StoredWebWordRecord? {
+        let normalized = normalizedVocabularyKey(word)
+        return storedWebWordRecords.first {
+            normalizedVocabularyKey($0.word) == normalized && !$0.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    private func normalizedVocabularyKey(_ word: String) -> String {
+        word
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 
     private func restoreStoredWordAnnotations() {
@@ -2518,52 +2797,56 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             return
         }
 
-        ensureDocumentAgentIndex()
-
         let currentPageText = snapshot.visibleText
         let chapterText = snapshot.nearbyText
         let combinedContext = combinedReadingContext(base: context, snapshot: snapshot)
-        crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: currentPageText) { [weak self] retrievalQuery in
-            DispatchQueue.main.async {
-                guard let self else {
-                    completion(nil)
-                    return
-                }
-                let combinedRetrievalQuestion = [question, retrievalQuery]
-                    .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-                let retrievalQuestion = combinedRetrievalQuestion.isEmpty ? question : combinedRetrievalQuestion
-                let currentPageIndex = self.currentPageIndex()
-                self.preparePDFEmbeddingsIfPossible(priorityPageIndex: currentPageIndex) { [weak self] in
+        ensureDocumentAgentIndexAsync { [weak self] in
+            guard let self else {
+                completion(nil)
+                return
+            }
+            self.crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: currentPageText) { [weak self] retrievalQuery in
+                DispatchQueue.main.async {
                     guard let self else {
                         completion(nil)
                         return
                     }
-                    self.queryEmbedding(for: retrievalQuestion) { [weak self] queryEmbedding in
-                        DispatchQueue.main.async {
-                            guard let self else {
-                                completion(nil)
-                                return
+                    let combinedRetrievalQuestion = [question, retrievalQuery]
+                        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
+                        .joined(separator: "\n")
+                    let retrievalQuestion = combinedRetrievalQuestion.isEmpty ? question : combinedRetrievalQuestion
+                    let currentPageIndex = self.currentPageIndex()
+                    self.preparePDFEmbeddingsIfPossible(priorityPageIndex: currentPageIndex) { [weak self] in
+                        guard let self else {
+                            completion(nil)
+                            return
+                        }
+                        self.queryEmbedding(for: retrievalQuestion) { [weak self] queryEmbedding in
+                            DispatchQueue.main.async {
+                                guard let self else {
+                                    completion(nil)
+                                    return
+                                }
+                                let evidence = self.pdfAgentIndex?.search(
+                                    question: retrievalQuestion,
+                                    currentPageIndex: self.currentPageIndex(),
+                                    queryEmbedding: queryEmbedding
+                                ) ?? []
+                                self.appendEvidenceBubbles(evidence)
+                                var searchResults = PDFDocumentAgentIndex.evidenceText(evidence, locationName: self.evidenceLocationName())
+                                if let coverageText = self.embeddingCoveragePromptText() {
+                                    searchResults = searchResults.isEmpty ? coverageText : "\(coverageText)\n\n\(searchResults)"
+                                }
+                                completion(AIPromptStore.documentAgentPrompt(
+                                    title: self.documentTitleForAI(),
+                                    question: question,
+                                    currentPageText: String(currentPageText.prefix(3500)),
+                                    chapterText: String(chapterText.prefix(5000)),
+                                    searchResults: searchResults,
+                                    context: combinedContext
+                                ))
                             }
-                            let evidence = self.pdfAgentIndex?.search(
-                                question: retrievalQuestion,
-                                currentPageIndex: self.currentPageIndex(),
-                                queryEmbedding: queryEmbedding
-                            ) ?? []
-                            self.appendEvidenceBubbles(evidence)
-                            var searchResults = PDFDocumentAgentIndex.evidenceText(evidence, locationName: self.evidenceLocationName())
-                            if let coverageText = self.embeddingCoveragePromptText() {
-                                searchResults = searchResults.isEmpty ? coverageText : "\(coverageText)\n\n\(searchResults)"
-                            }
-                            completion(AIPromptStore.documentAgentPrompt(
-                                title: self.documentTitleForAI(),
-                                question: question,
-                                currentPageText: String(currentPageText.prefix(3500)),
-                                chapterText: String(chapterText.prefix(5000)),
-                                searchResults: searchResults,
-                                context: combinedContext
-                            ))
                         }
                     }
                 }
@@ -2578,50 +2861,55 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         completion: @escaping (String?) -> Void
     ) {
         let combinedContext = combinedReadingContext(base: context, snapshot: snapshot)
-        ensureDocumentAgentIndex()
-        crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: snapshot.visibleText) { [weak self] retrievalQuery in
-            DispatchQueue.main.async {
-                guard let self else {
-                    completion(nil)
-                    return
-                }
-                let combinedRetrievalQuestion = [question, retrievalQuery]
-                    .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-                let retrievalQuestion = combinedRetrievalQuestion.isEmpty ? question : combinedRetrievalQuestion
-                let priorityIndex = self.currentEmbeddingPriorityIndex()
-                self.preparePDFEmbeddingsIfPossible(priorityPageIndex: priorityIndex) { [weak self] in
+        ensureDocumentAgentIndexAsync { [weak self] in
+            guard let self else {
+                completion(nil)
+                return
+            }
+            self.crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: snapshot.visibleText) { [weak self] retrievalQuery in
+                DispatchQueue.main.async {
                     guard let self else {
                         completion(nil)
                         return
                     }
-                    self.queryEmbedding(for: retrievalQuestion) { [weak self] queryEmbedding in
-                        DispatchQueue.main.async {
-                            guard let self else {
-                                completion(nil)
-                                return
+                    let combinedRetrievalQuestion = [question, retrievalQuery]
+                        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
+                        .joined(separator: "\n")
+                    let retrievalQuestion = combinedRetrievalQuestion.isEmpty ? question : combinedRetrievalQuestion
+                    let priorityIndex = self.currentEmbeddingPriorityIndex()
+                    self.preparePDFEmbeddingsIfPossible(priorityPageIndex: priorityIndex) { [weak self] in
+                        guard let self else {
+                            completion(nil)
+                            return
+                        }
+                        self.queryEmbedding(for: retrievalQuestion) { [weak self] queryEmbedding in
+                            DispatchQueue.main.async {
+                                guard let self else {
+                                    completion(nil)
+                                    return
+                                }
+                                let evidence = self.pdfAgentIndex?.search(
+                                    question: retrievalQuestion,
+                                    currentPageIndex: self.currentEmbeddingPriorityIndex(),
+                                    queryEmbedding: queryEmbedding
+                                ) ?? []
+                                self.appendEvidenceBubbles(evidence)
+                                var searchResults = PDFDocumentAgentIndex.evidenceText(evidence, locationName: self.evidenceLocationName())
+                                if let coverageText = self.embeddingCoveragePromptText() {
+                                    searchResults = searchResults.isEmpty ? coverageText : "\(coverageText)\n\n\(searchResults)"
+                                }
+                                completion(AIPromptStore.documentAgentPrompt(
+                                    title: snapshot.title,
+                                    question: question,
+                                    currentPageText: String(snapshot.visibleText.prefix(3500)),
+                                    chapterText: String(snapshot.nearbyText.prefix(5000)),
+                                    searchResults: searchResults,
+                                    context: combinedContext,
+                                    currentTextTitle: AppText.localized("当前可见内容", "Current visible text"),
+                                    nearbyTextTitle: AppText.localized("当前阅读位置附近内容", "Nearby reading text")
+                                ))
                             }
-                            let evidence = self.pdfAgentIndex?.search(
-                                question: retrievalQuestion,
-                                currentPageIndex: self.currentEmbeddingPriorityIndex(),
-                                queryEmbedding: queryEmbedding
-                            ) ?? []
-                            self.appendEvidenceBubbles(evidence)
-                            var searchResults = PDFDocumentAgentIndex.evidenceText(evidence, locationName: self.evidenceLocationName())
-                            if let coverageText = self.embeddingCoveragePromptText() {
-                                searchResults = searchResults.isEmpty ? coverageText : "\(coverageText)\n\n\(searchResults)"
-                            }
-                            completion(AIPromptStore.documentAgentPrompt(
-                                title: snapshot.title,
-                                question: question,
-                                currentPageText: String(snapshot.visibleText.prefix(3500)),
-                                chapterText: String(snapshot.nearbyText.prefix(5000)),
-                                searchResults: searchResults,
-                                context: combinedContext,
-                                currentTextTitle: AppText.localized("当前可见内容", "Current visible text"),
-                                nearbyTextTitle: AppText.localized("当前阅读位置附近内容", "Nearby reading text")
-                            ))
                         }
                     }
                 }
@@ -2766,11 +3054,64 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         pdfAgentIndex = PDFDocumentAgentIndex(text: currentWebPlainText)
     }
 
+    private func ensureDocumentAgentIndexAsync(completion: (() -> Void)? = nil) {
+        if pdfAgentIndex != nil {
+            completion?()
+            return
+        }
+        if let completion {
+            pendingDocumentAgentIndexCallbacks.append(completion)
+        }
+        guard !isBuildingDocumentAgentIndex else { return }
+
+        isBuildingDocumentAgentIndex = true
+        let generation = documentAgentIndexGeneration
+        let kind = currentDocumentKind
+        let title = titleLabel.stringValue
+
+        if kind == .pdf {
+            guard let url = currentFileURL else {
+                finishDocumentAgentIndexBuild(nil, generation: generation)
+                return
+            }
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                autoreleasepool {
+                    let document = PDFDocument(url: url)
+                    let index = document.map { PDFDocumentAgentIndex(document: $0, title: title) }
+                    DispatchQueue.main.async {
+                        self?.finishDocumentAgentIndexBuild(index, generation: generation)
+                    }
+                }
+            }
+            return
+        }
+
+        let text = currentWebPlainText
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            finishDocumentAgentIndexBuild(nil, generation: generation)
+            return
+        }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let index = PDFDocumentAgentIndex(text: text)
+            DispatchQueue.main.async {
+                self?.finishDocumentAgentIndexBuild(index, generation: generation)
+            }
+        }
+    }
+
+    private func finishDocumentAgentIndexBuild(_ index: PDFDocumentAgentIndex?, generation: Int) {
+        guard generation == documentAgentIndexGeneration else { return }
+        pdfAgentIndex = index
+        isBuildingDocumentAgentIndex = false
+        let callbacks = pendingDocumentAgentIndexCallbacks
+        pendingDocumentAgentIndexCallbacks.removeAll()
+        callbacks.forEach { $0() }
+    }
+
     private func currentEmbeddingPriorityIndex() -> Int? {
         if currentDocumentKind == .pdf {
             return currentPageIndex()
         }
-        ensureDocumentAgentIndex()
         guard let count = pdfAgentIndex?.locationCount, count > 0 else { return nil }
         let index = Int((Double(count - 1) * min(1, max(0, webScrollProgress))).rounded())
         return min(count - 1, max(0, index))
@@ -2785,21 +3126,97 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
               EmbeddingClient.configFromCurrentAISettings() != nil else {
             return
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+        let documentID = currentFileMD5
+        scheduledEmbeddingCacheRestoreWorkItem?.cancel()
+        let cacheWorkItem = DispatchWorkItem { [weak self] in
             guard let self else {
                 return
             }
+            guard self.currentFileMD5 == documentID,
+                  self.window?.isVisible == true else {
+                return
+            }
+            self.ensureDocumentAgentIndexAsync { [weak self] in
+                guard let self, self.currentFileMD5 == documentID else { return }
+                self.applyCachedEmbeddingsIfPossible()
+                if self.embeddingIndexIsComplete {
+                    self.scheduledEmbeddingWarmupWorkItem?.cancel()
+                    self.scheduledEmbeddingWarmupWorkItem = nil
+                }
+            }
+        }
+        scheduledEmbeddingCacheRestoreWorkItem = cacheWorkItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0, execute: cacheWorkItem)
+
+        scheduledEmbeddingWarmupWorkItem?.cancel()
+        let warmupWorkItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            guard self.currentFileMD5 == documentID else { return }
             guard self.window?.isVisible == true else {
                 return
             }
-            self.ensureDocumentAgentIndex()
-            self.preparePDFEmbeddingsIfPossible(priorityPageIndex: priorityPageIndex)
+            guard self.isReaderIdleForEmbedding else {
+                self.embeddingStatusLabel.stringValue = AppText.localized("向量索引：空闲后继续", "Embedding: continues when idle")
+                self.embeddingStatusLabel.isHidden = false
+                self.scheduleDocumentEmbeddingWarmup(priorityPageIndex: priorityPageIndex)
+                return
+            }
+            self.ensureDocumentAgentIndexAsync { [weak self] in
+                guard let self, self.currentFileMD5 == documentID else { return }
+                self.applyCachedEmbeddingsIfPossible()
+                guard !self.embeddingIndexIsComplete else {
+                    self.scheduledEmbeddingWarmupWorkItem = nil
+                    return
+                }
+                self.preparePDFEmbeddingsIfPossible(priorityPageIndex: priorityPageIndex)
+            }
         }
+        scheduledEmbeddingWarmupWorkItem = warmupWorkItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 18.0, execute: warmupWorkItem)
+    }
+
+    private var isReaderIdleForEmbedding: Bool {
+        Date().timeIntervalSince(lastReaderInteractionAt) >= 4.0
+    }
+
+    private func markReaderInteraction() {
+        lastReaderInteractionAt = Date()
+    }
+
+    private func cancelScheduledEmbeddingWarmup() {
+        scheduledEmbeddingCacheRestoreWorkItem?.cancel()
+        scheduledEmbeddingCacheRestoreWorkItem = nil
+        scheduledEmbeddingWarmupWorkItem?.cancel()
+        scheduledEmbeddingWarmupWorkItem = nil
+    }
+
+    private func applyCachedEmbeddingsIfPossible() {
+        guard let documentID = currentFileMD5,
+              let index = pdfAgentIndex,
+              let config = EmbeddingClient.configFromCurrentAISettings(),
+              let store = pdfEmbeddingStore else {
+            return
+        }
+        let chunks = index.indexableChunks
+        guard !chunks.isEmpty else { return }
+        let cached = store.embeddings(documentID: documentID, model: config.cacheModelID, chunkIDs: chunks.map(\.id))
+        pdfAgentIndex?.applyEmbeddings(cached)
+        if !cached.isEmpty {
+            updateEmbeddingStatusForCoverage(isComplete: index.embeddingCoverage.embedded >= index.embeddingCoverage.total)
+        }
+    }
+
+    private var embeddingIndexIsComplete: Bool {
+        guard let progress = pdfAgentIndex?.embeddingCoverage,
+              progress.total > 0 else {
+            return false
+        }
+        return progress.embedded >= progress.total
     }
 
     private func preparePDFEmbeddingsIfPossible(priorityPageIndex: Int? = nil, completion: (() -> Void)? = nil) {
         guard let documentID = currentFileMD5,
-              let index = pdfAgentIndex,
+              pdfAgentIndex != nil,
               let config = EmbeddingClient.configFromCurrentAISettings(),
               let store = pdfEmbeddingStore else {
             completion?()
@@ -2837,14 +3254,17 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             return
         }
 
-        let allChunks = index.indexableChunks.map {
-            PDFEmbeddingChunk(id: $0.id, pageIndex: $0.pageIndex, chunkIndex: $0.chunkIndex, text: $0.text)
+        applyCachedEmbeddingsIfPossible()
+        if embeddingIndexIsComplete {
+            completion?()
+            notifyEmbeddingReady(completion, includePending: true)
+            updateEmbeddingStatusForCoverage(isComplete: true)
+            return
         }
-        let cached = store.embeddings(documentID: documentID, model: config.cacheModelID, chunkIDs: allChunks.map(\.id))
-        pdfAgentIndex?.applyEmbeddings(cached)
 
         isPreparingPDFEmbeddings = true
         isEmbeddingBackfillPaused = false
+        embeddingBackfillNeedsRetry = false
         embeddingBackfillGeneration += 1
         let generation = embeddingBackfillGeneration
         updateEmbeddingControlButtons()
@@ -2878,7 +3298,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             return
         }
         guard !isEmbeddingBackfillPaused else {
-            embeddingStatusLabel.stringValue = AppText.localized("向量索引：已暂停", "Embedding: paused")
+            embeddingStatusLabel.stringValue = AppText.localized("向量索引：已暂停，点击继续", "Embedding: paused, tap resume")
             embeddingStatusLabel.isHidden = false
             updateEmbeddingControlButtons()
             return
@@ -2937,9 +3357,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 case .failure:
                     self.isPreparingPDFEmbeddings = false
                     self.isEmbeddingBackfillPaused = false
+                    self.embeddingBackfillNeedsRetry = true
                     self.queuedEmbeddingPriorityPageIndex = nil
                     self.notifyEmbeddingReady(afterFirstBatch, includePending: true)
-                    self.embeddingStatusLabel.stringValue = AppText.localized("向量索引：暂停", "Embedding: paused")
+                    self.embeddingStatusLabel.stringValue = AppText.localized("向量索引：失败，可重试", "Embedding: failed, retry available")
                     self.embeddingStatusLabel.isHidden = false
                     self.updateEmbeddingControlButtons()
                 }
@@ -2952,7 +3373,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         isEmbeddingBackfillPaused.toggle()
         updateEmbeddingControlButtons()
         if isEmbeddingBackfillPaused {
-            embeddingStatusLabel.stringValue = AppText.localized("向量索引：已暂停", "Embedding: paused")
+            embeddingStatusLabel.stringValue = AppText.localized("向量索引：已暂停，点击继续", "Embedding: paused, tap resume")
             embeddingStatusLabel.isHidden = false
             return
         }
@@ -2987,13 +3408,16 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func startCurrentVectorIndex() {
-        ensureDocumentAgentIndex()
         guard EmbeddingClient.configFromCurrentAISettings() != nil else {
             embeddingStatusLabel.stringValue = AppText.localized("向量索引：请先配置向量模型", "Embedding: configure model first")
             embeddingStatusLabel.isHidden = false
             return
         }
-        preparePDFEmbeddingsIfPossible(priorityPageIndex: currentEmbeddingPriorityIndex())
+        embeddingBackfillNeedsRetry = false
+        ensureDocumentAgentIndexAsync { [weak self] in
+            guard let self else { return }
+            self.preparePDFEmbeddingsIfPossible(priorityPageIndex: self.currentEmbeddingPriorityIndex())
+        }
     }
 
     private func clearCurrentVectorIndex() {
@@ -3008,7 +3432,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         pendingEmbeddingReadyCallbacks.removeAll()
         pdfEmbeddingStore?.deleteDocument(documentID: documentID)
         pdfAgentIndex = nil
-        ensureDocumentAgentIndex()
+        documentAgentIndexGeneration += 1
+        isBuildingDocumentAgentIndex = false
+        pendingDocumentAgentIndexCallbacks.removeAll()
+        ensureDocumentAgentIndexAsync()
         embeddingStatusLabel.stringValue = AppText.localized("向量索引：已清除当前书", "Embedding: current book cleared")
         embeddingStatusLabel.isHidden = false
         updateEmbeddingControlButtons()
@@ -3022,7 +3449,6 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         guard currentFileMD5 != nil else {
             return AppText.localized("未打开文档。", "No document open.")
         }
-        ensureDocumentAgentIndex()
         let progress = pdfAgentIndex?.embeddingCoverage ?? (embedded: 0, total: 0)
         let cacheSize = pdfEmbeddingStore?.cacheSizeBytes() ?? 0
         let cacheText = formatEmbeddingBytes(cacheSize)
@@ -3038,10 +3464,14 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             state = isEmbeddingBackfillPaused
                 ? AppText.localized("已暂停", "paused")
                 : AppText.localized("生成中", "indexing")
+        } else if embeddingBackfillNeedsRetry {
+            state = AppText.localized("失败，可重试", "failed, retry available")
         } else if progress.embedded >= progress.total {
-            state = AppText.localized("已完成", "complete")
+            state = AppText.localized("已缓存", "cached")
+        } else if scheduledEmbeddingWarmupWorkItem != nil {
+            state = AppText.localized("空闲后继续", "continues when idle")
         } else if progress.embedded > 0 {
-            state = AppText.localized("部分完成", "partial")
+            state = AppText.localized("已缓存部分内容", "partially cached")
         } else {
             state = AppText.localized("未生成", "not built")
         }
@@ -3086,13 +3516,13 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let suffix = currentDocumentKind == .pdf ? AppText.localized(" 页", "") : ""
         if let lastPage = pages.last, lastPage != firstPage {
             text = AppText.localized(
-                "向量索引：\(percent)% \(unit)\(firstPage + 1)-\(lastPage + 1)\(suffix)",
-                "Embedding: \(percent)% \(unit)\(firstPage + 1)-\(lastPage + 1)"
+                "向量索引：生成中 \(percent)% \(unit)\(firstPage + 1)-\(lastPage + 1)\(suffix)",
+                "Embedding: indexing \(percent)% \(unit)\(firstPage + 1)-\(lastPage + 1)"
             )
         } else {
             text = AppText.localized(
-                "向量索引：\(percent)% \(unit)\(firstPage + 1)\(suffix)",
-                "Embedding: \(percent)% \(unit)\(firstPage + 1)"
+                "向量索引：生成中 \(percent)% \(unit)\(firstPage + 1)\(suffix)",
+                "Embedding: indexing \(percent)% \(unit)\(firstPage + 1)"
             )
         }
         embeddingStatusLabel.stringValue = text
@@ -3106,17 +3536,12 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
             return
         }
         let percent = embeddingCoveragePercent(progress)
-        embeddingStatusLabel.stringValue = AppText.localized("向量索引：\(percent)%", "Embedding: \(percent)%")
+        let text = isComplete || percent >= 100
+            ? AppText.localized("向量索引：已缓存", "Embedding: cached")
+            : AppText.localized("向量索引：已缓存 \(percent)%，空闲后继续", "Embedding: cached \(percent)%, continues when idle")
+        embeddingStatusLabel.stringValue = text
         embeddingStatusLabel.isHidden = false
         updateEmbeddingControlButtons()
-        if isComplete || percent >= 100 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-                guard let self,
-                      let progress = self.pdfAgentIndex?.embeddingCoverage,
-                      progress.embedded >= progress.total else { return }
-                self.clearEmbeddingStatus()
-            }
-        }
     }
 
     private func embeddingCoveragePercent(_ progress: (embedded: Int, total: Int)) -> Int {
@@ -3415,9 +3840,24 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     private func fileMD5(for url: URL) -> String? {
+        let resourceValues = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+        let fileSize = resourceValues?.fileSize ?? 0
+        let modifiedAt = resourceValues?.contentModificationDate?.timeIntervalSince1970 ?? 0
+        let cacheKey = "\(url.standardizedFileURL.path)|\(fileSize)|\(modifiedAt)"
+        let defaults = UserDefaults.standard
+        var cache = defaults.dictionary(forKey: Self.fileMD5CacheDefaultsKey) as? [String: String] ?? [:]
+        if let cached = cache[cacheKey] {
+            return cached
+        }
         guard let data = try? Data(contentsOf: url) else { return nil }
         let digest = Insecure.MD5.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
+        let md5 = digest.map { String(format: "%02x", $0) }.joined()
+        cache[cacheKey] = md5
+        if cache.count > 80 {
+            cache = Dictionary(uniqueKeysWithValues: cache.suffix(80))
+        }
+        defaults.set(cache, forKey: Self.fileMD5CacheDefaultsKey)
+        return md5
     }
 
     private func restoreWebProgressAfterLoad() {
@@ -3484,14 +3924,31 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     private func saveSession() {
         if isRestoringSession { return }
+        pendingSessionSaveWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.performSessionSave()
+        }
+        pendingSessionSaveWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: workItem)
+    }
+
+    private func performSessionSave() {
+        pendingSessionSaveWorkItem = nil
         guard let url = currentFileURL else { return }
         sessionStore.saveLastDocumentURL(url)
         guard currentDocumentKind == .pdf else {
             saveWebProgress()
+            RecentDocumentsStore.updateProgress(url: url, kind: currentDocumentKind, progress: webScrollProgress)
             return
         }
         let pageIndex = pdfView.document?.index(for: pdfView.currentPage ?? PDFPage()) ?? 0
         sessionStore.savePDFProgress(pageIndex: pageIndex, scale: pdfView.scaleFactor)
+        let pageCount = max(1, pdfView.document?.pageCount ?? 1)
+        RecentDocumentsStore.updateProgress(
+            url: url,
+            kind: currentDocumentKind,
+            progress: Double(pageIndex + 1) / Double(pageCount)
+        )
     }
 
     private func restoreSession() {
@@ -3521,6 +3978,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
                 guard self.handlePageKey(event) else { return event }
                 return nil
             case .scrollWheel:
+                self.markReaderInteraction()
                 DispatchQueue.main.async { [weak self] in
                     self?.updateZoomLabel()
                 }

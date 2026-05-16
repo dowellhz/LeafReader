@@ -5,6 +5,7 @@ struct RecentDocumentItem: Codable {
     let title: String
     let kind: String
     let openedAt: Date
+    let readingProgress: Double?
 }
 
 enum RecentDocumentsStore {
@@ -20,7 +21,8 @@ enum RecentDocumentsStore {
                 path: path,
                 title: url.deletingPathExtension().lastPathComponent,
                 kind: kind.displayName,
-                openedAt: Date()
+                openedAt: Date(),
+                readingProgress: nil
             ),
             at: 0
         )
@@ -40,6 +42,43 @@ enum RecentDocumentsStore {
 
     static func clear() {
         UserDefaults.standard.removeObject(forKey: defaultsKey)
+    }
+
+    static func remove(path: String) {
+        var items = load()
+        items.removeAll { $0.path == path }
+        save(items)
+    }
+
+    static func updateProgress(url: URL, kind: ReaderDocumentKind, progress: Double) {
+        var items = load()
+        let path = url.path
+        let normalizedProgress = min(max(progress, 0), 1)
+        if let index = items.firstIndex(where: { $0.path == path }) {
+            let existing = items[index]
+            items[index] = RecentDocumentItem(
+                path: existing.path,
+                title: existing.title,
+                kind: existing.kind,
+                openedAt: existing.openedAt,
+                readingProgress: normalizedProgress
+            )
+        } else {
+            items.insert(
+                RecentDocumentItem(
+                    path: path,
+                    title: url.deletingPathExtension().lastPathComponent,
+                    kind: kind.displayName,
+                    openedAt: Date(),
+                    readingProgress: normalizedProgress
+                ),
+                at: 0
+            )
+            if items.count > limit {
+                items = Array(items.prefix(limit))
+            }
+        }
+        save(items)
     }
 
     private static func save(_ items: [RecentDocumentItem]) {

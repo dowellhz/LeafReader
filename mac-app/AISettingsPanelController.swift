@@ -180,6 +180,7 @@ final class AISettingsPanelController {
     private weak var autoEmbeddingIndexCheckbox: NSButton?
     private weak var cacheStatusLabel: NSTextField?
     private weak var currentIndexStatusLabel: NSTextField?
+    private var cacheRefreshTimer: Timer?
     private var keyTopWithCustomConstraint: NSLayoutConstraint?
     private var keyTopWithoutCustomConstraint: NSLayoutConstraint?
     private var embeddingModelTopWithCustomEndpointConstraint: NSLayoutConstraint?
@@ -189,6 +190,7 @@ final class AISettingsPanelController {
     private var appActivationObserver: NSObjectProtocol?
 
     deinit {
+        cacheRefreshTimer?.invalidate()
         removeAppActivationObserver()
     }
 
@@ -337,8 +339,9 @@ final class AISettingsPanelController {
         let themeHelpLabel = label(ReaderTheme.selected.helpText, size: settingsFontSize, color: secondaryText)
         themeHelpLabel.isHidden = true
         let themePopup = popup(items: ReaderTheme.allCases.map { ($0.title, $0.rawValue) }, selected: ReaderTheme.selected.rawValue, fontSize: settingsFontSize)
+        let speakSelectedWordLabel = label(AppText.localized("自动播放单词", "Auto Play Words"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let speakSelectedWordCheckbox = NSButton(
-            checkboxWithTitle: AppText.localized("学英语时播放单词发音", "Play word audio in Learn English"),
+            checkboxWithTitle: "",
             target: nil,
             action: nil
         )
@@ -378,44 +381,41 @@ final class AISettingsPanelController {
         testEmbeddingButton.lineBreakMode = .byTruncatingTail
         testEmbeddingButton.translatesAutoresizingMaskIntoConstraints = false
 
-        let cacheLabel = label(AppText.localized("AI 向量缓存", "AI Vector Cache"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let cacheLabel = label(AppText.localized("AI 向量缓存", "AI Vector Cache"), size: 15, weight: .semibold, color: primaryText)
         let cacheStatusLabel = label(vectorCacheStatusText(), size: settingsFontSize, color: secondaryText)
-        let clearVectorCacheButton = NSButton(title: AppText.localized("清除 AI 向量缓存", "Clear AI Vector Cache"), target: self, action: #selector(clearVectorCache(_:)))
-        clearVectorCacheButton.bezelStyle = .rounded
-        clearVectorCacheButton.controlSize = .large
-        clearVectorCacheButton.font = AppFont.semibold(ofSize: settingsFontSize)
-        clearVectorCacheButton.lineBreakMode = .byTruncatingTail
-        clearVectorCacheButton.translatesAutoresizingMaskIntoConstraints = false
+        let cacheDisclosureButton = NSButton(title: "", target: self, action: #selector(clearVectorCache(_:)))
+        cacheDisclosureButton.isBordered = false
+        cacheDisclosureButton.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: nil)
+        cacheDisclosureButton.contentTintColor = primaryText
+        cacheDisclosureButton.isHidden = true
+        cacheDisclosureButton.translatesAutoresizingMaskIntoConstraints = false
+        let clearVectorCacheButton = cacheActionButton(
+            title: AppText.localized("清除 AI 向量缓存", "Clear AI Vector Cache"),
+            symbol: "trash",
+            tint: NSColor(red: 1.00, green: 0.16, blue: 0.18, alpha: 1),
+            target: self,
+            action: #selector(clearVectorCache(_:)),
+            isDark: isDark
+        )
+        clearVectorCacheButton.layer?.cornerRadius = 8
+        clearVectorCacheButton.font = AppFont.semibold(ofSize: 14)
+        clearVectorCacheButton.attributedTitle = NSAttributedString(
+            string: AppText.localized("清除 AI 向量缓存", "Clear AI Vector Cache"),
+            attributes: [
+                .font: AppFont.semibold(ofSize: 14),
+                .foregroundColor: primaryText
+            ]
+        )
 
-        let currentIndexLabel = label(AppText.localized("当前书索引", "Current Book Index"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let currentIndexLabel = label(AppText.localized("当前书索引", "Current Book Index"), size: 15, weight: .semibold, color: primaryText)
         let currentIndexStatusLabel = label(currentVectorIndexStatus?() ?? AppText.localized("未打开文档", "No document open"), size: settingsFontSize, color: secondaryText)
         currentIndexStatusLabel.maximumNumberOfLines = 2
         currentIndexStatusLabel.lineBreakMode = .byWordWrapping
-        let startIndexButton = NSButton(title: AppText.localized("开始/继续生成", "Start / Resume"), target: self, action: #selector(startCurrentVectorIndex(_:)))
-        startIndexButton.bezelStyle = .rounded
-        startIndexButton.controlSize = .large
-        startIndexButton.font = AppFont.semibold(ofSize: settingsFontSize)
-        startIndexButton.translatesAutoresizingMaskIntoConstraints = false
-        let pauseIndexButton = NSButton(title: AppText.localized("暂停/继续", "Pause / Resume"), target: self, action: #selector(toggleCurrentVectorIndex(_:)))
-        pauseIndexButton.bezelStyle = .rounded
-        pauseIndexButton.controlSize = .large
-        pauseIndexButton.font = AppFont.semibold(ofSize: settingsFontSize)
-        pauseIndexButton.translatesAutoresizingMaskIntoConstraints = false
-        let cancelIndexButton = NSButton(title: AppText.localized("取消生成", "Cancel"), target: self, action: #selector(cancelCurrentVectorIndex(_:)))
-        cancelIndexButton.bezelStyle = .rounded
-        cancelIndexButton.controlSize = .large
-        cancelIndexButton.font = AppFont.semibold(ofSize: settingsFontSize)
-        cancelIndexButton.translatesAutoresizingMaskIntoConstraints = false
-        let clearCurrentIndexButton = NSButton(title: AppText.localized("清除当前书索引", "Clear Current Book"), target: self, action: #selector(clearCurrentVectorIndex(_:)))
-        clearCurrentIndexButton.bezelStyle = .rounded
-        clearCurrentIndexButton.controlSize = .large
-        clearCurrentIndexButton.font = AppFont.semibold(ofSize: settingsFontSize)
-        clearCurrentIndexButton.translatesAutoresizingMaskIntoConstraints = false
-        let clearCurrentWordsButton = NSButton(title: AppText.localized("清除当前书单词记录", "Clear Current Book Words"), target: self, action: #selector(clearCurrentWordRecords(_:)))
-        clearCurrentWordsButton.bezelStyle = .rounded
-        clearCurrentWordsButton.controlSize = .large
-        clearCurrentWordsButton.font = AppFont.semibold(ofSize: settingsFontSize)
-        clearCurrentWordsButton.translatesAutoresizingMaskIntoConstraints = false
+        let startIndexButton = cacheActionButton(title: AppText.localized("开始/继续生成", "Start / Resume"), symbol: "play.circle", tint: NSColor(red: 0.00, green: 0.48, blue: 1.00, alpha: 1), target: self, action: #selector(startCurrentVectorIndex(_:)), isDark: isDark)
+        let pauseIndexButton = cacheActionButton(title: AppText.localized("暂停/继续", "Pause / Resume"), symbol: "pause.circle", tint: NSColor(red: 1.00, green: 0.58, blue: 0.00, alpha: 1), target: self, action: #selector(toggleCurrentVectorIndex(_:)), isDark: isDark)
+        let cancelIndexButton = cacheActionButton(title: AppText.localized("取消生成", "Cancel"), symbol: "minus.circle", tint: NSColor(red: 1.00, green: 0.22, blue: 0.28, alpha: 1), target: self, action: #selector(cancelCurrentVectorIndex(_:)), isDark: isDark)
+        let clearCurrentIndexButton = cacheActionButton(title: AppText.localized("清除当前书索引", "Clear Current Book"), symbol: "paintbrush", tint: NSColor(red: 0.60, green: 0.27, blue: 1.00, alpha: 1), target: self, action: #selector(clearCurrentVectorIndex(_:)), isDark: isDark)
+        let clearCurrentWordsButton = cacheActionButton(title: AppText.localized("清除当前书单词记录", "Clear Current Book Words"), symbol: "trash", tint: NSColor(red: 0.00, green: 0.72, blue: 0.74, alpha: 1), target: self, action: #selector(clearCurrentWordRecords(_:)), isDark: isDark)
         let currentIndexCard = settingsCard(isDark: isDark)
         let vectorCacheCard = settingsCard(isDark: isDark)
 
@@ -463,10 +463,10 @@ final class AISettingsPanelController {
         for view in [currentIndexLabel, currentIndexStatusLabel, startIndexButton, pauseIndexButton, cancelIndexButton, clearCurrentIndexButton, clearCurrentWordsButton] {
             currentIndexCard.addSubview(view)
         }
-        for view in [cacheLabel, cacheStatusLabel, clearVectorCacheButton] {
+        for view in [cacheLabel, cacheStatusLabel, cacheDisclosureButton, clearVectorCacheButton] {
             vectorCacheCard.addSubview(view)
         }
-        for view in [languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, speakSelectedWordCheckbox] {
+        for view in [languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, speakSelectedWordLabel, speakSelectedWordCheckbox] {
             basicPage.addSubview(view)
         }
         for view in [modelLabel, modelPopup, modelHelpLabel, customModelContainer, keyLabel, keyField, keyHelpLabel, testChatButton] {
@@ -483,7 +483,7 @@ final class AISettingsPanelController {
         let keyTopWithoutCustom = keyLabel.topAnchor.constraint(equalTo: modelPopup.bottomAnchor, constant: 34)
         let labelColumnWidth: CGFloat = 110
         let fieldWidth: CGFloat = 440
-        let formWidth = labelColumnWidth + fieldWidth
+        let formWidth: CGFloat = 672
         let controlHeight: CGFloat = 40
         let inputHeight: CGFloat = 36
         let embeddingModelTopWithCustomEndpoint = embeddingModelNameLabel.topAnchor.constraint(equalTo: embeddingEndpointContainer.bottomAnchor, constant: 10)
@@ -556,9 +556,12 @@ final class AISettingsPanelController {
             themeHelpLabel.leadingAnchor.constraint(equalTo: themePopup.leadingAnchor),
             themeHelpLabel.widthAnchor.constraint(equalToConstant: fieldWidth),
 
-            speakSelectedWordCheckbox.topAnchor.constraint(equalTo: themePopup.bottomAnchor, constant: 16),
-            speakSelectedWordCheckbox.leadingAnchor.constraint(equalTo: themePopup.leadingAnchor),
-            speakSelectedWordCheckbox.widthAnchor.constraint(equalToConstant: fieldWidth),
+            speakSelectedWordLabel.topAnchor.constraint(equalTo: themePopup.bottomAnchor, constant: 18),
+            speakSelectedWordLabel.leadingAnchor.constraint(equalTo: basicPage.leadingAnchor),
+            speakSelectedWordLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            speakSelectedWordCheckbox.centerYAnchor.constraint(equalTo: speakSelectedWordLabel.centerYAnchor),
+            speakSelectedWordCheckbox.leadingAnchor.constraint(equalTo: basicPage.leadingAnchor, constant: labelColumnWidth),
+            speakSelectedWordCheckbox.widthAnchor.constraint(equalToConstant: 32),
             speakSelectedWordCheckbox.bottomAnchor.constraint(lessThanOrEqualTo: basicPage.bottomAnchor, constant: -8),
 
             modelLabel.topAnchor.constraint(equalTo: modelPage.topAnchor, constant: 4),
@@ -656,47 +659,50 @@ final class AISettingsPanelController {
             currentIndexCard.topAnchor.constraint(equalTo: cachePage.topAnchor, constant: 4),
             currentIndexCard.leadingAnchor.constraint(equalTo: cachePage.leadingAnchor),
             currentIndexCard.widthAnchor.constraint(equalToConstant: formWidth),
-            currentIndexCard.heightAnchor.constraint(equalToConstant: 218),
-            currentIndexLabel.topAnchor.constraint(equalTo: currentIndexCard.topAnchor, constant: 16),
-            currentIndexLabel.leadingAnchor.constraint(equalTo: currentIndexCard.leadingAnchor, constant: 18),
-            currentIndexStatusLabel.topAnchor.constraint(equalTo: currentIndexLabel.bottomAnchor, constant: 6),
+            currentIndexCard.heightAnchor.constraint(equalToConstant: 204),
+            currentIndexLabel.topAnchor.constraint(equalTo: currentIndexCard.topAnchor, constant: 24),
+            currentIndexLabel.leadingAnchor.constraint(equalTo: currentIndexCard.leadingAnchor, constant: 22),
+            currentIndexStatusLabel.topAnchor.constraint(equalTo: currentIndexLabel.bottomAnchor, constant: 14),
             currentIndexStatusLabel.leadingAnchor.constraint(equalTo: currentIndexLabel.leadingAnchor),
-            currentIndexStatusLabel.widthAnchor.constraint(equalToConstant: formWidth - 36),
-            startIndexButton.topAnchor.constraint(equalTo: currentIndexStatusLabel.bottomAnchor, constant: 10),
+            currentIndexStatusLabel.widthAnchor.constraint(equalToConstant: formWidth - 44),
+            startIndexButton.topAnchor.constraint(equalTo: currentIndexStatusLabel.bottomAnchor, constant: 20),
             startIndexButton.leadingAnchor.constraint(equalTo: currentIndexLabel.leadingAnchor),
-            startIndexButton.widthAnchor.constraint(equalToConstant: 150),
-            startIndexButton.heightAnchor.constraint(equalToConstant: controlHeight),
+            startIndexButton.widthAnchor.constraint(equalToConstant: 194),
+            startIndexButton.heightAnchor.constraint(equalToConstant: 44),
             pauseIndexButton.centerYAnchor.constraint(equalTo: startIndexButton.centerYAnchor),
-            pauseIndexButton.leadingAnchor.constraint(equalTo: startIndexButton.trailingAnchor, constant: 8),
-            pauseIndexButton.widthAnchor.constraint(equalToConstant: 112),
-            pauseIndexButton.heightAnchor.constraint(equalToConstant: controlHeight),
+            pauseIndexButton.leadingAnchor.constraint(equalTo: startIndexButton.trailingAnchor, constant: 16),
+            pauseIndexButton.widthAnchor.constraint(equalToConstant: 194),
+            pauseIndexButton.heightAnchor.constraint(equalToConstant: 44),
             cancelIndexButton.centerYAnchor.constraint(equalTo: startIndexButton.centerYAnchor),
-            cancelIndexButton.leadingAnchor.constraint(equalTo: pauseIndexButton.trailingAnchor, constant: 8),
-            cancelIndexButton.widthAnchor.constraint(equalToConstant: 104),
-            cancelIndexButton.heightAnchor.constraint(equalToConstant: controlHeight),
-            clearCurrentIndexButton.topAnchor.constraint(equalTo: startIndexButton.bottomAnchor, constant: 10),
+            cancelIndexButton.leadingAnchor.constraint(equalTo: pauseIndexButton.trailingAnchor, constant: 16),
+            cancelIndexButton.widthAnchor.constraint(equalToConstant: 194),
+            cancelIndexButton.heightAnchor.constraint(equalToConstant: 44),
+            clearCurrentIndexButton.topAnchor.constraint(equalTo: startIndexButton.bottomAnchor, constant: 12),
             clearCurrentIndexButton.leadingAnchor.constraint(equalTo: currentIndexLabel.leadingAnchor),
-            clearCurrentIndexButton.widthAnchor.constraint(equalToConstant: 170),
-            clearCurrentIndexButton.heightAnchor.constraint(equalToConstant: controlHeight),
+            clearCurrentIndexButton.widthAnchor.constraint(equalToConstant: 194),
+            clearCurrentIndexButton.heightAnchor.constraint(equalToConstant: 44),
             clearCurrentWordsButton.centerYAnchor.constraint(equalTo: clearCurrentIndexButton.centerYAnchor),
-            clearCurrentWordsButton.leadingAnchor.constraint(equalTo: clearCurrentIndexButton.trailingAnchor, constant: 8),
-            clearCurrentWordsButton.widthAnchor.constraint(equalToConstant: 190),
-            clearCurrentWordsButton.heightAnchor.constraint(equalToConstant: controlHeight),
+            clearCurrentWordsButton.leadingAnchor.constraint(equalTo: clearCurrentIndexButton.trailingAnchor, constant: 16),
+            clearCurrentWordsButton.widthAnchor.constraint(equalToConstant: 194),
+            clearCurrentWordsButton.heightAnchor.constraint(equalToConstant: 44),
 
-            vectorCacheCard.topAnchor.constraint(equalTo: currentIndexCard.bottomAnchor, constant: 14),
+            vectorCacheCard.topAnchor.constraint(equalTo: currentIndexCard.bottomAnchor, constant: 18),
             vectorCacheCard.leadingAnchor.constraint(equalTo: cachePage.leadingAnchor),
             vectorCacheCard.widthAnchor.constraint(equalToConstant: formWidth),
-            vectorCacheCard.heightAnchor.constraint(equalToConstant: 122),
-            cacheLabel.topAnchor.constraint(equalTo: vectorCacheCard.topAnchor, constant: 16),
-            cacheLabel.leadingAnchor.constraint(equalTo: vectorCacheCard.leadingAnchor, constant: 18),
-            cacheStatusLabel.topAnchor.constraint(equalTo: cacheLabel.bottomAnchor, constant: 6),
+            vectorCacheCard.heightAnchor.constraint(equalToConstant: 138),
+            cacheLabel.topAnchor.constraint(equalTo: vectorCacheCard.topAnchor, constant: 18),
+            cacheLabel.leadingAnchor.constraint(equalTo: vectorCacheCard.leadingAnchor, constant: 22),
+            cacheStatusLabel.topAnchor.constraint(equalTo: cacheLabel.bottomAnchor, constant: 12),
             cacheStatusLabel.leadingAnchor.constraint(equalTo: cacheLabel.leadingAnchor),
-            cacheStatusLabel.widthAnchor.constraint(equalToConstant: formWidth - 36),
-            clearVectorCacheButton.topAnchor.constraint(equalTo: cacheStatusLabel.bottomAnchor, constant: 8),
-            clearVectorCacheButton.leadingAnchor.constraint(equalTo: cacheLabel.leadingAnchor),
-            clearVectorCacheButton.widthAnchor.constraint(equalToConstant: 180),
-            clearVectorCacheButton.heightAnchor.constraint(equalToConstant: controlHeight),
-            clearVectorCacheButton.bottomAnchor.constraint(lessThanOrEqualTo: vectorCacheCard.bottomAnchor, constant: -14),
+            cacheStatusLabel.widthAnchor.constraint(equalToConstant: formWidth - 92),
+            clearVectorCacheButton.topAnchor.constraint(equalTo: cacheStatusLabel.bottomAnchor, constant: 16),
+            clearVectorCacheButton.leadingAnchor.constraint(equalTo: vectorCacheCard.leadingAnchor, constant: 22),
+            clearVectorCacheButton.widthAnchor.constraint(equalToConstant: 194),
+            clearVectorCacheButton.heightAnchor.constraint(equalToConstant: 44),
+            cacheDisclosureButton.trailingAnchor.constraint(equalTo: vectorCacheCard.trailingAnchor, constant: -22),
+            cacheDisclosureButton.centerYAnchor.constraint(equalTo: vectorCacheCard.centerYAnchor),
+            cacheDisclosureButton.widthAnchor.constraint(equalToConstant: 32),
+            cacheDisclosureButton.heightAnchor.constraint(equalToConstant: 32),
             vectorCacheCard.bottomAnchor.constraint(equalTo: cachePage.bottomAnchor, constant: -8),
 
             saveButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -44),
@@ -739,6 +745,7 @@ final class AISettingsPanelController {
         updateEmbeddingEndpointFields(for: selectedEmbeddingEndpoint.id, fillDefaults: false)
 
         installAppActivationObserver()
+        startCacheRefreshTimer()
         showPanel(panel, attachedTo: window)
         DispatchQueue.main.async {
             panel.makeKey()
@@ -751,13 +758,7 @@ final class AISettingsPanelController {
     }
 
     private func showPanel(_ panel: NSWindow, attachedTo parent: NSWindow) {
-        centerPanel(panel, attachedTo: parent)
-        parent.addChildWindow(panel, ordered: .above)
-        centerPanel(panel, attachedTo: parent)
-        NSApp.activate(ignoringOtherApps: true)
-        panel.orderFrontRegardless()
-        panel.makeKeyAndOrderFront(nil)
-        panel.makeKey()
+        ModalOverlayManager.shared.present(panel, attachedTo: parent)
     }
 
     private func installAppActivationObserver() {
@@ -780,10 +781,7 @@ final class AISettingsPanelController {
 
     private func reactivatePanelIfNeeded() {
         guard let panel, panel.isVisible else { return }
-        panel.orderFrontRegardless()
-        panel.makeKeyAndOrderFront(nil)
-        panel.makeKey()
-        panel.contentView?.layoutSubtreeIfNeeded()
+        ModalOverlayManager.shared.reactivate(panel)
     }
 
     private func centerPanel(_ panel: NSWindow, attachedTo parent: NSWindow) {
@@ -900,6 +898,16 @@ final class AISettingsPanelController {
     private func refreshCurrentVectorIndexStatus() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.currentIndexStatusLabel?.stringValue = self?.currentVectorIndexStatus?() ?? AppText.localized("未打开文档", "No document open")
+            self?.cacheStatusLabel?.stringValue = self?.vectorCacheStatusText() ?? ""
+        }
+    }
+
+    private func startCacheRefreshTimer() {
+        cacheRefreshTimer?.invalidate()
+        cacheRefreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            guard let self, self.panel?.isVisible == true else { return }
+            self.currentIndexStatusLabel?.stringValue = self.currentVectorIndexStatus?() ?? AppText.localized("未打开文档", "No document open")
+            self.cacheStatusLabel?.stringValue = self.vectorCacheStatusText()
         }
     }
 
@@ -907,9 +915,10 @@ final class AISettingsPanelController {
         guard let panel, !isClosing else { return }
         isClosing = true
         shouldNotifySavedAfterClose = notifySaved
+        cacheRefreshTimer?.invalidate()
+        cacheRefreshTimer = nil
         removeAppActivationObserver()
-        parentWindow?.removeChildWindow(panel)
-        panel.orderOut(nil)
+        ModalOverlayManager.shared.dismiss(panel, attachedTo: parentWindow)
         self.panel = nil
         isClosing = false
         let shouldNotifySaved = shouldNotifySavedAfterClose
@@ -1170,6 +1179,41 @@ final class AISettingsPanelController {
             popup.selectItem(at: index)
         }
         return popup
+    }
+
+    private func cacheActionButton(
+        title: String,
+        symbol: String,
+        tint: NSColor,
+        target: AnyObject,
+        action: Selector,
+        isDark: Bool
+    ) -> NSButton {
+        let button = NSButton(title: title, target: target, action: action)
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.backgroundColor = (isDark ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1) : .white).cgColor
+        button.layer?.borderWidth = 1
+        button.layer?.borderColor = (isDark
+            ? NSColor(red: 0.24, green: 0.29, blue: 0.36, alpha: 1)
+            : NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
+        ).cgColor
+        button.layer?.cornerRadius = 8
+        button.layer?.masksToBounds = true
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        button.imagePosition = .imageLeft
+        button.imageScaling = .scaleProportionallyDown
+        button.contentTintColor = tint
+        button.font = AppFont.semibold(ofSize: 14)
+        button.attributedTitle = NSAttributedString(
+            string: title,
+            attributes: [
+                .font: AppFont.semibold(ofSize: 14),
+                .foregroundColor: isDark ? NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1) : NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
+            ]
+        )
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
     }
 
     private func settingsCard(isDark: Bool) -> NSView {

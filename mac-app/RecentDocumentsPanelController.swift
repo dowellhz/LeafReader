@@ -1,9 +1,15 @@
 import Cocoa
+import CryptoKit
 import PDFKit
+import UniformTypeIdentifiers
 
 private final class RecentBookCardView: NSView {
     let path: String
     var onOpen: ((String) -> Void)?
+    var onRemove: ((String) -> Void)?
+    var onReveal: ((String) -> Void)?
+    var onClearVectorCache: ((String) -> Void)?
+    var onClearWordRecords: ((String) -> Void)?
 
     init(path: String) {
         self.path = path
@@ -20,6 +26,43 @@ private final class RecentBookCardView: NSView {
         onOpen?(path)
     }
 
+    override func rightMouseDown(with event: NSEvent) {
+        let menu = NSMenu()
+        menu.addItem(menuItem(title: AppText.localized("打开", "Open"), action: #selector(openFromMenu(_:))))
+        menu.addItem(menuItem(title: AppText.localized("在 Finder 中显示", "Show in Finder"), action: #selector(revealFromMenu(_:))))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(menuItem(title: AppText.localized("移出书架", "Remove from Shelf"), action: #selector(removeFromMenu(_:))))
+        menu.addItem(menuItem(title: AppText.localized("清除本书向量缓存", "Clear Book Vector Cache"), action: #selector(clearVectorCacheFromMenu(_:))))
+        menu.addItem(menuItem(title: AppText.localized("清除本书单词记录", "Clear Book Words"), action: #selector(clearWordRecordsFromMenu(_:))))
+        NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
+
+    private func menuItem(title: String, action: Selector) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        return item
+    }
+
+    @objc private func openFromMenu(_ sender: NSMenuItem) {
+        onOpen?(path)
+    }
+
+    @objc private func revealFromMenu(_ sender: NSMenuItem) {
+        onReveal?(path)
+    }
+
+    @objc private func removeFromMenu(_ sender: NSMenuItem) {
+        onRemove?(path)
+    }
+
+    @objc private func clearVectorCacheFromMenu(_ sender: NSMenuItem) {
+        onClearVectorCache?(path)
+    }
+
+    @objc private func clearWordRecordsFromMenu(_ sender: NSMenuItem) {
+        onClearWordRecords?(path)
+    }
+
     override func resetCursorRects() {
         addCursorRect(bounds, cursor: .pointingHand)
     }
@@ -30,22 +73,37 @@ final class RecentDocumentsPanelController: NSObject {
     private var panel: NSWindow?
     private var onOpen: ((String) -> Void)?
     private var onClear: (() -> Void)?
+    private var onRemoveItem: ((String) -> Void)?
+    private var onClearVectorCache: ((String) -> Void)?
+    private var onClearWordRecords: ((String) -> Void)?
     private var onClose: (() -> Void)?
     private var pendingOpenPath: String?
     private var isClosing = false
+    private var appActivationObserver: NSObjectProtocol?
 
-    private let panelSize = NSSize(width: 940, height: 430)
+    private let panelSize = NSSize(width: 940, height: 480)
     private let coverSize = NSSize(width: 120, height: 205)
+    private static var coverCache: [String: NSImage] = [:]
+
+    deinit {
+        removeAppActivationObserver()
+    }
 
     func show(
         items: [RecentDocumentItem],
         attachedTo window: NSWindow?,
         onOpen: @escaping (String) -> Void,
         onClear: @escaping () -> Void,
+        onRemoveItem: @escaping (String) -> Void,
+        onClearVectorCache: @escaping (String) -> Void,
+        onClearWordRecords: @escaping (String) -> Void,
         onClose: @escaping () -> Void
     ) {
         self.onOpen = onOpen
         self.onClear = onClear
+        self.onRemoveItem = onRemoveItem
+        self.onClearVectorCache = onClearVectorCache
+        self.onClearWordRecords = onClearWordRecords
         self.onClose = onClose
         self.parentWindow = window
 
@@ -100,25 +158,22 @@ final class RecentDocumentsPanelController: NSObject {
         closeButton.contentTintColor = primaryText
         closeButton.translatesAutoresizingMaskIntoConstraints = false
 
-        let clearButton = NSButton(title: AppText.localized("清空", "Clear"), target: self, action: #selector(clearRecentDocuments(_:)))
-        clearButton.isBordered = false
-        clearButton.wantsLayer = true
-        clearButton.layer?.backgroundColor = panelBackground.cgColor
-        clearButton.layer?.borderWidth = 1
-        clearButton.layer?.borderColor = (isDark
-            ? NSColor(red: 0.30, green: 0.36, blue: 0.44, alpha: 1)
-            : NSColor(red: 0.78, green: 0.82, blue: 0.88, alpha: 1)
-        ).cgColor
-        clearButton.layer?.cornerRadius = 7
-        clearButton.font = AppFont.semibold(ofSize: 13)
-        clearButton.attributedTitle = NSAttributedString(
-            string: clearButton.title,
-            attributes: [
-                .font: AppFont.semibold(ofSize: 13),
-                .foregroundColor: primaryText
-            ]
+        let openButton = shelfActionButton(
+            title: AppText.localized("增加", "Add"),
+            target: self,
+            action: #selector(openDocumentFromShelf(_:)),
+            panelBackground: panelBackground,
+            primaryText: primaryText,
+            isDark: isDark
         )
-        clearButton.translatesAutoresizingMaskIntoConstraints = false
+        let clearButton = shelfActionButton(
+            title: AppText.localized("清空", "Clear"),
+            target: self,
+            action: #selector(clearRecentDocuments(_:)),
+            panelBackground: panelBackground,
+            primaryText: primaryText,
+            isDark: isDark
+        )
 
         let scrollView = NSScrollView()
         scrollView.drawsBackground = false
@@ -143,10 +198,38 @@ final class RecentDocumentsPanelController: NSObject {
                 self?.pendingOpenPath = path
                 self?.close()
             }
+            card.onReveal = { path in
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+            }
+            card.onRemove = { [weak self] path in
+                guard self?.confirmShelfAction(
+                    title: AppText.localized("移出书架？", "Remove from Shelf?"),
+                    message: AppText.localized("这只会从书架列表移除，不会删除原文件。", "This only removes the item from the shelf. The original file will not be deleted."),
+                    confirmTitle: AppText.localized("移出", "Remove")
+                ) == true else { return }
+                self?.onRemoveItem?(path)
+                self?.close()
+            }
+            card.onClearVectorCache = { [weak self] path in
+                guard self?.confirmShelfAction(
+                    title: AppText.localized("清除本书向量缓存？", "Clear Vector Cache for This Book?"),
+                    message: AppText.localized("清除后，之后使用文档检索时会重新生成本书向量。", "After clearing, vectors for this book will be regenerated when document retrieval is used."),
+                    confirmTitle: AppText.localized("清除", "Clear")
+                ) == true else { return }
+                self?.onClearVectorCache?(path)
+            }
+            card.onClearWordRecords = { [weak self] path in
+                guard self?.confirmShelfAction(
+                    title: AppText.localized("清除本书单词记录？", "Clear Word Records for This Book?"),
+                    message: AppText.localized("这会删除本书已保存的单词、解释和高亮记录。", "This deletes saved words, explanations, and highlights for this book."),
+                    confirmTitle: AppText.localized("清除", "Clear")
+                ) == true else { return }
+                self?.onClearWordRecords?(path)
+            }
             stack.addArrangedSubview(card)
         }
 
-        for view in [title, closeButton, clearButton, scrollView] {
+        for view in [title, closeButton, openButton, clearButton, scrollView] {
             content.addSubview(view)
         }
 
@@ -163,6 +246,10 @@ final class RecentDocumentsPanelController: NSObject {
             clearButton.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -22),
             clearButton.widthAnchor.constraint(equalToConstant: 68),
             clearButton.heightAnchor.constraint(equalToConstant: 28),
+            openButton.centerYAnchor.constraint(equalTo: clearButton.centerYAnchor),
+            openButton.trailingAnchor.constraint(equalTo: clearButton.leadingAnchor, constant: -10),
+            openButton.widthAnchor.constraint(equalToConstant: 68),
+            openButton.heightAnchor.constraint(equalToConstant: 28),
 
             scrollView.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 38),
             scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 36),
@@ -176,43 +263,52 @@ final class RecentDocumentsPanelController: NSObject {
         ])
 
         self.panel = panel
+        installAppActivationObserver()
         showPanel(panel, attachedTo: window)
     }
 
     private func showPanel(_ panel: NSWindow, attachedTo parent: NSWindow?) {
-        if let parent {
-            let parentFrame = parent.frame
-            let visibleFrame = parent.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
-            let origin = NSPoint(
-                x: parentFrame.midX - panel.frame.width / 2,
-                y: parentFrame.midY - panel.frame.height / 2
-            )
-            panel.setFrameOrigin(clampedOrigin(origin, panelSize: panel.frame.size, visibleFrame: visibleFrame))
-            parent.addChildWindow(panel, ordered: .above)
-            panel.makeKeyAndOrderFront(nil)
-        } else {
-            panel.center()
-            panel.makeKeyAndOrderFront(nil)
+        ModalOverlayManager.shared.present(panel, attachedTo: parent)
+    }
+
+    private func confirmShelfAction(title: String, message: String, confirmTitle: String) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: confirmTitle)
+        alert.addButton(withTitle: AppText.cancel)
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    private func installAppActivationObserver() {
+        removeAppActivationObserver()
+        appActivationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: NSApp,
+            queue: .main
+        ) { [weak self] _ in
+            self?.reactivatePanelIfNeeded()
         }
     }
 
-    private func clampedOrigin(_ origin: NSPoint, panelSize: NSSize, visibleFrame: NSRect?) -> NSPoint {
-        guard let visibleFrame else { return origin }
-        let minX = visibleFrame.minX + 12
-        let maxX = visibleFrame.maxX - panelSize.width - 12
-        let minY = visibleFrame.minY + 12
-        let maxY = visibleFrame.maxY - panelSize.height - 12
-        return NSPoint(
-            x: min(max(origin.x, minX), maxX),
-            y: min(max(origin.y, minY), maxY)
-        )
+    private func removeAppActivationObserver() {
+        if let appActivationObserver {
+            NotificationCenter.default.removeObserver(appActivationObserver)
+            self.appActivationObserver = nil
+        }
+    }
+
+    private func reactivatePanelIfNeeded() {
+        guard let panel, panel.isVisible else { return }
+        ModalOverlayManager.shared.reactivate(panel)
     }
 
     func close() {
         guard let panel, !isClosing else { return }
         isClosing = true
-        parentWindow?.removeChildWindow(panel)
-        panel.orderOut(nil)
+        removeAppActivationObserver()
+        ModalOverlayManager.shared.dismiss(panel, attachedTo: parentWindow)
         let openPath = pendingOpenPath
         pendingOpenPath = nil
         self.panel = nil
@@ -232,8 +328,53 @@ final class RecentDocumentsPanelController: NSObject {
         close()
     }
 
+    @objc private func openDocumentFromShelf(_ sender: NSButton) {
+        let openPanel = NSOpenPanel()
+        openPanel.allowedContentTypes = [.pdf, .epub, .init(filenameExtension: "docx")].compactMap { $0 }
+        openPanel.allowsOtherFileTypes = false
+        openPanel.allowsMultipleSelection = false
+        openPanel.canChooseDirectories = false
+        openPanel.canChooseFiles = true
+        guard let hostWindow = panel ?? parentWindow ?? NSApp.keyWindow else { return }
+        openPanel.beginSheetModal(for: hostWindow) { [weak self] response in
+            guard let self, response == .OK, let url = openPanel.url else { return }
+            self.pendingOpenPath = url.path
+            self.close()
+        }
+    }
+
     @objc private func closePanel(_ sender: Any?) {
         close()
+    }
+
+    private func shelfActionButton(
+        title: String,
+        target: AnyObject,
+        action: Selector,
+        panelBackground: NSColor,
+        primaryText: NSColor,
+        isDark: Bool
+    ) -> NSButton {
+        let button = NSButton(title: title, target: target, action: action)
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.backgroundColor = panelBackground.cgColor
+        button.layer?.borderWidth = 1
+        button.layer?.borderColor = (isDark
+            ? NSColor(red: 0.30, green: 0.36, blue: 0.44, alpha: 1)
+            : NSColor(red: 0.78, green: 0.82, blue: 0.88, alpha: 1)
+        ).cgColor
+        button.layer?.cornerRadius = 7
+        button.font = AppFont.semibold(ofSize: 13)
+        button.attributedTitle = NSAttributedString(
+            string: title,
+            attributes: [
+                .font: AppFont.semibold(ofSize: 13),
+                .foregroundColor: primaryText
+            ]
+        )
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
     }
 
     private func recentBookCard(
@@ -246,8 +387,17 @@ final class RecentDocumentsPanelController: NSObject {
         card.translatesAutoresizingMaskIntoConstraints = false
 
         let cover = NSImageView()
-        cover.image = coverImage(for: item, isDark: isDark)
-        cover.imageScaling = .scaleAxesIndependently
+        let coverKey = coverCacheKey(for: item)
+        if let cachedCover = Self.coverCache[coverKey] {
+            cover.image = cachedCover
+        } else if let diskCover = loadDiskCover(cacheKey: coverKey) {
+            Self.coverCache[coverKey] = diskCover
+            cover.image = diskCover
+        } else {
+            cover.image = placeholderCover(title: displayTitle(for: item), kind: item.kind, isDark: isDark)
+            loadCoverImageAsync(for: item, isDark: isDark, imageView: cover)
+        }
+        cover.imageScaling = .scaleProportionallyUpOrDown
         cover.wantsLayer = true
         cover.layer?.backgroundColor = (isDark
             ? NSColor(red: 0.14, green: 0.16, blue: 0.20, alpha: 1)
@@ -282,13 +432,20 @@ final class RecentDocumentsPanelController: NSObject {
         subtitle.maximumNumberOfLines = 1
         subtitle.translatesAutoresizingMaskIntoConstraints = false
 
-        for view in [shadowHost, title, subtitle] {
+        let progressLabel = NSTextField(labelWithString: progressText(for: item))
+        progressLabel.font = AppFont.semibold(ofSize: 11)
+        progressLabel.textColor = secondaryText.withAlphaComponent(0.92)
+        progressLabel.lineBreakMode = .byTruncatingTail
+        progressLabel.maximumNumberOfLines = 1
+        progressLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        for view in [shadowHost, title, subtitle, progressLabel] {
             card.addSubview(view)
         }
 
         NSLayoutConstraint.activate([
             card.widthAnchor.constraint(equalToConstant: coverSize.width),
-            card.heightAnchor.constraint(equalToConstant: coverSize.height + 60),
+            card.heightAnchor.constraint(equalToConstant: coverSize.height + 104),
 
             shadowHost.topAnchor.constraint(equalTo: card.topAnchor),
             shadowHost.leadingAnchor.constraint(equalTo: card.leadingAnchor),
@@ -303,26 +460,123 @@ final class RecentDocumentsPanelController: NSObject {
             title.leadingAnchor.constraint(equalTo: card.leadingAnchor),
             title.trailingAnchor.constraint(equalTo: card.trailingAnchor),
 
-            subtitle.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 8),
+            subtitle.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 6),
             subtitle.leadingAnchor.constraint(equalTo: card.leadingAnchor),
-            subtitle.trailingAnchor.constraint(equalTo: card.trailingAnchor)
+            subtitle.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+
+            progressLabel.topAnchor.constraint(equalTo: subtitle.bottomAnchor, constant: 5),
+            progressLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            progressLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            progressLabel.bottomAnchor.constraint(lessThanOrEqualTo: card.bottomAnchor, constant: -4)
         ])
         return card
     }
 
     private func coverImage(for item: RecentDocumentItem, isDark: Bool) -> NSImage {
+        let cacheKey = coverCacheKey(for: item)
+        if let cached = Self.coverCache[cacheKey] {
+            return cached
+        }
         let url = URL(fileURLWithPath: item.path)
         if item.kind == "PDF",
            let document = PDFDocument(url: url),
            let page = document.page(at: 0) {
-            return page.thumbnail(of: coverSize, for: .cropBox)
+            let image = highResolutionPDFCover(page: page)
+            Self.coverCache[cacheKey] = image
+            return image
         }
-        return placeholderCover(title: displayTitle(for: item), kind: item.kind, isDark: isDark)
+        let image = placeholderCover(title: displayTitle(for: item), kind: item.kind, isDark: isDark)
+        Self.coverCache[cacheKey] = image
+        return image
+    }
+
+    private func coverCacheKey(for item: RecentDocumentItem) -> String {
+        let digest = SHA256.hash(data: Data("\(item.path)#\(item.kind)#\(ReaderTheme.selected.rawValue)".utf8))
+        return digest.prefix(16).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func loadCoverImageAsync(for item: RecentDocumentItem, isDark: Bool, imageView: NSImageView) {
+        let cacheKey = coverCacheKey(for: item)
+        let path = item.path
+        let kind = item.kind
+        let coverSize = self.coverSize
+        DispatchQueue.global(qos: .utility).async { [weak imageView] in
+            guard kind == "PDF" else { return }
+            let url = URL(fileURLWithPath: path)
+            guard let document = PDFDocument(url: url),
+                  let page = document.page(at: 0) else { return }
+            let scale = NSScreen.main?.backingScaleFactor ?? 2
+            let renderScale = max(2, min(3, scale))
+            let targetSize = NSSize(width: coverSize.width * renderScale, height: coverSize.height * renderScale)
+            let image = page.thumbnail(of: targetSize, for: .cropBox)
+            image.size = coverSize
+            image.cacheMode = .always
+            DispatchQueue.main.async {
+                Self.coverCache[cacheKey] = image
+                self.saveDiskCover(image, cacheKey: cacheKey)
+                guard let imageView else { return }
+                imageView.image = image
+            }
+        }
+    }
+
+    private func loadDiskCover(cacheKey: String) -> NSImage? {
+        guard let url = diskCoverURL(cacheKey: cacheKey) else { return nil }
+        return NSImage(contentsOf: url)
+    }
+
+    private func saveDiskCover(_ image: NSImage, cacheKey: String) {
+        guard let url = diskCoverURL(cacheKey: cacheKey),
+              let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let data = bitmap.representation(using: .png, properties: [:]) else {
+            return
+        }
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: url, options: .atomic)
+    }
+
+    private func diskCoverURL(cacheKey: String) -> URL? {
+        guard let directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        return directory
+            .appendingPathComponent("LeafReader", isDirectory: true)
+            .appendingPathComponent("ShelfCovers", isDirectory: true)
+            .appendingPathComponent("\(cacheKey).png")
+    }
+
+    private func highResolutionPDFCover(page: PDFPage) -> NSImage {
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let renderScale = max(2, min(3, scale))
+        let targetSize = NSSize(width: coverSize.width * renderScale, height: coverSize.height * renderScale)
+        let image = page.thumbnail(of: targetSize, for: .cropBox)
+        image.size = coverSize
+        image.cacheMode = .always
+        return image
     }
 
     private func placeholderCover(title: String, kind: String, isDark: Bool) -> NSImage {
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let renderScale = max(2, min(3, scale))
+        let renderSize = NSSize(width: coverSize.width * renderScale, height: coverSize.height * renderScale)
         let image = NSImage(size: coverSize)
-        image.lockFocus()
+        let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(renderSize.width),
+            pixelsHigh: Int(renderSize.height),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        )
+        guard let bitmap else { return image }
+        bitmap.size = coverSize
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
         let rect = NSRect(origin: .zero, size: coverSize)
         let background = isDark
             ? NSColor(red: 0.12, green: 0.14, blue: 0.18, alpha: 1)
@@ -350,25 +604,16 @@ final class RecentDocumentsPanelController: NSObject {
         let trimmedTitle = title.count > 34 ? String(title.prefix(34)) : title
         NSString(string: trimmedTitle).draw(in: NSRect(x: 14, y: coverSize.height * 0.48, width: coverSize.width - 28, height: 54), withAttributes: titleAttributes)
         NSString(string: "\(kind) 文档").draw(in: NSRect(x: 12, y: 18, width: coverSize.width - 24, height: 18), withAttributes: kindAttributes)
-        image.unlockFocus()
+        NSGraphicsContext.restoreGraphicsState()
+        image.addRepresentation(bitmap)
         return image
     }
 
     private func displayTitle(for item: RecentDocumentItem) -> String {
-        if item.kind == "PDF",
-           let title = PDFDocument(url: URL(fileURLWithPath: item.path))?.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String,
-           !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return title.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
         return item.title
     }
 
     private func displaySubtitle(for item: RecentDocumentItem) -> String {
-        if item.kind == "PDF",
-           let author = PDFDocument(url: URL(fileURLWithPath: item.path))?.documentAttributes?[PDFDocumentAttribute.authorAttribute] as? String,
-           !author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return author.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
         switch item.kind {
         case "EPUB":
             return "EPUB 文档"
@@ -377,5 +622,13 @@ final class RecentDocumentsPanelController: NSObject {
         default:
             return "PDF 文档"
         }
+    }
+
+    private func progressText(for item: RecentDocumentItem) -> String {
+        guard let progress = item.readingProgress else {
+            return AppText.localized("未记录进度", "No progress")
+        }
+        let percent = min(100, max(0, Int((progress * 100).rounded())))
+        return AppText.localized("已读 \(percent)%", "\(percent)% read")
     }
 }

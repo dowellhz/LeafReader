@@ -493,16 +493,17 @@ final class AIClient {
         }.resume()
     }
 
+    @discardableResult
     func sendStream(
         messages: [ChatMessage],
         onDelta: @escaping (String) -> Void,
         completion: @escaping (Result<String, Error>) -> Void
-    ) {
+    ) -> Task<Void, Never>? {
         let config = AISettingsStore.selectedModel
         let apiKey = AISettingsStore.apiKey(for: config)
         guard !apiKey.isEmpty else {
             completion(.failure(Self.missingAPIKeyError(for: config)))
-            return
+            return nil
         }
 
         var request = URLRequest(url: config.endpoint)
@@ -515,10 +516,10 @@ final class AIClient {
             request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         } catch {
             completion(.failure(error))
-            return
+            return nil
         }
 
-        Task {
+        let task = Task {
             var fullText = ""
             do {
                 let (bytes, response) = try await URLSession.shared.bytes(for: request)
@@ -548,6 +549,7 @@ final class AIClient {
                 completion(.failure(error))
             }
         }
+        return task
     }
 
     private static func configureHeaders(for config: AIModelConfig, apiKey: String, request: inout URLRequest) {
