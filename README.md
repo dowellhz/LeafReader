@@ -14,7 +14,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 Download the latest macOS installer:
 
-[Leaf Reader 1.2 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.2/LeafReader-1.2.pkg)
+[Leaf Reader 1.3 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.3/LeafReader-1.3.pkg)
 
 ## Highlights
 
@@ -26,6 +26,15 @@ Download the latest macOS installer:
 - Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
+
+## What's New in 1.3
+
+- Added a bookshelf view with higher-resolution covers, reading progress, add-file support, and contextual actions.
+- Improved vocabulary workflows with word aggregation, Anki CSV export, source page/context, pronunciation playback, and safer failed-query handling.
+- Added clearer embedding status in the bottom toolbar, including cached, idle, paused, and retry states.
+- Improved background indexing so large books open faster and vector generation waits for reader idle time.
+- Reworked modal focus handling for settings, bookshelf, and vocabulary panels.
+- Added safer cache and word-record clearing with confirmation prompts.
 
 ## What's New in 1.2
 
@@ -98,18 +107,18 @@ open "Leaf Reader.app"
 
 ## Release
 
-Current version: `1.2`
+Current version: `1.3`
 
-Git tag: `v1.2`
+Git tag: `v1.3`
 
 Latest installer:
 
-[Leaf Reader-1.2.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.2/LeafReader-1.2.pkg)
+[Leaf Reader-1.3.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.3/LeafReader-1.3.pkg)
 
 Local release artifacts are expected under:
 
 ```text
-release/1.2/
+release/1.3/
 ```
 
 ## Notes
