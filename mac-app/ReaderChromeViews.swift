@@ -246,15 +246,32 @@ final class ResizeHandleView: NSView {
 }
 
 final class ClippingView: NSView {
+    var onDroppedDocumentURL: ((URL) -> Void)?
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.masksToBounds = true
         layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
+        ReaderFileDrop.register(self)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        ReaderFileDrop.operation(for: sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        ReaderFileDrop.operation(for: sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        ReaderFileDrop.perform(sender) { [weak self] url in
+            self?.onDroppedDocumentURL?(url)
+        }
     }
 }
 

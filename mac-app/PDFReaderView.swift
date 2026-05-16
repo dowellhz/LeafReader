@@ -8,9 +8,34 @@ final class EdgePagingPDFView: PDFView {
     }
 
     var onScrollPastPageEdge: ((ScrollPageDirection) -> Void)?
+    var onDroppedDocumentURL: ((URL) -> Void)?
 
     private var accumulatedEdgeScroll: CGFloat = 0
     private var lastEdgePageTurn = Date.distantPast
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        ReaderFileDrop.register(self)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        ReaderFileDrop.register(self)
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        ReaderFileDrop.operation(for: sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        ReaderFileDrop.operation(for: sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        ReaderFileDrop.perform(sender) { [weak self] url in
+            self?.onDroppedDocumentURL?(url)
+        }
+    }
 
     override func scrollWheel(with event: NSEvent) {
         if event.phase == .began {

@@ -177,6 +177,7 @@ final class AISettingsPanelController {
     private weak var embeddingModelField: NSTextField?
     private weak var embeddingKeyField: NSSecureTextField?
     private weak var speakSelectedWordCheckbox: NSButton?
+    private weak var saveAIConversationCheckbox: NSButton?
     private weak var autoEmbeddingIndexCheckbox: NSButton?
     private weak var cacheStatusLabel: NSTextField?
     private weak var currentIndexStatusLabel: NSTextField?
@@ -349,6 +350,16 @@ final class AISettingsPanelController {
         speakSelectedWordCheckbox.lineBreakMode = .byTruncatingTail
         speakSelectedWordCheckbox.state = AISettingsStore.speakSelectedWordEnabled ? .on : .off
         speakSelectedWordCheckbox.translatesAutoresizingMaskIntoConstraints = false
+        let saveAIConversationLabel = label(AppText.localized("保存 AI 信息", "Save AI Chat"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let saveAIConversationCheckbox = NSButton(
+            checkboxWithTitle: "",
+            target: nil,
+            action: nil
+        )
+        saveAIConversationCheckbox.font = AppFont.semibold(ofSize: settingsFontSize)
+        saveAIConversationCheckbox.lineBreakMode = .byTruncatingTail
+        saveAIConversationCheckbox.state = AISettingsStore.saveAIConversationEnabled ? .on : .off
+        saveAIConversationCheckbox.translatesAutoresizingMaskIntoConstraints = false
 
         let selectedEmbeddingEndpoint = AISettingsStore.selectedEmbeddingEndpointOption
         let embeddingLabel = label(AppText.localized("向量服务", "Embedding Service"), size: settingsFontSize, weight: .semibold, color: primaryText)
@@ -466,7 +477,7 @@ final class AISettingsPanelController {
         for view in [cacheLabel, cacheStatusLabel, cacheDisclosureButton, clearVectorCacheButton] {
             vectorCacheCard.addSubview(view)
         }
-        for view in [languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, speakSelectedWordLabel, speakSelectedWordCheckbox] {
+        for view in [languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, speakSelectedWordLabel, speakSelectedWordCheckbox, saveAIConversationLabel, saveAIConversationCheckbox] {
             basicPage.addSubview(view)
         }
         for view in [modelLabel, modelPopup, modelHelpLabel, customModelContainer, keyLabel, keyField, keyHelpLabel, testChatButton] {
@@ -562,7 +573,13 @@ final class AISettingsPanelController {
             speakSelectedWordCheckbox.centerYAnchor.constraint(equalTo: speakSelectedWordLabel.centerYAnchor),
             speakSelectedWordCheckbox.leadingAnchor.constraint(equalTo: basicPage.leadingAnchor, constant: labelColumnWidth),
             speakSelectedWordCheckbox.widthAnchor.constraint(equalToConstant: 32),
-            speakSelectedWordCheckbox.bottomAnchor.constraint(lessThanOrEqualTo: basicPage.bottomAnchor, constant: -8),
+            saveAIConversationLabel.topAnchor.constraint(equalTo: speakSelectedWordLabel.bottomAnchor, constant: 22),
+            saveAIConversationLabel.leadingAnchor.constraint(equalTo: basicPage.leadingAnchor),
+            saveAIConversationLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            saveAIConversationCheckbox.centerYAnchor.constraint(equalTo: saveAIConversationLabel.centerYAnchor),
+            saveAIConversationCheckbox.leadingAnchor.constraint(equalTo: basicPage.leadingAnchor, constant: labelColumnWidth),
+            saveAIConversationCheckbox.widthAnchor.constraint(equalToConstant: 32),
+            saveAIConversationCheckbox.bottomAnchor.constraint(lessThanOrEqualTo: basicPage.bottomAnchor, constant: -8),
 
             modelLabel.topAnchor.constraint(equalTo: modelPage.topAnchor, constant: 4),
             modelLabel.leadingAnchor.constraint(equalTo: modelPage.leadingAnchor),
@@ -738,6 +755,7 @@ final class AISettingsPanelController {
         self.embeddingModelField = embeddingModelField
         self.embeddingKeyField = embeddingKeyField
         self.speakSelectedWordCheckbox = speakSelectedWordCheckbox
+        self.saveAIConversationCheckbox = saveAIConversationCheckbox
         self.autoEmbeddingIndexCheckbox = autoEmbeddingIndexCheckbox
         self.cacheStatusLabel = cacheStatusLabel
         self.currentIndexStatusLabel = currentIndexStatusLabel
@@ -843,6 +861,7 @@ final class AISettingsPanelController {
             apiKey: embeddingKeyField?.stringValue ?? ""
         )
         AISettingsStore.saveSpeakSelectedWordEnabled(speakSelectedWordCheckbox?.state == .on)
+        AISettingsStore.saveAIConversationEnabled(saveAIConversationCheckbox?.state == .on)
         AISettingsStore.saveAutoEmbeddingIndexEnabled(autoEmbeddingIndexCheckbox?.state == .on)
         return true
     }

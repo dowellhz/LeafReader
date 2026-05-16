@@ -1,11 +1,11 @@
 import Foundation
 
-struct ChatMessage {
+struct ChatMessage: Codable {
     let role: String
     let content: String
 }
 
-struct TranscriptEntry {
+struct TranscriptEntry: Codable {
     let role: String
     let content: String
 }

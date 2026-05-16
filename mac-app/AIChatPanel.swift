@@ -146,6 +146,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         var renderMarkdown: Bool
         var collapsible: Bool
         var linkID: String?
+        var sourceLocation: AIConversationSourceLocation?
     }
 
     private struct FailedAIRequest {
@@ -165,6 +166,9 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var onCurrentReadingContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onDocumentQuestionPrompt: ((String, String, @escaping (String?) -> Void) -> Void)?
     var onSettingsRequired: (() -> Void)?
+    var onConversationChanged: ((SavedAIConversation) -> Void)?
+    var onCurrentSourceLocation: (() -> AIConversationSourceLocation?)?
+    var onConversationBubbleSelected: ((AIConversationSourceLocation) -> Void)?
 
     private var selectedText = ""
     private var transcriptEntries: [TranscriptEntry] = []
@@ -180,6 +184,10 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     private var isDarkMode = false
     private var bubbleMetadataByID: [String: BubbleMetadata] = [:]
     private var bubbleBoxByLinkID: [String: ChatBubbleView] = [:]
+    private var persistentBubbleIDs: [String] = []
+    private var persistentLearningLinkIDs = Set<String>()
+    private var isLoadingLinkedWordBubbles = false
+    private var isRestoringSavedConversation = false
     private var selectedLinkID: String?
 
     override init(frame frameRect: NSRect) {
@@ -256,13 +264,42 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         restyleTranscript()
     }
 
+    func loadSavedConversation(_ conversation: SavedAIConversation) {
+        guard !conversation.bubbles.isEmpty else { return }
+        isRestoringSavedConversation = true
+        defer { isRestoringSavedConversation = false }
+
+        for bubble in conversation.bubbles {
+            appendBubble(
+                role: bubble.role,
+                text: bubble.text,
+                collapsible: bubble.collapsible,
+                renderMarkdown: bubble.renderMarkdown,
+                sourceLocation: bubble.sourceLocation
+            )
+            recordTranscript(role: bubble.role, text: bubble.text)
+            if bubble.role == AppText.userRole {
+                messages.append(ChatMessage(role: "user", content: bubble.text))
+            } else if bubble.role == AppText.aiRole {
+                messages.append(ChatMessage(role: "assistant", content: bubble.text))
+            }
+        }
+    }
+
     func loadLinkedWordBubbles(_ records: [LinkedWordBubble]) {
+        isRestoringSavedConversation = true
+        isLoadingLinkedWordBubbles = true
+        defer { isRestoringSavedConversation = false }
+        defer { isLoadingLinkedWordBubbles = false }
+
         transcriptStack.arrangedSubviews.forEach { view in
             transcriptStack.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
         bubbleMetadataByID.removeAll()
         bubbleBoxByLinkID.removeAll()
+        persistentBubbleIDs.removeAll()
+        persistentLearningLinkIDs.removeAll()
         selectedLinkID = nil
         transcriptEntries.removeAll()
         messages = [
@@ -875,7 +912,14 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     @discardableResult
-    private func appendBubble(role: String, text: String, collapsible: Bool = false, renderMarkdown: Bool = true, linkID: String? = nil) -> NSTextField {
+    private func appendBubble(
+        role: String,
+        text: String,
+        collapsible: Bool = false,
+        renderMarkdown: Bool = true,
+        linkID: String? = nil,
+        sourceLocation: AIConversationSourceLocation? = nil
+    ) -> NSTextField {
         let box = ChatBubbleView()
         box.fillColor = bubbleFillColor(role: role)
         box.borderColor = bubbleBorderColor
@@ -894,7 +938,20 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         body.translatesAutoresizingMaskIntoConstraints = false
         let bodyID = UUID().uuidString
         body.identifier = NSUserInterfaceItemIdentifier(bodyID)
-        bubbleMetadataByID[bodyID] = BubbleMetadata(role: role, text: text, renderMarkdown: renderMarkdown, collapsible: collapsible, linkID: linkID)
+        if let linkID,
+           role == AppText.userRole,
+           !isSingleEnglishWord(vocabularyWord(from: text)) {
+            persistentLearningLinkIDs.insert(linkID)
+        }
+        let effectiveSourceLocation = sourceLocation ?? defaultSourceLocation(role: role, text: text, linkID: linkID)
+        bubbleMetadataByID[bodyID] = BubbleMetadata(
+            role: role,
+            text: text,
+            renderMarkdown: renderMarkdown,
+            collapsible: collapsible,
+            linkID: linkID,
+            sourceLocation: effectiveSourceLocation
+        )
 
         box.addSubview(body)
         let speakerButton: NSButton?
@@ -926,6 +983,10 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
                 box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(selectLinkedBubble(_:))))
                 box.toolTip = AppText.localized("跳转到原文位置", "Jump to source location")
             }
+        } else if effectiveSourceLocation != nil {
+            box.identifier = NSUserInterfaceItemIdentifier(bodyID)
+            box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(selectConversationSourceBubble(_:))))
+            box.toolTip = AppText.localized("跳转到记录位置", "Jump to saved location")
         } else if collapsible {
             box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(toggleCollapsedBubble(_:))))
             box.toolTip = AppText.tapToExpand
@@ -950,6 +1011,11 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
             constraints.append(body.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -12))
         }
         NSLayoutConstraint.activate(constraints)
+
+        if shouldPersistBubble(role: role, text: text, linkID: linkID) {
+            persistentBubbleIDs.append(bodyID)
+        }
+        notifyConversationChangedIfNeeded()
 
         DispatchQueue.main.async { [weak self, weak box] in
             guard let self = self, let box = box else { return }
@@ -982,7 +1048,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
                 text: text,
                 renderMarkdown: renderMarkdown,
                 collapsible: existingMetadata?.collapsible ?? false,
-                linkID: existingMetadata?.linkID
+                linkID: existingMetadata?.linkID,
+                sourceLocation: existingMetadata?.sourceLocation
             )
         }
         body.attributedStringValue = bubbleString(role: role, text: text, renderMarkdown: renderMarkdown)
@@ -990,6 +1057,38 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         body.superview?.invalidateIntrinsicContentSize()
         transcriptStack.layoutSubtreeIfNeeded()
         body.superview?.scrollToVisible(body.superview?.bounds ?? body.bounds)
+        notifyConversationChangedIfNeeded()
+    }
+
+    func savedConversation() -> SavedAIConversation {
+        let bubbles = persistentBubbleIDs.compactMap { bubbleMetadataByID[$0] }.map {
+            SavedAIConversationBubble(
+                role: $0.role,
+                text: $0.text,
+                collapsible: $0.collapsible,
+                renderMarkdown: $0.renderMarkdown,
+                sourceLocation: $0.sourceLocation
+            )
+        }
+        return SavedAIConversation(bubbles: bubbles)
+    }
+
+    private func defaultSourceLocation(role: String, text: String, linkID: String?) -> AIConversationSourceLocation? {
+        guard shouldPersistBubble(role: role, text: text, linkID: linkID) else { return nil }
+        return onCurrentSourceLocation?()
+    }
+
+    private func shouldPersistBubble(role: String, text: String, linkID: String?) -> Bool {
+        guard !isLoadingLinkedWordBubbles else { return false }
+        if let linkID, !persistentLearningLinkIDs.contains(linkID) {
+            return false
+        }
+        return role == AppText.userRole || role == AppText.aiRole || role == AppText.errorRole
+    }
+
+    private func notifyConversationChangedIfNeeded() {
+        guard !isRestoringSavedConversation else { return }
+        onConversationChanged?(savedConversation())
     }
 
     private func restoreBubbleRendering(_ body: NSTextField) {
@@ -1053,6 +1152,16 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         selectedLinkID = linkID
         updateLinkedBubbleSelection()
         onLinkedBubbleSelected?(linkID)
+    }
+
+    @objc private func selectConversationSourceBubble(_ recognizer: NSClickGestureRecognizer) {
+        guard let box = recognizer.view as? ChatBubbleView,
+              !isClickOnBubbleButton(recognizer, in: box),
+              let bodyID = box.identifier?.rawValue,
+              let sourceLocation = bubbleMetadataByID[bodyID]?.sourceLocation else {
+            return
+        }
+        onConversationBubbleSelected?(sourceLocation)
     }
 
     private func isClickOnBubbleButton(_ recognizer: NSClickGestureRecognizer, in box: ChatBubbleView) -> Bool {
@@ -1204,7 +1313,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
                     text: metadata.text,
                     collapsible: metadata.collapsible,
                     renderMarkdown: metadata.renderMarkdown,
-                    linkID: metadata.linkID
+                    linkID: metadata.linkID,
+                    sourceLocation: metadata.sourceLocation
                 )
             }
             updateLinkedBubbleSelection()

@@ -162,6 +162,7 @@ enum AISettingsStore {
     static let embeddingModelNameKey = "embeddingModelName"
     static let autoEmbeddingIndexEnabledKey = "autoEmbeddingIndexEnabled"
     static let speakSelectedWordEnabledKey = "speakSelectedWordEnabled"
+    static let saveAIConversationEnabledKey = "saveAIConversationEnabled"
     private static let fallbackCustomEndpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private static let fallbackEmbeddingEndpoint = URL(string: "https://api.openai.com/v1/embeddings")!
     static let fallbackEmbeddingModelName = "text-embedding-3-small"
@@ -355,6 +356,15 @@ enum AISettingsStore {
 
     static func saveSpeakSelectedWordEnabled(_ enabled: Bool) {
         UserDefaults.standard.set(enabled, forKey: speakSelectedWordEnabledKey)
+        UserDefaults.standard.synchronize()
+    }
+
+    static var saveAIConversationEnabled: Bool {
+        UserDefaults.standard.bool(forKey: saveAIConversationEnabledKey)
+    }
+
+    static func saveAIConversationEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: saveAIConversationEnabledKey)
         UserDefaults.standard.synchronize()
     }
 
