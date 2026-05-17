@@ -22,6 +22,9 @@ extension ReaderWindowController {
                 if self.handleStoredWordClick(event) {
                     return nil
                 }
+                if self.handleAISourceUnderlineClick(event) {
+                    return nil
+                }
                 self.clearAISelectionIfClickingReader(event)
                 self.hideSearchOverlayIfClickingReader(event)
                 return event
@@ -37,6 +40,15 @@ extension ReaderWindowController {
             return false
         }
         selectStoredLinkedWord(linkID: linkID)
+        return true
+    }
+
+    func handleAISourceUnderlineClick(_ event: NSEvent) -> Bool {
+        guard isMouseEventInsidePDFArea(event),
+              let source = aiSourceLocation(at: event) else {
+            return false
+        }
+        aiPanel.scrollToConversationSource(source)
         return true
     }
 
@@ -115,16 +127,16 @@ extension ReaderWindowController {
 
     func pdfTrackpadPageDirectionAtEdge(for event: NSEvent) -> EdgePagingPDFView.ScrollPageDirection? {
         guard let scrollView = firstScrollView(in: pdfView) else {
-            return pdfTrackpadDirection(forDeltaY: event.scrollingDeltaY)
+            return nil
         }
         let clipView = scrollView.contentView
         guard let documentView = scrollView.documentView else {
-            return pdfTrackpadDirection(forDeltaY: event.scrollingDeltaY)
+            return nil
         }
         let clipHeight = clipView.bounds.height
         let documentHeight = documentView.bounds.height
         guard documentHeight > clipHeight + 2 else {
-            return pdfTrackpadDirection(forDeltaY: event.scrollingDeltaY)
+            return nil
         }
 
         let edgeSlop: CGFloat = 22
@@ -139,10 +151,6 @@ extension ReaderWindowController {
             return .next
         }
         return nil
-    }
-
-    func pdfTrackpadDirection(forDeltaY deltaY: CGFloat) -> EdgePagingPDFView.ScrollPageDirection {
-        deltaY > 0 ? .previous : .next
     }
 
     func pdfTrackpadPageTurnThreshold() -> CGFloat {

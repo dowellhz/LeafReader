@@ -7,6 +7,7 @@ extension ReaderWindowController {
             return
         }
         aiPanel.loadSavedConversation(store.load())
+        restoreSavedAISourceUnderlines()
     }
 
     func saveAIConversationIfNeeded(_ conversation: SavedAIConversation) {
@@ -51,13 +52,14 @@ extension ReaderWindowController {
             aiConversationSaveTask.cancel()
             pendingAIConversationToSave = nil
             store.clear()
+            clearAISourceUnderlines()
         }
     }
 
     func currentAIConversationSourceLocation() -> AIConversationSourceLocation? {
         if currentDocumentKind == .pdf {
             guard let pageIndex = currentPageIndex() else { return nil }
-            return AIConversationSourceLocation(kind: .pdfPage, index: pageIndex, progress: nil)
+            return currentPDFSelectionSourceLocation(pageIndex: pageIndex)
         }
 
         let index = currentEmbeddingPriorityIndex() ?? 0
@@ -71,7 +73,12 @@ extension ReaderWindowController {
     func jumpToAIConversationSource(_ source: AIConversationSourceLocation) {
         switch source.kind {
         case .pdfPage:
-            jumpToPDFPage(index: source.index, skipIfCurrentPage: true)
+            addAISourceUnderline(for: source)
+            if currentPageIndex() == source.index {
+                updatePageLabel()
+                return
+            }
+            jumpToPDFPage(index: source.index, skipIfCurrentPage: false)
         case .webProgress:
             jumpToWebDocumentProgress(source.progress)
         }

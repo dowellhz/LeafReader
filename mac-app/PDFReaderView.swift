@@ -73,7 +73,7 @@ final class EdgePagingPDFView: PDFView {
 
         guard let direction else { return }
         accumulatedEdgeScroll += abs(deltaY)
-        let threshold: CGFloat = event.hasPreciseScrollingDeltas ? 10 : 1
+        let threshold: CGFloat = event.hasPreciseScrollingDeltas ? 10 : 40
         guard accumulatedEdgeScroll >= threshold else { return }
 
         accumulatedEdgeScroll = 0

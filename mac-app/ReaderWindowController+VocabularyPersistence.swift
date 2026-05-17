@@ -381,16 +381,19 @@ extension ReaderWindowController {
         guard let page = pdfView.page(for: pointInPDFView, nearest: false) else { return nil }
         let pointOnPage = pdfView.convert(pointInPDFView, to: page)
 
+        let wordAnnotation = page.annotations
+            .first { annotation in
+                annotation.bounds.contains(pointOnPage) && storedWordID(from: annotation) != nil
+            }
+        if let wordID = wordAnnotation.flatMap(storedWordID(from:)) {
+            return wordID
+        }
+
         if let annotation = page.annotation(at: pointOnPage),
            let id = storedWordID(from: annotation) {
             return id
         }
-
-        return page.annotations
-            .first { annotation in
-                annotation.bounds.contains(pointOnPage) && storedWordID(from: annotation) != nil
-            }
-            .flatMap(storedWordID(from:))
+        return nil
     }
 
     func storedWordID(from annotation: PDFAnnotation) -> String? {

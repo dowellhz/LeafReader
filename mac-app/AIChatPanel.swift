@@ -170,6 +170,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var onDocumentQuestionPrompt: ((String, String, @escaping (String?) -> Void) -> Void)?
     var onSettingsRequired: (() -> Void)?
     var onConversationChanged: ((SavedAIConversation) -> Void)?
+    var onConversationSourcesChanged: (([AIConversationSourceLocation]) -> Void)?
     var onCurrentSourceLocation: (() -> AIConversationSourceLocation?)?
     var onConversationBubbleSelected: ((AIConversationSourceLocation) -> Void)?
 

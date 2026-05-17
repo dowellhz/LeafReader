@@ -66,6 +66,7 @@ extension ReaderWindowController {
         didTurnPageForCurrentPDFTrackpadGesture = false
         lastPDFTrackpadEdgeDirection = nil
         highlightedSelectionKeys.removeAll()
+        clearAISourceUnderlineTracking()
         storedWordRecords = loadStoredWordRecords()
         storedWebWordRecords.removeAll()
         restoreStoredWordAnnotations()
@@ -145,6 +146,7 @@ extension ReaderWindowController {
             webZoomPercent = 100
             webScrollProgress = 0
             highlightedSelectionKeys.removeAll()
+            clearAISourceUnderlineTracking()
             storedWordRecords.removeAll()
             storedWebWordRecords = loadStoredWebWordRecords()
             aiPanel.loadLinkedWordBubbles(webWordRecordStore?.linkedWordBubbles(from: storedWebWordRecords) ?? [])

@@ -144,6 +144,7 @@ extension AIChatPanel {
         }
         bubbleMetadataByID.removeValue(forKey: bodyID)
         persistentBubbleIDs.removeAll { $0 == bodyID }
+        notifyConversationChangedIfNeeded()
     }
 
     func speakerWordForBubble(role: String, text: String, linkID: String?) -> String? {
@@ -219,6 +220,19 @@ extension AIChatPanel {
     func notifyConversationChangedIfNeeded() {
         guard !isRestoringSavedConversation else { return }
         onConversationChanged?(savedConversation())
+        onConversationSourcesChanged?(activeConversationSources())
+    }
+
+    func activeConversationSources() -> [AIConversationSourceLocation] {
+        var sources: [AIConversationSourceLocation] = []
+        for bodyID in persistentBubbleIDs {
+            guard let source = bubbleMetadataByID[bodyID]?.sourceLocation,
+                  !sources.contains(source) else {
+                continue
+            }
+            sources.append(source)
+        }
+        return sources
     }
 
     func restoreBubbleRendering(_ body: NSTextField) {
@@ -326,6 +340,31 @@ extension AIChatPanel {
         origin.x = 0
         clipView.animator().setBoundsOrigin(origin)
         scrollView.reflectScrolledClipView(clipView)
+    }
+
+    func scrollToConversationSource(_ source: AIConversationSourceLocation) {
+        let preferredRoles = [AppText.aiRole, AppText.userRole]
+        for role in preferredRoles {
+            if let bodyID = bubbleMetadataByID.first(where: { _, metadata in
+                metadata.role == role && metadata.sourceLocation == source
+            })?.key,
+               let box = bubbleBox(containingBodyID: bodyID) {
+                setContentVisible(true)
+                DispatchQueue.main.async { [weak self, weak box] in
+                    guard let self, let box else { return }
+                    self.scrollTranscriptToTop(of: box)
+                }
+                return
+            }
+        }
+    }
+
+    private func bubbleBox(containingBodyID bodyID: String) -> ChatBubbleView? {
+        transcriptStack.arrangedSubviews.compactMap { $0 as? ChatBubbleView }.first { box in
+            box.subviews.contains { subview in
+                (subview as? NSTextField)?.identifier?.rawValue == bodyID
+            }
+        }
     }
 
     func plainString(_ text: String) -> NSAttributedString {

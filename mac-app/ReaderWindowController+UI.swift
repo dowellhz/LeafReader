@@ -377,6 +377,9 @@ extension ReaderWindowController {
         aiPanel.onConversationChanged = { [weak self] conversation in
             self?.saveAIConversationIfNeeded(conversation)
         }
+        aiPanel.onConversationSourcesChanged = { [weak self] sources in
+            self?.reconcileAISourceUnderlines(activeSources: sources)
+        }
         aiPanel.onCurrentSourceLocation = { [weak self] in
             self?.currentAIConversationSourceLocation()
         }

@@ -133,6 +133,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let sessionSaveTask = DebouncedTask(delay: 0.35)
     var suppressSearchSelectionForAIUntil = Date.distantPast
     var highlightedSelectionKeys = Set<String>()
+    var aiSourceUnderlineKeys = Set<String>()
+    var aiSourceLocationsByUnderlineKey: [String: AIConversationSourceLocation] = [:]
     var storedWordRecords: [StoredPDFWordRecord] = []
     var pendingPDFWordRecords: [String: PendingPDFWordRecord] = [:]
     var pdfWordRecordStore: PDFWordRecordStore?

@@ -1,6 +1,6 @@
 import Cocoa
 
-struct StoredPDFWordRect: Codable {
+struct StoredPDFWordRect: Codable, Equatable {
     let x: CGFloat
     let y: CGFloat
     let width: CGFloat
