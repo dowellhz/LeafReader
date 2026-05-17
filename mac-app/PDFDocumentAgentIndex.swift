@@ -22,6 +22,7 @@ final class PDFDocumentAgentIndex {
         let normalizedText: String
         let tokens: Set<String>
         var embedding: [Float]?
+        var embeddingNorm: Float?
     }
 
     private var chunks: [Chunk]
@@ -64,10 +65,16 @@ final class PDFDocumentAgentIndex {
         let queryTokens = Self.tokens(from: question)
         guard !queryTokens.isEmpty || queryEmbedding != nil else { return [] }
 
+        let queryEmbeddingNorm = queryEmbedding.flatMap(Self.vectorNorm)
         let scored = chunks.compactMap { chunk -> PDFDocumentAgentEvidence? in
             let overlap = queryTokens.intersection(chunk.tokens)
-            let vectorScore = queryEmbedding.flatMap { queryEmbedding in
-                chunk.embedding.flatMap { Self.cosineSimilarity($0, queryEmbedding) }
+            let vectorScore: Float? = queryEmbedding.flatMap { queryEmbedding -> Float? in
+                guard let queryEmbeddingNorm,
+                      let embedding = chunk.embedding,
+                      let embeddingNorm = chunk.embeddingNorm else {
+                    return nil
+                }
+                return Self.cosineSimilarity(queryEmbedding, embedding, lhsNorm: queryEmbeddingNorm, rhsNorm: embeddingNorm)
             }
             guard !overlap.isEmpty || chunk.normalizedText.contains(normalizedQuestion) || vectorScore != nil else { return nil }
 
@@ -128,6 +135,7 @@ final class PDFDocumentAgentIndex {
         for index in chunks.indices {
             if let embedding = embeddingsByChunkID[chunks[index].id] {
                 chunks[index].embedding = embedding
+                chunks[index].embeddingNorm = Self.vectorNorm(embedding)
             }
         }
     }
@@ -139,7 +147,13 @@ final class PDFDocumentAgentIndex {
             guard remaining > 0 else { break }
             let text = String(item.text.prefix(max(0, min(remaining, 1400))))
             guard !text.isEmpty else { continue }
-            let part = "[\(locationName) \(item.pageNumber)]\n\(text)"
+            let label: String
+            if AppText.isChinese, locationName == "Page" {
+                label = "第 \(item.pageNumber) 页"
+            } else {
+                label = "\(locationName) \(item.pageNumber)"
+            }
+            let part = "[\(label)]\n\(text)"
             parts.append(part)
             remaining -= part.count
         }
@@ -208,7 +222,8 @@ final class PDFDocumentAgentIndex {
                 text: String(text.prefix(1600)),
                 normalizedText: Self.normalized(text),
                 tokens: Self.tokens(from: text),
-                embedding: nil
+                embedding: nil,
+                embeddingNorm: nil
             ))
             current = ""
         }
@@ -241,7 +256,8 @@ final class PDFDocumentAgentIndex {
                 text: piece,
                 normalizedText: normalized(piece),
                 tokens: tokens(from: piece),
-                embedding: nil
+                embedding: nil,
+                embeddingNorm: nil
             ))
             start = end
         }
@@ -254,18 +270,23 @@ final class PDFDocumentAgentIndex {
         return "\(pageIndex)-\(chunkIndex)-\(hash)"
     }
 
-    private static func cosineSimilarity(_ lhs: [Float], _ rhs: [Float]) -> Float? {
+    private static func vectorNorm(_ values: [Float]) -> Float? {
+        guard !values.isEmpty else { return nil }
+        var norm: Float = 0
+        for value in values {
+            norm += value * value
+        }
+        guard norm > 0 else { return nil }
+        return sqrt(norm)
+    }
+
+    private static func cosineSimilarity(_ lhs: [Float], _ rhs: [Float], lhsNorm: Float, rhsNorm: Float) -> Float? {
         guard lhs.count == rhs.count, !lhs.isEmpty else { return nil }
         var dot: Float = 0
-        var lhsNorm: Float = 0
-        var rhsNorm: Float = 0
         for index in lhs.indices {
             dot += lhs[index] * rhs[index]
-            lhsNorm += lhs[index] * lhs[index]
-            rhsNorm += rhs[index] * rhs[index]
         }
-        guard lhsNorm > 0, rhsNorm > 0 else { return nil }
-        return dot / (sqrt(lhsNorm) * sqrt(rhsNorm))
+        return dot / (lhsNorm * rhsNorm)
     }
 
     private static func normalized(_ text: String) -> String {

@@ -3,6 +3,26 @@ import PDFKit
 
 extension ReaderWindowController {
     @objc func openAISettings() {
+        openSettingsPanel(tab: .general)
+    }
+
+    @objc func openGeneralSettings() {
+        openSettingsPanel(tab: .general)
+    }
+
+    @objc func openModelSettings() {
+        openSettingsPanel(tab: .model)
+    }
+
+    @objc func openVectorSettings() {
+        openSettingsPanel(tab: .vector)
+    }
+
+    @objc func openCacheSettings() {
+        openSettingsPanel(tab: .cache)
+    }
+
+    func openSettingsPanel(tab: AISettingsPanelController.SettingsTab) {
         guard let window else { return }
         let controller = AISettingsPanelController()
         controller.onSaved = { [weak self] in
@@ -11,7 +31,7 @@ extension ReaderWindowController {
             self?.applyAIConversationPersistenceSetting()
         }
         controller.currentVectorIndexStatus = { [weak self] in
-            self?.currentVectorIndexStatusText() ?? AppText.localized("未打开文档", "No document open")
+            self?.currentVectorIndexStatusText() ?? AppText.noPDF
         }
         controller.onStartVectorIndex = { [weak self] in
             self?.startCurrentVectorIndex()
@@ -29,7 +49,7 @@ extension ReaderWindowController {
             self?.clearCurrentBookWordRecords()
         }
         aiSettingsPanelController = controller
-        controller.show(attachedTo: window)
+        controller.show(attachedTo: window, initialTab: tab)
     }
 
     @objc func toggleAIPanel() {
@@ -154,5 +174,11 @@ extension ReaderWindowController {
     func windowDidExitFullScreen(_ notification: Notification) {
         updateFullScreenButton()
         syncAIPanelLayoutAfterResize()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        sessionSaveTask.flush()
+        flushCurrentBookWordRecordSaves()
+        saveCurrentAIConversationBeforeDocumentChange()
     }
 }

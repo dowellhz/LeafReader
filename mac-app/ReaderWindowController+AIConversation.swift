@@ -11,10 +11,13 @@ extension ReaderWindowController {
 
     func saveAIConversationIfNeeded(_ conversation: SavedAIConversation) {
         guard AISettingsStore.saveAIConversationEnabled,
-              let store = aiConversationStore else {
+              aiConversationStore != nil else {
             return
         }
-        store.save(conversation)
+        pendingAIConversationToSave = conversation
+        aiConversationSaveTask.schedule { [weak self] in
+            self?.flushPendingAIConversationSave()
+        }
     }
 
     func saveCurrentAIConversationBeforeDocumentChange() {
@@ -22,14 +25,31 @@ extension ReaderWindowController {
               let store = aiConversationStore else {
             return
         }
+        aiConversationSaveTask.cancel()
+        pendingAIConversationToSave = nil
         store.save(aiPanel.savedConversation())
+    }
+
+    func flushPendingAIConversationSave() {
+        aiConversationSaveTask.cancel()
+        guard AISettingsStore.saveAIConversationEnabled,
+              let store = aiConversationStore,
+              let conversation = pendingAIConversationToSave else {
+            pendingAIConversationToSave = nil
+            return
+        }
+        pendingAIConversationToSave = nil
+        store.save(conversation)
     }
 
     func applyAIConversationPersistenceSetting() {
         guard let store = aiConversationStore else { return }
         if AISettingsStore.saveAIConversationEnabled {
+            flushPendingAIConversationSave()
             store.save(aiPanel.savedConversation())
         } else {
+            aiConversationSaveTask.cancel()
+            pendingAIConversationToSave = nil
             store.clear()
         }
     }
@@ -51,7 +71,7 @@ extension ReaderWindowController {
     func jumpToAIConversationSource(_ source: AIConversationSourceLocation) {
         switch source.kind {
         case .pdfPage:
-            jumpToPDFPage(index: source.index)
+            jumpToPDFPage(index: source.index, skipIfCurrentPage: true)
         case .webProgress:
             jumpToWebDocumentProgress(source.progress)
         }

@@ -70,7 +70,7 @@ enum AppText {
     static var tapToExpand: String { localized("点击展开/收起", "Click to expand/collapse") }
     static var followUpPlaceholder: String { localized("继续追问", "Ask a follow-up") }
     static var send: String { localized("发送", "Send") }
-    static var noPDF: String { localized("No PDF", "No PDF") }
+    static var noPDF: String { localized("没有加载书籍", "No book loaded") }
     static var fullScreen: String { localized("全屏", "Full") }
     static var windowed: String { localized("窗口", "Window") }
     static var cover: String { localized("首页", "Cover") }

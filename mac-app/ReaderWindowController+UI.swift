@@ -16,8 +16,8 @@ extension ReaderWindowController {
         pdfView.displaysPageBreaks = true
         pdfView.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1)
         pdfView.delegate = self
-        pdfView.onDroppedDocumentURL = { [weak self] url in
-            self?.loadDocument(url)
+        pdfView.onDroppedDocumentURLs = { [weak self] urls in
+            self?.handleDroppedDocumentURLs(urls)
         }
         pdfView.onScrollPastPageEdge = { [weak self] direction in
             self?.turnPageFromScroll(direction)
@@ -189,16 +189,16 @@ extension ReaderWindowController {
         webView.layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
         webView.isHidden = true
         webView.navigationDelegate = self
-        webView.onDroppedDocumentURL = { [weak self] url in
-            self?.loadDocument(url)
+        webView.onDroppedDocumentURLs = { [weak self] urls in
+            self?.handleDroppedDocumentURLs(urls)
         }
 
         NotificationCenter.default.addObserver(self, selector: #selector(pageChanged), name: .PDFViewPageChanged, object: pdfView)
 
         contentArea.wantsLayer = true
         contentArea.layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
-        pdfContainer.onDroppedDocumentURL = { [weak self] url in
-            self?.loadDocument(url)
+        pdfContainer.onDroppedDocumentURLs = { [weak self] urls in
+            self?.handleDroppedDocumentURLs(urls)
         }
 
         let toolbar = NSView()
@@ -282,7 +282,7 @@ extension ReaderWindowController {
         fullScreenButton = capsuleButton(title: AppText.fullScreen, symbol: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullScreen))
         tocButton = capsuleButton(title: AppText.localized("目录", "TOC"), symbol: "list.bullet", action: #selector(showTableOfContents))
         recentButton = capsuleButton(title: AppText.localized("书架", "Shelf"), symbol: "books.vertical", action: #selector(showRecentDocuments))
-        vocabularyButton = capsuleButton(title: AppText.localized("单词本", "Words"), symbol: "text.book.closed", action: #selector(showVocabularyBook))
+        vocabularyButton = capsuleButton(title: AppText.localized("背单词", "Vocab"), symbol: "text.book.closed", action: #selector(showVocabularyBook))
         coverButton = capsuleButton(title: AppText.cover, symbol: "book.closed", action: #selector(goToCover))
         prevButton = capsuleButton(title: AppText.prev, symbol: "chevron.left", action: #selector(prevPage))
         nextButton = capsuleButton(title: AppText.next, symbol: "chevron.right", action: #selector(nextPage), imageOnRight: true)
@@ -638,14 +638,16 @@ extension ReaderWindowController {
     }
 
     func refreshLanguageUI() {
+        (NSApp.delegate as? AppDelegate)?.refreshMainMenu()
         aiPanel.refreshLanguage()
         fullScreenButton.title = window?.styleMask.contains(.fullScreen) == true ? AppText.windowed : AppText.fullScreen
         coverButton.title = AppText.cover
         tocButton.title = AppText.localized("目录", "TOC")
         recentButton.title = AppText.localized("书架", "Shelf")
-        vocabularyButton.title = AppText.localized("单词本", "Words")
+        vocabularyButton.title = AppText.localized("背单词", "Vocab")
         prevButton.title = AppText.prev
         nextButton.title = AppText.next
+        refreshEmbeddingStatusLanguage()
         updatePDFPageLayoutButton()
         for button in [coverButton, tocButton, recentButton, vocabularyButton, prevButton, nextButton, pageLayoutButton] {
             if let capsule = button as? CapsuleChromeButton {

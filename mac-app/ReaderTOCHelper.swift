@@ -2,13 +2,18 @@ import Foundation
 import PDFKit
 
 struct ReaderTOCHelper {
+    struct PDFTOCDestination {
+        let pageIndex: Int
+        let point: NSPoint
+    }
+
     struct PDFTOC {
         let items: [ReaderTOCItem]
-        let destinations: [String: PDFDestination]
+        let destinations: [String: PDFTOCDestination]
     }
 
     static func pdfTOCItems(from document: PDFDocument, displayBox: PDFDisplayBox) -> PDFTOC {
-        var destinations: [String: PDFDestination] = [:]
+        var destinations: [String: PDFTOCDestination] = [:]
         guard let root = document.outlineRoot else {
             return pdfPageTOCItems(from: document, displayBox: displayBox)
         }
@@ -17,10 +22,13 @@ struct ReaderTOCHelper {
         func walk(_ outline: PDFOutline, level: Int) {
             for index in 0..<outline.numberOfChildren {
                 guard let child = outline.child(at: index) else { continue }
-                if let destination = pdfDestination(for: child) {
+                if let destination = pdfDestination(for: child),
+                   let page = destination.page {
+                    let pageIndex = document.index(for: page)
+                    guard pageIndex != NSNotFound else { continue }
                     let title = child.label?.trimmingCharacters(in: .whitespacesAndNewlines)
                     let id = "pdf-toc-\(items.count)"
-                    destinations[id] = destination
+                    destinations[id] = PDFTOCDestination(pageIndex: pageIndex, point: destination.point)
                     items.append(ReaderTOCItem(
                         title: title?.isEmpty == false ? title! : AppText.localized("未命名目录", "Untitled"),
                         href: id,
@@ -65,12 +73,12 @@ struct ReaderTOCHelper {
     }
 
     private static func pdfPageTOCItems(from document: PDFDocument, displayBox: PDFDisplayBox) -> PDFTOC {
-        var destinations: [String: PDFDestination] = [:]
+        var destinations: [String: PDFTOCDestination] = [:]
         let items = (0..<document.pageCount).compactMap { index -> ReaderTOCItem? in
             guard let page = document.page(at: index) else { return nil }
             let id = "pdf-page-\(index)"
             let bounds = page.bounds(for: displayBox)
-            destinations[id] = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY))
+            destinations[id] = PDFTOCDestination(pageIndex: index, point: NSPoint(x: bounds.minX, y: bounds.maxY))
             return ReaderTOCItem(
                 title: AppText.localized("第 \(index + 1) 页", "Page \(index + 1)"),
                 href: id,

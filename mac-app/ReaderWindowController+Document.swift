@@ -22,6 +22,8 @@ extension ReaderWindowController {
 
     func loadDocument(_ url: URL) {
         guard let kind = ReaderDocumentKind.kind(for: url) else { return }
+        sessionSaveTask.flush()
+        flushCurrentBookWordRecordSaves()
         saveCurrentAIConversationBeforeDocumentChange()
         resetEmbeddingStateForDocumentChange()
         switch kind {
@@ -30,6 +32,10 @@ extension ReaderWindowController {
         case .epub, .docx:
             loadWebDocument(url, kind: kind)
         }
+    }
+
+    func handleDroppedDocumentURLs(_ urls: [URL]) {
+        ReaderDocumentImportCoordinator.handleDroppedDocumentURLs(urls, controller: self)
     }
 
     func loadPDF(_ url: URL) {
@@ -188,7 +194,11 @@ extension ReaderWindowController {
     }
 
     @objc func showRecentDocuments() {
-        let items = RecentDocumentsStore.load()
+        showRecentDocumentsPanel(focusPath: nil, priorityPaths: [])
+    }
+
+    func showRecentDocumentsPanel(focusPath: String?, priorityPaths: [String] = []) {
+        let items = sortedRecentDocuments(priorityPaths: priorityPaths)
         guard !items.isEmpty else {
             NSSound.beep()
             return
@@ -198,14 +208,20 @@ extension ReaderWindowController {
         controller.show(
             items: items,
             attachedTo: window,
+            focusPath: focusPath,
             onOpen: { [weak self] path in
                 self?.loadDocument(URL(fileURLWithPath: path))
             },
-            onClear: {
+            onClear: { [weak self] in
+                self?.unloadCurrentDocumentForShelfRemoval()
                 RecentDocumentsStore.clear()
             },
-            onRemoveItem: { path in
-                RecentDocumentsStore.remove(path: path)
+            onRemoveItem: { [weak self] path, options in
+                self?.removeShelfItem(
+                    path: path,
+                    clearVectorCache: options.clearVectorCache,
+                    clearWordRecords: options.clearWordRecords
+                )
             },
             onClearVectorCache: { [weak self] path in
                 self?.clearVectorCacheForShelfItem(path: path)
@@ -213,10 +229,125 @@ extension ReaderWindowController {
             onClearWordRecords: { [weak self] path in
                 self?.clearWordRecordsForShelfItem(path: path)
             },
+            onImport: { [weak self] urls in
+                guard let self else { return }
+                ReaderDocumentImportCoordinator.importDroppedDocumentsToShelf(urls, controller: self)
+            },
             onClose: { [weak self] in
                 self?.recentDocumentsPanelController = nil
             }
         )
+    }
+
+    func sortedRecentDocuments(priorityPaths: [String]) -> [RecentDocumentItem] {
+        let items = RecentDocumentsStore.load()
+        guard !priorityPaths.isEmpty else {
+            return items.sorted { lhs, rhs in
+                if lhs.openedAt != rhs.openedAt {
+                    return lhs.openedAt > rhs.openedAt
+                }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+        }
+
+        var priorityIndex: [String: Int] = [:]
+        for (index, path) in priorityPaths.enumerated() where priorityIndex[path] == nil {
+            priorityIndex[path] = index
+        }
+        return items.sorted { lhs, rhs in
+            let lhsPriority = priorityIndex[lhs.path]
+            let rhsPriority = priorityIndex[rhs.path]
+            switch (lhsPriority, rhsPriority) {
+            case let (.some(left), .some(right)):
+                return left < right
+            case (.some, .none):
+                return true
+            case (.none, .some):
+                return false
+            case (.none, .none):
+                if lhs.openedAt != rhs.openedAt {
+                    return lhs.openedAt > rhs.openedAt
+                }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+        }
+    }
+
+    func removeShelfItem(path: String, clearVectorCache: Bool, clearWordRecords: Bool) {
+        let documentID = fileMD5(for: URL(fileURLWithPath: path))
+        if currentFileURL?.path == path {
+            unloadCurrentDocumentForShelfRemoval()
+        }
+        if let documentID {
+            ReaderSessionStore(fileMD5: documentID).clearProgress()
+        }
+        if clearVectorCache {
+            clearVectorCacheForShelfItem(path: path)
+        }
+        if clearWordRecords {
+            clearWordRecordsForShelfItem(path: path)
+        }
+        RecentDocumentsStore.remove(path: path)
+    }
+
+    func unloadCurrentDocumentForShelfRemoval() {
+        guard currentFileURL != nil else { return }
+        saveCurrentAIConversationBeforeDocumentChange()
+        saveSession()
+        resetEmbeddingStateForDocumentChange()
+
+        pdfTOCGeneration += 1
+        documentAgentIndexGeneration += 1
+        isBuildingDocumentAgentIndex = false
+        pendingDocumentAgentIndexCallbacks.removeAll()
+        pendingEmbeddingReadyCallbacks.removeAll()
+
+        pdfView.document = nil
+        pdfView.isHidden = false
+        pdfDimOverlay.isHidden = true
+        webView.stopLoading()
+        webView.loadHTMLString("", baseURL: nil)
+        webView.isHidden = true
+
+        currentFileURL = nil
+        currentFileMD5 = nil
+        currentDocumentKind = .pdf
+        sessionStore = ReaderSessionStore(fileMD5: nil)
+        pdfWordRecordStore = nil
+        webWordRecordStore = nil
+        aiConversationStore = nil
+        pdfAgentIndex = nil
+        currentWebPlainText = ""
+        currentWebSelectedText = ""
+        currentWebSelectionContext = ""
+        currentTOCItems = []
+        pdfTOCDestinations = [:]
+        searchResults.removeAll()
+        searchResultIndex = 0
+        lastSearchQuery = ""
+        searchOverlay.setResultText("")
+        pendingPDFWordRecords.removeAll()
+        pendingWebWordRecords.removeAll()
+        storedWordRecords.removeAll()
+        storedWebWordRecords.removeAll()
+        highlightedSelectionKeys.removeAll()
+        currentVocabularyExportRecords.removeAll()
+        accumulatedPDFTrackpadScroll = 0
+        didTurnPageForCurrentPDFTrackpadGesture = false
+        lastPDFTrackpadEdgeDirection = nil
+        lastPageIndex = nil
+        webScrollProgress = 0
+
+        aiPanel.loadLinkedWordBubbles([])
+        aiPanel.clearSelectedText()
+        titleLabel.stringValue = "Leaf Reader"
+        coverImageView.image = nil
+        coverImageView.isHidden = true
+        pageLayoutButton.isHidden = true
+        pageLabel.stringValue = AppText.noPDF
+        zoomField.stringValue = "100%"
+        updateEmbeddingControlButtons()
+        applyReaderTheme()
     }
 
     func clearVectorCacheForShelfItem(path: String) {
@@ -224,7 +355,9 @@ extension ReaderWindowController {
             NSSound.beep()
             return
         }
-        pdfEmbeddingStore?.deleteDocument(documentID: documentID)
+        embeddingStoreQueue.async { [weak self] in
+            self?.pdfEmbeddingStore?.deleteDocument(documentID: documentID)
+        }
         if currentFileMD5 == documentID {
             embeddingBackfillGeneration += 1
             isPreparingPDFEmbeddings = false
@@ -264,17 +397,19 @@ extension ReaderWindowController {
     }
 
     func jumpToPDFTOCItem(_ item: ReaderTOCItem) {
-        guard let destination = pdfTOCDestinations[item.href],
-              let page = destination.page,
-              let pageIndex = pdfView.document?.index(for: page) else {
+        guard let tocDestination = pdfTOCDestinations[item.href],
+              let page = pdfView.document?.page(at: tocDestination.pageIndex) else {
             return
         }
 
         clearAISelectionForNavigation()
+        let beforePageIndex = currentPageIndex()
+        let destination = PDFDestination(page: page, at: tocDestination.point)
         pdfView.go(to: destination)
-        lastPageIndex = pageIndex
+        lastPageIndex = tocDestination.pageIndex
         updatePageLabel()
         saveSession()
+        recordPageJump(source: "toc", before: beforePageIndex, after: currentPageIndex(), detail: item.title)
     }
 
     func jumpToWebTOCItem(_ item: ReaderTOCItem) {

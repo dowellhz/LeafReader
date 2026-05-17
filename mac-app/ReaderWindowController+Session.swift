@@ -85,20 +85,26 @@ extension ReaderWindowController {
     func jumpToDocumentSource(index: Int) {
         setAIPanelCollapsed(false, animated: true)
         if currentDocumentKind == .pdf {
-            jumpToPDFPage(index: index)
+            jumpToPDFPage(index: index, skipIfCurrentPage: true)
             return
         }
         jumpToWebDocumentSection(index: index)
     }
 
-    func jumpToPDFPage(index: Int) {
+    func jumpToPDFPage(index: Int, skipIfCurrentPage: Bool = false) {
         guard let page = pdfView.document?.page(at: index) else { return }
         setAIPanelCollapsed(false, animated: true)
+        if skipIfCurrentPage, currentPageIndex() == index {
+            updatePageLabel()
+            return
+        }
+        let beforePageIndex = currentPageIndex()
         let bounds = page.bounds(for: pdfView.displayBox)
         pdfView.go(to: PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY)))
         lastPageIndex = index
         updatePageLabel()
         saveSession()
+        recordPageJump(source: "document-source", before: beforePageIndex, after: currentPageIndex(), detail: "target=\(index + 1)")
     }
 
     func jumpToWebDocumentSection(index: Int) {
@@ -134,7 +140,11 @@ extension ReaderWindowController {
         let md5 = digest.map { String(format: "%02x", $0) }.joined()
         cache[cacheKey] = md5
         if cache.count > 80 {
-            cache = Dictionary(uniqueKeysWithValues: cache.suffix(80))
+            var trimmedCache: [String: String] = [:]
+            for (key, value) in cache.suffix(80) {
+                trimmedCache[key] = value
+            }
+            cache = trimmedCache
         }
         defaults.set(cache, forKey: Self.fileMD5CacheDefaultsKey)
         return md5
@@ -184,10 +194,13 @@ extension ReaderWindowController {
         }
 
         let pageIndex = progress.pageIndex
+        let beforePageIndex = currentPageIndex()
         if pageIndex >= 0, pageIndex < document.pageCount, let page = document.page(at: pageIndex) {
             pdfView.go(to: page)
+            recordPageJump(source: "session-restore", before: beforePageIndex, after: currentPageIndex(), detail: "target=\(pageIndex + 1)")
         } else if let firstPage = document.page(at: 0) {
             pdfView.go(to: firstPage)
+            recordPageJump(source: "home", before: beforePageIndex, after: currentPageIndex())
         }
 
         let scale = progress.scale
@@ -204,16 +217,13 @@ extension ReaderWindowController {
 
     func saveSession() {
         if isRestoringSession { return }
-        pendingSessionSaveWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [weak self] in
+        sessionSaveTask.schedule { [weak self] in
             self?.performSessionSave()
         }
-        pendingSessionSaveWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: workItem)
     }
 
     func performSessionSave() {
-        pendingSessionSaveWorkItem = nil
+        sessionSaveTask.cancel()
         guard let url = currentFileURL else { return }
         sessionStore.saveLastDocumentURL(url)
         guard currentDocumentKind == .pdf else {

@@ -1,150 +1,13 @@
 import Cocoa
 
-private final class SettingsTextField: NSTextField {
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.modifierFlags.contains(.command),
-              let editor = currentEditor(),
-              let key = event.charactersIgnoringModifiers?.lowercased() else {
-            return super.performKeyEquivalent(with: event)
-        }
-
-        switch key {
-        case "a":
-            editor.selectAll(nil)
-            return true
-        case "c":
-            copySelection(from: editor)
-            return true
-        case "x":
-            copySelection(from: editor)
-            editor.delete(nil)
-            return true
-        case "v":
-            pasteClipboard(into: editor)
-            return true
-        default:
-            return super.performKeyEquivalent(with: event)
-        }
-    }
-
-    private func copySelection(from editor: NSText) {
-        let selectedRange = editor.selectedRange
-        guard selectedRange.length > 0,
-              let range = Range(selectedRange, in: editor.string) else {
-            return
-        }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(String(editor.string[range]), forType: .string)
-    }
-
-    private func pasteClipboard(into editor: NSText) {
-        guard let text = NSPasteboard.general.string(forType: .string) else { return }
-        editor.replaceCharacters(in: editor.selectedRange, with: text)
-    }
-}
-
-private final class SettingsTabsView: NSView {
-    var onSelectionChanged: ((Int) -> Void)?
-
-    private let labels: [String]
-    private var buttons: [NSButton] = []
-    private var selectedIndex = 0
-
-    init(labels: [String]) {
-        self.labels = labels
-        super.init(frame: .zero)
-        setup()
-    }
-
-    required init?(coder: NSCoder) {
-        labels = []
-        super.init(coder: coder)
-        setup()
-    }
-
-    private func setup() {
-        wantsLayer = true
-        layer?.backgroundColor = NSColor(red: 0.985, green: 0.988, blue: 0.995, alpha: 1).cgColor
-        layer?.borderWidth = 1
-        layer?.borderColor = NSColor(red: 0.82, green: 0.84, blue: 0.88, alpha: 1).cgColor
-        layer?.cornerRadius = 16
-        layer?.masksToBounds = true
-
-        let stack = NSStackView()
-        stack.orientation = .horizontal
-        stack.distribution = .fillEqually
-        stack.spacing = 0
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
-
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: topAnchor, constant: 4),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4)
-        ])
-
-        for (index, text) in labels.enumerated() {
-            let button = NSButton(title: text, target: self, action: #selector(selectTab(_:)))
-            button.tag = index
-            button.isBordered = false
-            button.wantsLayer = true
-            button.layer?.cornerRadius = 12
-            button.layer?.masksToBounds = true
-            button.translatesAutoresizingMaskIntoConstraints = false
-            buttons.append(button)
-            stack.addArrangedSubview(button)
-        }
-        updateAppearance()
-    }
-
-    @objc private func selectTab(_ sender: NSButton) {
-        selectedIndex = sender.tag
-        updateAppearance()
-        onSelectionChanged?(selectedIndex)
-    }
-
-    private func updateAppearance() {
-        for (index, button) in buttons.enumerated() {
-            let selected = index == selectedIndex
-            button.layer?.backgroundColor = selected
-                ? NSColor.white.cgColor
-                : NSColor.clear.cgColor
-            button.attributedTitle = NSAttributedString(
-                string: labels[index],
-                attributes: [
-                    .font: AppFont.semibold(ofSize: 18),
-                    .foregroundColor: selected
-                        ? NSColor(red: 0.02, green: 0.48, blue: 0.98, alpha: 1)
-                        : NSColor(red: 0.08, green: 0.10, blue: 0.14, alpha: 1)
-                ]
-            )
-        }
-    }
-}
-
-private final class VerticalOnlyClipView: NSClipView {
-    override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
-        var constrained = super.constrainBoundsRect(proposedBounds)
-        constrained.origin.x = 0
-        return constrained
-    }
-
-    override var bounds: NSRect {
-        get {
-            var current = super.bounds
-            current.origin.x = 0
-            return current
-        }
-        set {
-            var next = newValue
-            next.origin.x = 0
-            super.bounds = next
-        }
-    }
-}
-
 final class AISettingsPanelController {
+    enum SettingsTab: Int {
+        case general = 0
+        case model = 1
+        case vector = 2
+        case cache = 3
+    }
+
     var onSaved: (() -> Void)?
     var currentVectorIndexStatus: (() -> String)?
     var onStartVectorIndex: (() -> Void)?
@@ -153,51 +16,63 @@ final class AISettingsPanelController {
     var onClearCurrentVectorIndex: (() -> Void)?
     var onClearCurrentWordRecords: (() -> Void)?
 
-    private weak var parentWindow: NSWindow?
-    private var panel: SettingsPanel?
-    private weak var settingsTabControl: NSSegmentedControl?
-    private weak var settingsScrollView: NSScrollView?
-    private weak var basicPage: NSView?
-    private weak var modelPage: NSView?
-    private weak var embeddingPage: NSView?
-    private weak var cachePage: NSView?
-    private weak var modelPopup: NSPopUpButton?
-    private weak var languagePopup: NSPopUpButton?
-    private weak var themePopup: NSPopUpButton?
-    private weak var secureKeyField: NSSecureTextField?
-    private weak var customModelContainer: NSView?
-    private weak var customEndpointLabel: NSTextField?
-    private weak var customEndpointField: NSTextField?
-    private weak var customModelLabel: NSTextField?
-    private weak var customModelField: NSTextField?
-    private weak var embeddingProviderPopup: NSPopUpButton?
-    private weak var embeddingEndpointContainer: NSView?
-    private weak var embeddingEndpointLabel: NSTextField?
-    private weak var embeddingEndpointField: NSTextField?
-    private weak var embeddingModelField: NSTextField?
-    private weak var embeddingKeyField: NSSecureTextField?
-    private weak var speakSelectedWordCheckbox: NSButton?
-    private weak var saveAIConversationCheckbox: NSButton?
-    private weak var autoEmbeddingIndexCheckbox: NSButton?
-    private weak var cacheStatusLabel: NSTextField?
-    private weak var currentIndexStatusLabel: NSTextField?
-    private var cacheRefreshTimer: Timer?
-    private var keyTopWithCustomConstraint: NSLayoutConstraint?
-    private var keyTopWithoutCustomConstraint: NSLayoutConstraint?
-    private var embeddingModelTopWithCustomEndpointConstraint: NSLayoutConstraint?
-    private var embeddingModelTopWithoutCustomEndpointConstraint: NSLayoutConstraint?
-    private var isClosing = false
-    private var shouldNotifySavedAfterClose = false
-    private var appActivationObserver: NSObjectProtocol?
+    let vectorCacheQueue = DispatchQueue(label: "com.linlu.leafreader.settings-vector-cache", qos: .utility)
+    weak var parentWindow: NSWindow?
+    var panel: SettingsPanel?
+    weak var settingsTabControl: NSSegmentedControl?
+    weak var settingsScrollView: NSScrollView?
+    weak var basicPage: NSView?
+    weak var modelPage: NSView?
+    weak var embeddingPage: NSView?
+    weak var cachePage: NSView?
+    weak var modelPopup: NSPopUpButton?
+    weak var languagePopup: NSPopUpButton?
+    weak var themePopup: NSPopUpButton?
+    weak var secureKeyField: NSSecureTextField?
+    weak var customModelContainer: NSView?
+    weak var customEndpointLabel: NSTextField?
+    weak var customEndpointField: NSTextField?
+    weak var customModelLabel: NSTextField?
+    weak var customModelField: NSTextField?
+    weak var embeddingProviderPopup: NSPopUpButton?
+    weak var embeddingEndpointContainer: NSView?
+    weak var embeddingEndpointLabel: NSTextField?
+    weak var embeddingEndpointField: NSTextField?
+    weak var embeddingModelField: NSTextField?
+    weak var embeddingKeyField: NSSecureTextField?
+    weak var speakSelectedWordCheckbox: NSButton?
+    weak var saveAIConversationCheckbox: NSButton?
+    weak var autoEmbeddingIndexCheckbox: NSButton?
+    weak var cacheStatusLabel: NSTextField?
+    weak var currentIndexStatusLabel: NSTextField?
+    var cacheRefreshTimer: Timer?
+    var keyTopWithCustomConstraint: NSLayoutConstraint?
+    var keyTopWithoutCustomConstraint: NSLayoutConstraint?
+    var embeddingModelTopWithCustomEndpointConstraint: NSLayoutConstraint?
+    var embeddingModelTopWithoutCustomEndpointConstraint: NSLayoutConstraint?
+    var isClosing = false
+    var shouldNotifySavedAfterClose = false
+    var appActivationObserver: NSObjectProtocol?
+    var lastCustomEmbeddingEndpoint: String = ""
+    var lastCustomEmbeddingModel: String = ""
+    var currentEmbeddingOptionID: String = ""
+    var pendingEmbeddingKeys: [String: String] = [:]
 
     deinit {
         cacheRefreshTimer?.invalidate()
         removeAppActivationObserver()
     }
 
-    func show(attachedTo window: NSWindow) {
+    func show(attachedTo window: NSWindow, initialTab: SettingsTab = .general) {
         parentWindow = window
         let selectedModel = AISettingsStore.selectedModel
+        let selectedEmbeddingEndpoint = AISettingsStore.selectedEmbeddingEndpointOption
+        currentEmbeddingOptionID = selectedEmbeddingEndpoint.id
+        pendingEmbeddingKeys[selectedEmbeddingEndpoint.id] = AISettingsStore.embeddingAPIKeyMigratingLegacyIfNeeded(for: selectedEmbeddingEndpoint.id)
+        if selectedEmbeddingEndpoint.id == AISettingsStore.customEmbeddingEndpointID {
+            lastCustomEmbeddingEndpoint = selectedEmbeddingEndpoint.endpoint
+            lastCustomEmbeddingModel = AISettingsStore.embeddingModelName
+        }
         let settingsFontSize: CGFloat = 14
         let isDark = ReaderTheme.selected == .dark
         let panelBackground = isDark
@@ -209,41 +84,10 @@ final class AISettingsPanelController {
         let secondaryText = isDark
             ? NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
             : NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
+        let layout = AISettingsLayoutMetrics()
 
-        let panel = SettingsPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        panel.appearance = isDark ? NSAppearance(named: .darkAqua) : NSAppearance(named: .aqua)
-        panel.backgroundColor = .clear
-        panel.isOpaque = false
-        panel.hasShadow = true
-        panel.isReleasedWhenClosed = false
-        panel.isMovableByWindowBackground = true
-        panel.hidesOnDeactivate = false
-        panel.level = .floating
-        panel.collectionBehavior = [.fullScreenAuxiliary]
-
-        let content = NSView()
-        content.wantsLayer = true
-        content.layer?.backgroundColor = panelBackground.cgColor
-        content.layer?.borderWidth = 1.5
-        content.layer?.borderColor = (isDark
-            ? NSColor(red: 0.32, green: 0.38, blue: 0.46, alpha: 1)
-            : NSColor(red: 0.78, green: 0.82, blue: 0.90, alpha: 1)
-        ).cgColor
-        content.layer?.cornerRadius = 18
-        content.layer?.masksToBounds = false
-        content.layer?.shadowColor = NSColor.black.cgColor
-        content.layer?.shadowOpacity = isDark ? 0.42 : 0.24
-        content.layer?.shadowRadius = 32
-        content.layer?.shadowOffset = CGSize(width: 0, height: -12)
-        content.frame = NSRect(origin: .zero, size: panel.contentRect(forFrameRect: panel.frame).size)
-        content.autoresizingMask = [.width, .height]
-        content.translatesAutoresizingMaskIntoConstraints = true
-        panel.contentView = content
+        let panel = makeSettingsPanel(isDark: isDark)
+        let content = makeSettingsContentView(panel: panel, isDark: isDark, backgroundColor: panelBackground)
 
         let titleLabel = label(AppText.settings, size: settingsFontSize, weight: .semibold, color: primaryText)
         let closeButton = NSButton(title: "", target: self, action: #selector(cancel(_:)))
@@ -263,7 +107,7 @@ final class AISettingsPanelController {
             target: self,
             action: #selector(settingsSegmentChanged(_:))
         )
-        tabControl.selectedSegment = 0
+        tabControl.selectedSegment = initialTab.rawValue
         tabControl.segmentStyle = .rounded
         tabControl.controlSize = .large
         tabControl.font = AppFont.semibold(ofSize: 18)
@@ -350,7 +194,7 @@ final class AISettingsPanelController {
         speakSelectedWordCheckbox.lineBreakMode = .byTruncatingTail
         speakSelectedWordCheckbox.state = AISettingsStore.speakSelectedWordEnabled ? .on : .off
         speakSelectedWordCheckbox.translatesAutoresizingMaskIntoConstraints = false
-        let saveAIConversationLabel = label(AppText.localized("保存 AI 信息", "Save AI Chat"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let saveAIConversationLabel = label(AppText.localized("保存 AI 对话信息", "Save AI Chat"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let saveAIConversationCheckbox = NSButton(
             checkboxWithTitle: "",
             target: nil,
@@ -361,7 +205,6 @@ final class AISettingsPanelController {
         saveAIConversationCheckbox.state = AISettingsStore.saveAIConversationEnabled ? .on : .off
         saveAIConversationCheckbox.translatesAutoresizingMaskIntoConstraints = false
 
-        let selectedEmbeddingEndpoint = AISettingsStore.selectedEmbeddingEndpointOption
         let embeddingLabel = label(AppText.localized("向量服务", "Embedding Service"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let embeddingProviderPopup = popup(items: AISettingsStore.embeddingEndpointOptions.map { ($0.title, $0.id) }, selected: selectedEmbeddingEndpoint.id, fontSize: settingsFontSize)
         let embeddingEndpointLabel = label(AppText.localized("接口 URL", "Endpoint URL"), size: settingsFontSize, weight: .semibold, color: primaryText)
@@ -370,7 +213,7 @@ final class AISettingsPanelController {
         let embeddingModelNameLabel = label(AppText.localized("向量模型", "Embedding Model"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let embeddingModelField = inputField(AISettingsStore.embeddingModelName, placeholder: AISettingsStore.fallbackEmbeddingModelName, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
         let embeddingKeyLabel = label(AppText.localized("向量 API Key", "Embedding API Key"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let embeddingKeyField = APIKeySecureTextField(string: AISettingsStore.embeddingAPIKey)
+        let embeddingKeyField = APIKeySecureTextField(string: AISettingsStore.embeddingAPIKeyMigratingLegacyIfNeeded(for: selectedEmbeddingEndpoint.id))
         configureKeyField(embeddingKeyField, placeholder: AppText.apiKeyPlaceholder, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
         let embeddingHelpLabel = label(AppText.localized("用于 PDF、EPUB 和 DOCX 向量检索。聊天模型和向量模型可以使用不同 API Key。默认使用 OpenAI text-embedding-3-small，也可填兼容接口。", "Used for PDF, EPUB, and DOCX vector retrieval. Chat and embedding models can use different API keys. Defaults to OpenAI text-embedding-3-small; compatible endpoints can be used."), size: settingsFontSize, color: secondaryText)
         let autoEmbeddingIndexCheckbox = NSButton(checkboxWithTitle: AppText.localized("打开书后自动生成向量索引", "Automatically build vector index after opening a book"), target: nil, action: nil)
@@ -393,7 +236,7 @@ final class AISettingsPanelController {
         testEmbeddingButton.translatesAutoresizingMaskIntoConstraints = false
 
         let cacheLabel = label(AppText.localized("AI 向量缓存", "AI Vector Cache"), size: 15, weight: .semibold, color: primaryText)
-        let cacheStatusLabel = label(vectorCacheStatusText(), size: settingsFontSize, color: secondaryText)
+        let cacheStatusLabel = label(AppText.localized("正在统计缓存...", "Calculating cache..."), size: settingsFontSize, color: secondaryText)
         let cacheDisclosureButton = NSButton(title: "", target: self, action: #selector(clearVectorCache(_:)))
         cacheDisclosureButton.isBordered = false
         cacheDisclosureButton.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: nil)
@@ -419,7 +262,7 @@ final class AISettingsPanelController {
         )
 
         let currentIndexLabel = label(AppText.localized("当前书索引", "Current Book Index"), size: 15, weight: .semibold, color: primaryText)
-        let currentIndexStatusLabel = label(currentVectorIndexStatus?() ?? AppText.localized("未打开文档", "No document open"), size: settingsFontSize, color: secondaryText)
+        let currentIndexStatusLabel = label(currentVectorIndexStatus?() ?? AppText.noPDF, size: settingsFontSize, color: secondaryText)
         currentIndexStatusLabel.maximumNumberOfLines = 2
         currentIndexStatusLabel.lineBreakMode = .byWordWrapping
         let startIndexButton = cacheActionButton(title: AppText.localized("开始/继续生成", "Start / Resume"), symbol: "play.circle", tint: NSColor(red: 0.00, green: 0.48, blue: 1.00, alpha: 1), target: self, action: #selector(startCurrentVectorIndex(_:)), isDark: isDark)
@@ -492,11 +335,11 @@ final class AISettingsPanelController {
 
         let keyTopWithCustom = keyLabel.topAnchor.constraint(equalTo: customModelContainer.bottomAnchor, constant: 22)
         let keyTopWithoutCustom = keyLabel.topAnchor.constraint(equalTo: modelPopup.bottomAnchor, constant: 34)
-        let labelColumnWidth: CGFloat = 110
-        let fieldWidth: CGFloat = 440
-        let formWidth: CGFloat = 672
-        let controlHeight: CGFloat = 40
-        let inputHeight: CGFloat = 36
+        let labelColumnWidth = layout.labelColumnWidth
+        let fieldWidth = layout.fieldWidth
+        let formWidth = layout.formWidth
+        let controlHeight = layout.controlHeight
+        let inputHeight = layout.inputHeight
         let embeddingModelTopWithCustomEndpoint = embeddingModelNameLabel.topAnchor.constraint(equalTo: embeddingEndpointContainer.bottomAnchor, constant: 10)
         let embeddingModelTopWithoutCustomEndpoint = embeddingModelNameLabel.topAnchor.constraint(equalTo: embeddingProviderPopup.bottomAnchor, constant: 8)
         keyTopWithCustomConstraint = keyTopWithCustom
@@ -761,8 +604,10 @@ final class AISettingsPanelController {
         self.currentIndexStatusLabel = currentIndexStatusLabel
         updateCustomModelFields(for: selectedModel.id)
         updateEmbeddingEndpointFields(for: selectedEmbeddingEndpoint.id, fillDefaults: false)
+        settingsTabChanged(index: initialTab.rawValue)
 
         installAppActivationObserver()
+        refreshVectorCacheStatus()
         startCacheRefreshTimer()
         showPanel(panel, attachedTo: window)
         DispatchQueue.main.async {
@@ -775,509 +620,6 @@ final class AISettingsPanelController {
         }
     }
 
-    private func showPanel(_ panel: NSWindow, attachedTo parent: NSWindow) {
-        ModalOverlayManager.shared.present(panel, attachedTo: parent)
-    }
 
-    private func installAppActivationObserver() {
-        removeAppActivationObserver()
-        appActivationObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.didBecomeActiveNotification,
-            object: NSApp,
-            queue: .main
-        ) { [weak self] _ in
-            self?.reactivatePanelIfNeeded()
-        }
-    }
 
-    private func removeAppActivationObserver() {
-        if let appActivationObserver {
-            NotificationCenter.default.removeObserver(appActivationObserver)
-            self.appActivationObserver = nil
-        }
-    }
-
-    private func reactivatePanelIfNeeded() {
-        guard let panel, panel.isVisible else { return }
-        ModalOverlayManager.shared.reactivate(panel)
-    }
-
-    private func centerPanel(_ panel: NSWindow, attachedTo parent: NSWindow) {
-        let parentFrame = parent.frame
-        let visibleFrame = parent.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
-        let origin = NSPoint(
-            x: parentFrame.midX - panel.frame.width / 2,
-            y: parentFrame.midY - panel.frame.height / 2
-        )
-        panel.setFrameOrigin(clampedPanelOrigin(origin, panelSize: panel.frame.size, visibleFrame: visibleFrame))
-    }
-
-    private func clampedPanelOrigin(_ origin: NSPoint, panelSize: NSSize, visibleFrame: NSRect?) -> NSPoint {
-        guard let visibleFrame else { return origin }
-        let minX = visibleFrame.minX + 12
-        let maxX = visibleFrame.maxX - panelSize.width - 12
-        let minY = visibleFrame.minY + 12
-        let maxY = visibleFrame.maxY - panelSize.height - 12
-        return NSPoint(
-            x: min(max(origin.x, minX), maxX),
-            y: min(max(origin.y, minY), maxY)
-        )
-    }
-
-    @objc private func save(_ sender: NSButton) {
-        guard let panel else { return }
-        guard saveCurrentSettings(in: panel) else { return }
-        closePanel(notifySaved: true)
-    }
-
-    private func saveCurrentSettings(in panel: NSWindow) -> Bool {
-        guard let modelPopup, let keyField = secureKeyField else { return false }
-        let modelID = modelPopup.selectedItem?.representedObject as? String ?? AISettingsStore.selectedModel.id
-        let customEndpoint = customEndpointField?.stringValue ?? ""
-        let customModelName = customModelField?.stringValue ?? ""
-        if modelID == AISettingsStore.customModelID, let error = AISettingsStore.customValidationError(endpoint: customEndpoint, modelName: customModelName) {
-            showValidationAlert(message: error, in: panel)
-            return false
-        }
-
-        if let rawLanguage = languagePopup?.selectedItem?.representedObject as? String,
-           let language = AppText.Language(rawValue: rawLanguage) {
-            AppText.selectedLanguage = language
-        }
-        if let rawTheme = themePopup?.selectedItem?.representedObject as? String,
-           let theme = ReaderTheme(rawValue: rawTheme) {
-            ReaderTheme.selected = theme
-        }
-        AISettingsStore.save(
-            modelID: modelID,
-            apiKey: keyField.stringValue,
-            customEndpoint: customEndpoint,
-            customModelName: customModelName
-        )
-        let embeddingEndpoint = selectedEmbeddingEndpointForSave()?.endpoint ?? (embeddingEndpointField?.stringValue ?? "")
-        AISettingsStore.saveEmbedding(
-            endpoint: embeddingEndpoint,
-            modelName: embeddingModelField?.stringValue ?? "",
-            apiKey: embeddingKeyField?.stringValue ?? ""
-        )
-        AISettingsStore.saveSpeakSelectedWordEnabled(speakSelectedWordCheckbox?.state == .on)
-        AISettingsStore.saveAIConversationEnabled(saveAIConversationCheckbox?.state == .on)
-        AISettingsStore.saveAutoEmbeddingIndexEnabled(autoEmbeddingIndexCheckbox?.state == .on)
-        return true
-    }
-
-    @objc private func cancel(_ sender: NSButton) {
-        closePanel(notifySaved: false)
-    }
-
-    @objc private func settingsSegmentChanged(_ sender: NSSegmentedControl) {
-        settingsTabChanged(index: sender.selectedSegment)
-    }
-
-    private func settingsTabChanged(index: Int) {
-        basicPage?.isHidden = index != 0
-        modelPage?.isHidden = index != 1
-        embeddingPage?.isHidden = index != 2
-        cachePage?.isHidden = index != 3
-        currentIndexStatusLabel?.stringValue = currentVectorIndexStatus?() ?? AppText.localized("未打开文档", "No document open")
-        if let scrollView = settingsScrollView {
-            scrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
-            scrollView.reflectScrolledClipView(scrollView.contentView)
-            scrollView.verticalScrollElasticity = index == 3 ? .allowed : .none
-            scrollView.hasVerticalScroller = index == 3
-        }
-    }
-
-    @objc private func startCurrentVectorIndex(_ sender: NSButton) {
-        guard let panel, saveCurrentSettings(in: panel) else { return }
-        onStartVectorIndex?()
-        refreshCurrentVectorIndexStatus()
-    }
-
-    @objc private func toggleCurrentVectorIndex(_ sender: NSButton) {
-        onToggleVectorIndexPaused?()
-        refreshCurrentVectorIndexStatus()
-    }
-
-    @objc private func cancelCurrentVectorIndex(_ sender: NSButton) {
-        onCancelVectorIndex?()
-        refreshCurrentVectorIndexStatus()
-    }
-
-    @objc private func clearCurrentVectorIndex(_ sender: NSButton) {
-        onClearCurrentVectorIndex?()
-        refreshCurrentVectorIndexStatus()
-        cacheStatusLabel?.stringValue = vectorCacheStatusText()
-    }
-
-    @objc private func clearCurrentWordRecords(_ sender: NSButton) {
-        onClearCurrentWordRecords?()
-    }
-
-    private func refreshCurrentVectorIndexStatus() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.currentIndexStatusLabel?.stringValue = self?.currentVectorIndexStatus?() ?? AppText.localized("未打开文档", "No document open")
-            self?.cacheStatusLabel?.stringValue = self?.vectorCacheStatusText() ?? ""
-        }
-    }
-
-    private func startCacheRefreshTimer() {
-        cacheRefreshTimer?.invalidate()
-        cacheRefreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
-            guard let self, self.panel?.isVisible == true else { return }
-            self.currentIndexStatusLabel?.stringValue = self.currentVectorIndexStatus?() ?? AppText.localized("未打开文档", "No document open")
-            self.cacheStatusLabel?.stringValue = self.vectorCacheStatusText()
-        }
-    }
-
-    private func closePanel(notifySaved: Bool) {
-        guard let panel, !isClosing else { return }
-        isClosing = true
-        shouldNotifySavedAfterClose = notifySaved
-        cacheRefreshTimer?.invalidate()
-        cacheRefreshTimer = nil
-        removeAppActivationObserver()
-        ModalOverlayManager.shared.dismiss(panel, attachedTo: parentWindow)
-        self.panel = nil
-        isClosing = false
-        let shouldNotifySaved = shouldNotifySavedAfterClose
-        shouldNotifySavedAfterClose = false
-        if shouldNotifySaved {
-            DispatchQueue.main.async { [weak self] in
-                self?.onSaved?()
-            }
-        }
-    }
-
-    @objc private func clearVectorCache(_ sender: NSButton) {
-        let alert = NSAlert()
-        alert.messageText = AppText.localized("清除 AI 向量缓存？", "Clear AI vector cache?")
-        alert.informativeText = AppText.localized(
-            "这会删除本机已缓存的文档向量索引。之后再次使用文档问答时，会按需重新生成。",
-            "This deletes locally cached document vector indexes. They will be regenerated on demand when document Q&A is used again."
-        )
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: AppText.localized("清除", "Clear"))
-        alert.addButton(withTitle: AppText.cancel)
-        guard let panel else { return }
-        alert.beginSheetModal(for: panel) { [weak self] response in
-            guard response == .alertFirstButtonReturn else { return }
-            PDFEmbeddingStore()?.deleteAll()
-            self?.cacheStatusLabel?.stringValue = self?.vectorCacheStatusText() ?? ""
-        }
-    }
-
-    @objc private func testChatConnection(_ sender: NSButton) {
-        guard let panel else { return }
-        guard saveCurrentSettings(in: panel) else { return }
-        sender.isEnabled = false
-        AIClient().send(messages: [
-            ChatMessage(role: "system", content: "Reply with OK only."),
-            ChatMessage(role: "user", content: "connection test")
-        ]) { [weak self, weak sender] result in
-            DispatchQueue.main.async {
-                sender?.isEnabled = true
-                self?.showConnectionResult(result, successMessage: AppText.localized("模型连接正常。", "Chat model connection works."))
-            }
-        }
-    }
-
-    @objc private func testEmbeddingConnection(_ sender: NSButton) {
-        guard let panel else { return }
-        guard saveCurrentSettings(in: panel) else { return }
-        guard let config = EmbeddingClient.configFromCurrentAISettings() else {
-            let result: Result<String, Error> = .failure(NSError(domain: "embedding", code: -1, userInfo: [
-                NSLocalizedDescriptionKey: AppText.localized("请先配置向量 API Key，或选择本地向量接口。", "Configure an embedding API key first, or choose a local embedding endpoint.")
-            ]))
-            showConnectionResult(result, successMessage: "")
-            return
-        }
-        sender.isEnabled = false
-        EmbeddingClient().embed(texts: ["Leaf Reader connection test."], config: config) { [weak self, weak sender] result in
-            DispatchQueue.main.async {
-                sender?.isEnabled = true
-                self?.showConnectionResult(result.map { "\($0.first?.count ?? 0)" }, successMessage: AppText.localized("向量连接正常。", "Embedding connection works."))
-            }
-        }
-    }
-
-    private func showConnectionResult<T>(_ result: Result<T, Error>, successMessage: String) {
-        let alert = NSAlert()
-        switch result {
-        case .success:
-            alert.messageText = AppText.localized("测试成功", "Test Succeeded")
-            alert.informativeText = successMessage
-            alert.alertStyle = .informational
-            alert.icon = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: nil)
-        case .failure(let error):
-            alert.messageText = AppText.localized("测试失败", "Test Failed")
-            alert.informativeText = error.localizedDescription
-            alert.alertStyle = .warning
-            alert.icon = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: nil)
-        }
-        alert.addButton(withTitle: AppText.confirm)
-        alert.window.appearance = NSAppearance(named: .aqua)
-        alert.window.backgroundColor = .white
-        if let panel {
-            alert.beginSheetModal(for: panel)
-        } else {
-            alert.runModal()
-        }
-    }
-
-    @objc private func modelChanged(_ sender: NSPopUpButton) {
-        guard let modelID = sender.selectedItem?.representedObject as? String,
-              let model = AISettingsStore.models.first(where: { $0.id == modelID }) else { return }
-        let key = AISettingsStore.apiKey(for: model)
-        secureKeyField?.stringValue = key
-        updateCustomModelFields(for: modelID)
-    }
-
-    @objc private func embeddingProviderChanged(_ sender: NSPopUpButton) {
-        guard let optionID = sender.selectedItem?.representedObject as? String else { return }
-        updateEmbeddingEndpointFields(for: optionID, fillDefaults: true)
-    }
-
-    private func updateCustomModelFields(for modelID: String) {
-        let visible = modelID == AISettingsStore.customModelID
-        customModelContainer?.isHidden = !visible
-        customEndpointLabel?.isHidden = !visible
-        customEndpointField?.isHidden = !visible
-        customModelLabel?.isHidden = !visible
-        customModelField?.isHidden = !visible
-        customEndpointField?.isEnabled = visible
-        customModelField?.isEnabled = visible
-        keyTopWithCustomConstraint?.isActive = visible
-        keyTopWithoutCustomConstraint?.isActive = !visible
-        panel?.contentView?.layoutSubtreeIfNeeded()
-    }
-
-    private func updateEmbeddingEndpointFields(for optionID: String, fillDefaults: Bool) {
-        guard let option = AISettingsStore.embeddingEndpointOptions.first(where: { $0.id == optionID }) else { return }
-        let isCustom = option.id == AISettingsStore.customEmbeddingEndpointID
-        embeddingEndpointContainer?.isHidden = !isCustom
-        embeddingEndpointLabel?.isHidden = !isCustom
-        embeddingEndpointField?.isHidden = !isCustom
-        embeddingEndpointField?.isEnabled = isCustom
-        embeddingModelTopWithCustomEndpointConstraint?.isActive = isCustom
-        embeddingModelTopWithoutCustomEndpointConstraint?.isActive = !isCustom
-
-        if isCustom {
-            if fillDefaults {
-                embeddingEndpointField?.stringValue = ""
-                embeddingModelField?.stringValue = ""
-                embeddingKeyField?.stringValue = ""
-            }
-        } else {
-            embeddingEndpointField?.stringValue = option.endpoint
-            if fillDefaults || embeddingModelField?.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
-                embeddingModelField?.stringValue = option.defaultModel
-            }
-        }
-        panel?.contentView?.layoutSubtreeIfNeeded()
-    }
-
-    private func selectedEmbeddingEndpointForSave() -> AISettingsStore.EmbeddingEndpointOption? {
-        guard let optionID = embeddingProviderPopup?.selectedItem?.representedObject as? String,
-              let option = AISettingsStore.embeddingEndpointOptions.first(where: { $0.id == optionID }) else {
-            return nil
-        }
-        if option.id == AISettingsStore.customEmbeddingEndpointID {
-            return AISettingsStore.EmbeddingEndpointOption(id: option.id, title: option.title, endpoint: embeddingEndpointField?.stringValue ?? "", defaultModel: "")
-        }
-        return option
-    }
-
-    private func showValidationAlert(message: String, in panel: NSWindow) {
-        let alert = NSAlert()
-        alert.messageText = AppText.localized("设置无效", "Invalid Settings")
-        alert.informativeText = message
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: AppText.confirm)
-        alert.beginSheetModal(for: panel)
-    }
-
-    private func vectorCacheStatusText() -> String {
-        guard let store = PDFEmbeddingStore() else {
-            return AppText.localized("缓存不可用", "Cache unavailable")
-        }
-        let size = formatBytes(store.cacheSizeBytes())
-        let count = store.documentCount()
-        return AppText.localized(
-            "当前占用 \(size)，已缓存 \(count) 本文档。超过 1GB 会自动删除最久未使用的文档缓存。",
-            "Using \(size), \(count) cached document(s). When it exceeds 1GB, the least recently used document cache is removed automatically."
-        )
-    }
-
-    private func formatBytes(_ bytes: Int64) -> String {
-        let units = ["B", "KB", "MB", "GB"]
-        var value = Double(bytes)
-        var index = 0
-        while value >= 1024, index < units.count - 1 {
-            value /= 1024
-            index += 1
-        }
-        if index == 0 {
-            return "\(Int(value)) \(units[index])"
-        }
-        return String(format: "%.1f %@", value, units[index])
-    }
-
-    private func label(_ text: String, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor) -> NSTextField {
-        let label = NSTextField(labelWithString: text)
-        label.font = AppFont.semibold(ofSize: size)
-        label.textColor = color
-        label.lineBreakMode = .byTruncatingTail
-        label.maximumNumberOfLines = 1
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }
-
-    private func inputField(_ text: String, placeholder: String, fontSize: CGFloat, textColor: NSColor, backgroundColor: NSColor) -> NSTextField {
-        let field = SettingsTextField(string: text)
-        field.placeholderString = placeholder
-        field.controlSize = .regular
-        field.font = AppFont.semibold(ofSize: fontSize)
-        field.isBordered = true
-        field.drawsBackground = true
-        field.isEditable = true
-        field.isSelectable = true
-        field.textColor = textColor
-        field.backgroundColor = backgroundColor
-        field.translatesAutoresizingMaskIntoConstraints = false
-        return field
-    }
-
-    private func comboField(items: [String], selected: String, placeholder: String, fontSize: CGFloat, textColor: NSColor, backgroundColor: NSColor) -> NSComboBox {
-        let comboBox = NSComboBox()
-        comboBox.addItems(withObjectValues: items)
-        comboBox.stringValue = selected.isEmpty ? placeholder : selected
-        comboBox.placeholderString = placeholder
-        comboBox.completes = true
-        comboBox.usesDataSource = false
-        comboBox.numberOfVisibleItems = min(8, max(1, items.count))
-        comboBox.controlSize = .regular
-        comboBox.font = AppFont.semibold(ofSize: fontSize)
-        comboBox.isBordered = true
-        comboBox.drawsBackground = true
-        comboBox.isEditable = true
-        comboBox.isSelectable = true
-        comboBox.textColor = textColor
-        comboBox.backgroundColor = backgroundColor
-        comboBox.translatesAutoresizingMaskIntoConstraints = false
-        return comboBox
-    }
-
-    private func configureKeyField(_ field: NSTextField, placeholder: String, fontSize: CGFloat, textColor: NSColor, backgroundColor: NSColor) {
-        field.placeholderString = placeholder
-        field.controlSize = .regular
-        field.font = AppFont.semibold(ofSize: fontSize)
-        field.isBordered = true
-        field.drawsBackground = true
-        field.isEditable = true
-        field.isSelectable = true
-        field.isEnabled = true
-        field.textColor = textColor
-        field.backgroundColor = backgroundColor
-        field.translatesAutoresizingMaskIntoConstraints = false
-    }
-
-    private func popup(items: [(String, String)], selected: String, fontSize: CGFloat) -> NSPopUpButton {
-        let popup = NSPopUpButton(frame: .zero, pullsDown: false)
-        popup.controlSize = .large
-        popup.font = AppFont.semibold(ofSize: fontSize)
-        popup.translatesAutoresizingMaskIntoConstraints = false
-        for item in items {
-            popup.addItem(withTitle: item.0)
-            popup.lastItem?.representedObject = item.1
-            popup.lastItem?.isEnabled = true
-        }
-        popup.isEnabled = true
-        popup.menu?.autoenablesItems = false
-        if let index = items.firstIndex(where: { $0.1 == selected }) {
-            popup.selectItem(at: index)
-        }
-        return popup
-    }
-
-    private func cacheActionButton(
-        title: String,
-        symbol: String,
-        tint: NSColor,
-        target: AnyObject,
-        action: Selector,
-        isDark: Bool
-    ) -> NSButton {
-        let button = NSButton(title: title, target: target, action: action)
-        button.isBordered = false
-        button.wantsLayer = true
-        button.layer?.backgroundColor = (isDark ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1) : .white).cgColor
-        button.layer?.borderWidth = 1
-        button.layer?.borderColor = (isDark
-            ? NSColor(red: 0.24, green: 0.29, blue: 0.36, alpha: 1)
-            : NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
-        ).cgColor
-        button.layer?.cornerRadius = 8
-        button.layer?.masksToBounds = true
-        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-        button.imagePosition = .imageLeft
-        button.imageScaling = .scaleProportionallyDown
-        button.contentTintColor = tint
-        button.font = AppFont.semibold(ofSize: 14)
-        button.attributedTitle = NSAttributedString(
-            string: title,
-            attributes: [
-                .font: AppFont.semibold(ofSize: 14),
-                .foregroundColor: isDark ? NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1) : NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
-            ]
-        )
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
-    }
-
-    private func settingsCard(isDark: Bool) -> NSView {
-        let view = NSView()
-        view.wantsLayer = true
-        view.layer?.backgroundColor = (isDark
-            ? NSColor(red: 0.08, green: 0.10, blue: 0.13, alpha: 1)
-            : NSColor(red: 0.985, green: 0.988, blue: 0.995, alpha: 1)
-        ).cgColor
-        view.layer?.borderWidth = 1
-        view.layer?.borderColor = (isDark
-            ? NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1)
-            : NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
-        ).cgColor
-        view.layer?.cornerRadius = 10
-        view.layer?.masksToBounds = true
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }
-
-    private func fieldBackground(isDark: Bool) -> NSColor {
-        isDark ? NSColor(red: 0.08, green: 0.10, blue: 0.13, alpha: 1) : .white
-    }
-
-    private func styleSettingsActionButton(
-        _ button: NSButton,
-        backgroundColor: NSColor,
-        titleColor: NSColor,
-        borderColor: NSColor
-    ) {
-        button.isBordered = false
-        button.wantsLayer = true
-        button.layer?.backgroundColor = backgroundColor.cgColor
-        button.layer?.cornerRadius = 8
-        button.layer?.borderWidth = 1
-        button.layer?.borderColor = borderColor.cgColor
-        button.layer?.masksToBounds = true
-        button.font = AppFont.semibold(ofSize: 14)
-        button.attributedTitle = NSAttributedString(
-            string: button.title,
-            attributes: [
-                .font: AppFont.semibold(ofSize: 14),
-                .foregroundColor: titleColor
-            ]
-        )
-        button.lineBreakMode = .byTruncatingTail
-    }
 }

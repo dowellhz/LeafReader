@@ -22,7 +22,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 Download the latest macOS installer:
 
-[Leaf Reader 1.3.1 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.3.1/LeafReader-1.3.1.pkg)
+[Leaf Reader 1.4 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4/LeafReader-1.4.pkg)
 
 ## Highlights
 
@@ -34,6 +34,15 @@ Download the latest macOS installer:
 - Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
+
+## What's New in 1.4
+
+- Reworked the book vocabulary panel with separate Learn, Review, New Words, and All tabs, paginated word lists, exports, and lower-case review cards.
+- Moved word records to SQLite with incremental upsert/delete persistence and production SQLite regression tests.
+- Improved drag-and-drop import behavior for one-book and multi-book drops, duplicate handling, bookshelf focus, and recent-reading sorting.
+- Added AI conversation trimming, debounced saves, preserved linked word bubbles, and page-jump diagnostics for navigation troubleshooting.
+- Fixed embedding provider defaults, SiliconFlow settings, provider-specific API keys, and faster vector scoring with cached embedding norms.
+- Split large AI, settings, vocabulary, and storage files into focused modules with broader regression coverage.
 
 ## What's New in 1.3.1
 
@@ -94,6 +103,7 @@ swiftc mac-app/*.swift \
   -framework PDFKit \
   -framework WebKit \
   -framework CryptoKit \
+  -framework AVFoundation \
   -lsqlite3
 ```
 
@@ -109,10 +119,19 @@ Then run it:
 open "Leaf Reader.app"
 ```
 
+## Tests
+
+Run the lightweight logic regression tests:
+
+```sh
+./tests/run.sh
+```
+
 ## Project Layout
 
 - `Leaf Reader.app` - generated macOS application bundle, ignored by git.
 - `mac-app/*.swift` - native Swift source code.
+- `tests/` - lightweight Swift logic regression tests.
 - `mac-app/AIPrompts.json` - built-in AI prompt definitions.
 - `mac-app/AppIcon.icns` - packaged app icon.
 - `mac-app/AppIconSource.png` - source image for the app icon.
@@ -126,18 +145,18 @@ open "Leaf Reader.app"
 
 ## Release
 
-Current version: `1.3.1`
+Current version: `1.4`
 
-Git tag: `v1.3.1`
+Git tag: `v1.4`
 
 Latest installer:
 
-[Leaf Reader-1.3.1.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.3.1/LeafReader-1.3.1.pkg)
+[Leaf Reader-1.4.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4/LeafReader-1.4.pkg)
 
 Local release artifacts are expected under:
 
 ```text
-release/1.3.1/
+release/1.4/
 ```
 
 ## Notes

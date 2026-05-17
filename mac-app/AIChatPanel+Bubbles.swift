@@ -1,0 +1,481 @@
+import Cocoa
+
+extension AIChatPanel {
+    @discardableResult
+    func appendBubble(
+        role: String,
+        text: String,
+        collapsible: Bool = false,
+        renderMarkdown: Bool = true,
+        linkID: String? = nil,
+        sourceLocation: AIConversationSourceLocation? = nil
+    ) -> NSTextField {
+        let box = ChatBubbleView()
+        box.fillColor = bubbleFillColor(role: role)
+        box.borderColor = bubbleBorderColor
+        box.cornerRadius = 8
+        box.translatesAutoresizingMaskIntoConstraints = false
+
+        let body = ChatBubbleTextField(wrappingLabelWithString: "")
+        body.attributedStringValue = bubbleString(role: role, text: text, renderMarkdown: renderMarkdown)
+        body.maximumNumberOfLines = collapsible ? 1 : 0
+        body.isSelectable = true
+        body.allowsEditingTextAttributes = true
+        body.delegate = self
+        body.onInteractionEnded = { [weak self] bubble in
+            self?.restoreBubbleRendering(bubble)
+        }
+        body.translatesAutoresizingMaskIntoConstraints = false
+        let bodyID = UUID().uuidString
+        body.identifier = NSUserInterfaceItemIdentifier(bodyID)
+        if let linkID,
+           role == AppText.userRole,
+           !isSingleEnglishWord(vocabularyWord(from: text)) {
+            persistentLearningLinkIDs.insert(linkID)
+        }
+        let effectiveSourceLocation = sourceLocation ?? defaultSourceLocation(role: role, text: text, linkID: linkID)
+        bubbleMetadataByID[bodyID] = BubbleMetadata(
+            role: role,
+            text: text,
+            renderMarkdown: renderMarkdown,
+            collapsible: collapsible,
+            linkID: linkID,
+            sourceLocation: effectiveSourceLocation
+        )
+
+        box.addSubview(body)
+        let speakerButton: NSButton?
+        if let word = speakerWordForBubble(role: role, text: text, linkID: linkID) {
+            let button = WordSpeakerButton(title: "", target: self, action: #selector(playBubbleWord(_:)))
+            button.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: AppText.localized("播放发音", "Play pronunciation"))
+            button.isBordered = false
+            button.contentTintColor = NSColor.systemBlue
+            button.imageScaling = .scaleProportionallyDown
+            button.imagePosition = .imageOnly
+            button.identifier = NSUserInterfaceItemIdentifier(word)
+            button.spokenWord = word
+            button.toolTip = AppText.localized("播放单词发音", "Play word pronunciation")
+            button.translatesAutoresizingMaskIntoConstraints = false
+            box.addSubview(button)
+            speakerButton = button
+            body.setContentHuggingPriority(.required, for: .horizontal)
+            body.setContentCompressionResistancePriority(.required, for: .horizontal)
+        } else {
+            speakerButton = nil
+        }
+        transcriptStack.addArrangedSubview(box)
+        if let linkID {
+            box.identifier = NSUserInterfaceItemIdentifier(linkID)
+            if bubbleBoxByLinkID[linkID] == nil || speakerButton != nil {
+                bubbleBoxByLinkID[linkID] = box
+            }
+            if speakerButton == nil {
+                box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(selectLinkedBubble(_:))))
+                box.toolTip = AppText.localized("跳转到原文位置", "Jump to source location")
+            }
+        } else if effectiveSourceLocation != nil {
+            box.identifier = NSUserInterfaceItemIdentifier(bodyID)
+            box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(selectConversationSourceBubble(_:))))
+            box.toolTip = AppText.localized("跳转到记录位置", "Jump to saved location")
+        } else if collapsible {
+            box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(toggleCollapsedBubble(_:))))
+            box.toolTip = AppText.tapToExpand
+        }
+
+        var constraints: [NSLayoutConstraint] = [
+            box.widthAnchor.constraint(equalTo: transcriptStack.widthAnchor),
+            body.topAnchor.constraint(equalTo: box.topAnchor, constant: 12),
+            body.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 12),
+            body.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -12)
+        ]
+        if let speakerButton {
+            constraints.append(contentsOf: [
+                body.trailingAnchor.constraint(lessThanOrEqualTo: box.trailingAnchor, constant: -78),
+                speakerButton.leadingAnchor.constraint(equalTo: body.trailingAnchor, constant: 2),
+                speakerButton.trailingAnchor.constraint(lessThanOrEqualTo: box.trailingAnchor, constant: -12),
+                speakerButton.centerYAnchor.constraint(equalTo: body.centerYAnchor),
+                speakerButton.widthAnchor.constraint(equalToConstant: 54),
+                speakerButton.heightAnchor.constraint(equalToConstant: 54)
+            ])
+        } else {
+            constraints.append(body.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -12))
+        }
+        NSLayoutConstraint.activate(constraints)
+
+        if shouldPersistBubble(role: role, text: text, linkID: linkID) {
+            persistentBubbleIDs.append(bodyID)
+            trimVisibleNormalConversationBubblesIfNeeded()
+        }
+        notifyConversationChangedIfNeeded()
+
+        DispatchQueue.main.async { [weak self, weak box] in
+            guard let self = self, let box = box else { return }
+            self.transcriptStack.layoutSubtreeIfNeeded()
+            box.scrollToVisible(box.bounds)
+        }
+        return body
+    }
+
+    func trimVisibleNormalConversationBubblesIfNeeded() {
+        let normalBubbleIDs = persistentBubbleIDs.filter { bodyID in
+            guard let metadata = bubbleMetadataByID[bodyID] else { return false }
+            return metadata.linkID == nil
+        }
+        let excessCount = normalBubbleIDs.count - Self.maxVisibleNormalConversationBubbles
+        guard excessCount > 0 else { return }
+
+        let activeBodyID = activeAssistantBody?.identifier?.rawValue
+        for bodyID in normalBubbleIDs.prefix(excessCount) where bodyID != activeBodyID {
+            removeConversationBubble(bodyID: bodyID)
+        }
+    }
+
+    func removeConversationBubble(bodyID: String) {
+        guard let metadata = bubbleMetadataByID[bodyID],
+              metadata.linkID == nil else { return }
+        for view in transcriptStack.arrangedSubviews {
+            guard let box = view as? ChatBubbleView,
+                  box.subviews.contains(where: { ($0 as? NSTextField)?.identifier?.rawValue == bodyID }) else {
+                continue
+            }
+            transcriptStack.removeArrangedSubview(box)
+            box.removeFromSuperview()
+            break
+        }
+        bubbleMetadataByID.removeValue(forKey: bodyID)
+        persistentBubbleIDs.removeAll { $0 == bodyID }
+    }
+
+    func speakerWordForBubble(role: String, text: String, linkID: String?) -> String? {
+        guard linkID != nil, role == AppText.userRole else { return nil }
+        let rawWord = vocabularyWord(from: text)
+        return isSingleEnglishWord(rawWord) ? rawWord : nil
+    }
+
+    @objc func playBubbleWord(_ sender: NSButton) {
+        let candidate = (sender as? WordSpeakerButton)?.spokenWord ?? sender.identifier?.rawValue
+        guard let word = candidate,
+              isSingleEnglishWord(word) else {
+            return
+        }
+        speakWord(word)
+    }
+
+    func updateBubble(_ body: NSTextField, role: String, text: String, renderMarkdown: Bool = true) {
+        let existingMetadata = body.identifier.flatMap { bubbleMetadataByID[$0.rawValue] }
+        if let bodyID = body.identifier?.rawValue {
+            bubbleMetadataByID[bodyID] = BubbleMetadata(
+                role: role,
+                text: text,
+                renderMarkdown: renderMarkdown,
+                collapsible: existingMetadata?.collapsible ?? false,
+                linkID: existingMetadata?.linkID,
+                sourceLocation: existingMetadata?.sourceLocation
+            )
+        }
+        body.attributedStringValue = bubbleString(role: role, text: text, renderMarkdown: renderMarkdown)
+        body.invalidateIntrinsicContentSize()
+        body.superview?.invalidateIntrinsicContentSize()
+        transcriptStack.layoutSubtreeIfNeeded()
+        body.superview?.scrollToVisible(body.superview?.bounds ?? body.bounds)
+        notifyConversationChangedIfNeeded()
+    }
+
+    func savedConversation() -> SavedAIConversation {
+        let normalBubbleIDs = persistentBubbleIDs.filter { bodyID in
+            guard let metadata = bubbleMetadataByID[bodyID] else { return false }
+            return metadata.linkID == nil
+        }
+        let linkedBubbleIDs = persistentBubbleIDs.filter { bodyID in
+            guard let metadata = bubbleMetadataByID[bodyID] else { return false }
+            return metadata.linkID != nil
+        }
+        let savedBubbleIDs = linkedBubbleIDs + Array(normalBubbleIDs.suffix(Self.maxSavedConversationBubbles))
+        let bubbles = savedBubbleIDs.compactMap { bubbleMetadataByID[$0] }.map {
+            SavedAIConversationBubble(
+                role: $0.role,
+                text: $0.text,
+                collapsible: $0.collapsible,
+                renderMarkdown: $0.renderMarkdown,
+                sourceLocation: $0.sourceLocation
+            )
+        }
+        return SavedAIConversation(bubbles: bubbles)
+    }
+
+    func defaultSourceLocation(role: String, text: String, linkID: String?) -> AIConversationSourceLocation? {
+        guard shouldPersistBubble(role: role, text: text, linkID: linkID) else { return nil }
+        return onCurrentSourceLocation?()
+    }
+
+    func shouldPersistBubble(role: String, text: String, linkID: String?) -> Bool {
+        guard !isLoadingLinkedWordBubbles else { return false }
+        if let linkID, !persistentLearningLinkIDs.contains(linkID) {
+            return false
+        }
+        return role == AppText.userRole || role == AppText.aiRole || role == AppText.errorRole
+    }
+
+    func notifyConversationChangedIfNeeded() {
+        guard !isRestoringSavedConversation else { return }
+        onConversationChanged?(savedConversation())
+    }
+
+    func restoreBubbleRendering(_ body: NSTextField) {
+        guard let bodyID = body.identifier?.rawValue,
+              let metadata = bubbleMetadataByID[bodyID] else {
+            return
+        }
+        body.attributedStringValue = bubbleString(
+            role: metadata.role,
+            text: metadata.text,
+            renderMarkdown: metadata.renderMarkdown
+        )
+        body.invalidateIntrinsicContentSize()
+        body.superview?.invalidateIntrinsicContentSize()
+        transcriptStack.layoutSubtreeIfNeeded()
+    }
+
+    func scheduleStreamUpdate(_ body: NSTextField, text: String) {
+        pendingStreamText = text
+        guard streamUpdateWorkItem == nil else { return }
+        let workItem = DispatchWorkItem { [weak self, weak body] in
+            guard let self, let body else { return }
+            self.streamUpdateWorkItem = nil
+            self.updateBubble(body, role: AppText.aiRole, text: self.pendingStreamText)
+        }
+        streamUpdateWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
+    }
+
+    func flushStreamUpdate(_ body: NSTextField?) {
+        streamUpdateWorkItem?.cancel()
+        streamUpdateWorkItem = nil
+        guard let body, !pendingStreamText.isEmpty else { return }
+        updateBubble(body, role: AppText.aiRole, text: pendingStreamText)
+    }
+
+    func bubbleString(role: String, text: String, renderMarkdown: Bool) -> NSAttributedString {
+        if role == AppText.userRole, isVocabularyBubbleTitle(text) {
+            return vocabularyTitleString(text)
+        }
+        return role == AppText.aiRole && renderMarkdown ? markdownString(text) : plainString(text)
+    }
+
+    @objc func toggleCollapsedBubble(_ recognizer: NSClickGestureRecognizer) {
+        guard
+            let box = recognizer.view as? ChatBubbleView,
+            let body = box.subviews.compactMap({ $0 as? NSTextField }).first
+        else { return }
+
+        body.maximumNumberOfLines = body.maximumNumberOfLines == 1 ? 0 : 1
+        body.invalidateIntrinsicContentSize()
+        box.invalidateIntrinsicContentSize()
+        transcriptStack.layoutSubtreeIfNeeded()
+        box.scrollToVisible(box.bounds)
+    }
+
+    @objc func selectLinkedBubble(_ recognizer: NSClickGestureRecognizer) {
+        guard let box = recognizer.view as? ChatBubbleView,
+              !isClickOnBubbleButton(recognizer, in: box),
+              let linkID = box.identifier?.rawValue else { return }
+        selectedLinkID = linkID
+        updateLinkedBubbleSelection()
+        onLinkedBubbleSelected?(linkID)
+    }
+
+    @objc func selectConversationSourceBubble(_ recognizer: NSClickGestureRecognizer) {
+        guard let box = recognizer.view as? ChatBubbleView,
+              !isClickOnBubbleButton(recognizer, in: box),
+              let bodyID = box.identifier?.rawValue,
+              let sourceLocation = bubbleMetadataByID[bodyID]?.sourceLocation else {
+            return
+        }
+        onConversationBubbleSelected?(sourceLocation)
+    }
+
+    func isClickOnBubbleButton(_ recognizer: NSClickGestureRecognizer, in box: ChatBubbleView) -> Bool {
+        let location = recognizer.location(in: box)
+        return box.subviews.contains { subview in
+            subview is NSButton && subview.frame.contains(location)
+        }
+    }
+
+    func updateLinkedBubbleSelection() {
+        for (linkID, box) in bubbleBoxByLinkID {
+            box.borderColor = linkID == selectedLinkID
+                ? NSColor.systemBlue.withAlphaComponent(0.9)
+                : bubbleBorderColor
+            box.needsDisplay = true
+        }
+    }
+
+    func scrollTranscriptToTop(of box: NSView) {
+        transcriptStack.layoutSubtreeIfNeeded()
+        guard let documentView = scrollView.documentView else {
+            box.scrollToVisible(box.bounds)
+            return
+        }
+        let boxFrame = box.convert(box.bounds, to: documentView)
+        let clipView = scrollView.contentView
+        var origin = clipView.bounds.origin
+        origin.y = min(
+            max(0, boxFrame.minY - 8),
+            max(0, documentView.bounds.height - clipView.bounds.height)
+        )
+        origin.x = 0
+        clipView.animator().setBoundsOrigin(origin)
+        scrollView.reflectScrolledClipView(clipView)
+    }
+
+    func plainString(_ text: String) -> NSAttributedString {
+        NSAttributedString(string: text, attributes: [
+            .font: NSFont.systemFont(ofSize: Self.readerBodyFontSize),
+            .foregroundColor: primaryTextColor,
+            .paragraphStyle: paragraphStyle(spacing: 8)
+        ])
+    }
+
+    func vocabularyBubbleTitle(for word: String) -> String {
+        "\(AppText.localized("单词", "Word"))：\(word.trimmingCharacters(in: .whitespacesAndNewlines))"
+    }
+
+    func isVocabularyBubbleTitle(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.hasPrefix("单词：")
+            || normalized.hasPrefix("单词:")
+            || normalized.lowercased().hasPrefix("word:")
+            || isSingleEnglishWord(normalized)
+    }
+
+    func vocabularyWord(from text: String) -> String {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        for separator in ["：", ":"] {
+            if let range = normalized.range(of: separator) {
+                return String(normalized[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        return normalized
+    }
+
+    func vocabularyTitleString(_ text: String) -> NSAttributedString {
+        NSAttributedString(string: text, attributes: [
+            .font: AppFont.semibold(ofSize: Self.readerBodyFontSize),
+            .foregroundColor: primaryTextColor,
+            .paragraphStyle: paragraphStyle(spacing: 8)
+        ])
+    }
+
+    func markdownString(_ text: String) -> NSAttributedString {
+        MarkdownRenderer.render(text, fontSize: Self.readerBodyFontSize, textColor: primaryTextColor)
+    }
+
+    func paragraphStyle(spacing: CGFloat, headIndent: CGFloat = 0, firstLineHeadIndent: CGFloat? = nil) -> NSParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.lineSpacing = 5
+        style.paragraphSpacing = spacing
+        style.headIndent = headIndent
+        style.firstLineHeadIndent = firstLineHeadIndent ?? headIndent
+        return style
+    }
+
+    var panelBackgroundColor: NSColor {
+        isDarkMode
+            ? NSColor(red: 0.07, green: 0.09, blue: 0.11, alpha: 0.96)
+            : NSColor.white.withAlphaComponent(0.97)
+    }
+
+    var primaryTextColor: NSColor {
+        isDarkMode
+            ? NSColor(red: 0.78, green: 0.81, blue: 0.86, alpha: 1)
+            : NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
+    }
+
+    var secondaryTextColor: NSColor {
+        isDarkMode
+            ? NSColor(red: 0.55, green: 0.60, blue: 0.68, alpha: 1)
+            : NSColor(red: 0.42, green: 0.44, blue: 0.49, alpha: 1)
+    }
+
+    var inputBackgroundColor: NSColor {
+        isDarkMode
+            ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+            : NSColor(red: 0.93, green: 0.94, blue: 0.95, alpha: 1)
+    }
+
+    var bubbleBorderColor: NSColor {
+        isDarkMode
+            ? NSColor(red: 0.22, green: 0.26, blue: 0.32, alpha: 1)
+            : NSColor(red: 0.87, green: 0.89, blue: 0.92, alpha: 1)
+    }
+
+    func bubbleFillColor(role: String) -> NSColor {
+        guard isDarkMode else {
+            return role == AppText.userRole ? NSColor(red: 0.92, green: 0.96, blue: 1, alpha: 1) : .white
+        }
+        return role == AppText.userRole
+            ? NSColor(red: 0.12, green: 0.18, blue: 0.28, alpha: 1)
+            : NSColor(red: 0.08, green: 0.10, blue: 0.13, alpha: 1)
+    }
+
+    func restyleTranscript() {
+        let entries = transcriptStack.arrangedSubviews.compactMap { view -> BubbleMetadata? in
+            guard
+                let box = view as? NSBox,
+                let body = box.subviews.compactMap({ $0 as? NSTextField }).first,
+                let bodyID = body.identifier?.rawValue,
+                let metadata = bubbleMetadataByID[bodyID]
+            else {
+                return nil
+            }
+            return metadata
+        }
+
+        if !entries.isEmpty {
+            transcriptStack.arrangedSubviews.forEach { view in
+                transcriptStack.removeArrangedSubview(view)
+                view.removeFromSuperview()
+            }
+            bubbleMetadataByID.removeAll()
+            for metadata in entries {
+                appendBubble(
+                    role: metadata.role,
+                    text: metadata.text,
+                    collapsible: metadata.collapsible,
+                    renderMarkdown: metadata.renderMarkdown,
+                    linkID: metadata.linkID,
+                    sourceLocation: metadata.sourceLocation
+                )
+            }
+            updateLinkedBubbleSelection()
+            return
+        }
+
+        for box in transcriptStack.arrangedSubviews.compactMap({ $0 as? ChatBubbleView }) {
+            box.borderColor = bubbleBorderColor
+            guard let body = box.subviews.compactMap({ $0 as? NSTextField }).first else { continue }
+            let metadata: BubbleMetadata?
+            if let bodyID = body.identifier?.rawValue {
+                metadata = bubbleMetadataByID[bodyID]
+            } else {
+                metadata = nil
+            }
+            let role = metadata?.role ?? AppText.aiRole
+            let fillColor = bubbleFillColor(role: role)
+            box.fillColor = fillColor
+            if let metadata {
+                body.attributedStringValue = bubbleString(role: metadata.role, text: metadata.text, renderMarkdown: metadata.renderMarkdown)
+            } else {
+                box.fillColor = bubbleFillColor(role: AppText.aiRole)
+                let updated = NSMutableAttributedString(attributedString: body.attributedStringValue)
+                updated.addAttribute(.foregroundColor, value: primaryTextColor, range: NSRange(location: 0, length: updated.length))
+                body.attributedStringValue = updated
+            }
+            box.needsDisplay = true
+            body.needsDisplay = true
+        }
+        updateLinkedBubbleSelection()
+        transcriptStack.needsLayout = true
+        transcriptStack.layoutSubtreeIfNeeded()
+    }
+}

@@ -1,3 +1,4 @@
+import AVFoundation
 import Cocoa
 import CryptoKit
 import PDFKit
@@ -20,11 +21,13 @@ final class ClickEditableTextField: NSTextField {
 
 final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     struct VocabularyExportRecord {
+        let ids: [String]
         let word: String
         let answer: String
         let location: String
         let context: String
         let createdAt: Date
+        let srs: VocabularySRSState
     }
 
     struct PendingPDFWordRecord {
@@ -44,6 +47,14 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let createdAt: Date
     }
 
+    struct PageJumpDiagnosticEntry {
+        let date: Date
+        let source: String
+        let beforePageIndex: Int?
+        let afterPageIndex: Int?
+        let detail: String
+    }
+
     static let preferredAIWidthDefaultsKey = "preferredAIWidth"
     static let pdfTwoPageModeDefaultsKey = "pdfTwoPageMode"
     static let fileMD5CacheDefaultsKey = "fileMD5Cache"
@@ -56,6 +67,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let pdfContainer = ClippingView()
     let pdfDimOverlay = PassthroughOverlayView()
     let aiPanel = AIChatPanel()
+    let vocabularySpeechSynthesizer = AVSpeechSynthesizer()
     let aiHandleButton = SideHandleButton(title: "", target: nil, action: nil)
     let resizeHandle = ResizeHandleView()
     let titleLabel = NSTextField(labelWithString: "Leaf Reader")
@@ -87,7 +99,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var currentWebSelectedText = ""
     var currentWebSelectionContext = ""
     var currentTOCItems: [ReaderTOCItem] = []
-    var pdfTOCDestinations: [String: PDFDestination] = [:]
+    var pdfTOCDestinations: [String: ReaderTOCHelper.PDFTOCDestination] = [:]
     var pdfTOCGeneration = 0
     var webZoomPercent = 100
     var webScrollProgress: Double = 0
@@ -97,6 +109,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var didTurnPageForCurrentPDFTrackpadGesture = false
     var lastPDFTrackpadEdgeDirection: EdgePagingPDFView.ScrollPageDirection?
     var lastPageIndex: Int?
+    var pageJumpDiagnostics: [PageJumpDiagnosticEntry] = []
     var searchResults: [PDFSelection] = []
     var searchResultIndex = 0
     var lastSearchQuery = ""
@@ -104,7 +117,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var isBuildingDocumentAgentIndex = false
     var documentAgentIndexGeneration = 0
     var pendingDocumentAgentIndexCallbacks: [() -> Void] = []
-    var pdfEmbeddingStore = PDFEmbeddingStore()
+    lazy var pdfEmbeddingStore = PDFEmbeddingStore()
+    let embeddingStoreQueue = DispatchQueue(label: "com.linlu.leafreader.embedding-store", qos: .utility)
     let embeddingClient = EmbeddingClient()
     let retrievalQueryClient = AIClient()
     var isPreparingPDFEmbeddings = false
@@ -116,7 +130,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var scheduledEmbeddingCacheRestoreWorkItem: DispatchWorkItem?
     var scheduledEmbeddingWarmupWorkItem: DispatchWorkItem?
     var lastReaderInteractionAt = Date()
-    var pendingSessionSaveWorkItem: DispatchWorkItem?
+    let sessionSaveTask = DebouncedTask(delay: 0.35)
     var suppressSearchSelectionForAIUntil = Date.distantPast
     var highlightedSelectionKeys = Set<String>()
     var storedWordRecords: [StoredPDFWordRecord] = []
@@ -125,7 +139,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var storedWebWordRecords: [StoredWebWordRecord] = []
     var pendingWebWordRecords: [String: PendingWebWordRecord] = [:]
     var webWordRecordStore: WebWordRecordStore?
+    let pdfWordRecordsSaveTask = DebouncedTask(delay: 0.8)
+    let webWordRecordsSaveTask = DebouncedTask(delay: 0.8)
     var aiConversationStore: AIConversationStore?
+    var pendingAIConversationToSave: SavedAIConversation?
+    let aiConversationSaveTask = DebouncedTask(delay: 1.0)
     var currentVocabularyExportRecords: [VocabularyExportRecord] = []
     var didRegisterSelectionObserver = false
     var isRestoringSession = false
@@ -137,6 +155,18 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var recentDocumentsPanelController: RecentDocumentsPanelController?
     weak var vocabularyPanel: NSWindow?
     var vocabularyPanelActivationObserver: NSObjectProtocol?
+    var vocabularyReviewFilter: VocabularyFilter = .due
+    var vocabularyReviewIndex = 0
+    var vocabularyListPageIndex = 0
+    var vocabularyReviewContextShown = false
+    var vocabularyReviewAnswerShown = false
+    var vocabularyListModeEnabled = false
+    var vocabularyReviewCardKey: String?
+    var vocabularyReviewCardShownAt = Date()
+    var vocabularyReviewAnswerShownAt: Date?
+    var vocabularyReviewDidScoreCurrentCard = false
+    var vocabularyReviewBatchKeys: [String] = []
+    var vocabularyReviewUndoSRSByID: [String: VocabularySRSState] = [:]
     var aiHandleLeadingConstraint: NSLayoutConstraint!
     var aiPanelWidthConstraint: NSLayoutConstraint!
     var localEventMonitor: Any?
@@ -177,6 +207,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         if let localEventMonitor {
             NSEvent.removeMonitor(localEventMonitor)
         }
+        sessionSaveTask.cancel()
+        aiConversationSaveTask.cancel()
+        pdfWordRecordsSaveTask.cancel()
+        webWordRecordsSaveTask.cancel()
         removeVocabularyPanelActivationObserver()
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "selectionChanged")
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "scrollChanged")

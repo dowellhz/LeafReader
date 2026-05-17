@@ -80,4 +80,11 @@ struct ReaderSessionStore {
         defaults.set(scrollProgress, forKey: progressKey)
         defaults.set(zoomPercent, forKey: zoomKey)
     }
+
+    func clearProgress() {
+        for suffix in ["pageIndex", "scale", "webProgress", "webZoom"] {
+            guard let key = key(suffix) else { continue }
+            defaults.removeObject(forKey: key)
+        }
+    }
 }

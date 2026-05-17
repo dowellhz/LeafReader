@@ -246,7 +246,7 @@ final class ResizeHandleView: NSView {
 }
 
 final class ClippingView: NSView {
-    var onDroppedDocumentURL: ((URL) -> Void)?
+    var onDroppedDocumentURLs: (([URL]) -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -269,8 +269,8 @@ final class ClippingView: NSView {
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        ReaderFileDrop.perform(sender) { [weak self] url in
-            self?.onDroppedDocumentURL?(url)
+        ReaderFileDrop.perform(sender) { [weak self] urls in
+            self?.onDroppedDocumentURLs?(urls)
         }
     }
 }

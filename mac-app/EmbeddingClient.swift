@@ -5,6 +5,9 @@ struct EmbeddingModelConfig {
     let endpoint: URL
     let model: String
     let apiKey: String
+    let requiresAPIKey: Bool
+    let maxInputCharacters: Int
+    let payloadExtras: [String: String]
 
     var cacheModelID: String {
         "\(provider):\(model):\(endpoint.absoluteString)"
@@ -14,19 +17,23 @@ struct EmbeddingModelConfig {
 final class EmbeddingClient {
     static func configFromCurrentAISettings() -> EmbeddingModelConfig? {
         let endpoint = AISettingsStore.embeddingEndpoint
+        let endpointOption = AISettingsStore.selectedEmbeddingEndpointOption
         let apiKey = AISettingsStore.embeddingAPIKey
-        guard !apiKey.isEmpty || endpoint.isLocalEmbeddingEndpoint else { return nil }
+        guard !endpointOption.requiresAPIKey || !apiKey.isEmpty else { return nil }
 
         return EmbeddingModelConfig(
-            provider: AISettingsStore.embeddingProviderID,
+            provider: endpointOption.id,
             endpoint: endpoint,
             model: AISettingsStore.embeddingModelName,
-            apiKey: apiKey
+            apiKey: apiKey,
+            requiresAPIKey: endpointOption.requiresAPIKey,
+            maxInputCharacters: endpointOption.maxInputCharacters,
+            payloadExtras: endpointOption.payloadExtras
         )
     }
 
     func embed(texts: [String], config: EmbeddingModelConfig, completion: @escaping (Result<[[Float]], Error>) -> Void) {
-        let cleanedTexts = texts.map { String($0.prefix(6000)) }
+        let cleanedTexts = texts.map { String($0.prefix(config.maxInputCharacters)) }
         guard !cleanedTexts.isEmpty else {
             completion(.success([]))
             return
@@ -91,10 +98,14 @@ final class EmbeddingClient {
             ]
         }
 
-        return [
+        var payload: [String: Any] = [
             "model": config.model,
             "input": texts
         ]
+        for (key, value) in config.payloadExtras {
+            payload[key] = value
+        }
+        return payload
     }
 
     private func parseEmbeddings(from json: [String: Any]?, expectedCount: Int, config: EmbeddingModelConfig) -> [[Float]]? {
@@ -135,12 +146,5 @@ final class EmbeddingClient {
             return values.map { $0.floatValue }
         }
         return nil
-    }
-}
-
-private extension URL {
-    var isLocalEmbeddingEndpoint: Bool {
-        guard let host = host?.lowercased() else { return false }
-        return host == "localhost" || host == "127.0.0.1" || host == "::1"
     }
 }

@@ -24,30 +24,44 @@ enum ReaderFileDrop {
         canAcceptFileDrag(from: sender.draggingPasteboard) ? .copy : []
     }
 
-    static func perform(_ sender: NSDraggingInfo, open: (URL) -> Void) -> Bool {
-        guard let url = supportedFileURL(from: sender.draggingPasteboard) else { return false }
-        open(url)
+    static func perform(_ sender: NSDraggingInfo, open: ([URL]) -> Void) -> Bool {
+        let urls = supportedFileURLs(from: sender.draggingPasteboard)
+        guard !urls.isEmpty else { return false }
+        open(urls)
         return true
     }
 
     private static func canAcceptFileDrag(from pasteboard: NSPasteboard) -> Bool {
-        if supportedFileURL(from: pasteboard) != nil {
+        if !supportedFileURLs(from: pasteboard).isEmpty {
             return true
         }
         guard let types = pasteboard.types else { return false }
         return types.contains { pasteboardTypes.contains($0) }
     }
 
-    private static func supportedFileURL(from pasteboard: NSPasteboard) -> URL? {
-        let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
-        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL] ?? []
-        if let url = urls.first(where: isSupportedDocumentURL) {
-            return url
+    private static func supportedFileURLs(from pasteboard: NSPasteboard) -> [URL] {
+        var results: [URL] = []
+        var seenPaths = Set<String>()
+
+        func append(_ url: URL) {
+            let fileURL = url.isFileURL ? url : URL(fileURLWithPath: url.path)
+            guard isSupportedDocumentURL(fileURL) else { return }
+            let path = fileURL.standardizedFileURL.path
+            guard !seenPaths.contains(path) else { return }
+            seenPaths.insert(path)
+            results.append(fileURL)
         }
 
-        if let paths = pasteboard.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String],
-           let path = paths.first(where: { isSupportedDocumentURL(URL(fileURLWithPath: $0)) }) {
-            return URL(fileURLWithPath: path)
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL] ?? []
+        for url in urls {
+            append(url)
+        }
+
+        if let paths = pasteboard.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String] {
+            for path in paths {
+                append(URL(fileURLWithPath: path))
+            }
         }
 
         for type in [.fileURL, NSPasteboard.PasteboardType("public.file-url"), .URL, NSPasteboard.PasteboardType("public.url"), .string] {
@@ -58,13 +72,11 @@ enum ReaderFileDrop {
                 .filter { !$0.isEmpty }
             for candidate in candidates {
                 let url = URL(string: candidate) ?? URL(fileURLWithPath: candidate)
-                if isSupportedDocumentURL(url) {
-                    return url
-                }
+                append(url)
             }
         }
 
-        return nil
+        return results
     }
 
     private static func isSupportedDocumentURL(_ url: URL) -> Bool {

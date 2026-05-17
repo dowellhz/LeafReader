@@ -22,8 +22,8 @@ final class ReaderDropContentView: NSView {
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        ReaderFileDrop.perform(sender) { [weak self] url in
-            self?.readerWindowController?.loadDocument(url)
+        ReaderFileDrop.perform(sender) { [weak self] urls in
+            self?.readerWindowController?.handleDroppedDocumentURLs(urls)
         }
     }
 }

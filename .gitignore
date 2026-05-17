@@ -7,6 +7,7 @@
 *.app/
 
 # Local build outputs
+.build/
 mac-app/Leaf Reader
 mac-app/PDFReader
 mac-app/IconBuilder

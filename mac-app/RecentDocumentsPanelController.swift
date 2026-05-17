@@ -68,14 +68,48 @@ private final class RecentBookCardView: NSView {
     }
 }
 
+private final class RecentDocumentsDropContentView: NSView {
+    var onDroppedDocumentURLs: (([URL]) -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        ReaderFileDrop.register(self)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        ReaderFileDrop.register(self)
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        ReaderFileDrop.operation(for: sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        ReaderFileDrop.operation(for: sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        ReaderFileDrop.perform(sender) { [weak self] urls in
+            self?.onDroppedDocumentURLs?(urls)
+        }
+    }
+}
+
 final class RecentDocumentsPanelController: NSObject {
+    struct ShelfRemovalOptions {
+        let clearVectorCache: Bool
+        let clearWordRecords: Bool
+    }
+
     private weak var parentWindow: NSWindow?
     private var panel: NSWindow?
     private var onOpen: ((String) -> Void)?
     private var onClear: (() -> Void)?
-    private var onRemoveItem: ((String) -> Void)?
+    private var onRemoveItem: ((String, ShelfRemovalOptions) -> Void)?
     private var onClearVectorCache: ((String) -> Void)?
     private var onClearWordRecords: ((String) -> Void)?
+    private var onImport: (([URL]) -> Void)?
     private var onClose: (() -> Void)?
     private var pendingOpenPath: String?
     private var isClosing = false
@@ -92,11 +126,13 @@ final class RecentDocumentsPanelController: NSObject {
     func show(
         items: [RecentDocumentItem],
         attachedTo window: NSWindow?,
+        focusPath: String? = nil,
         onOpen: @escaping (String) -> Void,
         onClear: @escaping () -> Void,
-        onRemoveItem: @escaping (String) -> Void,
+        onRemoveItem: @escaping (String, ShelfRemovalOptions) -> Void,
         onClearVectorCache: @escaping (String) -> Void,
         onClearWordRecords: @escaping (String) -> Void,
+        onImport: @escaping ([URL]) -> Void,
         onClose: @escaping () -> Void
     ) {
         self.onOpen = onOpen
@@ -104,6 +140,7 @@ final class RecentDocumentsPanelController: NSObject {
         self.onRemoveItem = onRemoveItem
         self.onClearVectorCache = onClearVectorCache
         self.onClearWordRecords = onClearWordRecords
+        self.onImport = onImport
         self.onClose = onClose
         self.parentWindow = window
 
@@ -130,7 +167,10 @@ final class RecentDocumentsPanelController: NSObject {
         panel.hasShadow = true
         panel.isReleasedWhenClosed = false
 
-        let content = NSView()
+        let content = RecentDocumentsDropContentView()
+        content.onDroppedDocumentURLs = { [weak self] urls in
+            self?.handleDroppedDocumentURLs(urls)
+        }
         content.wantsLayer = true
         content.layer?.backgroundColor = panelBackground.cgColor
         content.layer?.borderWidth = 1
@@ -192,7 +232,7 @@ final class RecentDocumentsPanelController: NSObject {
         stack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.documentView = stack
 
-        for item in items.prefix(24) {
+        for item in items {
             let card = recentBookCard(for: item, primaryText: primaryText, secondaryText: secondaryText, isDark: isDark)
             card.onOpen = { [weak self] path in
                 self?.pendingOpenPath = path
@@ -202,13 +242,12 @@ final class RecentDocumentsPanelController: NSObject {
                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
             }
             card.onRemove = { [weak self] path in
-                guard self?.confirmShelfAction(
-                    title: AppText.localized("移出书架？", "Remove from Shelf?"),
-                    message: AppText.localized("这只会从书架列表移除，不会删除原文件。", "This only removes the item from the shelf. The original file will not be deleted."),
-                    confirmTitle: AppText.localized("移出", "Remove")
-                ) == true else { return }
-                self?.onRemoveItem?(path)
-                self?.close()
+                guard let options = self?.confirmShelfRemoval() else { return }
+                self?.onRemoveItem?(path, options)
+                if let card = stack.arrangedSubviews.first(where: { ($0 as? RecentBookCardView)?.path == path }) {
+                    stack.removeArrangedSubview(card)
+                    card.removeFromSuperview()
+                }
             }
             card.onClearVectorCache = { [weak self] path in
                 guard self?.confirmShelfAction(
@@ -265,6 +304,14 @@ final class RecentDocumentsPanelController: NSObject {
         self.panel = panel
         installAppActivationObserver()
         showPanel(panel, attachedTo: window)
+        if let focusPath {
+            DispatchQueue.main.async {
+                guard let card = stack.arrangedSubviews
+                    .compactMap({ $0 as? RecentBookCardView })
+                    .first(where: { $0.path == focusPath }) else { return }
+                card.scrollToVisible(card.bounds)
+            }
+        }
     }
 
     private func showPanel(_ panel: NSWindow, attachedTo parent: NSWindow?) {
@@ -279,6 +326,55 @@ final class RecentDocumentsPanelController: NSObject {
         alert.addButton(withTitle: confirmTitle)
         alert.addButton(withTitle: AppText.cancel)
         return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    private func confirmShelfRemoval() -> ShelfRemovalOptions? {
+        let alert = NSAlert()
+        alert.messageText = AppText.localized("移出书架？", "Remove from Shelf?")
+        alert.informativeText = AppText.localized(
+            "这会删除这本书的阅读历史，但不会删除原文件。",
+            "This removes this book's reading history, but does not delete the original file."
+        )
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: AppText.localized("移出", "Remove"))
+        alert.addButton(withTitle: AppText.cancel)
+
+        let clearVectorCheckbox = NSButton(
+            checkboxWithTitle: AppText.localized("清除向量", "Clear vector cache"),
+            target: nil,
+            action: nil
+        )
+        clearVectorCheckbox.state = .on
+        clearVectorCheckbox.font = NSFont.systemFont(ofSize: 13)
+
+        let clearWordsCheckbox = NSButton(
+            checkboxWithTitle: AppText.localized("清除单词本", "Clear word book"),
+            target: nil,
+            action: nil
+        )
+        clearWordsCheckbox.state = .on
+        clearWordsCheckbox.font = NSFont.systemFont(ofSize: 13)
+
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 64))
+        let stack = NSStackView(views: [clearVectorCheckbox, clearWordsCheckbox])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        accessory.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: accessory.leadingAnchor),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: accessory.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: accessory.topAnchor, constant: 6),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: accessory.bottomAnchor, constant: -6)
+        ])
+        alert.accessoryView = accessory
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        return ShelfRemovalOptions(
+            clearVectorCache: clearVectorCheckbox.state == .on,
+            clearWordRecords: clearWordsCheckbox.state == .on
+        )
     }
 
     private func installAppActivationObserver() {
@@ -321,6 +417,21 @@ final class RecentDocumentsPanelController: NSObject {
                 onOpen?(openPath)
             }
         }
+    }
+
+    func closeThenOpen(path: String) {
+        pendingOpenPath = path
+        close()
+    }
+
+    private func handleDroppedDocumentURLs(_ urls: [URL]) {
+        let supported = RecentDocumentsStore.supportedUniqueURLs(urls)
+        guard !supported.isEmpty else { return }
+        if supported.count == 1 {
+            closeThenOpen(path: supported[0].path)
+            return
+        }
+        onImport?(supported)
     }
 
     @objc private func clearRecentDocuments(_ sender: NSButton) {
@@ -603,7 +714,7 @@ final class RecentDocumentsPanelController: NSObject {
         ]
         let trimmedTitle = title.count > 34 ? String(title.prefix(34)) : title
         NSString(string: trimmedTitle).draw(in: NSRect(x: 14, y: coverSize.height * 0.48, width: coverSize.width - 28, height: 54), withAttributes: titleAttributes)
-        NSString(string: "\(kind) 文档").draw(in: NSRect(x: 12, y: 18, width: coverSize.width - 24, height: 18), withAttributes: kindAttributes)
+        NSString(string: documentKindText(kind)).draw(in: NSRect(x: 12, y: 18, width: coverSize.width - 24, height: 18), withAttributes: kindAttributes)
         NSGraphicsContext.restoreGraphicsState()
         image.addRepresentation(bitmap)
         return image
@@ -614,13 +725,17 @@ final class RecentDocumentsPanelController: NSObject {
     }
 
     private func displaySubtitle(for item: RecentDocumentItem) -> String {
-        switch item.kind {
+        documentKindText(item.kind)
+    }
+
+    private func documentKindText(_ kind: String) -> String {
+        switch kind {
         case "EPUB":
-            return "EPUB 文档"
+            return AppText.localized("EPUB 书籍", "EPUB Book")
         case "DOCX":
-            return "DOCX 文档"
+            return AppText.localized("DOCX 文稿", "DOCX Document")
         default:
-            return "PDF 文档"
+            return AppText.localized("PDF 书籍", "PDF Book")
         }
     }
 

@@ -86,12 +86,14 @@ extension ReaderWindowController {
             return
         }
 
+        let beforePageIndex = currentPageIndex()
         clearAISelectionForNavigation()
         pdfView.go(to: page)
         lastPageIndex = targetIndex
-        scrollCurrentPageToTop()
+        scrollPageToTop(page)
         updatePageLabel()
         saveSession()
+        recordPageJump(source: "page-field", before: beforePageIndex, after: currentPageIndex(), detail: "requested=\(requestedPage)")
         window?.makeFirstResponder(pdfView)
     }
 
@@ -102,10 +104,12 @@ extension ReaderWindowController {
             scrollWebPage(direction: -1)
             return
         }
+        let beforePageIndex = currentPageIndex()
         pdfView.goToPreviousPage(nil)
         scrollCurrentPageToTop()
         updatePageLabel()
         saveSession()
+        recordPageJump(source: "toolbar-prev", before: beforePageIndex, after: currentPageIndex())
     }
 
     @objc func nextPage() {
@@ -115,10 +119,12 @@ extension ReaderWindowController {
             scrollWebPage(direction: 1)
             return
         }
+        let beforePageIndex = currentPageIndex()
         pdfView.goToNextPage(nil)
         scrollCurrentPageToTop()
         updatePageLabel()
         saveSession()
+        recordPageJump(source: "toolbar-next", before: beforePageIndex, after: currentPageIndex())
     }
 
     @objc func togglePDFPageLayout() {
@@ -161,7 +167,9 @@ extension ReaderWindowController {
             if let currentPage,
                let currentPageIndex,
                self.pdfView.document?.index(for: self.pdfView.currentPage ?? PDFPage()) != currentPageIndex {
+                let beforeRestoreIndex = self.currentPageIndex()
                 self.pdfView.go(to: currentPage)
+                self.recordPageJump(source: "layout-switch-restore", before: beforeRestoreIndex, after: self.currentPageIndex())
             }
             if let currentDestination {
                 self.pdfView.go(to: currentDestination)
@@ -233,16 +241,19 @@ extension ReaderWindowController {
             return
         }
         guard let firstPage = pdfView.document?.page(at: 0) else { return }
+        let beforePageIndex = currentPageIndex()
         pdfView.go(to: firstPage)
-        scrollCurrentPageToTop()
+        scrollPageToTop(firstPage)
         updatePageLabel()
         saveSession()
+        recordPageJump(source: "cover", before: beforePageIndex, after: currentPageIndex())
     }
 
 
     func turnPageFromScroll(_ direction: EdgePagingPDFView.ScrollPageDirection) {
         guard currentDocumentKind == .pdf else { return }
         clearAISelectionForNavigation()
+        let beforePageIndex = currentPageIndex()
         switch direction {
         case .previous:
             pdfView.goToPreviousPage(nil)
@@ -252,6 +263,7 @@ extension ReaderWindowController {
         scrollCurrentPageToTop()
         updatePageLabel()
         saveSession()
+        recordPageJump(source: direction == .previous ? "scroll-previous" : "scroll-next", before: beforePageIndex, after: currentPageIndex())
     }
 
     func clearAISelectionForNavigation() {
@@ -267,8 +279,16 @@ extension ReaderWindowController {
     }
 
     func scrollCurrentPageToTop() {
+        guard let page = pdfView.currentPage else { return }
+        scrollPageToTop(page)
+    }
+
+    func scrollPageToTop(_ page: PDFPage) {
         DispatchQueue.main.async { [weak self] in
-            guard let self = self, let page = self.pdfView.currentPage else { return }
+            guard let self = self,
+                  self.pdfView.document?.index(for: page) != NSNotFound else {
+                return
+            }
             let bounds = page.bounds(for: self.pdfView.displayBox)
             let destination = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY))
             self.pdfView.go(to: destination)

@@ -8,28 +8,70 @@ struct StoredWebWordRecord: Codable {
     var question: String
     var answer: String
     let createdAt: Date
+    var srs: VocabularySRSState?
 }
 
 struct WebWordRecordStore {
     private let defaults: UserDefaults
+    private let documentID: String
     private let storageKey: String
+    private let migrationKey: String
 
     init(fileMD5: String, defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        documentID = fileMD5
         storageKey = "bookSession.\(fileMD5).webWordRecords"
+        migrationKey = "\(storageKey).sqliteMigrated"
     }
 
     func load() -> [StoredWebWordRecord] {
+        let sqliteRecords = WordRecordSQLiteStore.shared.loadWebRecords(documentID: documentID)
+        if !sqliteRecords.isEmpty {
+            return sqliteRecords
+        }
+        if defaults.bool(forKey: migrationKey) {
+            return []
+        }
+        let legacyRecords = loadLegacyRecords()
+        if !legacyRecords.isEmpty {
+            if WordRecordSQLiteStore.shared.saveWebRecords(documentID: documentID, records: legacyRecords) {
+                defaults.set(true, forKey: migrationKey)
+            }
+            return legacyRecords
+        }
+        return legacyRecords
+    }
+
+    func save(_ records: [StoredWebWordRecord]) {
+        if WordRecordSQLiteStore.shared.saveWebRecords(documentID: documentID, records: records) {
+            defaults.set(true, forKey: migrationKey)
+        }
+    }
+
+    @discardableResult
+    func upsert(_ record: StoredWebWordRecord) -> Bool {
+        let didSave = WordRecordSQLiteStore.shared.upsertWebRecord(documentID: documentID, record: record)
+        if didSave {
+            defaults.set(true, forKey: migrationKey)
+        }
+        return didSave
+    }
+
+    @discardableResult
+    func delete(ids: [String]) -> Bool {
+        let didDelete = WordRecordSQLiteStore.shared.deleteWebRecords(documentID: documentID, ids: ids)
+        if didDelete {
+            defaults.set(true, forKey: migrationKey)
+        }
+        return didDelete
+    }
+
+    private func loadLegacyRecords() -> [StoredWebWordRecord] {
         guard let data = defaults.data(forKey: storageKey),
               let records = try? JSONDecoder().decode([StoredWebWordRecord].self, from: data) else {
             return []
         }
         return records
-    }
-
-    func save(_ records: [StoredWebWordRecord]) {
-        guard let data = try? JSONEncoder().encode(records) else { return }
-        defaults.set(data, forKey: storageKey)
     }
 
     func existingRecord(in records: [StoredWebWordRecord], word: String, context: String) -> StoredWebWordRecord? {

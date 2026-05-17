@@ -77,7 +77,7 @@ extension ReaderWindowController {
     }
 
     func evidenceLocationName() -> String {
-        currentDocumentKind == .pdf ? "Page" : AppText.localized("片段", "Section")
+        currentDocumentKind == .pdf ? AppText.localized("Page", "Page") : AppText.localized("片段", "Section")
     }
 
     func scheduleDocumentEmbeddingWarmup(priorityPageIndex: Int?) {
@@ -97,10 +97,11 @@ extension ReaderWindowController {
             }
             self.ensureDocumentAgentIndexAsync { [weak self] in
                 guard let self, self.currentFileMD5 == documentID else { return }
-                self.applyCachedEmbeddingsIfPossible()
-                if self.embeddingIndexIsComplete {
-                    self.scheduledEmbeddingWarmupWorkItem?.cancel()
-                    self.scheduledEmbeddingWarmupWorkItem = nil
+                self.applyCachedEmbeddingsIfPossible {
+                    if self.embeddingIndexIsComplete {
+                        self.scheduledEmbeddingWarmupWorkItem?.cancel()
+                        self.scheduledEmbeddingWarmupWorkItem = nil
+                    }
                 }
             }
         }
@@ -122,12 +123,13 @@ extension ReaderWindowController {
             }
             self.ensureDocumentAgentIndexAsync { [weak self] in
                 guard let self, self.currentFileMD5 == documentID else { return }
-                self.applyCachedEmbeddingsIfPossible()
-                guard !self.embeddingIndexIsComplete else {
-                    self.scheduledEmbeddingWarmupWorkItem = nil
-                    return
+                self.applyCachedEmbeddingsIfPossible {
+                    guard !self.embeddingIndexIsComplete else {
+                        self.scheduledEmbeddingWarmupWorkItem = nil
+                        return
+                    }
+                    self.preparePDFEmbeddingsIfPossible(priorityPageIndex: priorityPageIndex)
                 }
-                self.preparePDFEmbeddingsIfPossible(priorityPageIndex: priorityPageIndex)
             }
         }
         scheduledEmbeddingWarmupWorkItem = warmupWorkItem
@@ -160,19 +162,38 @@ extension ReaderWindowController {
         clearEmbeddingStatus()
     }
 
-    func applyCachedEmbeddingsIfPossible() {
+    func applyCachedEmbeddingsIfPossible(completion: (() -> Void)? = nil) {
         guard let documentID = currentFileMD5,
               let index = pdfAgentIndex,
-              let config = EmbeddingClient.configFromCurrentAISettings(),
-              let store = pdfEmbeddingStore else {
+              let config = EmbeddingClient.configFromCurrentAISettings() else {
+            completion?()
             return
         }
         let chunks = index.indexableChunks
-        guard !chunks.isEmpty else { return }
-        let cached = store.embeddings(documentID: documentID, model: config.cacheModelID, chunkIDs: chunks.map(\.id))
-        pdfAgentIndex?.applyEmbeddings(cached)
-        if !cached.isEmpty {
-            updateEmbeddingStatusForCoverage(isComplete: index.embeddingCoverage.embedded >= index.embeddingCoverage.total)
+        guard !chunks.isEmpty else {
+            completion?()
+            return
+        }
+        let chunkIDs = chunks.map(\.id)
+        embeddingStoreQueue.async { [weak self] in
+            guard let self, let store = self.pdfEmbeddingStore else {
+                DispatchQueue.main.async { completion?() }
+                return
+            }
+            let cached = store.embeddings(documentID: documentID, model: config.cacheModelID, chunkIDs: chunkIDs)
+            DispatchQueue.main.async { [weak self] in
+                guard let self,
+                      self.currentFileMD5 == documentID,
+                      EmbeddingClient.configFromCurrentAISettings()?.cacheModelID == config.cacheModelID else {
+                    completion?()
+                    return
+                }
+                self.pdfAgentIndex?.applyEmbeddings(cached)
+                if !cached.isEmpty, let progress = self.pdfAgentIndex?.embeddingCoverage {
+                    self.updateEmbeddingStatusForCoverage(isComplete: progress.embedded >= progress.total)
+                }
+                completion?()
+            }
         }
     }
 
@@ -187,8 +208,7 @@ extension ReaderWindowController {
     func preparePDFEmbeddingsIfPossible(priorityPageIndex: Int? = nil, completion: (() -> Void)? = nil) {
         guard let documentID = currentFileMD5,
               pdfAgentIndex != nil,
-              let config = EmbeddingClient.configFromCurrentAISettings(),
-              let store = pdfEmbeddingStore else {
+              let config = EmbeddingClient.configFromCurrentAISettings() else {
             completion?()
             return
         }
@@ -198,15 +218,13 @@ extension ReaderWindowController {
                 isEmbeddingBackfillPaused = false
                 updateEmbeddingControlButtons()
                 if let documentID = currentFileMD5,
-                   let config = EmbeddingClient.configFromCurrentAISettings(),
-                   let store = pdfEmbeddingStore {
+                   let config = EmbeddingClient.configFromCurrentAISettings() {
                     let generation = embeddingBackfillGeneration
                     DispatchQueue.main.async { [weak self] in
                         guard let self, generation == self.embeddingBackfillGeneration else { return }
                         self.continuePDFEmbeddingBackfill(
                             documentID: documentID,
                             config: config,
-                            store: store,
                             priorityPageIndex: priorityPageIndex,
                             afterFirstBatch: nil,
                             notifyPendingAfterBatch: true,
@@ -224,35 +242,40 @@ extension ReaderWindowController {
             return
         }
 
-        applyCachedEmbeddingsIfPossible()
-        if embeddingIndexIsComplete {
-            completion?()
-            notifyEmbeddingReady(completion, includePending: true)
-            updateEmbeddingStatusForCoverage(isComplete: true)
-            return
-        }
+        applyCachedEmbeddingsIfPossible { [weak self] in
+            guard let self else { return }
+            guard self.currentFileMD5 == documentID,
+                  EmbeddingClient.configFromCurrentAISettings()?.cacheModelID == config.cacheModelID,
+                  self.pdfAgentIndex != nil else {
+                completion?()
+                return
+            }
+            if self.embeddingIndexIsComplete {
+                self.notifyEmbeddingReady(completion, includePending: true)
+                self.updateEmbeddingStatusForCoverage(isComplete: true)
+                return
+            }
 
-        isPreparingPDFEmbeddings = true
-        isEmbeddingBackfillPaused = false
-        embeddingBackfillNeedsRetry = false
-        embeddingBackfillGeneration += 1
-        let generation = embeddingBackfillGeneration
-        updateEmbeddingControlButtons()
-        continuePDFEmbeddingBackfill(
-            documentID: documentID,
-            config: config,
-            store: store,
-            priorityPageIndex: priorityPageIndex,
-            afterFirstBatch: completion,
-            notifyPendingAfterBatch: completion != nil,
-            generation: generation
-        )
+            self.isPreparingPDFEmbeddings = true
+            self.isEmbeddingBackfillPaused = false
+            self.embeddingBackfillNeedsRetry = false
+            self.embeddingBackfillGeneration += 1
+            let generation = self.embeddingBackfillGeneration
+            self.updateEmbeddingControlButtons()
+            self.continuePDFEmbeddingBackfill(
+                documentID: documentID,
+                config: config,
+                priorityPageIndex: priorityPageIndex,
+                afterFirstBatch: completion,
+                notifyPendingAfterBatch: completion != nil,
+                generation: generation
+            )
+        }
     }
 
     func continuePDFEmbeddingBackfill(
         documentID: String,
         config: EmbeddingModelConfig,
-        store: PDFEmbeddingStore,
         priorityPageIndex: Int?,
         afterFirstBatch: (() -> Void)?,
         notifyPendingAfterBatch: Bool,
@@ -274,7 +297,7 @@ extension ReaderWindowController {
             return
         }
 
-        let missing = index.missingEmbeddingChunks(limit: 24, preferredPageIndex: priorityPageIndex).map {
+        let missing = index.missingEmbeddingChunks(limit: 12, preferredPageIndex: priorityPageIndex).map {
             PDFEmbeddingChunk(id: $0.id, pageIndex: $0.pageIndex, chunkIndex: $0.chunkIndex, text: $0.text)
         }
         guard !missing.isEmpty else {
@@ -304,8 +327,10 @@ extension ReaderWindowController {
 
                 switch result {
                 case .success(let embeddings):
-                    store.save(documentID: documentID, model: config.cacheModelID, chunks: missing, embeddings: embeddings)
-                    let mapped = Dictionary(uniqueKeysWithValues: zip(missing.map(\.id), embeddings))
+                    var mapped: [String: [Float]] = [:]
+                    for (chunk, embedding) in zip(missing, embeddings) {
+                        mapped[chunk.id] = embedding
+                    }
                     self.pdfAgentIndex?.applyEmbeddings(mapped)
                     let nextPriorityPageIndex = self.queuedEmbeddingPriorityPageIndex
                     self.queuedEmbeddingPriorityPageIndex = nil
@@ -313,16 +338,18 @@ extension ReaderWindowController {
                     self.notifyEmbeddingReady(afterFirstBatch, includePending: notifyPendingAfterBatch && !shouldDeferPendingCallbacks)
                     self.updateEmbeddingStatusForCoverage(isComplete: false)
                     let shouldNotifyPendingAfterNextBatch = shouldDeferPendingCallbacks
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-                        self?.continuePDFEmbeddingBackfill(
-                            documentID: documentID,
-                            config: config,
-                            store: store,
-                            priorityPageIndex: nextPriorityPageIndex,
-                            afterFirstBatch: nil,
-                            notifyPendingAfterBatch: shouldNotifyPendingAfterNextBatch,
-                            generation: generation
-                        )
+                    self.embeddingStoreQueue.async { [weak self] in
+                        self?.pdfEmbeddingStore?.save(documentID: documentID, model: config.cacheModelID, chunks: missing, embeddings: embeddings)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                            self?.continuePDFEmbeddingBackfill(
+                                documentID: documentID,
+                                config: config,
+                                priorityPageIndex: nextPriorityPageIndex,
+                                afterFirstBatch: nil,
+                                notifyPendingAfterBatch: shouldNotifyPendingAfterNextBatch,
+                                generation: generation
+                            )
+                        }
                     }
                 case .failure:
                     self.isPreparingPDFEmbeddings = false
@@ -348,12 +375,10 @@ extension ReaderWindowController {
             return
         }
         guard let documentID = currentFileMD5,
-              let config = EmbeddingClient.configFromCurrentAISettings(),
-              let store = pdfEmbeddingStore else { return }
+              let config = EmbeddingClient.configFromCurrentAISettings() else { return }
         continuePDFEmbeddingBackfill(
             documentID: documentID,
             config: config,
-            store: store,
             priorityPageIndex: queuedEmbeddingPriorityPageIndex,
             afterFirstBatch: nil,
             notifyPendingAfterBatch: true,
@@ -400,7 +425,9 @@ extension ReaderWindowController {
         isEmbeddingBackfillPaused = false
         queuedEmbeddingPriorityPageIndex = nil
         pendingEmbeddingReadyCallbacks.removeAll()
-        pdfEmbeddingStore?.deleteDocument(documentID: documentID)
+        embeddingStoreQueue.async { [weak self] in
+            self?.pdfEmbeddingStore?.deleteDocument(documentID: documentID)
+        }
         pdfAgentIndex = nil
         documentAgentIndexGeneration += 1
         isBuildingDocumentAgentIndex = false
@@ -417,11 +444,10 @@ extension ReaderWindowController {
 
     func currentVectorIndexStatusText() -> String {
         guard currentFileMD5 != nil else {
-            return AppText.localized("未打开文档。", "No document open.")
+            return "\(AppText.noPDF)。"
         }
         let progress = pdfAgentIndex?.embeddingCoverage ?? (embedded: 0, total: 0)
-        let cacheSize = pdfEmbeddingStore?.cacheSizeBytes() ?? 0
-        let cacheText = formatEmbeddingBytes(cacheSize)
+        let cacheText = AppText.localized("后台统计中", "calculating")
         guard EmbeddingClient.configFromCurrentAISettings() != nil else {
             return AppText.localized("未配置向量模型。当前缓存占用 \(cacheText)。", "Embedding model is not configured. Cache uses \(cacheText).")
         }
@@ -512,6 +538,27 @@ extension ReaderWindowController {
         embeddingStatusLabel.stringValue = text
         embeddingStatusLabel.isHidden = false
         updateEmbeddingControlButtons()
+    }
+
+    func refreshEmbeddingStatusLanguage() {
+        guard !embeddingStatusLabel.isHidden else { return }
+        if isPreparingPDFEmbeddings {
+            if isEmbeddingBackfillPaused {
+                embeddingStatusLabel.stringValue = AppText.localized("向量索引：已暂停，点击继续", "Embedding: paused, tap resume")
+            } else if let progress = pdfAgentIndex?.embeddingCoverage, progress.total > 0 {
+                let percent = embeddingCoveragePercent(progress)
+                embeddingStatusLabel.stringValue = AppText.localized("向量索引：生成中 \(percent)%", "Embedding: indexing \(percent)%")
+            }
+            updateEmbeddingControlButtons()
+            return
+        }
+        if embeddingBackfillNeedsRetry {
+            embeddingStatusLabel.stringValue = AppText.localized("向量索引：失败，可重试", "Embedding: failed, retry available")
+            updateEmbeddingControlButtons()
+            return
+        }
+        guard let progress = pdfAgentIndex?.embeddingCoverage, progress.total > 0 else { return }
+        updateEmbeddingStatusForCoverage(isComplete: progress.embedded >= progress.total)
     }
 
     func embeddingCoveragePercent(_ progress: (embedded: Int, total: Int)) -> Int {
