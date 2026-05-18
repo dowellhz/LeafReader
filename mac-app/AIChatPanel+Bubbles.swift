@@ -63,12 +63,10 @@ extension AIChatPanel {
             }
             if speakerButton == nil {
                 box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(selectLinkedBubble(_:))))
-                box.toolTip = AppText.localized("跳转到原文位置", "Jump to source location")
             }
         } else if effectiveSourceLocation != nil {
             box.identifier = NSUserInterfaceItemIdentifier(bodyID)
             box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(selectConversationSourceBubble(_:))))
-            box.toolTip = AppText.localized("跳转到记录位置", "Jump to saved location")
         } else if collapsible {
             box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(toggleCollapsedBubble(_:))))
             box.toolTip = AppText.tapToExpand

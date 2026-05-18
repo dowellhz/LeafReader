@@ -7,7 +7,8 @@ extension AIChatPanel {
         defer { isRestoringSavedConversation = false }
 
         var skipLegacyVocabularyAnswer = false
-        for bubble in conversation.bubbles {
+        let initialBubbles = conversation.bubbles.suffix(Self.maxInitialSavedConversationBubbles)
+        for bubble in initialBubbles {
             if bubble.role == AppText.userRole, isVocabularyBubbleTitle(bubble.text) {
                 skipLegacyVocabularyAnswer = true
                 continue
@@ -31,6 +32,48 @@ extension AIChatPanel {
                 appendMessage(ChatMessage(role: "assistant", content: bubble.text))
             }
         }
+    }
+
+    func hasConversationSourceBubble(_ source: AIConversationSourceLocation) -> Bool {
+        bubbleMetadataByID.values.contains { $0.sourceLocation == source }
+    }
+
+    @discardableResult
+    func appendSavedConversationBubbles(for source: AIConversationSourceLocation, from conversation: SavedAIConversation) -> Bool {
+        let matchingBubbles = conversation.bubbles.filter { $0.sourceLocation == source }
+        guard !matchingBubbles.isEmpty else { return false }
+
+        let existingBubbleKeys = Set(bubbleMetadataByID.values
+            .filter { $0.sourceLocation == source }
+            .map { conversationBubbleKey(role: $0.role, text: $0.text) })
+        let missingBubbles = matchingBubbles.filter {
+            !existingBubbleKeys.contains(conversationBubbleKey(role: $0.role, text: $0.text))
+        }
+        guard !missingBubbles.isEmpty else { return true }
+
+        isRestoringSavedConversation = true
+        defer { isRestoringSavedConversation = false }
+
+        for bubble in missingBubbles {
+            appendBubble(
+                role: bubble.role,
+                text: bubble.text,
+                collapsible: bubble.collapsible,
+                renderMarkdown: bubble.renderMarkdown,
+                sourceLocation: bubble.sourceLocation
+            )
+            recordTranscript(role: bubble.role, text: bubble.text)
+            if bubble.role == AppText.userRole {
+                appendMessage(ChatMessage(role: "user", content: bubble.text))
+            } else if bubble.role == AppText.aiRole {
+                appendMessage(ChatMessage(role: "assistant", content: bubble.text))
+            }
+        }
+        return true
+    }
+
+    private func conversationBubbleKey(role: String, text: String) -> String {
+        "\(role)\u{1F}\(text)"
     }
 
     func appendMessage(_ message: ChatMessage) {

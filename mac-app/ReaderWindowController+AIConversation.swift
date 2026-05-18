@@ -6,8 +6,10 @@ extension ReaderWindowController {
               let store = aiConversationStore else {
             return
         }
-        aiPanel.loadSavedConversation(store.load())
-        restoreSavedAISourceUnderlines()
+        let conversation = store.load()
+        loadedAIConversation = conversation
+        aiPanel.loadSavedConversation(conversation)
+        restoreSavedAISourceUnderlines(from: conversation)
     }
 
     func saveAIConversationIfNeeded(_ conversation: SavedAIConversation) {
@@ -15,7 +17,7 @@ extension ReaderWindowController {
               aiConversationStore != nil else {
             return
         }
-        pendingAIConversationToSave = conversation
+        pendingAIConversationToSave = mergedAIConversationForSave(conversation)
         aiConversationSaveTask.schedule { [weak self] in
             self?.flushPendingAIConversationSave()
         }
@@ -27,8 +29,10 @@ extension ReaderWindowController {
             return
         }
         aiConversationSaveTask.cancel()
+        let conversation = mergedAIConversationForSave(aiPanel.savedConversation())
         pendingAIConversationToSave = nil
-        store.save(aiPanel.savedConversation())
+        loadedAIConversation = conversation
+        store.save(conversation)
     }
 
     func flushPendingAIConversationSave() {
@@ -40,6 +44,7 @@ extension ReaderWindowController {
             return
         }
         pendingAIConversationToSave = nil
+        loadedAIConversation = conversation
         store.save(conversation)
     }
 
@@ -47,10 +52,13 @@ extension ReaderWindowController {
         guard let store = aiConversationStore else { return }
         if AISettingsStore.saveAIConversationEnabled {
             flushPendingAIConversationSave()
-            store.save(aiPanel.savedConversation())
+            let conversation = mergedAIConversationForSave(aiPanel.savedConversation())
+            loadedAIConversation = conversation
+            store.save(conversation)
         } else {
             aiConversationSaveTask.cancel()
             pendingAIConversationToSave = nil
+            loadedAIConversation = nil
             store.clear()
             clearAISourceUnderlines()
         }
@@ -78,6 +86,7 @@ extension ReaderWindowController {
     }
 
     func jumpToAIConversationSource(_ source: AIConversationSourceLocation) {
+        ensureAIConversationSourceBubbleLoaded(source)
         switch source.kind {
         case .pdfPage:
             addAISourceUnderline(for: source)
@@ -105,5 +114,37 @@ extension ReaderWindowController {
         """
         webView.evaluateJavaScript(script)
         saveWebProgress()
+    }
+
+    @discardableResult
+    func ensureAIConversationSourceBubbleLoaded(_ source: AIConversationSourceLocation) -> Bool {
+        guard AISettingsStore.saveAIConversationEnabled,
+              let store = aiConversationStore else {
+            return aiPanel.hasConversationSourceBubble(source)
+        }
+        let conversation = loadedAIConversation ?? store.load()
+        loadedAIConversation = conversation
+        return aiPanel.appendSavedConversationBubbles(for: source, from: conversation)
+    }
+
+    func mergedAIConversationForSave(_ visibleConversation: SavedAIConversation) -> SavedAIConversation {
+        guard let loadedAIConversation, !loadedAIConversation.bubbles.isEmpty else {
+            return visibleConversation
+        }
+
+        var mergedBubbles = loadedAIConversation.bubbles
+        var existingKeys = Set(mergedBubbles.map(conversationBubbleKey))
+        for bubble in visibleConversation.bubbles where !existingKeys.contains(conversationBubbleKey(bubble)) {
+            mergedBubbles.append(bubble)
+            existingKeys.insert(conversationBubbleKey(bubble))
+        }
+        if mergedBubbles.count > AIChatPanel.maxSavedConversationBubbles {
+            mergedBubbles = Array(mergedBubbles.suffix(AIChatPanel.maxSavedConversationBubbles))
+        }
+        return SavedAIConversation(bubbles: mergedBubbles)
+    }
+
+    private func conversationBubbleKey(_ bubble: SavedAIConversationBubble) -> String {
+        "\(bubble.role)\u{1F}\(bubble.text)"
     }
 }

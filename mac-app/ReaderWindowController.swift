@@ -59,6 +59,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let contentArea = NSView()
     let pdfContainer = ClippingView()
     let pdfDimOverlay = PassthroughOverlayView()
+    let loadingOverlay = NSView()
+    let loadingIndicator = NSProgressIndicator()
+    let loadingLabel = NSTextField(labelWithString: "")
     let aiPanel = AIChatPanel()
     let vocabularySpeechSynthesizer = AVSpeechSynthesizer()
     let aiHandleButton = SideHandleButton(title: "", target: nil, action: nil)
@@ -88,6 +91,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var currentFileMD5: String?
     var sessionStore = ReaderSessionStore(fileMD5: nil)
     var currentDocumentKind: ReaderDocumentKind = .pdf
+    var documentLoadGeneration = 0
     var currentWebPlainText = ""
     var webPlainTextGeneration = 0
     var currentWebSelectedText = ""
@@ -140,9 +144,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let pdfWordRecordsSaveTask = DebouncedTask(delay: 0.8)
     let webWordRecordsSaveTask = DebouncedTask(delay: 0.8)
     var aiConversationStore: AIConversationStore?
+    var loadedAIConversation: SavedAIConversation?
     var pendingAIConversationToSave: SavedAIConversation?
     let aiConversationSaveTask = DebouncedTask(delay: 1.0)
     let preferredAIWidthSaveTask = DebouncedTask(delay: 0.4)
+    let windowResizeLayoutTask = DebouncedTask(delay: 0.08)
     var currentVocabularyExportRecords: [VocabularyExportRecord] = []
     var didRegisterSelectionObserver = false
     var isRestoringSession = false
@@ -209,6 +215,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         sessionSaveTask.cancel()
         aiConversationSaveTask.cancel()
         preferredAIWidthSaveTask.cancel()
+        windowResizeLayoutTask.cancel()
         pdfWordRecordsSaveTask.cancel()
         webWordRecordsSaveTask.cancel()
         removeVocabularyPanelActivationObserver()

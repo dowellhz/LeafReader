@@ -36,11 +36,12 @@ extension ReaderWindowController {
         pdfView.setNeedsDisplay(pdfView.bounds)
     }
 
-    func restoreSavedAISourceUnderlines() {
-        guard AISettingsStore.saveAIConversationEnabled,
-              let conversation = aiConversationStore?.load() else {
+    func restoreSavedAISourceUnderlines(from loadedConversation: SavedAIConversation? = nil) {
+        guard AISettingsStore.saveAIConversationEnabled else {
             return
         }
+        let conversation = loadedConversation ?? loadedAIConversation ?? aiConversationStore?.load() ?? .empty
+        loadedAIConversation = conversation
         if currentDocumentKind != .pdf {
             restoreWebAISourceUnderlines(for: conversation.bubbles.compactMap(\.sourceLocation))
             return
@@ -149,6 +150,7 @@ extension ReaderWindowController {
             return
         }
         setAIPanelCollapsed(false, animated: true)
+        ensureAIConversationSourceBubbleLoaded(source)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
             self?.aiPanel.scrollToConversationSource(source)
         }

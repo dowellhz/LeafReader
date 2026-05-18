@@ -21,7 +21,7 @@ extension AIChatPanel {
             ChatMessage(role: "system", content: AIPromptStore.systemPrompt())
         ]
 
-        for record in records {
+        for record in records.suffix(Self.maxInitialLinkedWordBubbles) {
             appendBubble(role: AppText.userRole, text: vocabularyBubbleTitle(for: record.word), collapsible: false, linkID: record.id)
             appendBubble(role: AppText.aiRole, text: record.answer, collapsible: false, renderMarkdown: true, linkID: record.id)
             recordTranscript(role: AppText.userRole, text: vocabularyBubbleTitle(for: record.word))

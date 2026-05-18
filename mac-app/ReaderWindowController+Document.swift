@@ -22,15 +22,49 @@ extension ReaderWindowController {
 
     func loadDocument(_ url: URL) {
         guard let kind = ReaderDocumentKind.kind(for: url) else { return }
+        documentLoadGeneration += 1
+        let generation = documentLoadGeneration
+        showDocumentLoading(for: url)
         sessionSaveTask.flush()
         flushCurrentBookWordRecordSaves()
         saveCurrentAIConversationBeforeDocumentChange()
         resetEmbeddingStateForDocumentChange()
         switch kind {
         case .pdf:
-            loadPDF(url)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.documentLoadGeneration == generation else { return }
+                self.loadPDF(url, generation: generation)
+            }
         case .epub, .docx:
-            loadWebDocument(url, kind: kind)
+            loadWebDocument(url, kind: kind, generation: generation)
+        }
+    }
+
+    func showDocumentLoading(for url: URL) {
+        loadingLabel.stringValue = AppText.localized("正在打开 \(url.lastPathComponent)...", "Opening \(url.lastPathComponent)...")
+        loadingOverlay.isHidden = false
+        loadingIndicator.startAnimation(nil)
+    }
+
+    func hideDocumentLoading(generation: Int) {
+        guard documentLoadGeneration == generation else { return }
+        loadingIndicator.stopAnimation(nil)
+        loadingOverlay.isHidden = true
+    }
+
+    func showDocumentLoadingFailure(_ error: Error, generation: Int) {
+        guard documentLoadGeneration == generation else { return }
+        hideDocumentLoading(generation: generation)
+        let alert = NSAlert(error: error)
+        alert.applyLeafWhiteStyle()
+        alert.runModal()
+    }
+
+    func finishDocumentLoadingAfterAIBubbles(generation: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+            guard let self, self.documentLoadGeneration == generation else { return }
+            self.aiPanel.layoutSubtreeIfNeeded()
+            self.hideDocumentLoading(generation: generation)
         }
     }
 
@@ -38,8 +72,18 @@ extension ReaderWindowController {
         ReaderDocumentImportCoordinator.handleDroppedDocumentURLs(urls, controller: self)
     }
 
-    func loadPDF(_ url: URL) {
-        guard let document = PDFDocument(url: url) else { return }
+    func loadPDF(_ url: URL, generation: Int? = nil) {
+        guard let document = PDFDocument(url: url) else {
+            if let generation {
+                showDocumentLoadingFailure(
+                    NSError(domain: "LeafReader", code: -1, userInfo: [
+                        NSLocalizedDescriptionKey: AppText.localized("无法打开 PDF。", "Unable to open PDF.")
+                    ]),
+                    generation: generation
+                )
+            }
+            return
+        }
         currentDocumentKind = .pdf
         pdfView.isHidden = false
         webView.isHidden = true
@@ -50,6 +94,7 @@ extension ReaderWindowController {
         pdfWordRecordStore = currentFileMD5.map { PDFWordRecordStore(fileMD5: $0) }
         webWordRecordStore = nil
         aiConversationStore = currentFileMD5.map { AIConversationStore(fileMD5: $0) }
+        loadedAIConversation = nil
         currentWebPlainText = ""
         webPlainTextGeneration += 1
         currentWebSelectedText = ""
@@ -95,6 +140,9 @@ extension ReaderWindowController {
         RecentDocumentsStore.record(url: url, kind: .pdf)
         saveSession()
         scheduleDocumentEmbeddingWarmup(priorityPageIndex: currentEmbeddingPriorityIndex())
+        if let generation {
+            finishDocumentLoadingAfterAIBubbles(generation: generation)
+        }
     }
 
     func schedulePDFTOCBuild(for url: URL, displayBox: PDFDisplayBox) {
@@ -115,9 +163,23 @@ extension ReaderWindowController {
         }
     }
 
-    func loadWebDocument(_ url: URL, kind: ReaderDocumentKind) {
-        do {
-            let document = try WebDocumentLoader.load(url: url)
+    func loadWebDocument(_ url: URL, kind: ReaderDocumentKind, generation: Int) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let document = try WebDocumentLoader.load(url: url)
+                DispatchQueue.main.async {
+                    guard let self, self.documentLoadGeneration == generation else { return }
+                    self.applyLoadedWebDocument(document, url: url, kind: kind, generation: generation)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.showDocumentLoadingFailure(error, generation: generation)
+                }
+            }
+        }
+    }
+
+    func applyLoadedWebDocument(_ document: WebReadableDocument, url: URL, kind: ReaderDocumentKind, generation: Int) {
             currentDocumentKind = kind
             pdfView.isHidden = true
             pdfDimOverlay.isHidden = true
@@ -129,6 +191,7 @@ extension ReaderWindowController {
             pdfWordRecordStore = nil
             webWordRecordStore = currentFileMD5.map { WebWordRecordStore(fileMD5: $0) }
             aiConversationStore = currentFileMD5.map { AIConversationStore(fileMD5: $0) }
+            loadedAIConversation = nil
             pdfAgentIndex = nil
             isBuildingDocumentAgentIndex = false
             documentAgentIndexGeneration += 1
@@ -183,11 +246,7 @@ extension ReaderWindowController {
             saveSession()
             scheduleWebPlainTextLoad(document.plainTextLoader, generation: webPlainTextGeneration)
             scheduleDocumentEmbeddingWarmup(priorityPageIndex: currentEmbeddingPriorityIndex())
-        } catch {
-            let alert = NSAlert(error: error)
-            alert.applyLeafWhiteStyle()
-            alert.runModal()
-        }
+            finishDocumentLoadingAfterAIBubbles(generation: generation)
     }
 
     @objc func showTableOfContents() {
@@ -340,6 +399,7 @@ extension ReaderWindowController {
         pdfWordRecordStore = nil
         webWordRecordStore = nil
         aiConversationStore = nil
+        loadedAIConversation = nil
         pdfAgentIndex = nil
         currentWebPlainText = ""
         webPlainTextGeneration += 1

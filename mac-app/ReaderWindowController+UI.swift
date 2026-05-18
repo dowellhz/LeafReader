@@ -746,6 +746,8 @@ extension ReaderWindowController {
         }
         searchOverlay.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(searchOverlay, positioned: .above, relativeTo: contentArea)
+        configureLoadingOverlay()
+        contentView.addSubview(loadingOverlay, positioned: .above, relativeTo: searchOverlay)
 
         for view in [titleLabel, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, pageLayoutButton!, fullScreenButton!] {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -893,6 +895,17 @@ extension ReaderWindowController {
             searchOverlay.widthAnchor.constraint(equalToConstant: 560),
             searchOverlay.heightAnchor.constraint(equalToConstant: 70),
 
+            loadingOverlay.topAnchor.constraint(equalTo: contentArea.topAnchor),
+            loadingOverlay.leadingAnchor.constraint(equalTo: contentArea.leadingAnchor),
+            loadingOverlay.trailingAnchor.constraint(equalTo: contentArea.trailingAnchor),
+            loadingOverlay.bottomAnchor.constraint(equalTo: contentArea.bottomAnchor),
+            loadingIndicator.centerXAnchor.constraint(equalTo: loadingOverlay.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: loadingOverlay.centerYAnchor, constant: -16),
+            loadingLabel.topAnchor.constraint(equalTo: loadingIndicator.bottomAnchor, constant: 14),
+            loadingLabel.centerXAnchor.constraint(equalTo: loadingOverlay.centerXAnchor),
+            loadingLabel.leadingAnchor.constraint(greaterThanOrEqualTo: loadingOverlay.leadingAnchor, constant: 32),
+            loadingLabel.trailingAnchor.constraint(lessThanOrEqualTo: loadingOverlay.trailingAnchor, constant: -32),
+
             tocButton.trailingAnchor.constraint(equalTo: coverButton.leadingAnchor, constant: -10),
             tocButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
             tocButton.widthAnchor.constraint(equalToConstant: 88),
@@ -931,6 +944,27 @@ extension ReaderWindowController {
         }
         applyReaderTheme()
         scheduleSessionRestoreAfterInitialPaint()
+    }
+
+    func configureLoadingOverlay() {
+        loadingOverlay.translatesAutoresizingMaskIntoConstraints = false
+        loadingOverlay.isHidden = true
+        loadingOverlay.wantsLayer = true
+        loadingOverlay.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.86).cgColor
+
+        loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
+        loadingIndicator.style = .spinning
+        loadingIndicator.controlSize = .regular
+        loadingIndicator.isDisplayedWhenStopped = false
+
+        loadingLabel.translatesAutoresizingMaskIntoConstraints = false
+        loadingLabel.font = AppFont.semibold(ofSize: 13)
+        loadingLabel.textColor = NSColor(red: 0.32, green: 0.36, blue: 0.44, alpha: 1)
+        loadingLabel.alignment = .center
+        loadingLabel.lineBreakMode = .byTruncatingMiddle
+
+        loadingOverlay.addSubview(loadingIndicator)
+        loadingOverlay.addSubview(loadingLabel)
     }
 
     func iconButton(symbol: String, action: Selector) -> NSButton {

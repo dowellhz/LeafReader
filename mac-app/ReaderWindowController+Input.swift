@@ -53,6 +53,7 @@ extension ReaderWindowController {
             let selectedText = self.pdfView.currentSelection?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard selectedText.isEmpty else { return }
             self.setAIPanelCollapsed(false, animated: true)
+            self.ensureAIConversationSourceBubbleLoaded(source)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
                 self?.aiPanel.scrollToConversationSource(source)
             }

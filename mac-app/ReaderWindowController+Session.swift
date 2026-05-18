@@ -132,28 +132,56 @@ extension ReaderWindowController {
 
 
     func fileMD5(for url: URL) -> String? {
+        let fastID = fastDocumentID(for: url)
+        guard let legacyMD5 = cachedLegacyMD5(for: url), legacyMD5 != fastID else {
+            return fastID
+        }
+
+        if hasStoredDocumentData(documentID: legacyMD5), !hasStoredDocumentData(documentID: fastID) {
+            return legacyMD5
+        }
+        return fastID
+    }
+
+    func fastDocumentID(for url: URL) -> String {
+        let resourceValues = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+        let fileSize = resourceValues?.fileSize ?? 0
+        let modifiedAt = resourceValues?.contentModificationDate?.timeIntervalSince1970 ?? 0
+        let identity = "\(url.standardizedFileURL.path)|\(fileSize)|\(modifiedAt)"
+        let digest = SHA256.hash(data: Data(identity.utf8))
+            .prefix(16)
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return "fast-\(digest)"
+    }
+
+    func cachedLegacyMD5(for url: URL) -> String? {
         let resourceValues = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
         let fileSize = resourceValues?.fileSize ?? 0
         let modifiedAt = resourceValues?.contentModificationDate?.timeIntervalSince1970 ?? 0
         let cacheKey = "\(url.standardizedFileURL.path)|\(fileSize)|\(modifiedAt)"
         let defaults = UserDefaults.standard
-        var cache = defaults.dictionary(forKey: Self.fileMD5CacheDefaultsKey) as? [String: String] ?? [:]
-        if let cached = cache[cacheKey] {
-            return cached
-        }
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        let digest = Insecure.MD5.hash(data: data)
-        let md5 = digest.map { String(format: "%02x", $0) }.joined()
-        cache[cacheKey] = md5
-        if cache.count > 80 {
-            var trimmedCache: [String: String] = [:]
-            for (key, value) in cache.suffix(80) {
-                trimmedCache[key] = value
+        let cache = defaults.dictionary(forKey: Self.fileMD5CacheDefaultsKey) as? [String: String] ?? [:]
+        return cache[cacheKey]
+    }
+
+    func hasStoredDocumentData(documentID: String) -> Bool {
+        let defaults = UserDefaults.standard
+        for suffix in ["pageIndex", "scale", "webProgress", "webZoom", "wordRecords", "webWordRecords"] {
+            if defaults.object(forKey: "bookSession.\(documentID).\(suffix)") != nil {
+                return true
             }
-            cache = trimmedCache
         }
-        defaults.set(cache, forKey: Self.fileMD5CacheDefaultsKey)
-        return md5
+        if defaults.object(forKey: "aiConversation.\(documentID)") != nil {
+            return true
+        }
+        if !WordRecordSQLiteStore.shared.loadPDFRecords(documentID: documentID).isEmpty {
+            return true
+        }
+        if !WordRecordSQLiteStore.shared.loadWebRecords(documentID: documentID).isEmpty {
+            return true
+        }
+        return false
     }
 
     func restoreWebProgressAfterLoad() {

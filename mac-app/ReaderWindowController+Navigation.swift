@@ -266,10 +266,11 @@ extension ReaderWindowController {
         switch direction {
         case .previous:
             pdfView.goToPreviousPage(nil)
+            scrollCurrentPageToBottom()
         case .next:
             pdfView.goToNextPage(nil)
+            scrollCurrentPageToTop()
         }
-        scrollCurrentPageToTop()
         updatePageLabel()
         saveSession()
         recordPageJump(source: direction == .previous ? "scroll-previous" : "scroll-next", before: beforePageIndex, after: currentPageIndex())
@@ -304,6 +305,11 @@ extension ReaderWindowController {
         scrollPageToTop(page)
     }
 
+    func scrollCurrentPageToBottom() {
+        guard let page = pdfView.currentPage else { return }
+        scrollPageToBottom(page)
+    }
+
     func scrollPageToTop(_ page: PDFPage) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self,
@@ -312,6 +318,18 @@ extension ReaderWindowController {
             }
             let bounds = page.bounds(for: self.pdfView.displayBox)
             let destination = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY))
+            self.pdfView.go(to: destination)
+        }
+    }
+
+    func scrollPageToBottom(_ page: PDFPage) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self,
+                  self.pdfView.document?.index(for: page) != NSNotFound else {
+                return
+            }
+            let bounds = page.bounds(for: self.pdfView.displayBox)
+            let destination = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.minY))
             self.pdfView.go(to: destination)
         }
     }

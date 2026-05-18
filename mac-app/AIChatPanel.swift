@@ -132,6 +132,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     static let maxSavedConversationBubbles = 100
     static let maxContextMessages = 40
     static let maxVisibleNormalConversationBubbles = 120
+    static let maxInitialLinkedWordBubbles = 30
+    static let maxInitialSavedConversationBubbles = 40
 
     struct LinkedWordBubble {
         let id: String
