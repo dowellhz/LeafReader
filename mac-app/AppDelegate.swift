@@ -1,11 +1,18 @@
 import Cocoa
+import Sparkle
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: ReaderWindowController!
     private var helpWindow: NSWindow?
     private var aboutWindow: NSWindow?
+    private var updaterController: SPUStandardUpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
         controller = ReaderWindowController()
         installMainMenu()
         controller.window?.makeKeyAndOrderFront(nil)
@@ -334,6 +341,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func helpMenuItem() -> NSMenuItem {
         let menu = NSMenu(title: AppText.localized("帮助", "Help"))
+        if let updaterController {
+            menu.addItem(menuItem(
+                AppText.localized("检查更新...", "Check for Updates..."),
+                action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+                key: "",
+                target: updaterController
+            ))
+            menu.addItem(.separator())
+        }
         menu.addItem(menuItem(
             AppText.localized("Leaf Reader 帮助", "Leaf Reader Help"),
             action: #selector(showLeafReaderHelp(_:)),

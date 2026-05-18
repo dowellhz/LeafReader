@@ -113,6 +113,12 @@ extension ReaderWindowController {
                 if (window.CSS && CSS.highlights) CSS.highlights.delete('leaf-reader-selection');
                 clearSpanHighlights();
               };
+              window.leafReaderClearSelection = () => {
+                clearPreservedSelectionHighlight();
+                const selection = window.getSelection();
+                if (selection) selection.removeAllRanges();
+                window.webkit.messageHandlers.selectionChanged.postMessage({ text: "", context: "" });
+              };
               const preserveSelectionHighlight = (selection) => {
                 if (!selection || selection.rangeCount === 0 || String(selection || "").trim().length === 0) return;
                 installSelectionHighlightStyle();

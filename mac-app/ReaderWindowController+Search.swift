@@ -159,7 +159,13 @@ extension ReaderWindowController {
     }
 
     func clearWebSearchSelection() {
-        webView?.evaluateJavaScript("window.getSelection().removeAllRanges();")
+        webView?.evaluateJavaScript("""
+            if (window.leafReaderClearSelection) {
+              window.leafReaderClearSelection();
+            } else if (window.getSelection) {
+              window.getSelection().removeAllRanges();
+            }
+        """)
     }
 
     func jsStringLiteral(_ text: String) -> String {

@@ -96,21 +96,33 @@ The app bundle is generated locally and is not committed to git.
 
 ## Build From Source
 
+Install Sparkle first:
+
+```sh
+brew install --cask sparkle
+```
+
 Create the app bundle directory if needed, then compile the Swift sources:
 
 ```sh
-mkdir -p "Leaf Reader.app/Contents/MacOS" "Leaf Reader.app/Contents/Resources"
+SPARKLE_HOME=/opt/homebrew/Caskroom/sparkle/2.9.2
+mkdir -p "Leaf Reader.app/Contents/MacOS" "Leaf Reader.app/Contents/Resources" "Leaf Reader.app/Contents/Frameworks"
 cp mac-app/Info.plist "Leaf Reader.app/Contents/Info.plist"
 cp mac-app/AIPrompts.json "Leaf Reader.app/Contents/Resources/AIPrompts.json"
 cp mac-app/AppIcon.icns "Leaf Reader.app/Contents/Resources/AppIcon.icns"
+cp -R "$SPARKLE_HOME/Sparkle.framework" "Leaf Reader.app/Contents/Frameworks/"
 swiftc mac-app/*.swift \
+  -F "$SPARKLE_HOME" \
   -o "Leaf Reader.app/Contents/MacOS/Leaf Reader" \
   -framework Cocoa \
   -framework PDFKit \
   -framework WebKit \
   -framework CryptoKit \
   -framework AVFoundation \
-  -lsqlite3
+  -framework Sparkle \
+  -lsqlite3 \
+  -Xlinker -rpath \
+  -Xlinker @executable_path/../Frameworks
 ```
 
 Re-sign the rebuilt app:
@@ -141,6 +153,7 @@ Run the lightweight logic regression tests:
 - `mac-app/AIPrompts.json` - built-in AI prompt definitions.
 - `mac-app/AppIcon.icns` - packaged app icon.
 - `mac-app/AppIconSource.png` - source image for the app icon.
+- `docs/` - GitHub Pages site and Sparkle update feed.
 - `assets/leaf-reader-icon.png` - project icon used in this README.
 - `assets/reader-light-ai-word.png` - light mode word-learning screenshot.
 - `assets/reader-bookshelf.png` - bookshelf screenshot.
@@ -165,9 +178,18 @@ Local release artifacts are expected under:
 release/1.4.1/
 ```
 
+Sparkle updates use:
+
+```text
+https://dowellhz.github.io/LeafReader/appcast.xml
+```
+
+The appcast entry points to the signed and notarized pkg uploaded to GitHub Releases. For pkg updates, update `docs/appcast.xml` manually with the new version, pkg URL, file length, and EdDSA signature from Sparkle's `sign_update` tool.
+
 ## Notes
 
 - Bundle identifier: `com.linlu.leafreader`.
+- Automatic updates use Sparkle and the public EdDSA key embedded in `mac-app/Info.plist`.
 - PDF rendering uses PDFKit.
 - EPUB and DOCX rendering uses WebKit. DOCX support is optimized for readable text extraction rather than exact Word layout fidelity.
 - Search selections are kept separate from AI passage selection so search navigation does not accidentally populate the assistant.
