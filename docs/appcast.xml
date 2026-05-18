@@ -6,22 +6,23 @@
     <description>Leaf Reader macOS app updates.</description>
     <language>zh-CN</language>
     <item>
-      <title>Leaf Reader 1.4.1</title>
-      <sparkle:version>1.4.1</sparkle:version>
-      <sparkle:shortVersionString>1.4.1</sparkle:shortVersionString>
+      <title>Leaf Reader 1.4.2</title>
+      <sparkle:version>1.4.2</sparkle:version>
+      <sparkle:shortVersionString>1.4.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <pubDate>Mon, 18 May 2026 02:28:00 +0000</pubDate>
+      <pubDate>Mon, 18 May 2026 03:52:05 +0000</pubDate>
       <description><![CDATA[
         <ul>
-          <li>Refined selection handling between the reading area and AI chat bubbles.</li>
-          <li>Preserved selected AI bubble text when sending follow-up questions.</li>
-          <li>Kept selected passages available for Learn English, Summarize, and Translate actions.</li>
-        </ul>
+  <li>Added Sparkle-powered in-app update checks.</li>
+  <li>Published the GitHub Pages download site and appcast feed.</li>
+  <li>Added automated build and release packaging scripts.</li>
+  <li>Improved EPUB/DOCX selection clearing when switching to AI bubble selections.</li>
+</ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dowellhz/LeafReader/releases/download/v1.4.1/LeafReader-1.4.1.pkg"
-        sparkle:edSignature="LSGvugunxoT/YiENtFoT0s3uQ+ZZB05ldc2dYHAi6LaJHYghAnEqfW4cQ+U8afeNyqzpGIy7nclbTKKEi65NDA=="
-        length="2501396"
+        url="https://github.com/dowellhz/LeafReader/releases/download/v1.4.2/LeafReader-1.4.2.pkg"
+        sparkle:edSignature="hKG+YwQhcWRCr7FCapbKE34mOELpVSxfgBIhsxFCm6zSBBHCw8TA3lCqhArPQyu/4pdzjolbFuJkUMAkOdaMAA=="
+        length="3465833"
         type="application/octet-stream" />
     </item>
   </channel>

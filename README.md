@@ -22,7 +22,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 Download the latest macOS installer:
 
-[Leaf Reader 1.4.1 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4.1/LeafReader-1.4.1.pkg)
+[Leaf Reader 1.4.2 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4.2/LeafReader-1.4.2.pkg)
 
 ## Highlights
 
@@ -34,6 +34,13 @@ Download the latest macOS installer:
 - Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
+
+## What's New in 1.4.2
+
+- Added Sparkle-powered in-app update checks.
+- Published the GitHub Pages download site and appcast feed.
+- Added automated build and release packaging scripts.
+- Improved EPUB/DOCX selection clearing when switching to AI bubble selections.
 
 ## What's New in 1.4.1
 
@@ -141,18 +148,18 @@ Run the lightweight logic regression tests:
 
 ## Release
 
-Current version: `1.4.1`
+Current version: `1.4.2`
 
-Git tag: `v1.4.1`
+Git tag: `v1.4.2`
 
 Latest installer:
 
-[Leaf Reader-1.4.1.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.1/LeafReader-1.4.1.pkg)
+[Leaf Reader-1.4.2.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.2/LeafReader-1.4.2.pkg)
 
 Local release artifacts are expected under:
 
 ```text
-release/1.4.1/
+release/1.4.2/
 ```
 
 Sparkle updates use:
