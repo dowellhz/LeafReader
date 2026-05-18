@@ -357,6 +357,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return AppText.localized("暂时无法检查更新，请检查网络后再试。", "Unable to check for updates. Please check your network connection and try again.")
     }
 
+    private func showUpToDateUpdateStatus() {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? helpVersionText()
+        showWhiteUpdateStatus(
+            title: AppText.localized("已是最新版本", "You're up to date!"),
+            message: AppText.localized(
+                "Leaf Reader \(version) 已是当前最新版本。",
+                "Leaf Reader \(version) is currently the newest version available."
+            )
+        )
+    }
+
     private func viewMenuItem() -> NSMenuItem {
         let menu = NSMenu(title: AppText.localized("视图", "View"))
         menu.addItem(menuItem(
@@ -1087,14 +1098,13 @@ extension AppDelegate: SPUUpdaterDelegate {
     func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
         guard manualUpdateProbeInProgress, !manualUpdateProbeFoundUpdate else { return }
         manualUpdateProbeHandledResult = true
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? helpVersionText()
-        showWhiteUpdateStatus(
-            title: AppText.localized("已是最新版本", "You're up to date!"),
-            message: AppText.localized(
-                "Leaf Reader \(version) 已是当前最新版本。",
-                "Leaf Reader \(version) is currently the newest version available."
-            )
-        )
+        showUpToDateUpdateStatus()
+    }
+
+    func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        guard manualUpdateProbeInProgress, !manualUpdateProbeFoundUpdate else { return }
+        manualUpdateProbeHandledResult = true
+        showUpToDateUpdateStatus()
     }
 
     func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
@@ -1102,6 +1112,7 @@ extension AppDelegate: SPUUpdaterDelegate {
 
         let shouldPresentUpdate = manualUpdateProbeFoundUpdate
         let shouldShowError = !manualUpdateProbeHandledResult && error != nil
+        let shouldShowUpToDate = !manualUpdateProbeHandledResult && !manualUpdateProbeFoundUpdate && error == nil
 
         manualUpdateProbeInProgress = false
         manualUpdateProbeFoundUpdate = false
@@ -1119,6 +1130,8 @@ extension AppDelegate: SPUUpdaterDelegate {
                 title: AppText.localized("检查更新失败", "Update Check Failed"),
                 message: updateFailureMessage(from: error)
             )
+        } else if shouldShowUpToDate {
+            showUpToDateUpdateStatus()
         }
     }
 }

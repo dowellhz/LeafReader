@@ -6,22 +6,21 @@
     <description>Leaf Reader macOS app updates.</description>
     <language>zh-CN</language>
     <item>
-      <title>Leaf Reader 1.4.5</title>
-      <sparkle:version>1.4.5</sparkle:version>
-      <sparkle:shortVersionString>1.4.5</sparkle:shortVersionString>
+      <title>Leaf Reader 1.4.6</title>
+      <sparkle:version>1.4.6</sparkle:version>
+      <sparkle:shortVersionString>1.4.6</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <pubDate>Mon, 18 May 2026 05:18:58 +0000</pubDate>
+      <pubDate>Mon, 18 May 2026 05:29:57 +0000</pubDate>
       <description><![CDATA[
         <ul>
-          <li>修复 1.4.4 在 macOS 13.6.1 上提示版本不兼容的问题。</li>
-          <li>主程序改为 macOS 12.0 deployment target，并生成 Apple Silicon / Intel universal 二进制。</li>
-          <li>检查更新增加白底进度窗口，AI 气泡和书架封面加载减少主线程卡顿。</li>
+          <li>修复手动检查更新完成后没有显示“已是最新版本”结果窗口的问题。</li>
+          <li>补齐 Sparkle 无更新回调和检查周期完成后的成功兜底逻辑。</li>
         </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dowellhz/LeafReader/releases/download/v1.4.5/LeafReader-1.4.5.pkg"
-        sparkle:edSignature="CeXjxGd7PQAeYft//Oj7OnV3A7c8P/LmQBDndK08KuqPfch2sWVB5nvL7rZQXB6bZCuywecz4eMWhNvUiw8WBQ=="
-        length="4658238"
+        url="https://github.com/dowellhz/LeafReader/releases/download/v1.4.6/LeafReader-1.4.6.pkg"
+        sparkle:edSignature="i2qzYOzgI985Bpe8PwKHpYvvQAk/cX+y2xHkmTEcwGCG4Tp03eUHfRXOlExNT+VdGx4rKaLd5YWTWu5Nb8BXCQ=="
+        length="4658945"
         type="application/octet-stream" />
     </item>
   </channel>
