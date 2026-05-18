@@ -387,6 +387,9 @@ extension ReaderWindowController {
         aiPanel.onConversationBubbleSelected = { [weak self] sourceLocation in
             self?.jumpToAIConversationSource(sourceLocation)
         }
+        aiPanel.onNonFollowUpSelectionInteraction = { [weak self] in
+            self?.clearReaderSelectionForBubbleSelection()
+        }
 
         searchOverlay.isHidden = true
         searchOverlay.onSubmit = { [weak self] query in

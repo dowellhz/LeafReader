@@ -63,14 +63,10 @@ final class ChatInputTextField: NSTextField {
 }
 
 final class ChatBubbleTextField: NSTextField {
-    var onInteractionEnded: ((ChatBubbleTextField) -> Void)?
-
     override func mouseDown(with event: NSEvent) {
+        (delegate as? AIChatPanel)?.beginBubbleTextSelection(self)
         super.mouseDown(with: event)
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.onInteractionEnded?(self)
-        }
+        (delegate as? AIChatPanel)?.finishBubbleTextSelection(self)
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -91,6 +87,27 @@ final class ChatBubbleTextField: NSTextField {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(String(editor.string[range]), forType: .string)
         return true
+    }
+
+    func clearTextSelection() {
+        currentEditor()?.selectedRange = NSRange(location: 0, length: 0)
+        window?.makeFirstResponder(nil)
+    }
+
+    var selectedTextValue: String {
+        guard let editor = currentEditor() else { return "" }
+        let selectedRange = editor.selectedRange
+        guard selectedRange.length > 0,
+              let range = Range(selectedRange, in: editor.string) else {
+            return ""
+        }
+        return String(editor.string[range]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var selectedTextRange: NSRange? {
+        guard let editor = currentEditor() else { return nil }
+        let range = editor.selectedRange
+        return range.length > 0 ? range : nil
     }
 }
 
@@ -173,6 +190,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var onConversationSourcesChanged: (([AIConversationSourceLocation]) -> Void)?
     var onCurrentSourceLocation: (() -> AIConversationSourceLocation?)?
     var onConversationBubbleSelected: ((AIConversationSourceLocation) -> Void)?
+    var onNonFollowUpSelectionInteraction: (() -> Void)?
     var lastNotifiedConversationSources: [AIConversationSourceLocation] = []
 
     var selectedText = ""
@@ -185,6 +203,9 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var isEditingFollowUp = false
     var ignoreEmptySelectionUntil = Date.distantPast
     var localMouseMonitor: Any?
+    weak var activeBubbleTextField: ChatBubbleTextField?
+    var activeBubbleSelectionRange: NSRange?
+    var activeBubbleSelectedText = ""
     var streamUpdateWorkItem: DispatchWorkItem?
     var isDarkMode = false
     var bubbleMetadataByID: [String: BubbleMetadata] = [:]
@@ -215,15 +236,52 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         if shouldIgnoreEmptySelectionUpdate(text) {
             return
         }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            clearActiveBubbleSelection(restoreRendering: true, clearSelectedTextState: false)
+        }
+        updateSelectedText(trimmed)
+    }
+
+    func clearSelectedText() {
+        clearActiveBubbleSelection(restoreRendering: true, clearSelectedTextState: false)
+        updateSelectedText("")
+    }
+
+    func setSelectedBubbleText(_ text: String) {
+        updateSelectedText(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    func updateSelectedText(_ text: String) {
         selectedText = text
         askButton.previewText = text
         askButton.isEnabled = !text.isEmpty
     }
 
-    func clearSelectedText() {
-        selectedText = ""
-        askButton.previewText = ""
-        askButton.isEnabled = false
+    func beginBubbleTextSelection(_ bubble: ChatBubbleTextField) {
+        if let previous = activeBubbleTextField, previous !== bubble {
+            clearActiveBubbleSelection(restoreRendering: true, clearSelectedTextState: false)
+        }
+        activeBubbleSelectionRange = nil
+        activeBubbleSelectedText = ""
+        activeBubbleTextField = bubble
+        updateSelectedText("")
+        onNonFollowUpSelectionInteraction?()
+    }
+
+    func finishBubbleTextSelection(_ bubble: ChatBubbleTextField) {
+        captureBubbleSelection(from: bubble)
+    }
+
+    @discardableResult
+    func captureBubbleSelection(from bubble: ChatBubbleTextField) -> Bool {
+        let selected = bubble.selectedTextValue
+        guard !selected.isEmpty else { return false }
+        activeBubbleSelectionRange = bubble.selectedTextRange
+        activeBubbleSelectedText = selected
+        activeBubbleTextField = bubble
+        setSelectedBubbleText(selected)
+        return true
     }
 
     func shouldIgnoreEmptySelectionUpdate(_ text: String) -> Bool {

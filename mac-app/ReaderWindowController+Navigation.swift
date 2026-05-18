@@ -278,6 +278,16 @@ extension ReaderWindowController {
         }
     }
 
+    func clearReaderSelectionForBubbleSelection() {
+        currentWebSelectedText = ""
+        currentWebSelectionContext = ""
+        if currentDocumentKind == .pdf {
+            pdfView.clearSelection()
+        } else {
+            clearWebSearchSelection()
+        }
+    }
+
     func scrollCurrentPageToTop() {
         guard let page = pdfView.currentPage else { return }
         scrollPageToTop(page)

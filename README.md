@@ -22,7 +22,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 Download the latest macOS installer:
 
-[Leaf Reader 1.4 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4/LeafReader-1.4.pkg)
+[Leaf Reader 1.4.1 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4.1/LeafReader-1.4.1.pkg)
 
 ## Highlights
 
@@ -34,6 +34,12 @@ Download the latest macOS installer:
 - Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
+
+## What's New in 1.4.1
+
+- Refined selection handling between the reading area and AI chat bubbles so only one active selection is kept.
+- Preserved AI bubble selections when using follow-up questions, and restored selected bubble text as follow-up context.
+- Kept selected passages available for Learn English, Summarize, and Translate actions.
 
 ## What's New in 1.4
 
@@ -145,18 +151,18 @@ Run the lightweight logic regression tests:
 
 ## Release
 
-Current version: `1.4`
+Current version: `1.4.1`
 
-Git tag: `v1.4`
+Git tag: `v1.4.1`
 
 Latest installer:
 
-[Leaf Reader-1.4.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4/LeafReader-1.4.pkg)
+[Leaf Reader-1.4.1.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.1/LeafReader-1.4.1.pkg)
 
 Local release artifacts are expected under:
 
 ```text
-release/1.4/
+release/1.4.1/
 ```
 
 ## Notes

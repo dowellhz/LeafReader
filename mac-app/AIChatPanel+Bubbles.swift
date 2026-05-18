@@ -22,9 +22,6 @@ extension AIChatPanel {
         body.isSelectable = true
         body.allowsEditingTextAttributes = true
         body.delegate = self
-        body.onInteractionEnded = { [weak self] bubble in
-            self?.restoreBubbleRendering(bubble)
-        }
         body.translatesAutoresizingMaskIntoConstraints = false
         let bodyID = UUID().uuidString
         body.identifier = NSUserInterfaceItemIdentifier(bodyID)
@@ -246,14 +243,31 @@ extension AIChatPanel {
               let metadata = bubbleMetadataByID[bodyID] else {
             return
         }
-        body.attributedStringValue = bubbleString(
+        let rendered = NSMutableAttributedString(attributedString: bubbleString(
             role: metadata.role,
             text: metadata.text,
             renderMarkdown: metadata.renderMarkdown
-        )
+        ))
+        if body === activeBubbleTextField,
+           let highlightRange = activeBubbleHighlightRange(in: rendered) {
+            rendered.addAttribute(.backgroundColor, value: NSColor.selectedTextBackgroundColor.withAlphaComponent(0.55), range: highlightRange)
+        }
+        body.attributedStringValue = rendered
         body.invalidateIntrinsicContentSize()
         body.superview?.invalidateIntrinsicContentSize()
         transcriptStack.layoutSubtreeIfNeeded()
+    }
+
+    func activeBubbleHighlightRange(in rendered: NSAttributedString) -> NSRange? {
+        if let range = activeBubbleSelectionRange,
+           range.location != NSNotFound,
+           range.location + range.length <= rendered.length {
+            return range
+        }
+        let selected = activeBubbleSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !selected.isEmpty else { return nil }
+        let fallbackRange = (rendered.string as NSString).range(of: selected)
+        return fallbackRange.location == NSNotFound ? nil : fallbackRange
     }
 
     func scheduleStreamUpdate(_ body: NSTextField, text: String) {
