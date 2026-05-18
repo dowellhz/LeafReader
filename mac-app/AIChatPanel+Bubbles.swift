@@ -105,11 +105,7 @@ extension AIChatPanel {
         }
         notifyConversationChangedIfNeeded()
 
-        DispatchQueue.main.async { [weak self, weak box] in
-            guard let self = self, let box = box else { return }
-            self.transcriptStack.layoutSubtreeIfNeeded()
-            box.scrollToVisible(box.bounds)
-        }
+        scheduleTranscriptLayout(scrollTarget: box, forceScroll: true)
         return body
     }
 
@@ -174,8 +170,7 @@ extension AIChatPanel {
         body.attributedStringValue = bubbleString(role: role, text: text, renderMarkdown: renderMarkdown)
         body.invalidateIntrinsicContentSize()
         body.superview?.invalidateIntrinsicContentSize()
-        transcriptStack.layoutSubtreeIfNeeded()
-        body.superview?.scrollToVisible(body.superview?.bounds ?? body.bounds)
+        scheduleTranscriptLayout(scrollTarget: body.superview ?? body)
         if notify {
             notifyConversationChangedIfNeeded()
         }
@@ -253,9 +248,7 @@ extension AIChatPanel {
             rendered.addAttribute(.backgroundColor, value: NSColor.selectedTextBackgroundColor.withAlphaComponent(0.55), range: highlightRange)
         }
         body.attributedStringValue = rendered
-        body.invalidateIntrinsicContentSize()
-        body.superview?.invalidateIntrinsicContentSize()
-        transcriptStack.layoutSubtreeIfNeeded()
+        body.needsDisplay = true
     }
 
     func activeBubbleHighlightRange(in rendered: NSAttributedString) -> NSRange? {
@@ -305,8 +298,7 @@ extension AIChatPanel {
         body.maximumNumberOfLines = body.maximumNumberOfLines == 1 ? 0 : 1
         body.invalidateIntrinsicContentSize()
         box.invalidateIntrinsicContentSize()
-        transcriptStack.layoutSubtreeIfNeeded()
-        box.scrollToVisible(box.bounds)
+        scheduleTranscriptLayout(scrollTarget: box, forceScroll: true)
     }
 
     @objc func selectLinkedBubble(_ recognizer: NSClickGestureRecognizer) {
@@ -535,6 +527,35 @@ extension AIChatPanel {
         }
         updateLinkedBubbleSelection()
         transcriptStack.needsLayout = true
-        transcriptStack.layoutSubtreeIfNeeded()
+        scheduleTranscriptLayout()
+    }
+
+    func scheduleTranscriptLayout(scrollTarget: NSView? = nil, forceScroll: Bool = false) {
+        if let scrollTarget, forceScroll || isTranscriptScrolledNearBottom() {
+            pendingTranscriptScrollTarget = scrollTarget
+        }
+        pendingTranscriptForceScroll = pendingTranscriptForceScroll || forceScroll
+
+        guard transcriptLayoutWorkItem == nil else { return }
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.transcriptLayoutWorkItem = nil
+            self.transcriptStack.layoutSubtreeIfNeeded()
+            if let target = self.pendingTranscriptScrollTarget,
+               self.pendingTranscriptForceScroll || self.isTranscriptScrolledNearBottom(tolerance: 140) {
+                target.scrollToVisible(target.bounds)
+            }
+            self.pendingTranscriptScrollTarget = nil
+            self.pendingTranscriptForceScroll = false
+        }
+        transcriptLayoutWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.04, execute: workItem)
+    }
+
+    func isTranscriptScrolledNearBottom(tolerance: CGFloat = 80) -> Bool {
+        guard let documentView = scrollView.documentView else { return true }
+        let visibleMaxY = scrollView.contentView.bounds.maxY
+        let contentMaxY = documentView.bounds.maxY
+        return contentMaxY <= scrollView.contentView.bounds.height || visibleMaxY >= contentMaxY - tolerance
     }
 }

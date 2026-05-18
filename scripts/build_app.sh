@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_PATH="$ROOT_DIR/Leaf Reader.app"
 SPARKLE_HOME="${SPARKLE_HOME:-/opt/homebrew/Caskroom/sparkle/2.9.2}"
 APP_SIGN_IDENTITY="${APP_SIGN_IDENTITY:--}"
+MACOS_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET:-12.0}"
+ARCHS="${ARCHS:-arm64 x86_64}"
 export COPYFILE_DISABLE=1
 
 if [[ ! -d "$SPARKLE_HOME/Sparkle.framework" ]]; then
@@ -27,18 +29,33 @@ find "$APP_PATH" -name '._*' -type f -delete
 xattr -cr "$APP_PATH"
 xattr -crs "$APP_PATH"
 
-swiftc "$ROOT_DIR"/mac-app/*.swift \
-  -F "$SPARKLE_HOME" \
-  -o "$APP_PATH/Contents/MacOS/Leaf Reader" \
-  -framework Cocoa \
-  -framework PDFKit \
-  -framework WebKit \
-  -framework CryptoKit \
-  -framework AVFoundation \
-  -framework Sparkle \
-  -lsqlite3 \
-  -Xlinker -rpath \
-  -Xlinker @executable_path/../Frameworks
+BINARY_PATH="$APP_PATH/Contents/MacOS/Leaf Reader"
+TEMP_BINARIES=()
+read -r -a BUILD_ARCHS <<< "$ARCHS"
+for ARCH in "${BUILD_ARCHS[@]}"; do
+  ARCH_BINARY="$APP_PATH/Contents/MacOS/Leaf Reader-$ARCH"
+  swiftc "$ROOT_DIR"/mac-app/*.swift \
+    -target "$ARCH-apple-macos$MACOS_DEPLOYMENT_TARGET" \
+    -F "$SPARKLE_HOME" \
+    -o "$ARCH_BINARY" \
+    -framework Cocoa \
+    -framework PDFKit \
+    -framework WebKit \
+    -framework CryptoKit \
+    -framework AVFoundation \
+    -framework Sparkle \
+    -lsqlite3 \
+    -Xlinker -rpath \
+    -Xlinker @executable_path/../Frameworks
+  TEMP_BINARIES+=("$ARCH_BINARY")
+done
+
+if [[ "${#TEMP_BINARIES[@]}" -eq 1 ]]; then
+  mv "${TEMP_BINARIES[0]}" "$BINARY_PATH"
+else
+  lipo -create -output "$BINARY_PATH" "${TEMP_BINARIES[@]}"
+  rm -f "${TEMP_BINARIES[@]}"
+fi
 
 xattr -cr "$APP_PATH"
 xattr -crs "$APP_PATH"

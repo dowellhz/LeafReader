@@ -213,7 +213,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard updater.canCheckForUpdates else {
             showWhiteUpdateStatus(
                 title: AppText.localized("正在检查更新", "Checking for Updates"),
-                message: AppText.localized("Leaf Reader 正在处理更新，请稍后再试。", "Leaf Reader is already handling an update. Please try again shortly.")
+                message: AppText.localized("Leaf Reader 正在处理更新，请稍后再试。", "Leaf Reader is already handling an update. Please try again shortly."),
+                showsProgress: true
             )
             return
         }
@@ -222,10 +223,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         manualUpdateProbeFoundUpdate = false
         manualUpdateProbeHandledResult = false
         manualUpdateSender = sender as AnyObject?
+        showWhiteUpdateStatus(
+            title: AppText.localized("正在检查更新", "Checking for Updates"),
+            message: AppText.localized("正在连接 Leaf Reader 更新源...", "Connecting to the Leaf Reader update feed..."),
+            showsProgress: true
+        )
         updater.checkForUpdateInformation()
     }
 
-    private func showWhiteUpdateStatus(title: String, message: String) {
+    private func showWhiteUpdateStatus(title: String, message: String, showsProgress: Bool = false) {
         if let updateStatusWindow {
             updateStatusWindow.close()
         }
@@ -266,11 +272,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         messageLabel.maximumNumberOfLines = 3
         content.addSubview(messageLabel)
 
+        let progressIndicator = NSProgressIndicator()
+        progressIndicator.translatesAutoresizingMaskIntoConstraints = false
+        progressIndicator.style = .spinning
+        progressIndicator.controlSize = .regular
+        progressIndicator.isIndeterminate = true
+        progressIndicator.isDisplayedWhenStopped = false
+        if showsProgress {
+            progressIndicator.startAnimation(nil)
+        }
+        progressIndicator.isHidden = !showsProgress
+        content.addSubview(progressIndicator)
+
         let okButton = NSButton(title: "OK", target: self, action: #selector(closeUpdateStatusWindow(_:)))
         okButton.translatesAutoresizingMaskIntoConstraints = false
         okButton.bezelStyle = .rounded
         okButton.font = .systemFont(ofSize: 14, weight: .semibold)
         okButton.keyEquivalent = "\r"
+        okButton.isHidden = showsProgress
         content.addSubview(okButton)
 
         NSLayoutConstraint.activate([
@@ -286,6 +305,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             messageLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12),
             messageLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 34),
             messageLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -34),
+
+            progressIndicator.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            progressIndicator.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -34),
 
             okButton.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 30),
             okButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -30),
@@ -312,6 +334,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard notification.object as AnyObject? === updateStatusWindow else { return }
         NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: updateStatusWindow)
         updateStatusWindow = nil
+    }
+
+    private func updateFailureMessage(from error: Error?) -> String {
+        guard let nsError = error as NSError? else {
+            return AppText.localized("暂时无法检查更新，请稍后再试。", "Unable to check for updates right now. Please try again later.")
+        }
+
+        let description = nsError.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let suggestion = nsError.localizedRecoverySuggestion?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let reason = nsError.localizedFailureReason?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let suggestion, !suggestion.isEmpty {
+            return "\(description)\n\(suggestion)"
+        }
+        if let reason, !reason.isEmpty, reason != description {
+            return "\(description)\n\(reason)"
+        }
+        if !description.isEmpty {
+            return description
+        }
+        return AppText.localized("暂时无法检查更新，请检查网络后再试。", "Unable to check for updates. Please check your network connection and try again.")
     }
 
     private func viewMenuItem() -> NSMenuItem {
@@ -1059,7 +1102,6 @@ extension AppDelegate: SPUUpdaterDelegate {
 
         let shouldPresentUpdate = manualUpdateProbeFoundUpdate
         let shouldShowError = !manualUpdateProbeHandledResult && error != nil
-        let errorMessage = error?.localizedDescription
 
         manualUpdateProbeInProgress = false
         manualUpdateProbeFoundUpdate = false
@@ -1068,13 +1110,14 @@ extension AppDelegate: SPUUpdaterDelegate {
         manualUpdateSender = nil
 
         if shouldPresentUpdate {
+            updateStatusWindow?.close()
             DispatchQueue.main.async { [weak self] in
                 self?.updaterController?.checkForUpdates(sender)
             }
         } else if shouldShowError {
             showWhiteUpdateStatus(
                 title: AppText.localized("检查更新失败", "Update Check Failed"),
-                message: errorMessage ?? AppText.localized("暂时无法检查更新，请稍后再试。", "Unable to check for updates right now. Please try again later.")
+                message: updateFailureMessage(from: error)
             )
         }
     }

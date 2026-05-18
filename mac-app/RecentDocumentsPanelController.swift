@@ -118,6 +118,7 @@ final class RecentDocumentsPanelController: NSObject {
     private let panelSize = NSSize(width: 940, height: 480)
     private let coverSize = NSSize(width: 120, height: 205)
     private static var coverCache: [String: NSImage] = [:]
+    private static var placeholderCoverCache: [String: NSImage] = [:]
 
     deinit {
         removeAppActivationObserver()
@@ -503,12 +504,9 @@ final class RecentDocumentsPanelController: NSObject {
         let coverKey = coverCacheKey(for: item)
         if let cachedCover = Self.coverCache[coverKey] {
             cover.image = cachedCover
-        } else if let diskCover = loadDiskCover(cacheKey: coverKey) {
-            Self.coverCache[coverKey] = diskCover
-            cover.image = diskCover
         } else {
-            cover.image = placeholderCover(title: displayTitle(for: item), kind: item.kind, isDark: isDark)
-            loadCoverImageAsync(for: item, isDark: isDark, imageView: cover)
+            cover.image = cachedPlaceholderCover(title: displayTitle(for: item), kind: item.kind, isDark: isDark)
+            loadCoverImageAsync(for: item, imageView: cover)
         }
         cover.imageScaling = .scaleProportionallyUpOrDown
         cover.wantsLayer = true
@@ -585,35 +583,30 @@ final class RecentDocumentsPanelController: NSObject {
         return card
     }
 
-    private func coverImage(for item: RecentDocumentItem, isDark: Bool) -> NSImage {
-        let cacheKey = coverCacheKey(for: item)
-        if let cached = Self.coverCache[cacheKey] {
-            return cached
-        }
-        let url = URL(fileURLWithPath: item.path)
-        if item.kind == "PDF",
-           let document = PDFDocument(url: url),
-           let page = document.page(at: 0) {
-            let image = highResolutionPDFCover(page: page)
-            Self.coverCache[cacheKey] = image
-            return image
-        }
-        let image = placeholderCover(title: displayTitle(for: item), kind: item.kind, isDark: isDark)
-        Self.coverCache[cacheKey] = image
-        return image
-    }
-
     private func coverCacheKey(for item: RecentDocumentItem) -> String {
-        let digest = SHA256.hash(data: Data("\(item.path)#\(item.kind)#\(ReaderTheme.selected.rawValue)".utf8))
+        let url = URL(fileURLWithPath: item.path)
+        let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+        let modified = values?.contentModificationDate?.timeIntervalSince1970 ?? 0
+        let fileSize = values?.fileSize ?? 0
+        let digest = SHA256.hash(data: Data("\(item.path)#\(item.kind)#\(ReaderTheme.selected.rawValue)#\(modified)#\(fileSize)".utf8))
         return digest.prefix(16).map { String(format: "%02x", $0) }.joined()
     }
 
-    private func loadCoverImageAsync(for item: RecentDocumentItem, isDark: Bool, imageView: NSImageView) {
+    private func loadCoverImageAsync(for item: RecentDocumentItem, imageView: NSImageView) {
         let cacheKey = coverCacheKey(for: item)
         let path = item.path
         let kind = item.kind
         let coverSize = self.coverSize
         DispatchQueue.global(qos: .utility).async { [weak imageView] in
+            if let diskCover = self.loadDiskCover(cacheKey: cacheKey) {
+                DispatchQueue.main.async {
+                    Self.coverCache[cacheKey] = diskCover
+                    guard let imageView else { return }
+                    imageView.image = diskCover
+                }
+                return
+            }
+
             guard kind == "PDF" else { return }
             let url = URL(fileURLWithPath: path)
             guard let document = PDFDocument(url: url),
@@ -631,6 +624,16 @@ final class RecentDocumentsPanelController: NSObject {
                 imageView.image = image
             }
         }
+    }
+
+    private func cachedPlaceholderCover(title: String, kind: String, isDark: Bool) -> NSImage {
+        let cacheKey = "\(ReaderTheme.selected.rawValue)#\(kind)#\(title)"
+        if let cached = Self.placeholderCoverCache[cacheKey] {
+            return cached
+        }
+        let image = placeholderCover(title: title, kind: kind, isDark: isDark)
+        Self.placeholderCoverCache[cacheKey] = image
+        return image
     }
 
     private func loadDiskCover(cacheKey: String) -> NSImage? {

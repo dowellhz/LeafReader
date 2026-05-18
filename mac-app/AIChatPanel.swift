@@ -207,6 +207,9 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var activeBubbleSelectionRange: NSRange?
     var activeBubbleSelectedText = ""
     var streamUpdateWorkItem: DispatchWorkItem?
+    var transcriptLayoutWorkItem: DispatchWorkItem?
+    weak var pendingTranscriptScrollTarget: NSView?
+    var pendingTranscriptForceScroll = false
     var isDarkMode = false
     var bubbleMetadataByID: [String: BubbleMetadata] = [:]
     var bubbleBoxByLinkID: [String: ChatBubbleView] = [:]
