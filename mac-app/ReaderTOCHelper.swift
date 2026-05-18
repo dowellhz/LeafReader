@@ -52,21 +52,25 @@ struct ReaderTOCHelper {
           const href = \(jsStringLiteral(item.href));
           const title = \(jsStringLiteral(item.title.prefix(16).description));
           const fragment = href.includes('#') ? href.split('#').pop() : (href.startsWith('#') ? href.slice(1) : '');
+          const path = href.split('#')[0];
+          let target = null;
+          const sections = Array.from(document.querySelectorAll('section.reader-section[data-leaf-href]'));
+          const matchingSection = path ? sections.find((section) => {
+            const value = section.dataset.leafHref || '';
+            return value === path || value.endsWith('/' + path) || path.endsWith('/' + value);
+          }) : null;
           if (fragment) {
-            const byID = document.getElementById(fragment);
+            const byID = matchingSection
+              ? (window.CSS && CSS.escape
+                ? matchingSection.querySelector(`#${CSS.escape(fragment)}`)
+                : Array.from(matchingSection.querySelectorAll('[id]')).find(el => el.id === fragment))
+              : document.getElementById(fragment);
             if (byID) {
               byID.scrollIntoView({behavior:'smooth', block:'start'});
               return;
             }
           }
-          const path = href.split('#')[0];
-          let target = null;
-          if (path) {
-            target = Array.from(document.querySelectorAll('section.reader-section[data-leaf-href]')).find((section) => {
-              const value = section.dataset.leafHref || '';
-              return value === path || value.endsWith('/' + path) || path.endsWith('/' + value);
-            });
-          }
+          if (matchingSection) target = matchingSection;
           if (!target) {
             target = Array.from(document.querySelectorAll('[id]')).find(el => el.id && el.id.includes(title));
           }

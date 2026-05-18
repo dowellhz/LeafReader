@@ -42,13 +42,6 @@ private struct HTMLBodyFragment {
     let bodyAttributes: String
 }
 
-private struct EPUBManifestItem {
-    let id: String
-    let href: String
-    let mediaType: String
-    let properties: Set<String>
-}
-
 private struct DOCXParagraph {
     let html: String
     let text: String
@@ -74,10 +67,12 @@ enum WebDocumentLoader {
         }
     }
 
+    // MARK: - EPUB Loading
+
     private static func loadEPUB(url: URL) throws -> WebReadableDocument {
         let directory = try unzipEPUBToCache(url: url)
         let containerURL = directory.appendingPathComponent("META-INF/container.xml")
-        let containerXML = try String(contentsOf: containerURL, encoding: .utf8)
+        let containerXML = try EPUBTextDecoder.text(at: containerURL)
         guard let opfPath = firstXMLAttribute("full-path", in: containerXML) else {
             throw NSError(domain: "LeafReader", code: -2, userInfo: [
                 NSLocalizedDescriptionKey: "Invalid EPUB container"
@@ -85,30 +80,34 @@ enum WebDocumentLoader {
         }
 
         let opfURL = directory.appendingPathComponent(opfPath)
+        guard EPUBPathResolver.isFileURL(opfURL, containedIn: directory) else {
+            throw NSError(domain: "LeafReader", code: -2, userInfo: [
+                NSLocalizedDescriptionKey: "Invalid EPUB package path"
+            ])
+        }
         let opfDirectory = opfURL.deletingLastPathComponent()
-        let opfXML = try String(contentsOf: opfURL, encoding: .utf8)
-        let manifestItems = epubManifestItems(from: opfXML)
-        let manifest = epubManifest(from: manifestItems)
-        let spineIDs = epubSpineIDs(from: opfXML)
+        let opfXML = try EPUBTextDecoder.text(at: opfURL)
+        let package = EPUBPackageParser.package(from: opfXML)
         var sections: [String] = []
         var chapterURLs: [URL] = []
-        for (sectionIndex, id) in spineIDs.enumerated() {
-            guard let href = manifest[id] else { continue }
-            let chapterURL = opfDirectory.appendingPathComponent(href.removingPercentEncoding ?? href)
-            guard let chapter = try? String(contentsOf: chapterURL, encoding: .utf8) else { continue }
+        for item in package.spineItems where item.isLinear {
+            guard let href = package.manifest[item.id] else { continue }
+            guard let chapterURL = existingEPUBResourceURL(href, relativeTo: opfDirectory, epubRootURL: directory) else { continue }
+            guard let chapter = try? EPUBTextDecoder.text(at: chapterURL) else { continue }
             chapterURLs.append(chapterURL)
             let fragment = htmlBodyFragment(from: chapter)
-            let content = sanitizeEPUBContent(
+            let content = EPUBHTMLSanitizer.sanitizeContent(
                 rewriteRelativeLinks(
                     in: fragment.content,
                     resourceBaseURL: chapterURL.deletingLastPathComponent(),
-                    documentBaseURL: opfDirectory
+                    documentBaseURL: opfDirectory,
+                    epubRootURL: directory
                 )
             )
             let attributes = epubSectionAttributes(
                 from: fragment.bodyAttributes,
                 bodyClasses: fragment.bodyClasses,
-                sectionIndex: sectionIndex,
+                sectionIndex: sections.count,
                 href: href,
                 isCover: isEPUBCoverSection(href: href, fragment: fragment)
             )
@@ -125,34 +124,36 @@ enum WebDocumentLoader {
             baseURL: opfDirectory,
             plainText: "",
             plainTextLoader: { epubPlainText(from: chapterURLs) },
-            coverImageURL: epubCoverImageURL(opfXML: opfXML, manifestItems: manifestItems, opfDirectory: opfDirectory),
-            tocItems: epubTOCItems(opfXML: opfXML, manifest: manifest, opfDirectory: opfDirectory)
+            coverImageURL: epubCoverImageURL(opfXML: opfXML, manifestItems: package.manifestItems, opfDirectory: opfDirectory, epubRootURL: directory),
+            tocItems: epubTOCItems(opfXML: opfXML, manifest: package.manifest, opfDirectory: opfDirectory, epubRootURL: directory)
         )
     }
 
     static func coverImageData(forEPUB url: URL) throws -> Data? {
         guard let containerData = try zipEntryData(in: url, entryPath: "META-INF/container.xml"),
-              let containerXML = String(data: containerData, encoding: .utf8),
+              let containerXML = EPUBTextDecoder.text(from: containerData),
               let opfPath = firstXMLAttribute("full-path", in: containerXML),
               let opfData = try zipEntryData(in: url, entryPath: opfPath),
-              let opfXML = String(data: opfData, encoding: .utf8) else {
+              let opfXML = EPUBTextDecoder.text(from: opfData) else {
             return nil
         }
         let opfDirectoryPath = URL(fileURLWithPath: opfPath).deletingLastPathComponent().relativePath
-        let manifestItems = epubManifestItems(from: opfXML)
+        let package = EPUBPackageParser.package(from: opfXML)
         guard let coverPath = epubCoverImagePath(
             opfXML: opfXML,
-            manifestItems: manifestItems,
+            manifestItems: package.manifestItems,
             opfDirectoryPath: opfDirectoryPath,
             readTextAtPath: { path in
                 guard let data = try? zipEntryData(in: url, entryPath: path) else { return nil }
-                return String(data: data, encoding: .utf8)
+                return EPUBTextDecoder.text(from: data)
             }
         ) else {
             return nil
         }
         return try zipEntryData(in: url, entryPath: coverPath)
     }
+
+    // MARK: - DOCX Loading
 
     private static func loadDOCX(url: URL) throws -> WebReadableDocument {
         let directory = try unzip(url: url)
@@ -172,6 +173,8 @@ enum WebDocumentLoader {
             tocItems: docxTOCItems(from: body)
         )
     }
+
+    // MARK: - Archive and Text Decoding
 
     private static func unzipEPUBToCache(url: URL) throws -> URL {
         let fileURL = url.standardizedFileURL
@@ -259,6 +262,7 @@ enum WebDocumentLoader {
     }
 
     private static func zipEntryData(in url: URL, entryPath: String) throws -> Data? {
+        guard let entryPath = EPUBPathResolver.safeArchivePath(entryPath) else { return nil }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
         process.arguments = ["-p", url.path, entryPath]
@@ -271,60 +275,34 @@ enum WebDocumentLoader {
         return process.terminationStatus == 0 && !data.isEmpty ? data : nil
     }
 
-    private static func epubManifest(from xml: String) -> [String: String] {
-        epubManifest(from: epubManifestItems(from: xml))
-    }
-
-    private static func epubManifest(from items: [EPUBManifestItem]) -> [String: String] {
-        var result: [String: String] = [:]
-        for item in items where result[item.id] == nil {
-            result[item.id] = item.href
-        }
-        return result
-    }
-
-    private static func epubManifestItems(from xml: String) -> [EPUBManifestItem] {
-        regexMatches(#"<item\b[^>]*?/?>"#, in: xml).compactMap { match in
-            guard let tag = match.first,
-                  let id = firstXMLAttribute("id", in: tag),
-                  let href = firstXMLAttribute("href", in: tag) else { return nil }
-            let properties = Set((firstXMLAttribute("properties", in: tag) ?? "")
-                .lowercased()
-                .split(whereSeparator: { $0.isWhitespace })
-                .map(String.init))
-            return EPUBManifestItem(
-                id: id,
-                href: href,
-                mediaType: (firstXMLAttribute("media-type", in: tag) ?? "").lowercased(),
-                properties: properties
-            )
-        }
-    }
-
-    private static func epubSpineIDs(from xml: String) -> [String] {
-        let pattern = #"<itemref\b[^>]*\bidref=["']([^"']+)["'][^>]*/?>"#
-        return regexMatches(pattern, in: xml).compactMap { $0.count > 1 ? $0[1] : nil }
-    }
+    // MARK: - EPUB Text, Cover, and Resources
 
     private static func epubPlainText(from chapterURLs: [URL]) -> String {
         chapterURLs.compactMap { url in
-            guard let chapter = try? String(contentsOf: url, encoding: .utf8) else { return nil }
-            let text = htmlToPlainText(chapter)
+            guard let chapter = try? EPUBTextDecoder.text(at: url) else { return nil }
+            let text = EPUBHTMLSanitizer.plainText(from: chapter)
             return text.isEmpty ? nil : text
         }.joined(separator: "\n\n")
     }
 
-    private static func epubCoverImageURL(opfXML: String, manifestItems: [EPUBManifestItem], opfDirectory: URL) -> URL? {
+    private static func epubCoverImageURL(
+        opfXML: String,
+        manifestItems: [EPUBManifestItem],
+        opfDirectory: URL,
+        epubRootURL: URL
+    ) -> URL? {
         epubCoverResourceHref(
             opfXML: opfXML,
             manifestItems: manifestItems,
-            resolveImage: { href in existingEPUBResourceURL(href, relativeTo: opfDirectory)?.path },
-            readText: { href in
-                guard let url = existingEPUBResourceURL(href, relativeTo: opfDirectory) else { return nil }
-                return try? String(contentsOf: url, encoding: .utf8)
+            resolveImage: { href in
+                existingEPUBResourceURL(href, relativeTo: opfDirectory, epubRootURL: epubRootURL)?.path
             },
-            nestedImageHref: { html in epubFirstImageHref(in: html) }
-        ).flatMap { existingEPUBResourceURL($0, relativeTo: opfDirectory) }
+            readText: { href in
+                guard let url = existingEPUBResourceURL(href, relativeTo: opfDirectory, epubRootURL: epubRootURL) else { return nil }
+                return try? EPUBTextDecoder.text(at: url)
+            },
+            nestedImageHref: epubFirstImageHref
+        ).flatMap { existingEPUBResourceURL($0, relativeTo: opfDirectory, epubRootURL: epubRootURL) }
     }
 
     private static func epubCoverImagePath(
@@ -341,7 +319,7 @@ enum WebDocumentLoader {
                 return isEPUBImagePath(path) ? path : nil
             },
             readText: { href in readTextAtPath(epubZipPath(href, relativeTo: opfDirectoryPath)) },
-            nestedImageHref: { html in epubFirstImageHref(in: html) }
+            nestedImageHref: epubFirstImageHref
         ).map { epubZipPath($0, relativeTo: opfDirectoryPath) }
     }
 
@@ -379,7 +357,9 @@ enum WebDocumentLoader {
             }
         }
 
-        for item in imageItems where item.id.localizedCaseInsensitiveContains("cover") || item.href.localizedCaseInsensitiveContains("cover") {
+        for item in imageItems
+            where item.id.localizedCaseInsensitiveContains("cover")
+                || item.href.localizedCaseInsensitiveContains("cover") {
             if resolveImage(item.href) != nil {
                 return item.href
             }
@@ -425,12 +405,16 @@ enum WebDocumentLoader {
         ["jpg", "jpeg", "png", "gif", "webp", "svg"].contains(URL(fileURLWithPath: path).pathExtension.lowercased())
     }
 
-    private static func existingEPUBResourceURL(_ href: String, relativeTo baseURL: URL) -> URL? {
-        let hrefWithoutFragment = href.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? href
+    private static func existingEPUBResourceURL(_ href: String, relativeTo baseURL: URL, epubRootURL: URL) -> URL? {
+        let hrefWithoutFragment = href
+            .split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
+            .first
+            .map(String.init) ?? href
         guard !hrefWithoutFragment.isEmpty,
               !hrefWithoutFragment.lowercased().hasPrefix("data:") else { return nil }
         let decodedHref = hrefWithoutFragment.removingPercentEncoding ?? hrefWithoutFragment
         let url = baseURL.appendingPathComponent(decodedHref).standardizedFileURL
+        guard EPUBPathResolver.isFileURL(url, containedIn: epubRootURL) else { return nil }
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
@@ -441,20 +425,36 @@ enum WebDocumentLoader {
     }
 
     private static func epubZipPath(_ href: String, relativeTo opfDirectoryPath: String) -> String {
-        let hrefWithoutFragment = href.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? href
+        let hrefWithoutFragment = href
+            .split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
+            .first
+            .map(String.init) ?? href
         let decodedHref = hrefWithoutFragment.removingPercentEncoding ?? hrefWithoutFragment
         let joined = opfDirectoryPath == "." || opfDirectoryPath.isEmpty ? decodedHref : "\(opfDirectoryPath)/\(decodedHref)"
         return (joined as NSString).standardizingPath
     }
 
-    private static func epubTOCItems(opfXML: String, manifest: [String: String], opfDirectory: URL) -> [ReaderTOCItem] {
-        let ncxHref = manifest["ncx"]
-            ?? regexMatches(#"<item\b[^>]*\bmedia-type=["']application/x-dtbncx\+xml["'][^>]*\bhref=["']([^"']+)["'][^>]*/?>"#, in: opfXML).first.flatMap { $0.count > 1 ? $0[1] : nil }
-            ?? regexMatches(#"<item\b[^>]*\bhref=["']([^"']+\.ncx)["'][^>]*/?>"#, in: opfXML).first.flatMap { $0.count > 1 ? $0[1] : nil }
+    // MARK: - EPUB Table of Contents
+
+    private static func epubTOCItems(
+        opfXML: String,
+        manifest: [String: String],
+        opfDirectory: URL,
+        epubRootURL: URL
+    ) -> [ReaderTOCItem] {
+        let ncxByMediaType = regexMatches(
+            #"<item\b[^>]*\bmedia-type=["']application/x-dtbncx\+xml["'][^>]*\bhref=["']([^"']+)["'][^>]*/?>"#,
+            in: opfXML
+        ).first.flatMap { $0.count > 1 ? $0[1] : nil }
+        let ncxByExtension = regexMatches(
+            #"<item\b[^>]*\bhref=["']([^"']+\.ncx)["'][^>]*/?>"#,
+            in: opfXML
+        ).first.flatMap { $0.count > 1 ? $0[1] : nil }
+        let ncxHref = manifest["ncx"] ?? ncxByMediaType ?? ncxByExtension
         if let ncxHref {
-            let ncxURL = opfDirectory.appendingPathComponent(ncxHref.removingPercentEncoding ?? ncxHref)
-            if let ncx = try? String(contentsOf: ncxURL, encoding: .utf8) {
-                let items = epubNCXTOCItems(from: ncx)
+            if let ncxURL = existingEPUBResourceURL(ncxHref, relativeTo: opfDirectory, epubRootURL: epubRootURL),
+               let ncx = try? EPUBTextDecoder.text(at: ncxURL) {
+                let items = epubNCXTOCItems(from: ncx, baseHref: ncxHref)
                 if !items.isEmpty { return items }
             }
         }
@@ -464,37 +464,85 @@ enum WebDocumentLoader {
             .first(where: { (firstXMLAttribute("properties", in: $0) ?? "").contains("nav") })
             .flatMap { firstXMLAttribute("href", in: $0) }
         if let navHref {
-            let navURL = opfDirectory.appendingPathComponent(navHref.removingPercentEncoding ?? navHref)
-            if let nav = try? String(contentsOf: navURL, encoding: .utf8) {
-                return epubHTMLNavItems(from: nav)
+            if let navURL = existingEPUBResourceURL(navHref, relativeTo: opfDirectory, epubRootURL: epubRootURL),
+               let nav = try? EPUBTextDecoder.text(at: navURL) {
+                return epubHTMLNavItems(from: nav, baseHref: navHref)
             }
         }
         return []
     }
 
-    private static func epubNCXTOCItems(from xml: String) -> [ReaderTOCItem] {
-        let navPoints = regexMatches(#"<navPoint\b[\s\S]*?</navPoint>"#, in: xml).compactMap(\.first)
-        return navPoints.compactMap { navPoint in
-            let title = regexMatches(#"<text\b[^>]*>([\s\S]*?)</text>"#, in: navPoint).first.flatMap { $0.count > 1 ? htmlToPlainText($0[1]) : nil } ?? ""
-            let src = firstXMLAttribute("src", in: regexMatches(#"<content\b[^>]*/?>"#, in: navPoint).first?.first ?? "") ?? ""
-            guard !title.isEmpty, !src.isEmpty else { return nil }
-            let nestedCount = regexMatches(#"<navPoint\b"#, in: navPoint).count
-            let level = max(0, nestedCount - 1)
-            return ReaderTOCItem(title: title, href: normalizedEPUBTOCHref(src), level: min(level, 4))
+    private static func epubNCXTOCItems(from xml: String, baseHref: String) -> [ReaderTOCItem] {
+        guard let tagRegex = cachedRegex(#"(?i)</?navPoint\b[^>]*>"#) else { return [] }
+        let nsXML = xml as NSString
+        var items: [(location: Int, item: ReaderTOCItem)] = []
+        var stack: [(start: Int, level: Int)] = []
+        for match in tagRegex.matches(in: xml, range: NSRange(location: 0, length: nsXML.length)) {
+            let tag = nsXML.substring(with: match.range)
+            if tag.hasPrefix("</") {
+                guard let point = stack.popLast() else { continue }
+                let navPointRange = NSRange(
+                    location: point.start,
+                    length: match.range.location + match.range.length - point.start
+                )
+                let navPoint = nsXML.substring(with: navPointRange)
+                let title = regexMatches(#"<text\b[^>]*>([\s\S]*?)</text>"#, in: navPoint)
+                    .first
+                    .flatMap { $0.count > 1 ? EPUBHTMLSanitizer.plainText(from: $0[1]) : nil } ?? ""
+                let contentTag = regexMatches(#"<content\b[^>]*/?>"#, in: navPoint).first?.first ?? ""
+                let src = firstXMLAttribute("src", in: contentTag) ?? ""
+                guard !title.isEmpty, !src.isEmpty else { continue }
+                items.append((
+                    location: point.start,
+                    item: ReaderTOCItem(
+                        title: title,
+                        href: EPUBPathResolver.normalizedTOCHref(src, relativeTo: baseHref),
+                        level: min(point.level, 4)
+                    )
+                ))
+            } else if !tag.hasSuffix("/>") {
+                stack.append((start: match.range.location, level: stack.count))
+            }
         }
+        return items.sorted { $0.location < $1.location }.map(\.item)
     }
 
-    private static func epubHTMLNavItems(from html: String) -> [ReaderTOCItem] {
-        regexMatches(#"<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>([\s\S]*?)</a>"#, in: html).compactMap { match in
-            guard match.count > 2 else { return nil }
-            let title = htmlToPlainText(match[2])
-            guard !title.isEmpty else { return nil }
-            return ReaderTOCItem(title: title, href: normalizedEPUBTOCHref(match[1]), level: 0)
+    private static func epubHTMLNavItems(from html: String, baseHref: String) -> [ReaderTOCItem] {
+        guard let tokenRegex = cachedRegex(
+            #"(?i)<(/?)(?:ol|ul)\b[^>]*>|<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>"#
+        ) else { return [] }
+        let nsHTML = html as NSString
+        var items: [ReaderTOCItem] = []
+        var listDepth = 0
+        for match in tokenRegex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)) {
+            let token = nsHTML.substring(with: match.range)
+            if token.range(of: #"(?i)^</"#, options: .regularExpression) != nil {
+                listDepth = max(0, listDepth - 1)
+                continue
+            }
+            if token.range(of: #"(?i)^<(?:ol|ul)\b"#, options: .regularExpression) != nil {
+                listDepth += 1
+                continue
+            }
+            guard match.numberOfRanges > 2,
+                  match.range(at: 2).location != NSNotFound else { continue }
+            let href = nsHTML.substring(with: match.range(at: 2))
+            let afterAnchor = NSRange(
+                location: match.range.location + match.range.length,
+                length: nsHTML.length - match.range.location - match.range.length
+            )
+            let closeRange = nsHTML.range(of: "</a>", options: [.caseInsensitive], range: afterAnchor)
+            guard closeRange.location != NSNotFound else { continue }
+            let titleRange = NSRange(location: afterAnchor.location, length: closeRange.location - afterAnchor.location)
+            let title = EPUBHTMLSanitizer.plainText(from: nsHTML.substring(with: titleRange))
+            guard !title.isEmpty else { continue }
+            items.append(ReaderTOCItem(
+                title: title,
+                href: EPUBPathResolver.normalizedTOCHref(href, relativeTo: baseHref),
+                level: min(max(0, listDepth - 1), 4)
+            ))
         }
-    }
-
-    private static func normalizedEPUBTOCHref(_ href: String) -> String {
-        return href
+        return items
     }
 
     private static func firstXMLAttribute(_ attribute: String, in xml: String) -> String? {
@@ -502,11 +550,13 @@ enum WebDocumentLoader {
         return regexMatches(pattern, in: xml).first.flatMap { $0.count > 1 ? $0[1] : nil }
     }
 
+    // MARK: - DOCX Rendering
+
     private static func docxParagraphs(from xml: String) -> [String] {
         let paragraphMatches = regexMatches(#"<w:p\b[\s\S]*?</w:p>"#, in: xml).compactMap(\.first)
         return paragraphMatches.map { paragraph in
             regexMatches(#"<w:t\b[^>]*>([\s\S]*?)</w:t>"#, in: paragraph)
-                .compactMap { $0.count > 1 ? decodeXML($0[1]) : nil }
+                .compactMap { $0.count > 1 ? EPUBHTMLSanitizer.decodeEntities($0[1]) : nil }
                 .joined()
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }.filter { !$0.isEmpty }
@@ -619,7 +669,7 @@ enum WebDocumentLoader {
         let alignment = firstXMLAttribute("w:val", in: regexMatches(#"<w:jc\b[^>]*/?>"#, in: paragraph).first?.first ?? "")
         let runs = regexMatches(#"<w:hyperlink\b[\s\S]*?</w:hyperlink>|<w:r\b[\s\S]*?</w:r>"#, in: paragraph).compactMap(\.first)
         var html = runs.map { docxInlineHTML(from: $0, directory: directory, relationships: relationships) }.joined()
-        var text = htmlToPlainText(html)
+        var text = EPUBHTMLSanitizer.plainText(from: html)
         var isListItem = paragraph.contains("<w:numPr") || style.localizedCaseInsensitiveContains("List")
 
         if text.hasPrefix("- ") || text.hasPrefix("• ") {
@@ -671,7 +721,7 @@ enum WebDocumentLoader {
         for token in tokens {
             if token.hasPrefix("<w:t") {
                 let text = regexMatches(#"<w:t\b[^>]*>([\s\S]*?)</w:t>"#, in: token).first.flatMap { $0.count > 1 ? $0[1] : nil } ?? ""
-                parts.append(escapeHTML(decodeXML(text)))
+                parts.append(escapeHTML(EPUBHTMLSanitizer.decodeEntities(text)))
             } else if token.hasPrefix("<w:tab") {
                 parts.append("&emsp;")
             } else if token.hasPrefix("<w:br") {
@@ -708,7 +758,7 @@ enum WebDocumentLoader {
         var relationships: [String: String] = [:]
         let pattern = #"<Relationship\b[^>]*\bId=["']([^"']+)["'][^>]*\bTarget=["']([^"']+)["'][^>]*/?>"#
         for match in regexMatches(pattern, in: xml) where match.count > 2 {
-            relationships[match[1]] = decodeXML(match[2])
+            relationships[match[1]] = EPUBHTMLSanitizer.decodeEntities(match[2])
         }
         return relationships
     }
@@ -717,23 +767,47 @@ enum WebDocumentLoader {
         var index = 0
         return regexMatches(#"<h([1-3])\b[^>]*>([\s\S]*?)</h\1>"#, in: bodyHTML).compactMap { match in
             guard match.count > 2, let headingLevel = Int(match[1]) else { return nil }
-            let title = htmlToPlainText(match[2])
+            let title = EPUBHTMLSanitizer.plainText(from: match[2])
             guard !title.isEmpty else { return nil }
             index += 1
             return ReaderTOCItem(title: title, href: "#docx-heading-\(index)", level: headingLevel - 1)
         }
     }
 
-    private static func rewriteRelativeLinks(in html: String, resourceBaseURL: URL, documentBaseURL: URL) -> String {
+    // MARK: - HTML Rewriting and Sanitizing
+
+    private static func rewriteRelativeLinks(
+        in html: String,
+        resourceBaseURL: URL,
+        documentBaseURL: URL,
+        epubRootURL: URL
+    ) -> String {
         var output = html
-        output = rewriteHTMLAttributeURLs(in: output, attributePattern: #"(?i)\bsrc=(["'])(?![a-z]+:|#|/)([^"']+)\1"#, resourceBaseURL: resourceBaseURL, documentBaseURL: documentBaseURL)
-        output = rewriteHTMLAttributeURLs(in: output, attributePattern: #"(?i)\b(xlink:href|href)=(["'])(?![a-z]+:|#|/)([^"']+\.(?:jpe?g|png|gif|webp|svg))\2"#, resourceBaseURL: resourceBaseURL, documentBaseURL: documentBaseURL)
-        output = output.replacingOccurrences(of: #"(?i)href=["'](?![a-z]+:|#)([^"']*#([^"']+))["']"#, with: "href=\"#$2\"", options: .regularExpression)
-        output = output.replacingOccurrences(of: #"(?i)href=["'](?![a-z]+:|#)([^"']+)["']"#, with: "href=\"#\"", options: .regularExpression)
+        output = rewriteHTMLAttributeURLs(
+            in: output,
+            attributePattern: #"(?i)\bsrc=(["'])(?![a-z]+:|#|/)([^"']+)\1"#,
+            resourceBaseURL: resourceBaseURL,
+            documentBaseURL: documentBaseURL,
+            epubRootURL: epubRootURL
+        )
+        output = rewriteHTMLAttributeURLs(
+            in: output,
+            attributePattern: #"(?i)\b(xlink:href|href)=(["'])(?![a-z]+:|#|/)([^"']+\.(?:jpe?g|png|gif|webp|svg))\2"#,
+            resourceBaseURL: resourceBaseURL,
+            documentBaseURL: documentBaseURL,
+            epubRootURL: epubRootURL
+        )
+        output = rewriteEPUBInternalLinks(in: output, resourceBaseURL: resourceBaseURL, documentBaseURL: documentBaseURL, epubRootURL: epubRootURL)
         return output
     }
 
-    private static func rewriteHTMLAttributeURLs(in html: String, attributePattern: String, resourceBaseURL: URL, documentBaseURL: URL) -> String {
+    private static func rewriteHTMLAttributeURLs(
+        in html: String,
+        attributePattern: String,
+        resourceBaseURL: URL,
+        documentBaseURL: URL,
+        epubRootURL: URL
+    ) -> String {
         guard let regex = cachedRegex(attributePattern) else { return html }
         let nsHTML = html as NSString
         var output = ""
@@ -753,7 +827,12 @@ enum WebDocumentLoader {
                 quote = nsHTML.substring(with: match.range(at: 2))
                 value = nsHTML.substring(with: match.range(at: 3))
             }
-            if let rewritten = epubResourcePath(value, resourceBaseURL: resourceBaseURL, documentBaseURL: documentBaseURL) {
+            if let rewritten = epubResourcePath(
+                value,
+                resourceBaseURL: resourceBaseURL,
+                documentBaseURL: documentBaseURL,
+                epubRootURL: epubRootURL
+            ) {
                 output += "\(attributeName)=\(quote)\(rewritten)\(quote)"
             } else {
                 output += fullMatch
@@ -764,26 +843,50 @@ enum WebDocumentLoader {
         return output
     }
 
-    private static func sanitizeEPUBContent(_ html: String) -> String {
-        var output = html
-        output = output.replacingOccurrences(of: #"(?i)<script\b[\s\S]*?</script>"#, with: "", options: .regularExpression)
-        output = output.replacingOccurrences(of: #"(?i)<style\b[\s\S]*?</style>"#, with: "", options: .regularExpression)
-        output = output.replacingOccurrences(
-            of: #"(?i)<([a-z0-9:-]+)([^>]*)\bid=["']sbo-rt-content["']([^>]*)>"#,
-            with: "<$1$2$3 data-reader-original-id=\"sbo-rt-content\" class=\"sbo-rt-content\">",
-            options: .regularExpression
-        )
+    private static func rewriteEPUBInternalLinks(
+        in html: String,
+        resourceBaseURL: URL,
+        documentBaseURL: URL,
+        epubRootURL: URL
+    ) -> String {
+        guard let regex = cachedRegex(#"(?i)\bhref=(["'])(?![a-z]+:|#|/)([^"']+)\1"#) else { return html }
+        let nsHTML = html as NSString
+        var output = ""
+        var cursor = 0
+        for match in regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)) {
+            output += nsHTML.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
+            let fullMatch = nsHTML.substring(with: match.range)
+            let quote = nsHTML.substring(with: match.range(at: 1))
+            let value = nsHTML.substring(with: match.range(at: 2))
+            if let leafHref = EPUBPathResolver.internalLinkTarget(
+                value,
+                resourceBaseURL: resourceBaseURL,
+                documentBaseURL: documentBaseURL,
+                epubRootURL: epubRootURL
+            ) {
+                output += "href=\(quote)#\(quote) data-leaf-href=\(quote)\(escapeHTML(leafHref))\(quote)"
+            } else {
+                output += fullMatch
+            }
+            cursor = match.range.location + match.range.length
+        }
+        output += nsHTML.substring(from: cursor)
         return output
     }
 
-    private static func epubResourcePath(_ href: String, resourceBaseURL: URL, documentBaseURL: URL) -> String? {
-        let hrefWithoutFragment = href.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? href
-        guard !hrefWithoutFragment.isEmpty,
-              !hrefWithoutFragment.lowercased().hasPrefix("data:") else { return nil }
-        let decodedHref = hrefWithoutFragment.removingPercentEncoding ?? hrefWithoutFragment
-        let resourceURL = resourceBaseURL.appendingPathComponent(decodedHref).standardizedFileURL
-        return relativeFilePath(from: documentBaseURL.standardizedFileURL, to: resourceURL)
-            .addingPercentEncoding(withAllowedCharacters: epubPathAllowedCharacters)
+    private static func epubResourcePath(
+        _ href: String,
+        resourceBaseURL: URL,
+        documentBaseURL: URL,
+        epubRootURL: URL
+    ) -> String? {
+        EPUBPathResolver.resourcePath(
+            href,
+            resourceBaseURL: resourceBaseURL,
+            documentBaseURL: documentBaseURL,
+            epubRootURL: epubRootURL,
+            allowedCharacters: epubPathAllowedCharacters
+        )
     }
 
     private static var epubPathAllowedCharacters: CharacterSet {
@@ -793,25 +896,14 @@ enum WebDocumentLoader {
         return allowed
     }
 
-    private static func relativeFilePath(from baseURL: URL, to resourceURL: URL) -> String {
-        let baseComponents = baseURL.standardizedFileURL.pathComponents
-        let resourceComponents = resourceURL.standardizedFileURL.pathComponents
-        var commonCount = 0
-        while commonCount < baseComponents.count,
-              commonCount < resourceComponents.count,
-              baseComponents[commonCount] == resourceComponents[commonCount] {
-            commonCount += 1
-        }
-        let parentSegments = Array(repeating: "..", count: max(0, baseComponents.count - commonCount))
-        let resourceSegments = Array(resourceComponents.dropFirst(commonCount))
-        let path = (parentSegments + resourceSegments).joined(separator: "/")
-        return path.isEmpty ? resourceURL.lastPathComponent : path
-    }
-
     private static func htmlBodyFragment(from html: String) -> HTMLBodyFragment {
         let pattern = #"<body\b([^>]*)>([\s\S]*?)</body>"#
         if let body = regexMatches(pattern, in: html).first, body.count > 2 {
-            return HTMLBodyFragment(content: body[2], bodyClasses: bodyClasses(from: body[1]), bodyAttributes: body[1])
+            return HTMLBodyFragment(
+                content: body[2],
+                bodyClasses: bodyClasses(from: body[1]),
+                bodyAttributes: body[1]
+            )
         }
         return HTMLBodyFragment(
             content: html
@@ -857,7 +949,11 @@ enum WebDocumentLoader {
         if lowerHref.contains("cover") || lowerHref.contains("titlepage") {
             return true
         }
-        let lowerBody = (fragment.bodyAttributes + " " + fragment.bodyClasses + " " + fragment.content.prefix(600)).lowercased()
+        let lowerBody = [
+            fragment.bodyAttributes,
+            fragment.bodyClasses,
+            String(fragment.content.prefix(600))
+        ].joined(separator: " ").lowercased()
         return lowerBody.contains("id=\"cover\"")
             || lowerBody.contains("id='cover'")
             || lowerBody.contains("class=\"cover")
@@ -867,6 +963,8 @@ enum WebDocumentLoader {
     private static func hrefWithoutFragment(_ href: String) -> String {
         href.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? href
     }
+
+    // MARK: - Page Rendering
 
     private enum PageProfile {
         case epub
@@ -981,14 +1079,7 @@ enum WebDocumentLoader {
         """
     }
 
-    private static func htmlToPlainText(_ html: String) -> String {
-        decodeXML(html
-            .replacingOccurrences(of: #"<script\b[\s\S]*?</script>"#, with: " ", options: [.regularExpression, .caseInsensitive])
-            .replacingOccurrences(of: #"<style\b[\s\S]*?</style>"#, with: " ", options: [.regularExpression, .caseInsensitive])
-            .replacingOccurrences(of: #"<[^>]+>"#, with: " ", options: .regularExpression)
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression))
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
+    // MARK: - Shared String Helpers
 
     private static func regexMatches(_ pattern: String, in text: String) -> [[String]] {
         guard let regex = cachedRegex(pattern) else { return [] }
@@ -1016,15 +1107,6 @@ enum WebDocumentLoader {
         regexCache[pattern] = regex
         regexCacheLock.unlock()
         return regex
-    }
-
-    private static func decodeXML(_ text: String) -> String {
-        text
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&apos;", with: "'")
     }
 
     private static func escapeHTML(_ text: String) -> String {

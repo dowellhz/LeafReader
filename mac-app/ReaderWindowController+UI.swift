@@ -456,6 +456,32 @@ extension ReaderWindowController {
                 const progress = Math.max(0, Math.min(1, window.scrollY / height));
                 window.webkit.messageHandlers.scrollChanged.postMessage(progress);
               };
+              window.leafReaderJumpToHref = (href) => {
+                href = String(href || '');
+                const fragment = href.includes('#') ? href.split('#').pop() : (href.startsWith('#') ? href.slice(1) : '');
+                const path = href.split('#')[0];
+                const sections = Array.from(document.querySelectorAll('section.reader-section[data-leaf-href]'));
+                const matchingSection = path ? sections.find((section) => {
+                  const value = section.dataset.leafHref || '';
+                  return value === path || value.endsWith('/' + path) || path.endsWith('/' + value);
+                }) : null;
+                if (fragment) {
+                  const target = matchingSection
+                    ? (window.CSS && CSS.escape
+                      ? matchingSection.querySelector(`#${CSS.escape(fragment)}`)
+                      : Array.from(matchingSection.querySelectorAll('[id]')).find(el => el.id === fragment))
+                    : document.getElementById(fragment);
+                  if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    return true;
+                  }
+                }
+                if (matchingSection) {
+                  matchingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  return true;
+                }
+                return false;
+              };
               document.addEventListener("mousedown", () => {
                 documentMouseDown = true;
                 clearPreservedSelectionHighlight();
@@ -469,6 +495,13 @@ extension ReaderWindowController {
                   event.preventDefault();
                   event.stopPropagation();
                   window.webkit.messageHandlers.webAISourceClicked.postMessage(String(aiSource.dataset.leafAiSourceKey || ''));
+                  return;
+                }
+                const link = event.target?.closest?.('a[data-leaf-href]');
+                if (link) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  window.leafReaderJumpToHref(link.dataset.leafHref || '');
                   return;
                 }
                 const target = event.target?.closest?.('span.leaf-reader-linked-word');

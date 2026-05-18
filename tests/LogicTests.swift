@@ -4,13 +4,13 @@ private struct TestFailure: Error, CustomStringConvertible {
     let description: String
 }
 
-private func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {
+func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {
     if !condition() {
         throw TestFailure(description: message)
     }
 }
 
-private func expectEqual<T: Equatable>(_ lhs: T, _ rhs: T, _ message: String) throws {
+func expectEqual<T: Equatable>(_ lhs: T, _ rhs: T, _ message: String) throws {
     if lhs != rhs {
         throw TestFailure(description: "\(message). expected \(rhs), got \(lhs)")
     }
@@ -565,6 +565,13 @@ private let tests: [(String, () throws -> Void)] = [
     ("Embedding defaults", testEmbeddingDefaults),
     ("Embedding key isolation", testEmbeddingKeyIsolation),
     ("Embedding legacy key migration", testEmbeddingLegacyKeyMigration),
+    ("Reader entity decoding", EPUBLogicTests.testReaderEntityDecoding),
+    ("EPUB text decoding", EPUBLogicTests.testEPUBTextDecoding),
+    ("EPUB spine linear parsing", EPUBLogicTests.testEPUBSpineLinearParsing),
+    ("EPUB OPF XML parsing", EPUBLogicTests.testEPUBOPFXMLParsing),
+    ("EPUB lazy images and safe paths", EPUBLogicTests.testEPUBLazyImagesAndSafePaths),
+    ("EPUB TOC href normalization", EPUBLogicTests.testEPUBTOCHrefNormalization),
+    ("EPUB internal links and sanitizing", EPUBLogicTests.testEPUBInternalLinkTargetsAndSanitizing),
     ("Word record incremental store", testWordRecordIncrementalStore),
     ("Word record legacy migration", testWordRecordLegacyMigrationDoesNotReviveClearedData),
     ("Page scroll direction", testPageScrollDirection),
@@ -572,21 +579,26 @@ private let tests: [(String, () throws -> Void)] = [
     ("Debounced task", testDebouncedTask)
 ]
 
-var failures: [String] = []
-for (name, test) in tests {
-    do {
-        try test()
-        print("PASS \(name)")
-    } catch {
-        failures.append("FAIL \(name): \(error)")
-    }
-}
+@main
+private struct LogicTestRunner {
+    static func main() {
+        var failures: [String] = []
+        for (name, test) in tests {
+            do {
+                try test()
+                print("PASS \(name)")
+            } catch {
+                failures.append("FAIL \(name): \(error)")
+            }
+        }
 
-if failures.isEmpty {
-    print("All \(tests.count) logic tests passed.")
-} else {
-    for failure in failures {
-        print(failure)
+        if failures.isEmpty {
+            print("All \(tests.count) logic tests passed.")
+        } else {
+            for failure in failures {
+                print(failure)
+            }
+            exit(1)
+        }
     }
-    exit(1)
 }
