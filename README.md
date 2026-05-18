@@ -22,7 +22,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 Download the latest macOS installer:
 
-[Leaf Reader 1.4.2 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4.2/LeafReader-1.4.2.pkg)
+[Leaf Reader 1.4.4 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4.4/LeafReader-1.4.4.pkg)
 
 ## Highlights
 
@@ -34,6 +34,12 @@ Download the latest macOS installer:
 - Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
+
+## What's New in 1.4.4
+
+- Replaced the manual "up to date" update check dialog with a Leaf Reader white-background status window.
+- Kept Sparkle's update discovery and installation flow for available updates.
+- Prevented AppleDouble metadata files from being copied into generated app and installer payloads.
 
 ## What's New in 1.4.2
 
@@ -148,18 +154,18 @@ Run the lightweight logic regression tests:
 
 ## Release
 
-Current version: `1.4.2`
+Current version: `1.4.4`
 
-Git tag: `v1.4.2`
+Git tag: `v1.4.4`
 
 Latest installer:
 
-[Leaf Reader-1.4.2.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.2/LeafReader-1.4.2.pkg)
+[Leaf Reader-1.4.4.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.4/LeafReader-1.4.4.pkg)
 
 Local release artifacts are expected under:
 
 ```text
-release/1.4.2/
+release/1.4.4/
 ```
 
 Sparkle updates use:
@@ -173,7 +179,7 @@ The appcast entry points to the signed and notarized pkg uploaded to GitHub Rele
 Build, sign, notarize, staple, and update the Sparkle appcast for a release:
 
 ```sh
-SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.4.2
+SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.4.4
 ```
 
 The release script also accepts `SPARKLE_PRIVATE_KEY` from the environment, or falls back to Sparkle's default keychain account if neither variable is set.

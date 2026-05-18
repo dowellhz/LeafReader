@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_PATH="$ROOT_DIR/Leaf Reader.app"
 SPARKLE_HOME="${SPARKLE_HOME:-/opt/homebrew/Caskroom/sparkle/2.9.2}"
 APP_SIGN_IDENTITY="${APP_SIGN_IDENTITY:--}"
+export COPYFILE_DISABLE=1
 
 if [[ ! -d "$SPARKLE_HOME/Sparkle.framework" ]]; then
   echo "Sparkle.framework not found at $SPARKLE_HOME" >&2
@@ -22,6 +23,9 @@ cp "$ROOT_DIR/mac-app/Info.plist" "$APP_PATH/Contents/Info.plist"
 cp "$ROOT_DIR/mac-app/AIPrompts.json" "$APP_PATH/Contents/Resources/AIPrompts.json"
 cp "$ROOT_DIR/mac-app/AppIcon.icns" "$APP_PATH/Contents/Resources/AppIcon.icns"
 cp -R "$SPARKLE_HOME/Sparkle.framework" "$APP_PATH/Contents/Frameworks/"
+find "$APP_PATH" -name '._*' -type f -delete
+xattr -cr "$APP_PATH"
+xattr -crs "$APP_PATH"
 
 swiftc "$ROOT_DIR"/mac-app/*.swift \
   -F "$SPARKLE_HOME" \
@@ -35,6 +39,9 @@ swiftc "$ROOT_DIR"/mac-app/*.swift \
   -lsqlite3 \
   -Xlinker -rpath \
   -Xlinker @executable_path/../Frameworks
+
+xattr -cr "$APP_PATH"
+xattr -crs "$APP_PATH"
 
 if [[ "$APP_SIGN_IDENTITY" == "-" ]]; then
   codesign --force --deep --sign - "$APP_PATH"

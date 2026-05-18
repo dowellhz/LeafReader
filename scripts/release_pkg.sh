@@ -22,6 +22,7 @@ NOTARY_PROFILE="${NOTARY_PROFILE:-leafreader-notary}"
 SPARKLE_HOME="${SPARKLE_HOME:-/opt/homebrew/Caskroom/sparkle/2.9.2}"
 SIGN_UPDATE="$SPARKLE_HOME/bin/sign_update"
 DOWNLOAD_URL="https://github.com/dowellhz/LeafReader/releases/download/v$VERSION/LeafReader-$VERSION.pkg"
+export COPYFILE_DISABLE=1
 
 if [[ ! -x "$SIGN_UPDATE" ]]; then
   echo "Sparkle sign_update not found at $SIGN_UPDATE" >&2
@@ -40,7 +41,11 @@ APP_SIGN_IDENTITY="$APP_SIGN_IDENTITY" "$BUILD_SCRIPT"
 
 rm -rf "$PKG_ROOT"
 mkdir -p "$PKG_ROOT/Applications" "$RELEASE_DIR"
+rm -f "$UNSIGNED_PKG" "$SIGNED_PKG"
 cp -R "$APP_PATH" "$PKG_ROOT/Applications/"
+find "$PKG_ROOT" -name '._*' -type f -delete
+xattr -cr "$PKG_ROOT"
+xattr -crs "$PKG_ROOT"
 
 pkgbuild \
   --root "$PKG_ROOT" \

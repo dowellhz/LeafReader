@@ -5,12 +5,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: ReaderWindowController!
     private var helpWindow: NSWindow?
     private var aboutWindow: NSWindow?
+    private var updateStatusWindow: NSWindow?
     private var updaterController: SPUStandardUpdaterController?
+    private var manualUpdateProbeInProgress = false
+    private var manualUpdateProbeFoundUpdate = false
+    private var manualUpdateProbeHandledResult = false
+    private weak var manualUpdateSender: AnyObject?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         updaterController = SPUStandardUpdaterController(
             startingUpdater: true,
-            updaterDelegate: nil,
+            updaterDelegate: self,
             userDriverDelegate: nil
         )
         controller = ReaderWindowController()
@@ -203,6 +208,112 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         aboutWindow = nil
     }
 
+    @objc private func checkForUpdates(_ sender: Any?) {
+        guard let updater = updaterController?.updater else { return }
+        guard updater.canCheckForUpdates else {
+            showWhiteUpdateStatus(
+                title: AppText.localized("正在检查更新", "Checking for Updates"),
+                message: AppText.localized("Leaf Reader 正在处理更新，请稍后再试。", "Leaf Reader is already handling an update. Please try again shortly.")
+            )
+            return
+        }
+
+        manualUpdateProbeInProgress = true
+        manualUpdateProbeFoundUpdate = false
+        manualUpdateProbeHandledResult = false
+        manualUpdateSender = sender as AnyObject?
+        updater.checkForUpdateInformation()
+    }
+
+    private func showWhiteUpdateStatus(title: String, message: String) {
+        if let updateStatusWindow {
+            updateStatusWindow.close()
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 250),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = AppText.localized("Leaf Reader 更新", "Leaf Reader Updates")
+        window.isReleasedWhenClosed = false
+        window.center()
+
+        let content = NSView()
+        content.translatesAutoresizingMaskIntoConstraints = false
+        content.wantsLayer = true
+        content.layer?.backgroundColor = NSColor.white.cgColor
+        window.contentView = content
+
+        let iconView = NSImageView(image: NSApp.applicationIconImage)
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.imageScaling = .scaleProportionallyUpOrDown
+        content.addSubview(iconView)
+
+        let titleLabel = NSTextField(labelWithString: title)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.alignment = .center
+        titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        titleLabel.textColor = .labelColor
+        content.addSubview(titleLabel)
+
+        let messageLabel = NSTextField(wrappingLabelWithString: message)
+        messageLabel.translatesAutoresizingMaskIntoConstraints = false
+        messageLabel.alignment = .center
+        messageLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        messageLabel.textColor = NSColor(red: 0.27, green: 0.29, blue: 0.33, alpha: 1)
+        messageLabel.maximumNumberOfLines = 3
+        content.addSubview(messageLabel)
+
+        let okButton = NSButton(title: "OK", target: self, action: #selector(closeUpdateStatusWindow(_:)))
+        okButton.translatesAutoresizingMaskIntoConstraints = false
+        okButton.bezelStyle = .rounded
+        okButton.font = .systemFont(ofSize: 14, weight: .semibold)
+        okButton.keyEquivalent = "\r"
+        content.addSubview(okButton)
+
+        NSLayoutConstraint.activate([
+            iconView.topAnchor.constraint(equalTo: content.topAnchor, constant: 28),
+            iconView.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 70),
+            iconView.heightAnchor.constraint(equalToConstant: 70),
+
+            titleLabel.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 18),
+            titleLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 28),
+            titleLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -28),
+
+            messageLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12),
+            messageLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 34),
+            messageLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -34),
+
+            okButton.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 30),
+            okButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -30),
+            okButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -24),
+            okButton.heightAnchor.constraint(equalToConstant: 34)
+        ])
+
+        updateStatusWindow = window
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updateStatusWindowWillClose(_:)),
+            name: NSWindow.willCloseNotification,
+            object: window
+        )
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func closeUpdateStatusWindow(_ sender: Any?) {
+        updateStatusWindow?.close()
+    }
+
+    @objc private func updateStatusWindowWillClose(_ notification: Notification) {
+        guard notification.object as AnyObject? === updateStatusWindow else { return }
+        NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: updateStatusWindow)
+        updateStatusWindow = nil
+    }
+
     private func viewMenuItem() -> NSMenuItem {
         let menu = NSMenu(title: AppText.localized("视图", "View"))
         menu.addItem(menuItem(
@@ -341,12 +452,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func helpMenuItem() -> NSMenuItem {
         let menu = NSMenu(title: AppText.localized("帮助", "Help"))
-        if let updaterController {
+        if updaterController != nil {
             menu.addItem(menuItem(
                 AppText.localized("检查更新...", "Check for Updates..."),
-                action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+                action: #selector(checkForUpdates(_:)),
                 key: "",
-                target: updaterController
+                target: self
             ))
             menu.addItem(.separator())
         }
@@ -919,6 +1030,52 @@ private final class HelpFeatureIconView: NSView {
             }
         case .vocabulary:
             break
+        }
+    }
+}
+
+extension AppDelegate: SPUUpdaterDelegate {
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        guard manualUpdateProbeInProgress else { return }
+        manualUpdateProbeFoundUpdate = true
+        manualUpdateProbeHandledResult = true
+    }
+
+    func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
+        guard manualUpdateProbeInProgress, !manualUpdateProbeFoundUpdate else { return }
+        manualUpdateProbeHandledResult = true
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? helpVersionText()
+        showWhiteUpdateStatus(
+            title: AppText.localized("已是最新版本", "You're up to date!"),
+            message: AppText.localized(
+                "Leaf Reader \(version) 已是当前最新版本。",
+                "Leaf Reader \(version) is currently the newest version available."
+            )
+        )
+    }
+
+    func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
+        guard manualUpdateProbeInProgress else { return }
+
+        let shouldPresentUpdate = manualUpdateProbeFoundUpdate
+        let shouldShowError = !manualUpdateProbeHandledResult && error != nil
+        let errorMessage = error?.localizedDescription
+
+        manualUpdateProbeInProgress = false
+        manualUpdateProbeFoundUpdate = false
+        manualUpdateProbeHandledResult = false
+        let sender = manualUpdateSender
+        manualUpdateSender = nil
+
+        if shouldPresentUpdate {
+            DispatchQueue.main.async { [weak self] in
+                self?.updaterController?.checkForUpdates(sender)
+            }
+        } else if shouldShowError {
+            showWhiteUpdateStatus(
+                title: AppText.localized("检查更新失败", "Update Check Failed"),
+                message: errorMessage ?? AppText.localized("暂时无法检查更新，请稍后再试。", "Unable to check for updates right now. Please try again later.")
+            )
         }
     }
 }
