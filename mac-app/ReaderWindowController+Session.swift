@@ -22,6 +22,7 @@ extension ReaderWindowController {
             isEditingPageField = true
             if currentDocumentKind == .pdf, let pageIndex = currentPageIndex() {
                 pageLabel.stringValue = "\(pageIndex + 1)"
+                updatePageLabelTextColor()
             }
         }
     }
@@ -62,18 +63,22 @@ extension ReaderWindowController {
         guard currentDocumentKind == .pdf else {
             if pageLabel.stringValue == AppText.noPDF || pageLabel.stringValue == "EPUB" || pageLabel.stringValue == "DOCX" {
                 pageLabel.stringValue = "0%"
+                updatePageLabelTextColor()
             }
             return
         }
         guard let document = pdfView.document else {
             pageLabel.stringValue = AppText.noPDF
+            updatePageLabelTextColor()
             return
         }
         guard let page = pdfView.currentPage else {
             pageLabel.stringValue = "1  /  \(document.pageCount)"
+            updatePageLabelTextColor()
             return
         }
         pageLabel.stringValue = "\(document.index(for: page) + 1)  /  \(document.pageCount)"
+        updatePageLabelTextColor()
     }
 
     func currentPageIndex() -> Int? {
@@ -113,6 +118,7 @@ extension ReaderWindowController {
         let progress = count <= 1 ? 0 : Double(min(max(index, 0), count - 1)) / Double(count - 1)
         webScrollProgress = progress
         pageLabel.stringValue = "\(Int(round(progress * 100)))%"
+        updatePageLabelTextColor()
         let script = """
         (() => {
           const progress = \(progress);
@@ -158,6 +164,7 @@ extension ReaderWindowController {
         let scrollProgress = progress.scrollProgress
         webScrollProgress = scrollProgress
         pageLabel.stringValue = "\(Int(round(scrollProgress * 100)))%"
+        updatePageLabelTextColor()
         if let percent = progress.zoomPercent {
             webZoomPercent = percent
             zoomField.stringValue = "\(webZoomPercent)%"

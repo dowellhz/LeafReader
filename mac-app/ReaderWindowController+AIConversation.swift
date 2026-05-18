@@ -88,6 +88,7 @@ extension ReaderWindowController {
         let progress = min(1, max(0, progressValue ?? webScrollProgress))
         webScrollProgress = progress
         pageLabel.stringValue = "\(Int(round(progress * 100)))%"
+        updatePageLabelTextColor()
         let script = """
         (() => {
           const progress = \(progress);

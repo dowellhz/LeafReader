@@ -325,6 +325,7 @@ final class RecentDocumentsPanelController: NSObject {
         alert.alertStyle = .warning
         alert.addButton(withTitle: confirmTitle)
         alert.addButton(withTitle: AppText.cancel)
+        alert.applyLeafWhiteStyle()
         return alert.runModal() == .alertFirstButtonReturn
     }
 
@@ -369,6 +370,7 @@ final class RecentDocumentsPanelController: NSObject {
             stack.bottomAnchor.constraint(lessThanOrEqualTo: accessory.bottomAnchor, constant: -6)
         ])
         alert.accessoryView = accessory
+        alert.applyLeafWhiteStyle()
 
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         return ShelfRemovalOptions(

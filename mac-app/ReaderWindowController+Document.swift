@@ -165,6 +165,7 @@ extension ReaderWindowController {
             coverImageView.isHidden = false
             pageLayoutButton.isHidden = true
             pageLabel.stringValue = "0%"
+            updatePageLabelTextColor()
             zoomField.stringValue = "100%"
             webView.loadHTMLString(document.html, baseURL: document.baseURL)
             applyReaderTheme()
@@ -174,7 +175,9 @@ extension ReaderWindowController {
             saveSession()
             scheduleDocumentEmbeddingWarmup(priorityPageIndex: currentEmbeddingPriorityIndex())
         } catch {
-            NSAlert(error: error).runModal()
+            let alert = NSAlert(error: error)
+            alert.applyLeafWhiteStyle()
+            alert.runModal()
         }
     }
 
@@ -347,6 +350,7 @@ extension ReaderWindowController {
         coverImageView.isHidden = true
         pageLayoutButton.isHidden = true
         pageLabel.stringValue = AppText.noPDF
+        updatePageLabelTextColor()
         zoomField.stringValue = "100%"
         updateEmbeddingControlButtons()
         applyReaderTheme()

@@ -173,6 +173,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var onConversationSourcesChanged: (([AIConversationSourceLocation]) -> Void)?
     var onCurrentSourceLocation: (() -> AIConversationSourceLocation?)?
     var onConversationBubbleSelected: ((AIConversationSourceLocation) -> Void)?
+    var lastNotifiedConversationSources: [AIConversationSourceLocation] = []
 
     var selectedText = ""
     var transcriptEntries: [TranscriptEntry] = []

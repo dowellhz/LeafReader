@@ -162,7 +162,7 @@ extension AIChatPanel {
         speakWord(word)
     }
 
-    func updateBubble(_ body: NSTextField, role: String, text: String, renderMarkdown: Bool = true) {
+    func updateBubble(_ body: NSTextField, role: String, text: String, renderMarkdown: Bool = true, notify: Bool = true) {
         let existingMetadata = body.identifier.flatMap { bubbleMetadataByID[$0.rawValue] }
         if let bodyID = body.identifier?.rawValue {
             bubbleMetadataByID[bodyID] = BubbleMetadata(
@@ -179,7 +179,9 @@ extension AIChatPanel {
         body.superview?.invalidateIntrinsicContentSize()
         transcriptStack.layoutSubtreeIfNeeded()
         body.superview?.scrollToVisible(body.superview?.bounds ?? body.bounds)
-        notifyConversationChangedIfNeeded()
+        if notify {
+            notifyConversationChangedIfNeeded()
+        }
     }
 
     func savedConversation() -> SavedAIConversation {
@@ -220,7 +222,11 @@ extension AIChatPanel {
     func notifyConversationChangedIfNeeded() {
         guard !isRestoringSavedConversation else { return }
         onConversationChanged?(savedConversation())
-        onConversationSourcesChanged?(activeConversationSources())
+        let sources = activeConversationSources()
+        if sources != lastNotifiedConversationSources {
+            lastNotifiedConversationSources = sources
+            onConversationSourcesChanged?(sources)
+        }
     }
 
     func activeConversationSources() -> [AIConversationSourceLocation] {
@@ -256,7 +262,7 @@ extension AIChatPanel {
         let workItem = DispatchWorkItem { [weak self, weak body] in
             guard let self, let body else { return }
             self.streamUpdateWorkItem = nil
-            self.updateBubble(body, role: AppText.aiRole, text: self.pendingStreamText)
+            self.updateBubble(body, role: AppText.aiRole, text: self.pendingStreamText, renderMarkdown: false, notify: false)
         }
         streamUpdateWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
@@ -266,7 +272,7 @@ extension AIChatPanel {
         streamUpdateWorkItem?.cancel()
         streamUpdateWorkItem = nil
         guard let body, !pendingStreamText.isEmpty else { return }
-        updateBubble(body, role: AppText.aiRole, text: pendingStreamText)
+        updateBubble(body, role: AppText.aiRole, text: pendingStreamText, renderMarkdown: false, notify: false)
     }
 
     func bubbleString(role: String, text: String, renderMarkdown: Bool) -> NSAttributedString {

@@ -15,6 +15,7 @@ extension AIChatPanel {
         bubbleBoxByLinkID.removeAll()
         persistentBubbleIDs.removeAll()
         persistentLearningLinkIDs.removeAll()
+        lastNotifiedConversationSources.removeAll()
         selectedLinkID = nil
         transcriptEntries.removeAll()
         messages = [

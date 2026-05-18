@@ -83,6 +83,7 @@ extension AISettingsPanelController {
         alert.informativeText = message
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppText.confirm)
+        alert.applyLeafWhiteStyle()
         alert.beginSheetModal(for: panel)
     }
 }

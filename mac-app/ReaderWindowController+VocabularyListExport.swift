@@ -304,7 +304,9 @@ extension ReaderWindowController {
                 }
                 try output.write(to: url, atomically: true, encoding: .utf8)
             } catch {
-                NSAlert(error: error).runModal()
+                let alert = NSAlert(error: error)
+                alert.applyLeafWhiteStyle()
+                alert.runModal()
             }
         }
     }

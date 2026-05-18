@@ -273,6 +273,7 @@ extension ReaderWindowController {
         pageLabel.target = self
         pageLabel.action = #selector(applyPageFromField)
         pageLabel.toolTip = AppText.localized("输入页码后按回车跳转", "Enter a page number and press Return")
+        updatePageLabelTextColor()
         searchUnderlineButton = SearchUnderlineButton(title: "", target: self, action: #selector(showSearchOverlay))
         searchUnderlineButton.toolTip = AppText.localized("搜索文档", "Search document")
         searchUnderlineButton.isDark = ReaderTheme.selected == .dark
@@ -659,6 +660,7 @@ extension ReaderWindowController {
         }
         if pdfView.document == nil {
             pageLabel.stringValue = AppText.noPDF
+            updatePageLabelTextColor()
         }
         fullScreenButton.image = NSImage(
             systemSymbolName: window?.styleMask.contains(.fullScreen) == true ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",

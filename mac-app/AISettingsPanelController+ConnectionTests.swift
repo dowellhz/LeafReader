@@ -50,8 +50,7 @@ extension AISettingsPanelController {
             alert.icon = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: nil)
         }
         alert.addButton(withTitle: AppText.confirm)
-        alert.window.appearance = NSAppearance(named: .aqua)
-        alert.window.backgroundColor = .white
+        alert.applyLeafWhiteStyle()
         if let panel {
             alert.beginSheetModal(for: panel)
         } else {

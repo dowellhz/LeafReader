@@ -48,8 +48,16 @@ extension ReaderWindowController {
               let source = aiSourceLocation(at: event) else {
             return false
         }
-        aiPanel.scrollToConversationSource(source)
-        return true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
+            guard let self else { return }
+            let selectedText = self.pdfView.currentSelection?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard selectedText.isEmpty else { return }
+            self.setAIPanelCollapsed(false, animated: true)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+                self?.aiPanel.scrollToConversationSource(source)
+            }
+        }
+        return false
     }
 
     func clearAISelectionIfClickingReader(_ event: NSEvent) {

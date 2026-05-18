@@ -47,14 +47,6 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let createdAt: Date
     }
 
-    struct PageJumpDiagnosticEntry {
-        let date: Date
-        let source: String
-        let beforePageIndex: Int?
-        let afterPageIndex: Int?
-        let detail: String
-    }
-
     static let preferredAIWidthDefaultsKey = "preferredAIWidth"
     static let pdfTwoPageModeDefaultsKey = "pdfTwoPageMode"
     static let fileMD5CacheDefaultsKey = "fileMD5Cache"
@@ -109,7 +101,6 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var didTurnPageForCurrentPDFTrackpadGesture = false
     var lastPDFTrackpadEdgeDirection: EdgePagingPDFView.ScrollPageDirection?
     var lastPageIndex: Int?
-    var pageJumpDiagnostics: [PageJumpDiagnosticEntry] = []
     var searchResults: [PDFSelection] = []
     var searchResultIndex = 0
     var lastSearchQuery = ""
@@ -135,6 +126,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var highlightedSelectionKeys = Set<String>()
     var aiSourceUnderlineKeys = Set<String>()
     var aiSourceLocationsByUnderlineKey: [String: AIConversationSourceLocation] = [:]
+    var activeAISourceUnderlines: [AIConversationSourceLocation] = []
     var storedWordRecords: [StoredPDFWordRecord] = []
     var pendingPDFWordRecords: [String: PendingPDFWordRecord] = [:]
     var pdfWordRecordStore: PDFWordRecordStore?
@@ -146,6 +138,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var aiConversationStore: AIConversationStore?
     var pendingAIConversationToSave: SavedAIConversation?
     let aiConversationSaveTask = DebouncedTask(delay: 1.0)
+    let preferredAIWidthSaveTask = DebouncedTask(delay: 0.4)
     var currentVocabularyExportRecords: [VocabularyExportRecord] = []
     var didRegisterSelectionObserver = false
     var isRestoringSession = false
@@ -211,6 +204,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         }
         sessionSaveTask.cancel()
         aiConversationSaveTask.cancel()
+        preferredAIWidthSaveTask.cancel()
         pdfWordRecordsSaveTask.cancel()
         webWordRecordsSaveTask.cancel()
         removeVocabularyPanelActivationObserver()

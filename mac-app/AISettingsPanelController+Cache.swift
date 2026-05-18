@@ -76,6 +76,7 @@ extension AISettingsPanelController {
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppText.localized("清除", "Clear"))
         alert.addButton(withTitle: AppText.cancel)
+        alert.applyLeafWhiteStyle()
         guard let panel else { return }
         alert.beginSheetModal(for: panel) { [weak self] response in
             guard response == .alertFirstButtonReturn else { return }

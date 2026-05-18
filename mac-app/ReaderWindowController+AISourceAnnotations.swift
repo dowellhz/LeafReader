@@ -61,7 +61,9 @@ extension ReaderWindowController {
 
     func reconcileAISourceUnderlines(activeSources: [AIConversationSourceLocation]) {
         guard currentDocumentKind == .pdf else { return }
+        guard activeSources != activeAISourceUnderlines else { return }
         clearAISourceUnderlines()
+        activeAISourceUnderlines = activeSources
         guard AISettingsStore.saveAIConversationEnabled else { return }
         for source in activeSources {
             addAISourceUnderline(for: source)
@@ -85,6 +87,7 @@ extension ReaderWindowController {
     func clearAISourceUnderlineTracking() {
         aiSourceUnderlineKeys.removeAll()
         aiSourceLocationsByUnderlineKey.removeAll()
+        activeAISourceUnderlines.removeAll()
     }
 
     func currentPDFSelectionSourceLocation(pageIndex: Int) -> AIConversationSourceLocation {

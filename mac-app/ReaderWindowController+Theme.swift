@@ -36,6 +36,7 @@ extension ReaderWindowController {
         ).cgColor
         searchUnderlineButton?.isDark = isDark
         applyChromeTheme(to: window?.contentView, isDark: isDark)
+        updatePageLabelTextColor()
         aiPanel.setDarkMode(isDark)
         searchOverlay.setDarkMode(isDark)
         pdfView.backgroundColor = chromeBackground
@@ -70,6 +71,19 @@ extension ReaderWindowController {
             for subview in view.subviews {
                 applyChromeTheme(to: subview, isDark: isDark)
             }
+        }
+    }
+
+    func updatePageLabelTextColor() {
+        let isDark = ReaderTheme.selected == .dark
+        if pageLabel.stringValue == AppText.noPDF {
+            pageLabel.textColor = isDark
+                ? NSColor(red: 0.54, green: 0.58, blue: 0.64, alpha: 1)
+                : NSColor(red: 0.52, green: 0.55, blue: 0.62, alpha: 1)
+        } else {
+            pageLabel.textColor = isDark
+                ? NSColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 1)
+                : NSColor(red: 0.10, green: 0.11, blue: 0.14, alpha: 1)
         }
     }
 

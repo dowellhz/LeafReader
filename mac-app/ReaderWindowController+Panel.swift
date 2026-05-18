@@ -57,6 +57,14 @@ extension ReaderWindowController {
     }
 
     func setAIPanelCollapsed(_ collapsed: Bool, animated: Bool) {
+        if collapsed == isAIPanelCollapsed {
+            if !collapsed {
+                aiPanel.setContentVisible(true)
+            }
+            updateAIHandlePosition()
+            return
+        }
+
         if collapsed, aiPanel.frame.width > 80 {
             preferredAIWidth = clampedAIWidth(aiPanel.frame.width)
             savePreferredAIWidth()
@@ -73,24 +81,32 @@ extension ReaderWindowController {
         resizeHandle.isHidden = collapsed
 
         let targetAIWidth: CGFloat = collapsed ? 1 : clampedAIWidth(preferredAIWidth)
-        let update = {
-            self.aiPanelWidthConstraint.constant = targetAIWidth
-            self.window?.contentView?.layoutSubtreeIfNeeded()
-            self.refreshPDFLayoutAfterPanelChange()
-            self.updateAIHandlePosition()
+        let targetHandleLeading = aiHandleLeadingConstant(collapsed: collapsed, aiWidth: targetAIWidth)
+        let applyFinalState = {
             if !collapsed {
                 self.aiPanel.setContentVisible(true)
             }
+            self.refreshPDFLayoutAfterPanelChange()
         }
 
         if animated {
+            contentArea.layoutSubtreeIfNeeded()
+            aiPanelWidthConstraint.constant = targetAIWidth
+            aiHandleLeadingConstraint.constant = targetHandleLeading
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.07
+                context.duration = 0.12
                 context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                update()
+                self.contentArea.animator().layoutSubtreeIfNeeded()
+                self.window?.contentView?.animator().layoutSubtreeIfNeeded()
+            } completionHandler: {
+                applyFinalState()
             }
         } else {
-            update()
+            aiPanelWidthConstraint.constant = targetAIWidth
+            aiHandleLeadingConstraint.constant = targetHandleLeading
+            contentArea.layoutSubtreeIfNeeded()
+            window?.contentView?.layoutSubtreeIfNeeded()
+            applyFinalState()
         }
     }
 
@@ -109,19 +125,27 @@ extension ReaderWindowController {
         UserDefaults.standard.set(Double(preferredAIWidth), forKey: Self.preferredAIWidthDefaultsKey)
     }
 
+    func schedulePreferredAIWidthSave() {
+        preferredAIWidthSaveTask.schedule { [weak self] in
+            self?.savePreferredAIWidth()
+        }
+    }
+
     func updateAIHandlePosition() {
         let aiWidth = isAIPanelCollapsed ? 1 : aiPanelWidthConstraint.constant
-        aiHandleLeadingConstraint.constant = isAIPanelCollapsed
-            ? -SideHandleButton.handleWidth
-            : -(aiWidth + SideHandleButton.handleWidth)
+        aiHandleLeadingConstraint.constant = aiHandleLeadingConstant(collapsed: isAIPanelCollapsed, aiWidth: aiWidth)
         window?.contentView?.layoutSubtreeIfNeeded()
+    }
+
+    func aiHandleLeadingConstant(collapsed: Bool, aiWidth: CGFloat) -> CGFloat {
+        collapsed ? -SideHandleButton.handleWidth : -(aiWidth + SideHandleButton.handleWidth)
     }
 
     func refreshPDFLayoutAfterPanelChange() {
         pdfContainer.layoutSubtreeIfNeeded()
         pdfView.layoutSubtreeIfNeeded()
-        pdfView.setNeedsDisplay(pdfView.bounds)
-        pdfView.documentView?.setNeedsDisplay(pdfView.documentView?.bounds ?? .zero)
+        pdfView.needsDisplay = true
+        pdfView.documentView?.needsDisplay = true
     }
 
     func syncAIPanelLayoutAfterResize() {
@@ -133,23 +157,26 @@ extension ReaderWindowController {
         } else {
             preferredAIWidth = clampedAIWidth(preferredAIWidth)
             aiPanelWidthConstraint.constant = preferredAIWidth
-            savePreferredAIWidth()
+            schedulePreferredAIWidthSave()
             aiPanel.setContentVisible(true)
             resizeHandle.isHidden = false
         }
+        aiHandleLeadingConstraint.constant = aiHandleLeadingConstant(
+            collapsed: isAIPanelCollapsed,
+            aiWidth: isAIPanelCollapsed ? 1 : aiPanelWidthConstraint.constant
+        )
         contentArea.layoutSubtreeIfNeeded()
         refreshPDFLayoutAfterPanelChange()
-        updateAIHandlePosition()
     }
 
     func resizeAIPanel(deltaX: CGFloat) {
         guard !isAIPanelCollapsed else { return }
         preferredAIWidth = clampedAIWidth(preferredAIWidth - deltaX)
-        savePreferredAIWidth()
+        schedulePreferredAIWidthSave()
         aiPanelWidthConstraint.constant = preferredAIWidth
+        aiHandleLeadingConstraint.constant = aiHandleLeadingConstant(collapsed: false, aiWidth: preferredAIWidth)
         contentArea.layoutSubtreeIfNeeded()
-        refreshPDFLayoutAfterPanelChange()
-        updateAIHandlePosition()
+        pdfView.needsDisplay = true
     }
 
     func updateFullScreenButton() {
@@ -177,6 +204,7 @@ extension ReaderWindowController {
     }
 
     func windowWillClose(_ notification: Notification) {
+        preferredAIWidthSaveTask.flush()
         sessionSaveTask.flush()
         flushCurrentBookWordRecordSaves()
         saveCurrentAIConversationBeforeDocumentChange()
