@@ -15,3 +15,7 @@ mac-app/release/
 
 # Temporary source images kept outside the app bundle
 mac-app/AppIconSourceRaw.png
+
+# Local Sparkle signing keys
+sparkle-ed25519-private-key
+.sparkle-private-key

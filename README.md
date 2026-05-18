@@ -105,30 +105,7 @@ brew install --cask sparkle
 Create the app bundle directory if needed, then compile the Swift sources:
 
 ```sh
-SPARKLE_HOME=/opt/homebrew/Caskroom/sparkle/2.9.2
-mkdir -p "Leaf Reader.app/Contents/MacOS" "Leaf Reader.app/Contents/Resources" "Leaf Reader.app/Contents/Frameworks"
-cp mac-app/Info.plist "Leaf Reader.app/Contents/Info.plist"
-cp mac-app/AIPrompts.json "Leaf Reader.app/Contents/Resources/AIPrompts.json"
-cp mac-app/AppIcon.icns "Leaf Reader.app/Contents/Resources/AppIcon.icns"
-cp -R "$SPARKLE_HOME/Sparkle.framework" "Leaf Reader.app/Contents/Frameworks/"
-swiftc mac-app/*.swift \
-  -F "$SPARKLE_HOME" \
-  -o "Leaf Reader.app/Contents/MacOS/Leaf Reader" \
-  -framework Cocoa \
-  -framework PDFKit \
-  -framework WebKit \
-  -framework CryptoKit \
-  -framework AVFoundation \
-  -framework Sparkle \
-  -lsqlite3 \
-  -Xlinker -rpath \
-  -Xlinker @executable_path/../Frameworks
-```
-
-Re-sign the rebuilt app:
-
-```sh
-codesign --force --deep --sign - "Leaf Reader.app"
+./scripts/build_app.sh
 ```
 
 Then run it:
@@ -185,6 +162,14 @@ https://dowellhz.github.io/LeafReader/appcast.xml
 ```
 
 The appcast entry points to the signed and notarized pkg uploaded to GitHub Releases. For pkg updates, update `docs/appcast.xml` manually with the new version, pkg URL, file length, and EdDSA signature from Sparkle's `sign_update` tool.
+
+Build, sign, notarize, staple, and update the Sparkle appcast for a release:
+
+```sh
+SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.4.2
+```
+
+The release script also accepts `SPARKLE_PRIVATE_KEY` from the environment, or falls back to Sparkle's default keychain account if neither variable is set.
 
 ## Notes
 
