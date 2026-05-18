@@ -148,6 +148,14 @@ extension ReaderWindowController {
         pdfView.documentView?.needsDisplay = true
     }
 
+    func schedulePDFLayoutAfterPanelResize() {
+        aiPanelResizeLayoutTask.schedule { [weak self] in
+            guard let self else { return }
+            self.contentArea.layoutSubtreeIfNeeded()
+            self.refreshPDFLayoutAfterPanelChange()
+        }
+    }
+
     func syncAIPanelLayoutAfterResize() {
         guard contentArea.bounds.width > 0 else { return }
         if isAIPanelCollapsed {
@@ -178,8 +186,14 @@ extension ReaderWindowController {
         schedulePreferredAIWidthSave()
         aiPanelWidthConstraint.constant = preferredAIWidth
         aiHandleLeadingConstraint.constant = aiHandleLeadingConstant(collapsed: false, aiWidth: preferredAIWidth)
-        contentArea.layoutSubtreeIfNeeded()
-        pdfView.needsDisplay = true
+        contentArea.needsLayout = true
+        window?.contentView?.needsLayout = true
+        schedulePDFLayoutAfterPanelResize()
+    }
+
+    func finishAIPanelResize() {
+        aiPanelResizeLayoutTask.flush()
+        preferredAIWidthSaveTask.flush()
     }
 
     func updateFullScreenButton() {
@@ -212,6 +226,7 @@ extension ReaderWindowController {
 
     func windowWillClose(_ notification: Notification) {
         windowResizeLayoutTask.flush()
+        aiPanelResizeLayoutTask.flush()
         preferredAIWidthSaveTask.flush()
         sessionSaveTask.flush()
         flushCurrentBookWordRecordSaves()

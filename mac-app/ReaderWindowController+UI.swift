@@ -188,6 +188,9 @@ extension ReaderWindowController {
         resizeHandle.onDragDeltaX = { [weak self] deltaX in
             self?.resizeAIPanel(deltaX: deltaX)
         }
+        resizeHandle.onDragEnded = { [weak self] in
+            self?.finishAIPanelResize()
+        }
         aiPanel.onAskSelectedText = { [weak self] text in
             guard let self else { return nil }
             return self.contextForCurrentSelection(selectedText: text)

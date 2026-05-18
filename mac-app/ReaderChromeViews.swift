@@ -220,6 +220,7 @@ final class SearchUnderlineButton: NSButton {
 
 final class ResizeHandleView: NSView {
     var onDragDeltaX: ((CGFloat) -> Void)?
+    var onDragEnded: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -242,6 +243,10 @@ final class ResizeHandleView: NSView {
 
     override func mouseDragged(with event: NSEvent) {
         onDragDeltaX?(event.deltaX)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        onDragEnded?()
     }
 }
 
