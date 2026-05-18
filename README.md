@@ -22,7 +22,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 Download the latest macOS installer:
 
-[Leaf Reader 1.4.11 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4.11/LeafReader-1.4.11.pkg)
+[Leaf Reader 1.4.12 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4.12/LeafReader-1.4.12.pkg)
 
 ## Highlights
 
@@ -34,6 +34,15 @@ Download the latest macOS installer:
 - Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
+
+## What's New in 1.4.12
+
+- Improved first-load performance by replacing full-file MD5 reads with a fast document identifier while preserving compatible access to existing saved data.
+- Added a loading overlay that waits for the initial AI bubble layout before opening the document.
+- Reduced AI panel startup work by restoring only recent bubbles first and loading matching historical bubbles on demand.
+- Made AI explanations more compact by tightening prompts, Markdown spacing, and blank-line handling between original text and translation.
+- Improved PDF scroll paging so moving to the previous page lands at the previous page bottom, reducing apparent skipped-page behavior.
+- Reduced resize stutter by debouncing expensive panel and PDF layout refresh work.
 
 ## What's New in 1.4.11
 
@@ -199,18 +208,18 @@ Run the lightweight logic regression tests:
 
 ## Release
 
-Current version: `1.4.11`
+Current version: `1.4.12`
 
-Git tag: `v1.4.11`
+Git tag: `v1.4.12`
 
 Latest installer:
 
-[Leaf Reader-1.4.11.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.11/LeafReader-1.4.11.pkg)
+[Leaf Reader-1.4.12.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.12/LeafReader-1.4.12.pkg)
 
 Local release artifacts are expected under:
 
 ```text
-release/1.4.11/
+release/1.4.12/
 ```
 
 Sparkle updates use:
@@ -224,7 +233,7 @@ The appcast entry points to the signed and notarized pkg uploaded to GitHub Rele
 Build, sign, notarize, staple, and update the Sparkle appcast for a release:
 
 ```sh
-SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.4.11
+SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.4.12
 ```
 
 The release script accepts `SPARKLE_PRIVATE_KEY` from the environment, `SPARKLE_PRIVATE_KEY_FILE`, `$HOME/.config/leafreader/sparkle-ed25519-private-key`, the local ignored `sparkle-ed25519-private-key` file, or Sparkle's default keychain account.
