@@ -128,23 +128,10 @@ extension ReaderWindowController {
     }
 
     func mergedAIConversationForSave(_ visibleConversation: SavedAIConversation) -> SavedAIConversation {
-        guard let loadedAIConversation, !loadedAIConversation.bubbles.isEmpty else {
-            return visibleConversation
-        }
-
-        var mergedBubbles = loadedAIConversation.bubbles
-        var existingKeys = Set(mergedBubbles.map(conversationBubbleKey))
-        for bubble in visibleConversation.bubbles where !existingKeys.contains(conversationBubbleKey(bubble)) {
-            mergedBubbles.append(bubble)
-            existingKeys.insert(conversationBubbleKey(bubble))
-        }
-        if mergedBubbles.count > AIChatPanel.maxSavedConversationBubbles {
-            mergedBubbles = Array(mergedBubbles.suffix(AIChatPanel.maxSavedConversationBubbles))
-        }
-        return SavedAIConversation(bubbles: mergedBubbles)
-    }
-
-    private func conversationBubbleKey(_ bubble: SavedAIConversationBubble) -> String {
-        "\(bubble.role)\u{1F}\(bubble.text)"
+        SavedAIConversation.mergedForSave(
+            loaded: loadedAIConversation,
+            visible: visibleConversation,
+            maxBubbles: AIChatPanel.maxSavedConversationBubbles
+        )
     }
 }

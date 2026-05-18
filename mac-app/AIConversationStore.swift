@@ -4,6 +4,31 @@ struct SavedAIConversation: Codable {
     var bubbles: [SavedAIConversationBubble]
 
     static let empty = SavedAIConversation(bubbles: [])
+
+    static func mergedForSave(
+        loaded: SavedAIConversation?,
+        visible: SavedAIConversation,
+        maxBubbles: Int
+    ) -> SavedAIConversation {
+        guard let loaded, !loaded.bubbles.isEmpty else {
+            return visible
+        }
+
+        var mergedBubbles = loaded.bubbles
+        var existingKeys = Set(mergedBubbles.map(conversationBubbleKey))
+        for bubble in visible.bubbles where !existingKeys.contains(conversationBubbleKey(bubble)) {
+            mergedBubbles.append(bubble)
+            existingKeys.insert(conversationBubbleKey(bubble))
+        }
+        if mergedBubbles.count > maxBubbles {
+            mergedBubbles = Array(mergedBubbles.suffix(maxBubbles))
+        }
+        return SavedAIConversation(bubbles: mergedBubbles)
+    }
+
+    private static func conversationBubbleKey(_ bubble: SavedAIConversationBubble) -> String {
+        "\(bubble.role)\u{1F}\(bubble.text)"
+    }
 }
 
 struct SavedAIConversationBubble: Codable {

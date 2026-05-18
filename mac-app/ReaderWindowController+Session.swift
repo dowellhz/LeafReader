@@ -132,37 +132,24 @@ extension ReaderWindowController {
 
 
     func fileMD5(for url: URL) -> String? {
-        let fastID = fastDocumentID(for: url)
-        guard let legacyMD5 = cachedLegacyMD5(for: url), legacyMD5 != fastID else {
-            return fastID
-        }
-
-        if hasStoredDocumentData(documentID: legacyMD5), !hasStoredDocumentData(documentID: fastID) {
-            return legacyMD5
-        }
-        return fastID
+        let fastID = DocumentIdentity.fastID(for: url)
+        let legacyMD5 = cachedLegacyMD5(for: url)
+        return DocumentIdentity.selectedID(
+            fastID: fastID,
+            legacyID: legacyMD5,
+            legacyHasData: legacyMD5.map { hasStoredDocumentData(documentID: $0) } ?? false,
+            fastHasData: hasStoredDocumentData(documentID: fastID)
+        )
     }
 
     func fastDocumentID(for url: URL) -> String {
-        let resourceValues = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
-        let fileSize = resourceValues?.fileSize ?? 0
-        let modifiedAt = resourceValues?.contentModificationDate?.timeIntervalSince1970 ?? 0
-        let identity = "\(url.standardizedFileURL.path)|\(fileSize)|\(modifiedAt)"
-        let digest = SHA256.hash(data: Data(identity.utf8))
-            .prefix(16)
-            .map { String(format: "%02x", $0) }
-            .joined()
-        return "fast-\(digest)"
+        DocumentIdentity.fastID(for: url)
     }
 
     func cachedLegacyMD5(for url: URL) -> String? {
-        let resourceValues = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
-        let fileSize = resourceValues?.fileSize ?? 0
-        let modifiedAt = resourceValues?.contentModificationDate?.timeIntervalSince1970 ?? 0
-        let cacheKey = "\(url.standardizedFileURL.path)|\(fileSize)|\(modifiedAt)"
         let defaults = UserDefaults.standard
         let cache = defaults.dictionary(forKey: Self.fileMD5CacheDefaultsKey) as? [String: String] ?? [:]
-        return cache[cacheKey]
+        return cache[DocumentIdentity.legacyCacheKey(for: url)]
     }
 
     func hasStoredDocumentData(documentID: String) -> Bool {

@@ -17,6 +17,7 @@ UNSIGNED_PKG="$RELEASE_DIR/LeafReader-$VERSION-unsigned.pkg"
 SIGNED_PKG="$RELEASE_DIR/LeafReader-$VERSION.pkg"
 APPCAST_PATH="$ROOT_DIR/docs/appcast.xml"
 BUILD_SCRIPT="$ROOT_DIR/scripts/build_app.sh"
+BUMP_VERSION_SCRIPT="$ROOT_DIR/scripts/bump_version.sh"
 APP_SIGN_IDENTITY="${APP_SIGN_IDENTITY:-Developer ID Application: lu lin (T84BKD53ZD)}"
 INSTALLER_IDENTITY="${INSTALLER_IDENTITY:-Developer ID Installer: lu lin (T84BKD53ZD)}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-leafreader-notary}"
@@ -37,8 +38,12 @@ if [[ ! -x "$BUILD_SCRIPT" ]]; then
   exit 1
 fi
 
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$ROOT_DIR/mac-app/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$ROOT_DIR/mac-app/Info.plist"
+if [[ ! -x "$BUMP_VERSION_SCRIPT" ]]; then
+  echo "Version bump script not found or not executable: $BUMP_VERSION_SCRIPT" >&2
+  exit 1
+fi
+
+"$BUMP_VERSION_SCRIPT" "$VERSION"
 
 APP_SIGN_IDENTITY="$APP_SIGN_IDENTITY" "$BUILD_SCRIPT"
 

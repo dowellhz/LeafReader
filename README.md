@@ -236,6 +236,14 @@ Build, sign, notarize, staple, and update the Sparkle appcast for a release:
 SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.4.12
 ```
 
+Run the full publish flow from a clean working tree:
+
+```sh
+./scripts/publish_release.sh 1.4.12
+```
+
+The publish script runs tests, builds/signs/notarizes the pkg, commits the version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL.
+
 The release script accepts `SPARKLE_PRIVATE_KEY` from the environment, `SPARKLE_PRIVATE_KEY_FILE`, `$HOME/.config/leafreader/sparkle-ed25519-private-key`, the local ignored `sparkle-ed25519-private-key` file, or Sparkle's default keychain account.
 
 ### Sparkle Key Management

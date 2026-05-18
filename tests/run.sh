@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 swiftc \
   tests/SQLiteWordRecordStoreTests.swift \
   mac-app/VocabularySRS.swift \
+  mac-app/StoredPDFWordRect.swift \
   mac-app/PDFWordRecordStore.swift \
   mac-app/WebWordRecordStore.swift \
   mac-app/WordRecordSQLiteStore.swift \
@@ -12,6 +13,15 @@ swiftc \
   -lsqlite3 \
   -o /tmp/leafreader-sqlite-word-tests
 /tmp/leafreader-sqlite-word-tests
+swiftc \
+  mac-app/MarkdownRenderer.swift \
+  mac-app/DocumentIdentity.swift \
+  mac-app/StoredPDFWordRect.swift \
+  mac-app/AIConversationStore.swift \
+  tests/RegressionTests.swift \
+  -framework Cocoa \
+  -o /tmp/leafreader-regression-tests
+/tmp/leafreader-regression-tests
 swiftc \
   mac-app/EPUBPackageParser.swift \
   mac-app/EPUBPathResolver.swift \
