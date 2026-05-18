@@ -30,7 +30,7 @@ extension ReaderWindowController {
         userContentController.add(self, name: "webWordClicked")
         userContentController.add(self, name: "webAISourceClicked")
         userContentController.addUserScript(WKUserScript(
-            source: Self.webDocumentUserScriptSource,
+            source: Self.webDocumentUserScriptSource(),
             injectionTime: .atDocumentEnd,
             forMainFrameOnly: false
         ))

@@ -24,6 +24,9 @@ rm -rf "$APP_PATH/Contents/Frameworks/Sparkle.framework"
 cp "$ROOT_DIR/mac-app/Info.plist" "$APP_PATH/Contents/Info.plist"
 cp "$ROOT_DIR/mac-app/AIPrompts.json" "$APP_PATH/Contents/Resources/AIPrompts.json"
 cp "$ROOT_DIR/mac-app/AppIcon.icns" "$APP_PATH/Contents/Resources/AppIcon.icns"
+if [[ -d "$ROOT_DIR/mac-app/Resources" ]]; then
+  cp -R "$ROOT_DIR/mac-app/Resources/." "$APP_PATH/Contents/Resources/"
+fi
 cp -R "$SPARKLE_HOME/Sparkle.framework" "$APP_PATH/Contents/Frameworks/"
 find "$APP_PATH" -name '._*' -type f -delete
 xattr -cr "$APP_PATH"

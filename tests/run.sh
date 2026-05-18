@@ -2,6 +2,8 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+node --check mac-app/Resources/reader-web.js
+node tests/ReaderWebScriptTests.js
 swiftc \
   tests/SQLiteWordRecordStoreTests.swift \
   mac-app/VocabularySRS.swift \

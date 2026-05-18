@@ -47,11 +47,13 @@ if ! gh auth status >/dev/null 2>&1; then
 fi
 
 ./tests/run.sh
+./scripts/bump_version.sh --check "$VERSION" 2>/dev/null || true
 if [[ -n "$NOTES_FILE" ]]; then
   ./scripts/release_pkg.sh "$VERSION" "$NOTES_FILE"
 else
   ./scripts/release_pkg.sh "$VERSION"
 fi
+./scripts/bump_version.sh --check "$VERSION"
 
 if [[ ! -f "$PKG_PATH" ]]; then
   echo "Expected release package not found: $PKG_PATH" >&2
