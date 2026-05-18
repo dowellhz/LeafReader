@@ -100,7 +100,7 @@ final class AISettingsPanelController {
             labels: [
             AppText.localized("基础", "General"),
             AppText.localized("模型", "Model"),
-            AppText.localized("向量", "Vector"),
+            AppText.localized("AI 分析", "AI Analysis"),
             AppText.localized("缓存", "Cache")
             ],
             trackingMode: .selectOne,
@@ -216,7 +216,7 @@ final class AISettingsPanelController {
         let embeddingKeyField = APIKeySecureTextField(string: AISettingsStore.embeddingAPIKeyMigratingLegacyIfNeeded(for: selectedEmbeddingEndpoint.id))
         configureKeyField(embeddingKeyField, placeholder: AppText.apiKeyPlaceholder, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
         let embeddingHelpLabel = label(AppText.localized("用于 PDF、EPUB 和 DOCX 向量检索。聊天模型和向量模型可以使用不同 API Key。默认使用 OpenAI text-embedding-3-small，也可填兼容接口。", "Used for PDF, EPUB, and DOCX vector retrieval. Chat and embedding models can use different API keys. Defaults to OpenAI text-embedding-3-small; compatible endpoints can be used."), size: settingsFontSize, color: secondaryText)
-        let autoEmbeddingIndexCheckbox = NSButton(checkboxWithTitle: AppText.localized("打开书后自动生成向量索引", "Automatically build vector index after opening a book"), target: nil, action: nil)
+        let autoEmbeddingIndexCheckbox = NSButton(checkboxWithTitle: AppText.localized("打开书后自动生成 AI 分析数据", "Automatically build AI analysis data after opening a book"), target: nil, action: nil)
         autoEmbeddingIndexCheckbox.font = AppFont.semibold(ofSize: settingsFontSize)
         autoEmbeddingIndexCheckbox.lineBreakMode = .byTruncatingTail
         autoEmbeddingIndexCheckbox.state = AISettingsStore.autoEmbeddingIndexEnabled ? .on : .off
@@ -235,7 +235,7 @@ final class AISettingsPanelController {
         testEmbeddingButton.lineBreakMode = .byTruncatingTail
         testEmbeddingButton.translatesAutoresizingMaskIntoConstraints = false
 
-        let cacheLabel = label(AppText.localized("AI 向量缓存", "AI Vector Cache"), size: 15, weight: .semibold, color: primaryText)
+        let cacheLabel = label(AppText.localized("AI 阅读记录", "AI Reading Records"), size: 15, weight: .semibold, color: primaryText)
         let cacheStatusLabel = label(AppText.localized("正在统计缓存...", "Calculating cache..."), size: settingsFontSize, color: secondaryText)
         let cacheDisclosureButton = NSButton(title: "", target: self, action: #selector(clearVectorCache(_:)))
         cacheDisclosureButton.isBordered = false
@@ -244,7 +244,7 @@ final class AISettingsPanelController {
         cacheDisclosureButton.isHidden = true
         cacheDisclosureButton.translatesAutoresizingMaskIntoConstraints = false
         let clearVectorCacheButton = cacheActionButton(
-            title: AppText.localized("清除 AI 向量缓存", "Clear AI Vector Cache"),
+            title: AppText.localized("清除 AI 阅读记录", "Clear AI Reading Records"),
             symbol: "trash",
             tint: NSColor(red: 1.00, green: 0.16, blue: 0.18, alpha: 1),
             target: self,
@@ -254,21 +254,21 @@ final class AISettingsPanelController {
         clearVectorCacheButton.layer?.cornerRadius = 8
         clearVectorCacheButton.font = AppFont.semibold(ofSize: 14)
         clearVectorCacheButton.attributedTitle = NSAttributedString(
-            string: AppText.localized("清除 AI 向量缓存", "Clear AI Vector Cache"),
+            string: AppText.localized("清除 AI 阅读记录", "Clear AI Reading Records"),
             attributes: [
                 .font: AppFont.semibold(ofSize: 14),
                 .foregroundColor: primaryText
             ]
         )
 
-        let currentIndexLabel = label(AppText.localized("当前书索引", "Current Book Index"), size: 15, weight: .semibold, color: primaryText)
+        let currentIndexLabel = label(AppText.localized("当前书 AI 分析数据", "Current Book AI Analysis Data"), size: 15, weight: .semibold, color: primaryText)
         let currentIndexStatusLabel = label(currentVectorIndexStatus?() ?? AppText.noPDF, size: settingsFontSize, color: secondaryText)
         currentIndexStatusLabel.maximumNumberOfLines = 2
         currentIndexStatusLabel.lineBreakMode = .byWordWrapping
-        let startIndexButton = cacheActionButton(title: AppText.localized("开始/继续生成", "Start / Resume"), symbol: "play.circle", tint: NSColor(red: 0.00, green: 0.48, blue: 1.00, alpha: 1), target: self, action: #selector(startCurrentVectorIndex(_:)), isDark: isDark)
+        let startIndexButton = cacheActionButton(title: AppText.localized("重新分析这本书", "Analyze This Book Again"), symbol: "play.circle", tint: NSColor(red: 0.00, green: 0.48, blue: 1.00, alpha: 1), target: self, action: #selector(startCurrentVectorIndex(_:)), isDark: isDark)
         let pauseIndexButton = cacheActionButton(title: AppText.localized("暂停/继续", "Pause / Resume"), symbol: "pause.circle", tint: NSColor(red: 1.00, green: 0.58, blue: 0.00, alpha: 1), target: self, action: #selector(toggleCurrentVectorIndex(_:)), isDark: isDark)
-        let cancelIndexButton = cacheActionButton(title: AppText.localized("取消生成", "Cancel"), symbol: "minus.circle", tint: NSColor(red: 1.00, green: 0.22, blue: 0.28, alpha: 1), target: self, action: #selector(cancelCurrentVectorIndex(_:)), isDark: isDark)
-        let clearCurrentIndexButton = cacheActionButton(title: AppText.localized("清除当前书索引", "Clear Current Book"), symbol: "paintbrush", tint: NSColor(red: 0.60, green: 0.27, blue: 1.00, alpha: 1), target: self, action: #selector(clearCurrentVectorIndex(_:)), isDark: isDark)
+        let cancelIndexButton = cacheActionButton(title: AppText.localized("取消分析", "Cancel"), symbol: "minus.circle", tint: NSColor(red: 1.00, green: 0.22, blue: 0.28, alpha: 1), target: self, action: #selector(cancelCurrentVectorIndex(_:)), isDark: isDark)
+        let clearCurrentIndexButton = cacheActionButton(title: AppText.localized("清除当前书 AI 阅读记录", "Clear Current Book AI Records"), symbol: "paintbrush", tint: NSColor(red: 0.60, green: 0.27, blue: 1.00, alpha: 1), target: self, action: #selector(clearCurrentVectorIndex(_:)), isDark: isDark)
         let clearCurrentWordsButton = cacheActionButton(title: AppText.localized("清除当前书单词记录", "Clear Current Book Words"), symbol: "trash", tint: NSColor(red: 0.00, green: 0.72, blue: 0.74, alpha: 1), target: self, action: #selector(clearCurrentWordRecords(_:)), isDark: isDark)
         let currentIndexCard = settingsCard(isDark: isDark)
         let vectorCacheCard = settingsCard(isDark: isDark)

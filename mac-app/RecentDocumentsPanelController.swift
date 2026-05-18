@@ -33,7 +33,7 @@ private final class RecentBookCardView: NSView {
         menu.addItem(menuItem(title: AppText.localized("在 Finder 中显示", "Show in Finder"), action: #selector(revealFromMenu(_:))))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(menuItem(title: AppText.localized("移出书架", "Remove from Shelf"), action: #selector(removeFromMenu(_:))))
-        menu.addItem(menuItem(title: AppText.localized("清除本书向量缓存", "Clear Book Vector Cache"), action: #selector(clearVectorCacheFromMenu(_:))))
+        menu.addItem(menuItem(title: AppText.localized("清除本书 AI 阅读记录", "Clear Book AI Reading Records"), action: #selector(clearVectorCacheFromMenu(_:))))
         menu.addItem(menuItem(title: AppText.localized("清除本书单词记录", "Clear Book Words"), action: #selector(clearWordRecordsFromMenu(_:))))
         menu.addItem(menuItem(title: AppText.localized("清除本书 AI 数据", "Clear Book AI Data"), action: #selector(clearAIDataFromMenu(_:))))
         NSMenu.popUpContextMenu(menu, with: event, for: self)
@@ -262,8 +262,8 @@ final class RecentDocumentsPanelController: NSObject {
             }
             card.onClearVectorCache = { [weak self] path in
                 guard self?.confirmShelfAction(
-                    title: AppText.localized("清除本书向量缓存？", "Clear Vector Cache for This Book?"),
-                    message: AppText.localized("清除后，之后使用文档检索时会重新生成本书向量。", "After clearing, vectors for this book will be regenerated when document retrieval is used."),
+                    title: AppText.localized("清除本书 AI 阅读记录？", "Clear AI Reading Records for This Book?"),
+                    message: AppText.localized("清除后，之后使用文档问答时会重新分析这本书。", "After clearing, this book will be analyzed again when document Q&A is used."),
                     confirmTitle: AppText.localized("清除", "Clear")
                 ) == true else { return }
                 self?.onClearVectorCache?(path)
@@ -360,7 +360,7 @@ final class RecentDocumentsPanelController: NSObject {
         alert.addButton(withTitle: AppText.cancel)
 
         let clearVectorCheckbox = NSButton(
-            checkboxWithTitle: AppText.localized("清除向量", "Clear vector cache"),
+            checkboxWithTitle: AppText.localized("清除 AI 阅读记录", "Clear AI reading records"),
             target: nil,
             action: nil
         )

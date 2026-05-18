@@ -116,7 +116,7 @@ extension ReaderWindowController {
                 return
             }
             guard self.isReaderIdleForEmbedding else {
-                self.embeddingStatusLabel.stringValue = AppText.localized("向量索引：空闲后继续", "Embedding: continues when idle")
+                self.embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：空闲后继续", "AI analysis data: continues when idle")
                 self.embeddingStatusLabel.isHidden = false
                 self.scheduleDocumentEmbeddingWarmup(priorityPageIndex: priorityPageIndex)
                 return
@@ -291,7 +291,7 @@ extension ReaderWindowController {
             return
         }
         guard !isEmbeddingBackfillPaused else {
-            embeddingStatusLabel.stringValue = AppText.localized("向量索引：已暂停，点击继续", "Embedding: paused, tap resume")
+            embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已暂停，点击继续", "AI analysis data: paused, tap resume")
             embeddingStatusLabel.isHidden = false
             updateEmbeddingControlButtons()
             return
@@ -357,7 +357,7 @@ extension ReaderWindowController {
                     self.embeddingBackfillNeedsRetry = true
                     self.queuedEmbeddingPriorityPageIndex = nil
                     self.notifyEmbeddingReady(afterFirstBatch, includePending: true)
-                    self.embeddingStatusLabel.stringValue = AppText.localized("向量索引：失败，可重试", "Embedding: failed, retry available")
+                    self.embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：失败，可重试", "AI analysis data: failed, retry available")
                     self.embeddingStatusLabel.isHidden = false
                     self.updateEmbeddingControlButtons()
                 }
@@ -370,7 +370,7 @@ extension ReaderWindowController {
         isEmbeddingBackfillPaused.toggle()
         updateEmbeddingControlButtons()
         if isEmbeddingBackfillPaused {
-            embeddingStatusLabel.stringValue = AppText.localized("向量索引：已暂停，点击继续", "Embedding: paused, tap resume")
+            embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已暂停，点击继续", "AI analysis data: paused, tap resume")
             embeddingStatusLabel.isHidden = false
             return
         }
@@ -393,7 +393,7 @@ extension ReaderWindowController {
         isEmbeddingBackfillPaused = false
         queuedEmbeddingPriorityPageIndex = nil
         notifyEmbeddingReady(nil, includePending: true)
-        embeddingStatusLabel.stringValue = AppText.localized("向量索引：已取消", "Embedding: cancelled")
+        embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已取消", "AI analysis data: cancelled")
         embeddingStatusLabel.isHidden = false
         updateEmbeddingControlButtons()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
@@ -404,7 +404,7 @@ extension ReaderWindowController {
 
     func startCurrentVectorIndex() {
         guard EmbeddingClient.configFromCurrentAISettings() != nil else {
-            embeddingStatusLabel.stringValue = AppText.localized("向量索引：请先配置向量模型", "Embedding: configure model first")
+            embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：请先配置向量模型", "AI analysis data: configure embedding model first")
             embeddingStatusLabel.isHidden = false
             return
         }
@@ -433,7 +433,7 @@ extension ReaderWindowController {
         isBuildingDocumentAgentIndex = false
         pendingDocumentAgentIndexCallbacks.removeAll()
         ensureDocumentAgentIndexAsync()
-        embeddingStatusLabel.stringValue = AppText.localized("向量索引：已清除当前书", "Embedding: current book cleared")
+        embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已清除当前书", "AI analysis data: current book cleared")
         embeddingStatusLabel.isHidden = false
         updateEmbeddingControlButtons()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
@@ -512,13 +512,13 @@ extension ReaderWindowController {
         let suffix = currentDocumentKind == .pdf ? AppText.localized(" 页", "") : ""
         if let lastPage = pages.last, lastPage != firstPage {
             text = AppText.localized(
-                "向量索引：生成中 \(percent)% \(unit)\(firstPage + 1)-\(lastPage + 1)\(suffix)",
-                "Embedding: indexing \(percent)% \(unit)\(firstPage + 1)-\(lastPage + 1)"
+                "AI 分析数据：生成中 \(percent)% \(unit)\(firstPage + 1)-\(lastPage + 1)\(suffix)",
+                "AI analysis data: indexing \(percent)% \(unit)\(firstPage + 1)-\(lastPage + 1)"
             )
         } else {
             text = AppText.localized(
-                "向量索引：生成中 \(percent)% \(unit)\(firstPage + 1)\(suffix)",
-                "Embedding: indexing \(percent)% \(unit)\(firstPage + 1)"
+                "AI 分析数据：生成中 \(percent)% \(unit)\(firstPage + 1)\(suffix)",
+                "AI analysis data: indexing \(percent)% \(unit)\(firstPage + 1)"
             )
         }
         embeddingStatusLabel.stringValue = text
@@ -533,8 +533,8 @@ extension ReaderWindowController {
         }
         let percent = embeddingCoveragePercent(progress)
         let text = isComplete || percent >= 100
-            ? AppText.localized("向量索引：已缓存", "Embedding: cached")
-            : AppText.localized("向量索引：已缓存 \(percent)%，空闲后继续", "Embedding: cached \(percent)%, continues when idle")
+            ? AppText.localized("AI 分析数据：已缓存", "AI analysis data: cached")
+            : AppText.localized("AI 分析数据：已缓存 \(percent)%，空闲后继续", "AI analysis data: cached \(percent)%, continues when idle")
         embeddingStatusLabel.stringValue = text
         embeddingStatusLabel.isHidden = false
         updateEmbeddingControlButtons()
@@ -544,16 +544,16 @@ extension ReaderWindowController {
         guard !embeddingStatusLabel.isHidden else { return }
         if isPreparingPDFEmbeddings {
             if isEmbeddingBackfillPaused {
-                embeddingStatusLabel.stringValue = AppText.localized("向量索引：已暂停，点击继续", "Embedding: paused, tap resume")
+                embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已暂停，点击继续", "AI analysis data: paused, tap resume")
             } else if let progress = pdfAgentIndex?.embeddingCoverage, progress.total > 0 {
                 let percent = embeddingCoveragePercent(progress)
-                embeddingStatusLabel.stringValue = AppText.localized("向量索引：生成中 \(percent)%", "Embedding: indexing \(percent)%")
+                embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：生成中 \(percent)%", "AI analysis data: indexing \(percent)%")
             }
             updateEmbeddingControlButtons()
             return
         }
         if embeddingBackfillNeedsRetry {
-            embeddingStatusLabel.stringValue = AppText.localized("向量索引：失败，可重试", "Embedding: failed, retry available")
+            embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：失败，可重试", "AI analysis data: failed, retry available")
             updateEmbeddingControlButtons()
             return
         }
@@ -574,8 +574,8 @@ extension ReaderWindowController {
         }
         let percent = embeddingCoveragePercent(progress)
         return AppText.localized(
-            "向量索引仍在后台生成，目前覆盖 \(percent)%（\(progress.embedded)/\(progress.total) 个片段）。文档检索结果可能不完整；请先结合当前页内容、附近页面和已检索到的片段回答。",
-            "The vector index is still being generated in the background and currently covers \(percent)% (\(progress.embedded)/\(progress.total) chunks). Document retrieval may be incomplete; answer using the current page, nearby pages, and retrieved chunks first."
+            "AI 分析数据仍在后台生成，目前覆盖 \(percent)%（\(progress.embedded)/\(progress.total) 个片段）。文档检索结果可能不完整；请先结合当前页内容、附近页面和已检索到的片段回答。",
+            "AI analysis data is still being generated in the background and currently covers \(percent)% (\(progress.embedded)/\(progress.total) chunks). Document retrieval may be incomplete; answer using the current page, nearby pages, and retrieved chunks first."
         )
     }
 
@@ -593,8 +593,8 @@ extension ReaderWindowController {
             ? AppText.localized("继续", "Resume")
             : AppText.localized("暂停", "Pause")
         embeddingPauseButton?.toolTip = isEmbeddingBackfillPaused
-            ? AppText.localized("继续生成向量索引", "Resume vector indexing")
-            : AppText.localized("暂停生成向量索引", "Pause vector indexing")
+            ? AppText.localized("继续 AI 分析", "Resume AI analysis")
+            : AppText.localized("暂停 AI 分析", "Pause AI analysis")
     }
 
     func queryEmbedding(for question: String, completion: @escaping ([Float]?) -> Void) {

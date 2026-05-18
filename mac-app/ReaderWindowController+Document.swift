@@ -453,7 +453,7 @@ extension ReaderWindowController {
             pdfAgentIndex = nil
             documentAgentIndexGeneration += 1
             pendingDocumentAgentIndexCallbacks.removeAll()
-            embeddingStatusLabel.stringValue = AppText.localized("向量索引：已清除当前书", "Embedding: current book cleared")
+            embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已清除当前书", "AI analysis data: current book cleared")
             embeddingStatusLabel.isHidden = false
             updateEmbeddingControlButtons()
         }

@@ -68,10 +68,10 @@ extension AISettingsPanelController {
 
     @objc func clearVectorCache(_ sender: NSButton) {
         let alert = NSAlert()
-        alert.messageText = AppText.localized("清除 AI 向量缓存？", "Clear AI vector cache?")
+        alert.messageText = AppText.localized("清除 AI 阅读记录？", "Clear AI reading records?")
         alert.informativeText = AppText.localized(
-            "这会删除本机已缓存的文档向量索引。之后再次使用文档问答时，会按需重新生成。",
-            "This deletes locally cached document vector indexes. They will be regenerated on demand when document Q&A is used again."
+            "这会删除本机已缓存的 AI 分析数据。之后再次使用文档问答时，会按需重新分析。",
+            "This deletes locally cached AI analysis data. It will be rebuilt on demand when document Q&A is used again."
         )
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppText.localized("清除", "Clear"))

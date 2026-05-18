@@ -142,9 +142,9 @@ extension ReaderWindowController {
         pageLayoutButton.toolTip = AppText.localized("切换单页/双页浏览", "Toggle single/two-page view")
         updatePDFPageLayoutButton()
         embeddingPauseButton = capsuleButton(title: AppText.localized("暂停", "Pause"), symbol: "pause.fill", action: #selector(toggleEmbeddingBackfillPaused))
-        embeddingPauseButton.toolTip = AppText.localized("暂停/继续生成向量索引", "Pause/resume vector indexing")
+        embeddingPauseButton.toolTip = AppText.localized("暂停/继续 AI 分析", "Pause/resume AI analysis")
         embeddingCancelButton = capsuleButton(title: AppText.localized("取消", "Cancel"), symbol: "xmark", action: #selector(cancelEmbeddingBackfill))
-        embeddingCancelButton.toolTip = AppText.localized("取消本次向量索引任务", "Cancel this vector indexing task")
+        embeddingCancelButton.toolTip = AppText.localized("取消本次 AI 分析任务", "Cancel this AI analysis task")
 
         pdfContainer.translatesAutoresizingMaskIntoConstraints = false
         contentArea.addSubview(pdfContainer)

@@ -178,7 +178,7 @@ extension AppDelegate {
             target: controller
         ))
         menu.addItem(menuItem(
-            AppText.localized("向量", "Vector"),
+            AppText.localized("AI 分析", "AI Analysis"),
             action: #selector(ReaderWindowController.openVectorSettings),
             key: "",
             target: controller
