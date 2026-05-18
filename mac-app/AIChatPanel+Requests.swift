@@ -435,11 +435,7 @@ extension AIChatPanel {
             button.heightAnchor.constraint(equalToConstant: 30)
         ])
 
-        DispatchQueue.main.async { [weak self, weak row] in
-            guard let self, let row else { return }
-            self.transcriptStack.layoutSubtreeIfNeeded()
-            row.scrollToVisible(row.bounds)
-        }
+        scheduleTranscriptLayout(scrollTarget: row, forceScroll: true)
     }
 
     @objc func retryLastFailedRequest(_ sender: NSButton) {

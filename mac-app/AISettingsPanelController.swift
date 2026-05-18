@@ -265,10 +265,10 @@ final class AISettingsPanelController {
         let currentIndexStatusLabel = label(currentVectorIndexStatus?() ?? AppText.noPDF, size: settingsFontSize, color: secondaryText)
         currentIndexStatusLabel.maximumNumberOfLines = 2
         currentIndexStatusLabel.lineBreakMode = .byWordWrapping
-        let startIndexButton = cacheActionButton(title: AppText.localized("重新分析这本书", "Analyze This Book Again"), symbol: "play.circle", tint: NSColor(red: 0.00, green: 0.48, blue: 1.00, alpha: 1), target: self, action: #selector(startCurrentVectorIndex(_:)), isDark: isDark)
+        let startIndexButton = cacheActionButton(title: AppText.localized("重分析本书", "Reanalyze Book"), symbol: "play.circle", tint: NSColor(red: 0.00, green: 0.48, blue: 1.00, alpha: 1), target: self, action: #selector(startCurrentVectorIndex(_:)), isDark: isDark)
         let pauseIndexButton = cacheActionButton(title: AppText.localized("暂停/继续", "Pause / Resume"), symbol: "pause.circle", tint: NSColor(red: 1.00, green: 0.58, blue: 0.00, alpha: 1), target: self, action: #selector(toggleCurrentVectorIndex(_:)), isDark: isDark)
         let cancelIndexButton = cacheActionButton(title: AppText.localized("取消分析", "Cancel"), symbol: "minus.circle", tint: NSColor(red: 1.00, green: 0.22, blue: 0.28, alpha: 1), target: self, action: #selector(cancelCurrentVectorIndex(_:)), isDark: isDark)
-        let clearCurrentIndexButton = cacheActionButton(title: AppText.localized("清除当前书 AI 阅读记录", "Clear Current Book AI Records"), symbol: "paintbrush", tint: NSColor(red: 0.60, green: 0.27, blue: 1.00, alpha: 1), target: self, action: #selector(clearCurrentVectorIndex(_:)), isDark: isDark)
+        let clearCurrentIndexButton = cacheActionButton(title: AppText.localized("清除本书缓存", "Clear Book Cache"), symbol: "paintbrush", tint: NSColor(red: 0.60, green: 0.27, blue: 1.00, alpha: 1), target: self, action: #selector(clearCurrentVectorIndex(_:)), isDark: isDark)
         let clearCurrentWordsButton = cacheActionButton(title: AppText.localized("清除当前书单词记录", "Clear Current Book Words"), symbol: "trash", tint: NSColor(red: 0.00, green: 0.72, blue: 0.74, alpha: 1), target: self, action: #selector(clearCurrentWordRecords(_:)), isDark: isDark)
         let currentIndexCard = settingsCard(isDark: isDark)
         let vectorCacheCard = settingsCard(isDark: isDark)

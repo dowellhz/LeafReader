@@ -328,7 +328,7 @@ extension AIChatPanel {
     }
 
     func scrollTranscriptToTop(of box: NSView) {
-        transcriptStack.layoutSubtreeIfNeeded()
+        flushTranscriptLayout()
         guard let documentView = scrollView.documentView else {
             box.scrollToVisible(box.bounds)
             return
@@ -527,20 +527,30 @@ extension AIChatPanel {
         }
         pendingTranscriptForceScroll = pendingTranscriptForceScroll || forceScroll
 
-        guard transcriptLayoutWorkItem == nil else { return }
+        transcriptLayoutWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.transcriptLayoutWorkItem = nil
-            self.transcriptStack.layoutSubtreeIfNeeded()
-            if let target = self.pendingTranscriptScrollTarget,
-               self.pendingTranscriptForceScroll || self.isTranscriptScrolledNearBottom(tolerance: 140) {
-                target.scrollToVisible(target.bounds)
-            }
-            self.pendingTranscriptScrollTarget = nil
-            self.pendingTranscriptForceScroll = false
+            self.applyPendingTranscriptLayout()
         }
         transcriptLayoutWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.04, execute: workItem)
+    }
+
+    func flushTranscriptLayout() {
+        transcriptLayoutWorkItem?.cancel()
+        transcriptLayoutWorkItem = nil
+        applyPendingTranscriptLayout()
+    }
+
+    private func applyPendingTranscriptLayout() {
+        transcriptStack.layoutSubtreeIfNeeded()
+        if let target = pendingTranscriptScrollTarget,
+           pendingTranscriptForceScroll || isTranscriptScrolledNearBottom(tolerance: 140) {
+            target.scrollToVisible(target.bounds)
+        }
+        pendingTranscriptScrollTarget = nil
+        pendingTranscriptForceScroll = false
     }
 
     func isTranscriptScrolledNearBottom(tolerance: CGFloat = 80) -> Bool {
