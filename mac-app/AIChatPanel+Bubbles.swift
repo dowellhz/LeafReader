@@ -25,11 +25,6 @@ extension AIChatPanel {
         body.translatesAutoresizingMaskIntoConstraints = false
         let bodyID = UUID().uuidString
         body.identifier = NSUserInterfaceItemIdentifier(bodyID)
-        if let linkID,
-           role == AppText.userRole,
-           !isSingleEnglishWord(vocabularyWord(from: text)) {
-            persistentLearningLinkIDs.insert(linkID)
-        }
         let effectiveSourceLocation = sourceLocation ?? defaultSourceLocation(role: role, text: text, linkID: linkID)
         bubbleMetadataByID[bodyID] = BubbleMetadata(
             role: role,
@@ -181,11 +176,7 @@ extension AIChatPanel {
             guard let metadata = bubbleMetadataByID[bodyID] else { return false }
             return metadata.linkID == nil
         }
-        let linkedBubbleIDs = persistentBubbleIDs.filter { bodyID in
-            guard let metadata = bubbleMetadataByID[bodyID] else { return false }
-            return metadata.linkID != nil
-        }
-        let savedBubbleIDs = linkedBubbleIDs + Array(normalBubbleIDs.suffix(Self.maxSavedConversationBubbles))
+        let savedBubbleIDs = Array(normalBubbleIDs.suffix(Self.maxSavedConversationBubbles))
         let bubbles = savedBubbleIDs.compactMap { bubbleMetadataByID[$0] }.map {
             SavedAIConversationBubble(
                 role: $0.role,
@@ -205,7 +196,7 @@ extension AIChatPanel {
 
     func shouldPersistBubble(role: String, text: String, linkID: String?) -> Bool {
         guard !isLoadingLinkedWordBubbles else { return false }
-        if let linkID, !persistentLearningLinkIDs.contains(linkID) {
+        if linkID != nil {
             return false
         }
         return role == AppText.userRole || role == AppText.aiRole || role == AppText.errorRole
@@ -224,7 +215,9 @@ extension AIChatPanel {
     func activeConversationSources() -> [AIConversationSourceLocation] {
         var sources: [AIConversationSourceLocation] = []
         for bodyID in persistentBubbleIDs {
-            guard let source = bubbleMetadataByID[bodyID]?.sourceLocation,
+            guard let metadata = bubbleMetadataByID[bodyID],
+                  metadata.linkID == nil,
+                  let source = metadata.sourceLocation,
                   !sources.contains(source) else {
                 continue
             }

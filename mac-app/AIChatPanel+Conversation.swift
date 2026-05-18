@@ -6,7 +6,17 @@ extension AIChatPanel {
         isRestoringSavedConversation = true
         defer { isRestoringSavedConversation = false }
 
+        var skipLegacyVocabularyAnswer = false
         for bubble in conversation.bubbles {
+            if bubble.role == AppText.userRole, isVocabularyBubbleTitle(bubble.text) {
+                skipLegacyVocabularyAnswer = true
+                continue
+            }
+            if skipLegacyVocabularyAnswer, bubble.role == AppText.aiRole {
+                skipLegacyVocabularyAnswer = false
+                continue
+            }
+            skipLegacyVocabularyAnswer = false
             appendBubble(
                 role: bubble.role,
                 text: bubble.text,

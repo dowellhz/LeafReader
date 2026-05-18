@@ -214,7 +214,6 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var bubbleMetadataByID: [String: BubbleMetadata] = [:]
     var bubbleBoxByLinkID: [String: ChatBubbleView] = [:]
     var persistentBubbleIDs: [String] = []
-    var persistentLearningLinkIDs = Set<String>()
     var isLoadingLinkedWordBubbles = false
     var isRestoringSavedConversation = false
     var selectedLinkID: String?

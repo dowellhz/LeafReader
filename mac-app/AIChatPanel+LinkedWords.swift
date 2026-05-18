@@ -14,7 +14,6 @@ extension AIChatPanel {
         bubbleMetadataByID.removeAll()
         bubbleBoxByLinkID.removeAll()
         persistentBubbleIDs.removeAll()
-        persistentLearningLinkIDs.removeAll()
         lastNotifiedConversationSources.removeAll()
         selectedLinkID = nil
         transcriptEntries.removeAll()
@@ -89,7 +88,6 @@ extension AIChatPanel {
         }
         for id in idSet {
             bubbleBoxByLinkID.removeValue(forKey: id)
-            persistentLearningLinkIDs.remove(id)
         }
         if let selectedLinkID, idSet.contains(selectedLinkID) {
             self.selectedLinkID = nil

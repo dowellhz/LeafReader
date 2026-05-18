@@ -59,6 +59,14 @@ extension ReaderWindowController {
         }
         let word = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let context = currentWebSelectionContext.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let pending = existingPendingWebWordRecord(
+            word: word,
+            context: context,
+            occurrenceIndex: currentWebSelectionOccurrenceIndex
+        ) {
+            markCurrentWebSelectionAsStoredWord(id: pending.id)
+            return pending.id
+        }
         if let existing = webWordRecordStore?.existingRecord(
             in: storedWebWordRecords,
             word: word,
@@ -98,6 +106,23 @@ extension ReaderWindowController {
             createdAt: Date()
         )
         return id
+    }
+
+    func existingPendingWebWordRecord(word: String, context: String, occurrenceIndex: Int?) -> PendingWebWordRecord? {
+        let normalizedWord = normalizedWebRecordText(word)
+        let normalizedContext = normalizedWebRecordText(context)
+        return pendingWebWordRecords.values.first { pending in
+            normalizedWebRecordText(pending.word) == normalizedWord
+                && normalizedWebRecordText(pending.context) == normalizedContext
+                && (pending.occurrenceIndex == occurrenceIndex || pending.occurrenceIndex == nil || occurrenceIndex == nil)
+        }
+    }
+
+    private func normalizedWebRecordText(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 
     func precisePDFSelectionBounds(page: PDFPage, originalBounds: CGRect, queryText: String) -> CGRect? {

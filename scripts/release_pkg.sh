@@ -11,6 +11,7 @@ NOTES_FILE="${2:-}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_PATH="$ROOT_DIR/Leaf Reader.app"
 PKG_ROOT="/private/tmp/leafreader-pkg-root-$VERSION"
+COMPONENT_PLIST="/private/tmp/leafreader-components-$VERSION.plist"
 RELEASE_DIR="$ROOT_DIR/release/$VERSION"
 UNSIGNED_PKG="$RELEASE_DIR/LeafReader-$VERSION-unsigned.pkg"
 SIGNED_PKG="$RELEASE_DIR/LeafReader-$VERSION.pkg"
@@ -41,14 +42,23 @@ APP_SIGN_IDENTITY="$APP_SIGN_IDENTITY" "$BUILD_SCRIPT"
 
 rm -rf "$PKG_ROOT"
 mkdir -p "$PKG_ROOT/Applications" "$RELEASE_DIR"
-rm -f "$UNSIGNED_PKG" "$SIGNED_PKG"
+rm -f "$UNSIGNED_PKG" "$SIGNED_PKG" "$COMPONENT_PLIST"
 cp -R "$APP_PATH" "$PKG_ROOT/Applications/"
 find "$PKG_ROOT" -name '._*' -type f -delete
 xattr -cr "$PKG_ROOT"
 xattr -crs "$PKG_ROOT"
 
+pkgbuild --analyze --root "$PKG_ROOT" "$COMPONENT_PLIST"
+component_index=0
+while /usr/libexec/PlistBuddy -c "Print :$component_index" "$COMPONENT_PLIST" >/dev/null 2>&1; do
+  /usr/libexec/PlistBuddy -c "Set :$component_index:BundleIsRelocatable false" "$COMPONENT_PLIST"
+  /usr/libexec/PlistBuddy -c "Set :$component_index:BundleOverwriteAction upgrade" "$COMPONENT_PLIST"
+  component_index=$((component_index + 1))
+done
+
 pkgbuild \
   --root "$PKG_ROOT" \
+  --component-plist "$COMPONENT_PLIST" \
   --identifier com.linlu.leafreader \
   --version "$VERSION" \
   --install-location / \

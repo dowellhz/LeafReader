@@ -17,6 +17,11 @@ extension AIChatPanel {
         let isVocabularyItem = isVocabularySelection(text)
         speakSelectedWordIfNeeded(text)
         let linkID = isVocabularyItem ? onSelectedWordQuestionStarted?(text) : nil
+        if let linkID, hasLinkedBubble(id: linkID) {
+            clearSelectedText()
+            scrollToLinkedBubble(id: linkID)
+            return
+        }
         let selectedContext = onAskSelectedText?(text) ?? nil
         let prompt = isVocabularyItem ? wordPrompt(for: text, context: selectedContext ?? "") : sentencePrompt(for: text)
         let displayedQuestion = isVocabularyItem ? vocabularyBubbleTitle(for: text) : "\(AppText.explainPrefix): \(text)"
