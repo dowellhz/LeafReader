@@ -6,23 +6,21 @@
     <description>Leaf Reader macOS app updates.</description>
     <language>zh-CN</language>
     <item>
-      <title>Leaf Reader 1.4.10</title>
-      <sparkle:version>1.4.10</sparkle:version>
-      <sparkle:shortVersionString>1.4.10</sparkle:shortVersionString>
+      <title>Leaf Reader 1.4.11</title>
+      <sparkle:version>1.4.11</sparkle:version>
+      <sparkle:shortVersionString>1.4.11</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <pubDate>Mon, 18 May 2026 12:46:33 +0000</pubDate>
+      <pubDate>Mon, 18 May 2026 12:55:28 +0000</pubDate>
       <description><![CDATA[
         <ul>
-  <li>改进 EPUB 目录解析，支持层级目录、NCX 嵌套目录和相对路径跳转。</li>
-  <li>增强 EPUB 内容兼容性，支持更多文本编码、HTML 实体解码、内部链接跳转和图片懒加载。</li>
-  <li>加固 EPUB 路径解析和 HTML 清理，降低越界资源路径与不安全内容的风险。</li>
-  <li>整理 EPUB 加载代码，将包解析、路径解析、HTML 清理和文本解码拆分为独立模块，并补充逻辑测试。</li>
+  <li>修复手动检查更新时，发现新版本后更新窗口立即消失的问题。</li>
+  <li>调整 Sparkle 更新流程，等待当前更新检查会话完全结束后再打开标准更新窗口。</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dowellhz/LeafReader/releases/download/v1.4.10/LeafReader-1.4.10.pkg"
-        sparkle:edSignature="F29SIA0ENU1yrkEV7gc8t/u70xW2vVyQmIvhmOK5+QIHMJCeUkGYUNl9XfwnsfjAGlnIeD/uugyPKFxznXzICg=="
-        length="4820840"
+        url="https://github.com/dowellhz/LeafReader/releases/download/v1.4.11/LeafReader-1.4.11.pkg"
+        sparkle:edSignature="wLkglUHegMDvQJf3DgIlmy6RdlDfudj0wnyD5uEpjHlG+Js2155PgWnrcth/lxe7RMsr/5L1Rp5iqPUsdyi1Aw=="
+        length="4822480"
         type="application/octet-stream" />
     </item>
   </channel>

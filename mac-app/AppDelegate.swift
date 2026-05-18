@@ -1147,9 +1147,7 @@ extension AppDelegate: SPUUpdaterDelegate {
 
         if shouldPresentUpdate {
             updateStatusWindow?.close()
-            DispatchQueue.main.async { [weak self] in
-                self?.updaterController?.checkForUpdates(sender)
-            }
+            showStandardUpdateWhenReady(sender: sender)
         } else if shouldShowError {
             showWhiteUpdateStatus(
                 title: AppText.localized("检查更新失败", "Update Check Failed"),
@@ -1157,6 +1155,29 @@ extension AppDelegate: SPUUpdaterDelegate {
             )
         } else if shouldShowUpToDate {
             showUpToDateUpdateStatus()
+        }
+    }
+
+    private func showStandardUpdateWhenReady(sender: AnyObject?, attemptsRemaining: Int = 20) {
+        guard let updaterController else { return }
+        if !updaterController.updater.sessionInProgress {
+            updaterController.checkForUpdates(sender)
+            return
+        }
+
+        guard attemptsRemaining > 0 else {
+            showWhiteUpdateStatus(
+                title: AppText.localized("发现新版本", "Update Available"),
+                message: AppText.localized(
+                    "更新窗口暂时无法打开，请稍后再点一次“检查更新”。",
+                    "The update window is not ready yet. Please choose Check for Updates again in a moment."
+                )
+            )
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self, weak sender] in
+            self?.showStandardUpdateWhenReady(sender: sender, attemptsRemaining: attemptsRemaining - 1)
         }
     }
 }

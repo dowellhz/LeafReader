@@ -22,7 +22,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 Download the latest macOS installer:
 
-[Leaf Reader 1.4.10 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4.10/LeafReader-1.4.10.pkg)
+[Leaf Reader 1.4.11 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4.11/LeafReader-1.4.11.pkg)
 
 ## Highlights
 
@@ -34,6 +34,11 @@ Download the latest macOS installer:
 - Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
+
+## What's New in 1.4.11
+
+- Fixed the manual Check for Updates flow so the update window does not disappear immediately after an update is found.
+- Waits for Sparkle's current update check session to fully finish before presenting the standard update UI.
 
 ## What's New in 1.4.10
 
@@ -194,18 +199,18 @@ Run the lightweight logic regression tests:
 
 ## Release
 
-Current version: `1.4.10`
+Current version: `1.4.11`
 
-Git tag: `v1.4.10`
+Git tag: `v1.4.11`
 
 Latest installer:
 
-[Leaf Reader-1.4.10.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.10/LeafReader-1.4.10.pkg)
+[Leaf Reader-1.4.11.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.11/LeafReader-1.4.11.pkg)
 
 Local release artifacts are expected under:
 
 ```text
-release/1.4.10/
+release/1.4.11/
 ```
 
 Sparkle updates use:
@@ -219,7 +224,7 @@ The appcast entry points to the signed and notarized pkg uploaded to GitHub Rele
 Build, sign, notarize, staple, and update the Sparkle appcast for a release:
 
 ```sh
-SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.4.10
+SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.4.11
 ```
 
 The release script accepts `SPARKLE_PRIVATE_KEY` from the environment, `SPARKLE_PRIVATE_KEY_FILE`, `$HOME/.config/leafreader/sparkle-ed25519-private-key`, the local ignored `sparkle-ed25519-private-key` file, or Sparkle's default keychain account.
