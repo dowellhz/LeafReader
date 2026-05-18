@@ -209,7 +209,40 @@ Build, sign, notarize, staple, and update the Sparkle appcast for a release:
 SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.4.8
 ```
 
-The release script also accepts `SPARKLE_PRIVATE_KEY` from the environment, or falls back to Sparkle's default keychain account if neither variable is set.
+The release script accepts `SPARKLE_PRIVATE_KEY` from the environment, `SPARKLE_PRIVATE_KEY_FILE`, `$HOME/.config/leafreader/sparkle-ed25519-private-key`, the local ignored `sparkle-ed25519-private-key` file, or Sparkle's default keychain account.
+
+### Sparkle Key Management
+
+Current `SUPublicEDKey`:
+
+```text
+WxXNtAF6ZaqVPUux2Zqcmswgu4LPdhoA1Lb0fEfzckI=
+```
+
+The private key is stored in three places on the release machine:
+
+- macOS login Keychain item: `Private key for signing Sparkle updates`
+- Primary local backup file outside the repo: `$HOME/.config/leafreader/sparkle-ed25519-private-key`
+- Optional repo-local ignored copy: `sparkle-ed25519-private-key`
+
+The backup file must stay out of git and should keep `0600` permissions:
+
+```sh
+chmod 600 "$HOME/.config/leafreader/sparkle-ed25519-private-key"
+```
+
+After generating a new Sparkle key, immediately export and back it up outside the repo:
+
+```sh
+mkdir -p "$HOME/.config/leafreader"
+/private/tmp/sparkle-generate_keys -x "$HOME/.config/leafreader/sparkle-ed25519-private-key"
+chmod 600 "$HOME/.config/leafreader/sparkle-ed25519-private-key"
+/opt/homebrew/Caskroom/sparkle/2.9.2/bin/sign_update --ed-key-file "$HOME/.config/leafreader/sparkle-ed25519-private-key" release/<version>/LeafReader-<version>.pkg
+```
+
+Keep an encrypted copy outside this repository, such as in a password manager secure note or an encrypted disk image. Losing the private key breaks automatic updates for apps that already ship with the matching public key.
+
+Changing `SUPublicEDKey` also breaks automatic updates from builds that shipped with the old public key. After a key rotation, publish a manually installed release first; future updates from that release can use the new key.
 
 ## Notes
 

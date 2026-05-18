@@ -23,6 +23,8 @@ NOTARY_PROFILE="${NOTARY_PROFILE:-leafreader-notary}"
 SPARKLE_HOME="${SPARKLE_HOME:-/opt/homebrew/Caskroom/sparkle/2.9.2}"
 SIGN_UPDATE="$SPARKLE_HOME/bin/sign_update"
 DOWNLOAD_URL="https://github.com/dowellhz/LeafReader/releases/download/v$VERSION/LeafReader-$VERSION.pkg"
+CONFIG_SPARKLE_KEY_FILE="${SPARKLE_KEY_CONFIG_FILE:-$HOME/.config/leafreader/sparkle-ed25519-private-key}"
+LOCAL_SPARKLE_KEY_FILE="$ROOT_DIR/sparkle-ed25519-private-key"
 export COPYFILE_DISABLE=1
 
 if [[ ! -x "$SIGN_UPDATE" ]]; then
@@ -76,6 +78,10 @@ if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
   SIGN_OUTPUT="$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "$SIGN_UPDATE" --ed-key-file - "$SIGNED_PKG")"
 elif [[ -n "${SPARKLE_PRIVATE_KEY_FILE:-}" ]]; then
   SIGN_OUTPUT="$("$SIGN_UPDATE" --ed-key-file "$SPARKLE_PRIVATE_KEY_FILE" "$SIGNED_PKG")"
+elif [[ -f "$CONFIG_SPARKLE_KEY_FILE" ]]; then
+  SIGN_OUTPUT="$("$SIGN_UPDATE" --ed-key-file "$CONFIG_SPARKLE_KEY_FILE" "$SIGNED_PKG")"
+elif [[ -f "$LOCAL_SPARKLE_KEY_FILE" ]]; then
+  SIGN_OUTPUT="$("$SIGN_UPDATE" --ed-key-file "$LOCAL_SPARKLE_KEY_FILE" "$SIGNED_PKG")"
 else
   SIGN_OUTPUT="$("$SIGN_UPDATE" "$SIGNED_PKG")"
 fi
