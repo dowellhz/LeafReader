@@ -10,7 +10,7 @@
       <sparkle:version>1.4.11</sparkle:version>
       <sparkle:shortVersionString>1.4.11</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <pubDate>Mon, 18 May 2026 12:55:28 +0000</pubDate>
+      <pubDate>Mon, 18 May 2026 13:01:37 +0000</pubDate>
       <description><![CDATA[
         <ul>
   <li>修复手动检查更新时，发现新版本后更新窗口立即消失的问题。</li>
@@ -19,8 +19,8 @@
       ]]></description>
       <enclosure
         url="https://github.com/dowellhz/LeafReader/releases/download/v1.4.11/LeafReader-1.4.11.pkg"
-        sparkle:edSignature="wLkglUHegMDvQJf3DgIlmy6RdlDfudj0wnyD5uEpjHlG+Js2155PgWnrcth/lxe7RMsr/5L1Rp5iqPUsdyi1Aw=="
-        length="4822480"
+        sparkle:edSignature="7Ypj9bzaCylb3vSSQ1xRYIkwj1mvagcFTjFGrW6OpE2GfYDti18hjTR57PFZ1aH4yaakJEcZQT/w3WbEngsBBw=="
+        length="4822486"
         type="application/octet-stream" />
     </item>
   </channel>
