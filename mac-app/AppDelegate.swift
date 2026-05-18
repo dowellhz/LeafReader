@@ -2,6 +2,9 @@ import Cocoa
 import Sparkle
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private static let updateWindowOpenRetryLimit = 20
+    private static let updateWindowOpenRetryDelay: TimeInterval = 0.15
+
     private var controller: ReaderWindowController!
     private var helpWindow: NSWindow?
     private var aboutWindow: NSWindow?
@@ -84,6 +87,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             key: "",
             target: self
         ))
+        if updaterController != nil {
+            menu.addItem(menuItem(
+                AppText.localized("检查更新...", "Check for Updates..."),
+                action: #selector(checkForUpdates(_:)),
+                key: "",
+                target: self
+            ))
+        }
         menu.addItem(.separator())
         menu.addItem(menuItem(
             AppText.settings,
@@ -531,15 +542,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func helpMenuItem() -> NSMenuItem {
         let menu = NSMenu(title: AppText.localized("帮助", "Help"))
-        if updaterController != nil {
-            menu.addItem(menuItem(
-                AppText.localized("检查更新...", "Check for Updates..."),
-                action: #selector(checkForUpdates(_:)),
-                key: "",
-                target: self
-            ))
-            menu.addItem(.separator())
-        }
         menu.addItem(menuItem(
             AppText.localized("Leaf Reader 帮助", "Leaf Reader Help"),
             action: #selector(showLeafReaderHelp(_:)),
@@ -1158,7 +1160,10 @@ extension AppDelegate: SPUUpdaterDelegate {
         }
     }
 
-    private func showStandardUpdateWhenReady(sender: AnyObject?, attemptsRemaining: Int = 20) {
+    private func showStandardUpdateWhenReady(
+        sender: AnyObject?,
+        attemptsRemaining: Int = AppDelegate.updateWindowOpenRetryLimit
+    ) {
         guard let updaterController else { return }
         if !updaterController.updater.sessionInProgress {
             updaterController.checkForUpdates(sender)
@@ -1176,7 +1181,7 @@ extension AppDelegate: SPUUpdaterDelegate {
             return
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self, weak sender] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + AppDelegate.updateWindowOpenRetryDelay) { [weak self, weak sender] in
             self?.showStandardUpdateWhenReady(sender: sender, attemptsRemaining: attemptsRemaining - 1)
         }
     }
