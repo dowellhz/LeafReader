@@ -59,14 +59,22 @@ extension ReaderWindowController {
         }
         let word = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let context = currentWebSelectionContext.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let existing = webWordRecordStore?.existingRecord(in: storedWebWordRecords, word: word, context: context) {
+        if let existing = webWordRecordStore?.existingRecord(
+            in: storedWebWordRecords,
+            word: word,
+            context: context,
+            occurrenceIndex: currentWebSelectionOccurrenceIndex
+        ) {
+            markCurrentWebSelectionAsStoredWord(id: existing.id)
             return existing.id
         }
         if let reusable = reusableWebWordRecord(for: word) {
+            let id = UUID().uuidString
             let record = StoredWebWordRecord(
-                id: UUID().uuidString,
+                id: id,
                 word: word,
                 context: context,
+                occurrenceIndex: currentWebSelectionOccurrenceIndex,
                 scrollProgress: webScrollProgress,
                 question: reusable.question,
                 answer: reusable.answer,
@@ -74,16 +82,18 @@ extension ReaderWindowController {
                 srs: reusable.srs ?? VocabularySRSState.initial()
             )
             storedWebWordRecords.append(record)
+            markCurrentWebSelectionAsStoredWord(id: id)
             saveStoredWebWordRecord(record)
-            restoreStoredWebWordHighlights()
             return record.id
         }
 
         let id = UUID().uuidString
+        markCurrentWebSelectionAsStoredWord(id: id)
         pendingWebWordRecords[id] = PendingWebWordRecord(
             id: id,
             word: word,
             context: context,
+            occurrenceIndex: currentWebSelectionOccurrenceIndex,
             scrollProgress: webScrollProgress,
             createdAt: Date()
         )
@@ -182,6 +192,7 @@ extension ReaderWindowController {
                 id: pending.id,
                 word: pending.word,
                 context: pending.context,
+                occurrenceIndex: pending.occurrenceIndex,
                 scrollProgress: pending.scrollProgress,
                 question: question,
                 answer: trimmedAnswer,
@@ -190,13 +201,14 @@ extension ReaderWindowController {
             )
             storedWebWordRecords.append(record)
             saveStoredWebWordRecord(record)
-            restoreStoredWebWordHighlights()
         }
     }
 
     func discardPendingLinkedWord(linkID: String) {
         pendingPDFWordRecords.removeValue(forKey: linkID)
-        pendingWebWordRecords.removeValue(forKey: linkID)
+        if pendingWebWordRecords.removeValue(forKey: linkID) != nil {
+            removeWebWordHighlight(id: linkID)
+        }
     }
 
     func linkedWordAnswer(for linkID: String) -> String? {
@@ -251,20 +263,51 @@ extension ReaderWindowController {
         page.addAnnotation(annotation)
     }
 
-    func restoreStoredWebWordHighlights() {
-        guard currentDocumentKind != .pdf, !storedWebWordRecords.isEmpty else { return }
-        let payload = storedWebWordRecords.map {
-            [
-                "id": $0.id,
-                "word": $0.word,
-                "context": $0.context
+    func restoreStoredWebWordHighlights(completion: (() -> Void)? = nil) {
+        guard currentDocumentKind != .pdf, !storedWebWordRecords.isEmpty else {
+            completion?()
+            return
+        }
+        let payload = storedWebWordRecords.map { record -> [String: Any] in
+            var item: [String: Any] = [
+                "id": record.id,
+                "word": record.word,
+                "context": record.context
             ]
+            if let occurrenceIndex = record.occurrenceIndex {
+                item["occurrenceIndex"] = occurrenceIndex
+            }
+            return item
         }
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8) else {
+            completion?()
             return
         }
-        webView.evaluateJavaScript("window.leafReaderRestoreWordHighlights(\(json));")
+        webView.evaluateJavaScript("window.leafReaderRestoreWordHighlights(\(json));") { _, _ in
+            completion?()
+        }
+    }
+
+    func markCurrentWebSelectionAsStoredWord(id: String) {
+        guard currentDocumentKind != .pdf else { return }
+        webView.evaluateJavaScript("window.leafReaderMarkSelectionAsWord && window.leafReaderMarkSelectionAsWord(\(jsStringLiteral(id)));")
+    }
+
+    func removeWebWordHighlight(id: String) {
+        guard currentDocumentKind != .pdf else { return }
+        webView.evaluateJavaScript("window.leafReaderRemoveWordHighlight && window.leafReaderRemoveWordHighlight(\(jsStringLiteral(id)));")
+    }
+
+    func refreshStoredWebWordHighlightsClearingTransientSelection() {
+        guard currentDocumentKind != .pdf else { return }
+        webView.evaluateJavaScript("window.leafReaderClearSelectionVisualOnly && window.leafReaderClearSelectionVisualOnly();") { [weak self] _, _ in
+            guard let self else { return }
+            self.restoreStoredWebWordHighlights { [weak self] in
+                guard let self else { return }
+                self.restoreWebAISourceUnderlines(for: self.aiPanel.activeConversationSources())
+            }
+        }
     }
 
     func clearCurrentBookWordRecords() {

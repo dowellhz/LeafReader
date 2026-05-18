@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var manualUpdateProbeFoundUpdate = false
     private var manualUpdateProbeHandledResult = false
     private weak var manualUpdateSender: AnyObject?
+    private var pendingOpenFileURLs: [URL] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         updaterController = SPUStandardUpdaterController(
@@ -22,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         installMainMenu()
         controller.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        loadPendingOpenFilesIfNeeded()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -29,9 +31,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {
-        controller.window?.makeKeyAndOrderFront(nil)
-        controller.openDocument(URL(fileURLWithPath: filename))
+        openFileURLWhenReady(URL(fileURLWithPath: filename))
         return true
+    }
+
+    func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        filenames.map { URL(fileURLWithPath: $0) }.forEach(openFileURLWhenReady)
+        sender.reply(toOpenOrPrint: .success)
+    }
+
+    private func openFileURLWhenReady(_ url: URL) {
+        guard let controller else {
+            pendingOpenFileURLs.append(url)
+            return
+        }
+        openFileURL(url, in: controller)
+    }
+
+    private func loadPendingOpenFilesIfNeeded() {
+        guard let url = pendingOpenFileURLs.last else { return }
+        pendingOpenFileURLs.removeAll()
+        openFileURL(url, in: controller)
+    }
+
+    private func openFileURL(_ url: URL, in controller: ReaderWindowController) {
+        controller.window?.makeKeyAndOrderFront(nil)
+        controller.openDocument(url)
     }
 
     func refreshMainMenu() {

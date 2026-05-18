@@ -51,6 +51,7 @@ extension ReaderWindowController {
         webWordRecordStore = nil
         aiConversationStore = currentFileMD5.map { AIConversationStore(fileMD5: $0) }
         currentWebPlainText = ""
+        webPlainTextGeneration += 1
         currentWebSelectedText = ""
         pdfAgentIndex = nil
         isBuildingDocumentAgentIndex = false
@@ -136,8 +137,11 @@ extension ReaderWindowController {
             pendingWebWordRecords.removeAll()
             cancelScheduledEmbeddingWarmup()
             currentWebPlainText = document.plainText
+            webPlainTextGeneration += 1
+            let webPlainTextGeneration = webPlainTextGeneration
             currentWebSelectedText = ""
             currentWebSelectionContext = ""
+            currentWebSelectionOccurrenceIndex = nil
             currentTOCItems = document.tocItems
             pdfTOCDestinations = [:]
             accumulatedPDFTrackpadScroll = 0
@@ -167,12 +171,17 @@ extension ReaderWindowController {
             pageLabel.stringValue = "0%"
             updatePageLabelTextColor()
             zoomField.stringValue = "100%"
-            webView.loadHTMLString(document.html, baseURL: document.baseURL)
+            if let htmlFileURL = document.htmlFileURL {
+                webView.loadFileURL(htmlFileURL, allowingReadAccessTo: document.baseURL)
+            } else {
+                webView.loadHTMLString(document.html, baseURL: document.baseURL)
+            }
             applyReaderTheme()
             applyWebZoomToPage()
             restoreWebProgressAfterLoad()
             RecentDocumentsStore.record(url: url, kind: kind)
             saveSession()
+            scheduleWebPlainTextLoad(document.plainTextLoader, generation: webPlainTextGeneration)
             scheduleDocumentEmbeddingWarmup(priorityPageIndex: currentEmbeddingPriorityIndex())
         } catch {
             let alert = NSAlert(error: error)
@@ -225,7 +234,8 @@ extension ReaderWindowController {
                 self?.removeShelfItem(
                     path: path,
                     clearVectorCache: options.clearVectorCache,
-                    clearWordRecords: options.clearWordRecords
+                    clearWordRecords: options.clearWordRecords,
+                    clearAIData: options.clearAIData
                 )
             },
             onClearVectorCache: { [weak self] path in
@@ -233,6 +243,9 @@ extension ReaderWindowController {
             },
             onClearWordRecords: { [weak self] path in
                 self?.clearWordRecordsForShelfItem(path: path)
+            },
+            onClearAIData: { [weak self] path in
+                self?.clearAIDataForShelfItem(path: path)
             },
             onImport: { [weak self] urls in
                 guard let self else { return }
@@ -278,7 +291,7 @@ extension ReaderWindowController {
         }
     }
 
-    func removeShelfItem(path: String, clearVectorCache: Bool, clearWordRecords: Bool) {
+    func removeShelfItem(path: String, clearVectorCache: Bool, clearWordRecords: Bool, clearAIData: Bool) {
         let documentID = fileMD5(for: URL(fileURLWithPath: path))
         if currentFileURL?.path == path {
             unloadCurrentDocumentForShelfRemoval()
@@ -291,6 +304,12 @@ extension ReaderWindowController {
         }
         if clearWordRecords {
             clearWordRecordsForShelfItem(path: path)
+        }
+        if clearAIData, let documentID {
+            clearAIDataForDocument(documentID: documentID, wasCurrentDocument: currentFileMD5 == documentID)
+            if !clearWordRecords {
+                clearWordRecordsForShelfItem(path: path)
+            }
         }
         RecentDocumentsStore.remove(path: path)
     }
@@ -323,8 +342,10 @@ extension ReaderWindowController {
         aiConversationStore = nil
         pdfAgentIndex = nil
         currentWebPlainText = ""
+        webPlainTextGeneration += 1
         currentWebSelectedText = ""
         currentWebSelectionContext = ""
+        currentWebSelectionOccurrenceIndex = nil
         currentTOCItems = []
         pdfTOCDestinations = [:]
         searchResults.removeAll()
@@ -389,6 +410,46 @@ extension ReaderWindowController {
         }
         PDFWordRecordStore(fileMD5: documentID).save([])
         WebWordRecordStore(fileMD5: documentID).save([])
+    }
+
+    func clearAIDataForShelfItem(path: String) {
+        guard let documentID = fileMD5(for: URL(fileURLWithPath: path)) else {
+            NSSound.beep()
+            return
+        }
+        clearAIDataForDocument(documentID: documentID, wasCurrentDocument: currentFileMD5 == documentID)
+        clearWordRecordsForShelfItem(path: path)
+    }
+
+    private func clearAIDataForDocument(documentID: String, wasCurrentDocument: Bool) {
+        if wasCurrentDocument {
+            aiConversationSaveTask.cancel()
+            pendingAIConversationToSave = nil
+            clearAISourceUnderlines()
+            aiPanel.loadLinkedWordBubbles([])
+            aiPanel.clearSelectedText()
+        }
+        AIConversationStore(fileMD5: documentID).clear()
+    }
+
+    func scheduleWebPlainTextLoad(_ loader: (() -> String)?, generation: Int) {
+        guard let loader else { return }
+        let documentID = currentFileMD5
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let plainText = loader()
+            DispatchQueue.main.async {
+                guard let self,
+                      self.webPlainTextGeneration == generation,
+                      self.currentFileMD5 == documentID else {
+                    return
+                }
+                self.currentWebPlainText = plainText
+                self.pdfAgentIndex = nil
+                self.isBuildingDocumentAgentIndex = false
+                self.pendingDocumentAgentIndexCallbacks.removeAll()
+                self.scheduleDocumentEmbeddingWarmup(priorityPageIndex: self.currentEmbeddingPriorityIndex())
+            }
+        }
     }
 
 

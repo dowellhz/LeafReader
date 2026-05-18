@@ -123,27 +123,32 @@ extension ReaderWindowController {
         guard !query.isEmpty else {
             searchOverlay.setResultText("")
             clearWebSearchSelection()
+            lastSearchQuery = ""
+            searchResultIndex = 0
             clearSearchSelectionForAI()
             return
         }
 
         beginSuppressingSearchSelectionForAI()
         let escapedQuery = jsStringLiteral(query)
+        let reset = query != lastSearchQuery
+        lastSearchQuery = query
         let script = """
         (() => {
           const query = \(escapedQuery);
-          const found = window.find(query, false, \(backwards ? "true" : "false"), true, false, true, false);
-          const selection = window.getSelection();
-          if (selection && selection.rangeCount > 0) {
-            const rect = selection.getRangeAt(0).getBoundingClientRect();
-            window.scrollBy({ top: rect.top - 160, behavior: 'smooth' });
+          if (window.leafReaderSearch) {
+            return window.leafReaderSearch(query, \(backwards ? "-1" : "1"), \(reset ? "true" : "false"));
           }
-          return found;
+          const found = window.find(query, false, \(backwards ? "true" : "false"), true, false, true, false);
+          return { index: found ? 1 : 0, total: found ? 1 : 0 };
         })();
         """
         webView.evaluateJavaScript(script) { [weak self] result, _ in
-            let found = result as? Bool ?? false
-            self?.searchOverlay.setResultText(found ? AppText.localized("找到", "Found") : "0 / 0")
+            let payload = result as? [String: Any]
+            let index = payload?["index"] as? Int ?? 0
+            let total = payload?["total"] as? Int ?? 0
+            self?.searchResultIndex = max(0, index - 1)
+            self?.searchOverlay.setResultText(total > 0 ? "\(index) / \(total)" : "0 / 0")
             self?.clearSearchSelectionForAI()
         }
     }
@@ -155,6 +160,7 @@ extension ReaderWindowController {
     func clearSearchSelectionForAI() {
         currentWebSelectedText = ""
         currentWebSelectionContext = ""
+        currentWebSelectionOccurrenceIndex = nil
         aiPanel.clearSelectedText()
     }
 
@@ -164,6 +170,9 @@ extension ReaderWindowController {
               window.leafReaderClearSelection();
             } else if (window.getSelection) {
               window.getSelection().removeAllRanges();
+            }
+            if (window.leafReaderClearSearchHighlights) {
+              window.leafReaderClearSearchHighlights();
             }
         """)
     }

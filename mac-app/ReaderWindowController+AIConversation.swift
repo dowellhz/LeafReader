@@ -63,11 +63,18 @@ extension ReaderWindowController {
         }
 
         let index = currentEmbeddingPriorityIndex() ?? 0
-        return AIConversationSourceLocation(
+        let selectedText = currentWebSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let source = AIConversationSourceLocation(
             kind: .webProgress,
             index: index,
-            progress: min(1, max(0, webScrollProgress))
+            progress: min(1, max(0, webScrollProgress)),
+            selectedText: selectedText.isEmpty ? nil : selectedText,
+            webContext: currentWebSelectionContext.trimmingCharacters(in: .whitespacesAndNewlines)
         )
+        if !selectedText.isEmpty {
+            addAISourceUnderline(for: source)
+        }
+        return source
     }
 
     func jumpToAIConversationSource(_ source: AIConversationSourceLocation) {

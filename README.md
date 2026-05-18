@@ -22,7 +22,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 Download the latest macOS installer:
 
-[Leaf Reader 1.4.6 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4.6/LeafReader-1.4.6.pkg)
+[Leaf Reader 1.4.7 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4.7/LeafReader-1.4.7.pkg)
 
 ## Highlights
 
@@ -34,6 +34,14 @@ Download the latest macOS installer:
 - Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
+
+## What's New in 1.4.7
+
+- Optimized EPUB loading with cached unpacking, deferred plain-text extraction, and faster cover reads.
+- Fixed EPUB cover/home rendering so the first page opens on the actual cover when available.
+- Improved EPUB word highlighting so Learn English marks the selected word immediately and restores highlights more accurately.
+- Added clickable EPUB AI source underlines that jump back to the matching AI conversation.
+- Added shelf cleanup controls for clearing per-book AI data, word records, vector cache, and reading history.
 
 ## What's New in 1.4.6
 
@@ -167,18 +175,18 @@ Run the lightweight logic regression tests:
 
 ## Release
 
-Current version: `1.4.6`
+Current version: `1.4.7`
 
-Git tag: `v1.4.6`
+Git tag: `v1.4.7`
 
 Latest installer:
 
-[Leaf Reader-1.4.6.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.6/LeafReader-1.4.6.pkg)
+[Leaf Reader-1.4.7.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.7/LeafReader-1.4.7.pkg)
 
 Local release artifacts are expected under:
 
 ```text
-release/1.4.6/
+release/1.4.7/
 ```
 
 Sparkle updates use:
@@ -192,7 +200,7 @@ The appcast entry points to the signed and notarized pkg uploaded to GitHub Rele
 Build, sign, notarize, staple, and update the Sparkle appcast for a release:
 
 ```sh
-SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.4.6
+SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.4.7
 ```
 
 The release script also accepts `SPARKLE_PRIVATE_KEY` from the environment, or falls back to Sparkle's default keychain account if neither variable is set.

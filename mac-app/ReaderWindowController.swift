@@ -43,6 +43,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let id: String
         let word: String
         let context: String
+        let occurrenceIndex: Int?
         let scrollProgress: Double
         let createdAt: Date
     }
@@ -88,8 +89,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var sessionStore = ReaderSessionStore(fileMD5: nil)
     var currentDocumentKind: ReaderDocumentKind = .pdf
     var currentWebPlainText = ""
+    var webPlainTextGeneration = 0
     var currentWebSelectedText = ""
     var currentWebSelectionContext = ""
+    var currentWebSelectionOccurrenceIndex: Int?
     var currentTOCItems: [ReaderTOCItem] = []
     var pdfTOCDestinations: [String: ReaderTOCHelper.PDFTOCDestination] = [:]
     var pdfTOCGeneration = 0
@@ -126,6 +129,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var highlightedSelectionKeys = Set<String>()
     var aiSourceUnderlineKeys = Set<String>()
     var aiSourceLocationsByUnderlineKey: [String: AIConversationSourceLocation] = [:]
+    var webAISourceLocationsByKey: [String: AIConversationSourceLocation] = [:]
     var activeAISourceUnderlines: [AIConversationSourceLocation] = []
     var storedWordRecords: [StoredPDFWordRecord] = []
     var pendingPDFWordRecords: [String: PendingPDFWordRecord] = [:]
@@ -210,6 +214,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         removeVocabularyPanelActivationObserver()
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "selectionChanged")
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "scrollChanged")
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "webWordClicked")
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "webAISourceClicked")
         NotificationCenter.default.removeObserver(self)
     }
 

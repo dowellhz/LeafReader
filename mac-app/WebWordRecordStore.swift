@@ -4,6 +4,7 @@ struct StoredWebWordRecord: Codable {
     let id: String
     let word: String
     let context: String
+    let occurrenceIndex: Int?
     let scrollProgress: Double
     var question: String
     var answer: String
@@ -74,11 +75,13 @@ struct WebWordRecordStore {
         return records
     }
 
-    func existingRecord(in records: [StoredWebWordRecord], word: String, context: String) -> StoredWebWordRecord? {
+    func existingRecord(in records: [StoredWebWordRecord], word: String, context: String, occurrenceIndex: Int? = nil) -> StoredWebWordRecord? {
         let normalizedWord = normalize(word)
         let normalizedContext = normalize(context)
         return records.first {
-            normalize($0.word) == normalizedWord && normalize($0.context) == normalizedContext
+            normalize($0.word) == normalizedWord
+                && normalize($0.context) == normalizedContext
+                && ($0.occurrenceIndex == occurrenceIndex || $0.occurrenceIndex == nil || occurrenceIndex == nil)
         }
     }
 

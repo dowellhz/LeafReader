@@ -47,16 +47,29 @@ struct ReaderTOCHelper {
     }
 
     static func webJumpScript(for item: ReaderTOCItem) -> String {
-        if item.href.hasPrefix("#") {
-            let fragment = String(item.href.dropFirst())
-            return """
-            document.getElementById(\(jsStringLiteral(fragment)))?.scrollIntoView({behavior:'smooth', block:'start'});
-            """
-        }
-
         return """
         (() => {
-          const target = Array.from(document.querySelectorAll('[id]')).find(el => el.id && el.id.includes(\(jsStringLiteral(item.title.prefix(16).description))));
+          const href = \(jsStringLiteral(item.href));
+          const title = \(jsStringLiteral(item.title.prefix(16).description));
+          const fragment = href.includes('#') ? href.split('#').pop() : (href.startsWith('#') ? href.slice(1) : '');
+          if (fragment) {
+            const byID = document.getElementById(fragment);
+            if (byID) {
+              byID.scrollIntoView({behavior:'smooth', block:'start'});
+              return;
+            }
+          }
+          const path = href.split('#')[0];
+          let target = null;
+          if (path) {
+            target = Array.from(document.querySelectorAll('section.reader-section[data-leaf-href]')).find((section) => {
+              const value = section.dataset.leafHref || '';
+              return value === path || value.endsWith('/' + path) || path.endsWith('/' + value);
+            });
+          }
+          if (!target) {
+            target = Array.from(document.querySelectorAll('[id]')).find(el => el.id && el.id.includes(title));
+          }
           if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
         })();
         """

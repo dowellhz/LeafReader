@@ -10,6 +10,7 @@ private final class RecentBookCardView: NSView {
     var onReveal: ((String) -> Void)?
     var onClearVectorCache: ((String) -> Void)?
     var onClearWordRecords: ((String) -> Void)?
+    var onClearAIData: ((String) -> Void)?
 
     init(path: String) {
         self.path = path
@@ -34,6 +35,7 @@ private final class RecentBookCardView: NSView {
         menu.addItem(menuItem(title: AppText.localized("移出书架", "Remove from Shelf"), action: #selector(removeFromMenu(_:))))
         menu.addItem(menuItem(title: AppText.localized("清除本书向量缓存", "Clear Book Vector Cache"), action: #selector(clearVectorCacheFromMenu(_:))))
         menu.addItem(menuItem(title: AppText.localized("清除本书单词记录", "Clear Book Words"), action: #selector(clearWordRecordsFromMenu(_:))))
+        menu.addItem(menuItem(title: AppText.localized("清除本书 AI 数据", "Clear Book AI Data"), action: #selector(clearAIDataFromMenu(_:))))
         NSMenu.popUpContextMenu(menu, with: event, for: self)
     }
 
@@ -61,6 +63,10 @@ private final class RecentBookCardView: NSView {
 
     @objc private func clearWordRecordsFromMenu(_ sender: NSMenuItem) {
         onClearWordRecords?(path)
+    }
+
+    @objc private func clearAIDataFromMenu(_ sender: NSMenuItem) {
+        onClearAIData?(path)
     }
 
     override func resetCursorRects() {
@@ -100,6 +106,7 @@ final class RecentDocumentsPanelController: NSObject {
     struct ShelfRemovalOptions {
         let clearVectorCache: Bool
         let clearWordRecords: Bool
+        let clearAIData: Bool
     }
 
     private weak var parentWindow: NSWindow?
@@ -109,6 +116,7 @@ final class RecentDocumentsPanelController: NSObject {
     private var onRemoveItem: ((String, ShelfRemovalOptions) -> Void)?
     private var onClearVectorCache: ((String) -> Void)?
     private var onClearWordRecords: ((String) -> Void)?
+    private var onClearAIData: ((String) -> Void)?
     private var onImport: (([URL]) -> Void)?
     private var onClose: (() -> Void)?
     private var pendingOpenPath: String?
@@ -133,6 +141,7 @@ final class RecentDocumentsPanelController: NSObject {
         onRemoveItem: @escaping (String, ShelfRemovalOptions) -> Void,
         onClearVectorCache: @escaping (String) -> Void,
         onClearWordRecords: @escaping (String) -> Void,
+        onClearAIData: @escaping (String) -> Void,
         onImport: @escaping ([URL]) -> Void,
         onClose: @escaping () -> Void
     ) {
@@ -141,6 +150,7 @@ final class RecentDocumentsPanelController: NSObject {
         self.onRemoveItem = onRemoveItem
         self.onClearVectorCache = onClearVectorCache
         self.onClearWordRecords = onClearWordRecords
+        self.onClearAIData = onClearAIData
         self.onImport = onImport
         self.onClose = onClose
         self.parentWindow = window
@@ -266,6 +276,14 @@ final class RecentDocumentsPanelController: NSObject {
                 ) == true else { return }
                 self?.onClearWordRecords?(path)
             }
+            card.onClearAIData = { [weak self] path in
+                guard self?.confirmShelfAction(
+                    title: AppText.localized("清除本书 AI 数据？", "Clear AI Data for This Book?"),
+                    message: AppText.localized("这会删除本书已保存的 AI 对话、来源标注和单词学习记录。", "This deletes saved AI conversations, source marks, and word learning records for this book."),
+                    confirmTitle: AppText.localized("清除", "Clear")
+                ) == true else { return }
+                self?.onClearAIData?(path)
+            }
             stack.addArrangedSubview(card)
         }
 
@@ -357,8 +375,16 @@ final class RecentDocumentsPanelController: NSObject {
         clearWordsCheckbox.state = .on
         clearWordsCheckbox.font = NSFont.systemFont(ofSize: 13)
 
-        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 64))
-        let stack = NSStackView(views: [clearVectorCheckbox, clearWordsCheckbox])
+        let clearAIDataCheckbox = NSButton(
+            checkboxWithTitle: AppText.localized("清除 AI 数据", "Clear AI data"),
+            target: nil,
+            action: nil
+        )
+        clearAIDataCheckbox.state = .on
+        clearAIDataCheckbox.font = NSFont.systemFont(ofSize: 13)
+
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 92))
+        let stack = NSStackView(views: [clearVectorCheckbox, clearWordsCheckbox, clearAIDataCheckbox])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 8
@@ -376,7 +402,8 @@ final class RecentDocumentsPanelController: NSObject {
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         return ShelfRemovalOptions(
             clearVectorCache: clearVectorCheckbox.state == .on,
-            clearWordRecords: clearWordsCheckbox.state == .on
+            clearWordRecords: clearWordsCheckbox.state == .on,
+            clearAIData: clearAIDataCheckbox.state == .on
         )
     }
 
@@ -607,8 +634,22 @@ final class RecentDocumentsPanelController: NSObject {
                 return
             }
 
-            guard kind == "PDF" else { return }
             let url = URL(fileURLWithPath: path)
+            if kind == "EPUB" {
+                guard let coverData = try? WebDocumentLoader.coverImageData(forEPUB: url),
+                      let image = NSImage(data: coverData) else { return }
+                image.size = coverSize
+                image.cacheMode = .always
+                DispatchQueue.main.async {
+                    Self.coverCache[cacheKey] = image
+                    self.saveDiskCover(image, cacheKey: cacheKey)
+                    guard let imageView else { return }
+                    imageView.image = image
+                }
+                return
+            }
+
+            guard kind == "PDF" else { return }
             guard let document = PDFDocument(url: url),
                   let page = document.page(at: 0) else { return }
             let scale = NSScreen.main?.backingScaleFactor ?? 2

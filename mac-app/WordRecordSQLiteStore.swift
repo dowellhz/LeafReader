@@ -127,7 +127,7 @@ final class WordRecordSQLiteStore {
     func loadWebRecords(documentID: String) -> [StoredWebWordRecord] {
         locked {
             let sql = """
-            SELECT id, word, context, scroll_progress, question, answer, created_at, srs_json
+            SELECT id, word, context, occurrence_index, scroll_progress, question, answer, created_at, srs_json
             FROM web_word_records
             WHERE document_id = ?
             ORDER BY created_at ASC, id ASC
@@ -142,8 +142,8 @@ final class WordRecordSQLiteStore {
                 guard let id = stringColumn(statement, 0),
                       let word = stringColumn(statement, 1),
                       let context = stringColumn(statement, 2),
-                      let question = stringColumn(statement, 4),
-                      let answer = stringColumn(statement, 5) else {
+                      let question = stringColumn(statement, 5),
+                      let answer = stringColumn(statement, 6) else {
                     continue
                 }
                 records.append(
@@ -151,11 +151,12 @@ final class WordRecordSQLiteStore {
                         id: id,
                         word: word,
                         context: context,
-                        scrollProgress: sqlite3_column_double(statement, 3),
+                        occurrenceIndex: sqlite3_column_type(statement, 3) == SQLITE_NULL ? nil : Int(sqlite3_column_int(statement, 3)),
+                        scrollProgress: sqlite3_column_double(statement, 4),
                         question: question,
                         answer: answer,
-                        createdAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 6)),
-                        srs: decodeJSON(VocabularySRSState.self, from: optionalStringColumn(statement, 7))
+                        createdAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 7)),
+                        srs: decodeJSON(VocabularySRSState.self, from: optionalStringColumn(statement, 8))
                     )
                 )
             }
@@ -171,9 +172,9 @@ final class WordRecordSQLiteStore {
 
             let sql = """
             INSERT OR REPLACE INTO web_word_records(
-                document_id, id, word, context, scroll_progress, question, answer, created_at, srs_json
+                document_id, id, word, context, occurrence_index, scroll_progress, question, answer, created_at, srs_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             var didFail = false
             for record in records {
@@ -186,11 +187,12 @@ final class WordRecordSQLiteStore {
                 bind(record.id, at: 2, statement: statement)
                 bind(record.word, at: 3, statement: statement)
                 bind(record.context, at: 4, statement: statement)
-                sqlite3_bind_double(statement, 5, record.scrollProgress)
-                bind(record.question, at: 6, statement: statement)
-                bind(record.answer, at: 7, statement: statement)
-                sqlite3_bind_double(statement, 8, record.createdAt.timeIntervalSince1970)
-                bindOptional(encodeJSON(record.srs), at: 9, statement: statement)
+                bindOptionalInt(record.occurrenceIndex, at: 5, statement: statement)
+                sqlite3_bind_double(statement, 6, record.scrollProgress)
+                bind(record.question, at: 7, statement: statement)
+                bind(record.answer, at: 8, statement: statement)
+                sqlite3_bind_double(statement, 9, record.createdAt.timeIntervalSince1970)
+                bindOptional(encodeJSON(record.srs), at: 10, statement: statement)
                 if sqlite3_step(statement) != SQLITE_DONE {
                     didFail = true
                 }
@@ -243,6 +245,7 @@ final class WordRecordSQLiteStore {
             id TEXT NOT NULL,
             word TEXT NOT NULL,
             context TEXT NOT NULL,
+            occurrence_index INTEGER,
             scroll_progress REAL NOT NULL,
             question TEXT NOT NULL,
             answer TEXT NOT NULL,
@@ -254,6 +257,7 @@ final class WordRecordSQLiteStore {
         CREATE INDEX IF NOT EXISTS idx_web_word_records_word ON web_word_records(document_id, word);
         """
         sqlite3_exec(db, sql, nil, nil, nil)
+        sqlite3_exec(db, "ALTER TABLE web_word_records ADD COLUMN occurrence_index INTEGER", nil, nil, nil)
     }
 
     private func locked<T>(_ body: () -> T) -> T {
@@ -310,9 +314,9 @@ final class WordRecordSQLiteStore {
     private func insertWebRecord(documentID: String, record: StoredWebWordRecord) -> Bool {
         let sql = """
         INSERT OR REPLACE INTO web_word_records(
-            document_id, id, word, context, scroll_progress, question, answer, created_at, srs_json
+            document_id, id, word, context, occurrence_index, scroll_progress, question, answer, created_at, srs_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return false }
@@ -321,11 +325,12 @@ final class WordRecordSQLiteStore {
         bind(record.id, at: 2, statement: statement)
         bind(record.word, at: 3, statement: statement)
         bind(record.context, at: 4, statement: statement)
-        sqlite3_bind_double(statement, 5, record.scrollProgress)
-        bind(record.question, at: 6, statement: statement)
-        bind(record.answer, at: 7, statement: statement)
-        sqlite3_bind_double(statement, 8, record.createdAt.timeIntervalSince1970)
-        bindOptional(encodeJSON(record.srs), at: 9, statement: statement)
+        bindOptionalInt(record.occurrenceIndex, at: 5, statement: statement)
+        sqlite3_bind_double(statement, 6, record.scrollProgress)
+        bind(record.question, at: 7, statement: statement)
+        bind(record.answer, at: 8, statement: statement)
+        sqlite3_bind_double(statement, 9, record.createdAt.timeIntervalSince1970)
+        bindOptional(encodeJSON(record.srs), at: 10, statement: statement)
         return sqlite3_step(statement) == SQLITE_DONE
     }
 
@@ -366,6 +371,14 @@ final class WordRecordSQLiteStore {
             return
         }
         bind(value, at: index, statement: statement)
+    }
+
+    private func bindOptionalInt(_ value: Int?, at index: Int32, statement: OpaquePointer?) {
+        guard let value else {
+            sqlite3_bind_null(statement, index)
+            return
+        }
+        sqlite3_bind_int(statement, index, Int32(value))
     }
 
     private func stringColumn(_ statement: OpaquePointer?, _ index: Int32) -> String? {

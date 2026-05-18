@@ -237,7 +237,16 @@ extension ReaderWindowController {
     @objc func goToCover() {
         clearAISelectionForNavigation()
         guard currentDocumentKind == .pdf else {
-            webView.evaluateJavaScript("window.scrollTo({top:0, behavior:'smooth'});")
+            webView.evaluateJavaScript("""
+            (() => {
+              const cover = document.querySelector('section.reader-section[data-leaf-cover="true"]') || document.querySelector('section.reader-section');
+              if (cover) {
+                cover.scrollIntoView({behavior:'smooth', block:'start'});
+              } else {
+                window.scrollTo({top:0, behavior:'smooth'});
+              }
+            })();
+            """)
             return
         }
         guard let firstPage = pdfView.document?.page(at: 0) else { return }
@@ -269,6 +278,7 @@ extension ReaderWindowController {
     func clearAISelectionForNavigation() {
         currentWebSelectedText = ""
         currentWebSelectionContext = ""
+        currentWebSelectionOccurrenceIndex = nil
         aiPanel.clearSelectedText()
 
         if currentDocumentKind == .pdf {
@@ -281,6 +291,7 @@ extension ReaderWindowController {
     func clearReaderSelectionForBubbleSelection() {
         currentWebSelectedText = ""
         currentWebSelectionContext = ""
+        currentWebSelectionOccurrenceIndex = nil
         if currentDocumentKind == .pdf {
             pdfView.clearSelection()
         } else {

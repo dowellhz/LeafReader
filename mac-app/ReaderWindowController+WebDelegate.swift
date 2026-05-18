@@ -22,6 +22,15 @@ extension ReaderWindowController {
             selectStoredLinkedWord(linkID: linkID)
             return
         }
+        if message.name == "webAISourceClicked" {
+            guard currentDocumentKind != .pdf,
+                  let key = message.body as? String,
+                  !key.isEmpty else {
+                return
+            }
+            handleWebAISourceClick(key: key)
+            return
+        }
         guard message.name == "selectionChanged" else { return }
         guard Date() >= suppressSearchSelectionForAIUntil else {
             clearSearchSelectionForAI()
@@ -32,12 +41,17 @@ extension ReaderWindowController {
         if let payload = message.body as? [String: Any] {
             text = (payload["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             context = (payload["context"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            currentWebSelectionOccurrenceIndex = payload["occurrenceIndex"] as? Int
         } else {
             text = (message.body as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             context = ""
+            currentWebSelectionOccurrenceIndex = nil
         }
         currentWebSelectedText = text.count > 1 ? text : ""
         currentWebSelectionContext = currentWebSelectedText.isEmpty ? "" : context
+        if currentWebSelectedText.isEmpty {
+            currentWebSelectionOccurrenceIndex = nil
+        }
         aiPanel.setSelectedText(currentWebSelectedText)
         if !currentWebSelectedText.isEmpty {
             setAIPanelCollapsed(false, animated: true)
@@ -66,7 +80,9 @@ extension ReaderWindowController {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard currentDocumentKind != .pdf else { return }
         applyWebReaderTheme()
-        restoreStoredWebWordHighlights()
+        restoreStoredWebWordHighlights { [weak self] in
+            self?.restoreSavedAISourceUnderlines()
+        }
         applyWebZoomToPage()
         zoomField.stringValue = "\(webZoomPercent)%"
     }

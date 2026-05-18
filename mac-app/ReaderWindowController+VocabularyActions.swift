@@ -65,7 +65,10 @@ extension ReaderWindowController {
         } else {
             storedWebWordRecords.removeAll { idSet.contains($0.id) }
             deleteStoredWebWordRecords(ids: ids)
-            restoreStoredWebWordHighlights()
+            restoreStoredWebWordHighlights { [weak self] in
+                guard let self else { return }
+                self.restoreWebAISourceUnderlines(for: self.aiPanel.activeConversationSources())
+            }
         }
 
         aiPanel.removeLinkedWordBubbles(ids: ids)

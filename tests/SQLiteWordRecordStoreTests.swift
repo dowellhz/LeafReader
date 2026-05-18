@@ -48,6 +48,7 @@ private func webRecord(
         id: id,
         word: word,
         context: "web context",
+        occurrenceIndex: nil,
         scrollProgress: 0.42,
         question: "What is \(word)?",
         answer: answer,

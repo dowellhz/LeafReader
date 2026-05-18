@@ -6,6 +6,10 @@ extension ReaderWindowController {
     private static let maxAISourceUnderlineLines = 12
 
     func addAISourceUnderline(for source: AIConversationSourceLocation) {
+        if source.kind == .webProgress {
+            addWebAISourceUnderline(for: source)
+            return
+        }
         guard source.kind == .pdfPage,
               let page = pdfView.document?.page(at: source.index),
               let boundsList = source.pdfBounds,
@@ -33,9 +37,12 @@ extension ReaderWindowController {
     }
 
     func restoreSavedAISourceUnderlines() {
-        guard currentDocumentKind == .pdf,
-              AISettingsStore.saveAIConversationEnabled,
+        guard AISettingsStore.saveAIConversationEnabled,
               let conversation = aiConversationStore?.load() else {
+            return
+        }
+        if currentDocumentKind != .pdf {
+            restoreWebAISourceUnderlines(for: conversation.bubbles.compactMap(\.sourceLocation))
             return
         }
         for bubble in conversation.bubbles {
@@ -45,6 +52,11 @@ extension ReaderWindowController {
     }
 
     func clearAISourceUnderlines() {
+        if currentDocumentKind != .pdf {
+            clearWebAISourceUnderlines()
+            clearAISourceUnderlineTracking()
+            return
+        }
         guard let document = pdfView.document else {
             clearAISourceUnderlineTracking()
             return
@@ -60,11 +72,14 @@ extension ReaderWindowController {
     }
 
     func reconcileAISourceUnderlines(activeSources: [AIConversationSourceLocation]) {
-        guard currentDocumentKind == .pdf else { return }
         guard activeSources != activeAISourceUnderlines else { return }
         clearAISourceUnderlines()
         activeAISourceUnderlines = activeSources
         guard AISettingsStore.saveAIConversationEnabled else { return }
+        if currentDocumentKind != .pdf {
+            restoreWebAISourceUnderlines(for: activeSources)
+            return
+        }
         for source in activeSources {
             addAISourceUnderline(for: source)
         }
@@ -87,7 +102,56 @@ extension ReaderWindowController {
     func clearAISourceUnderlineTracking() {
         aiSourceUnderlineKeys.removeAll()
         aiSourceLocationsByUnderlineKey.removeAll()
+        webAISourceLocationsByKey.removeAll()
         activeAISourceUnderlines.removeAll()
+    }
+
+    func addWebAISourceUnderline(for source: AIConversationSourceLocation) {
+        guard currentDocumentKind != .pdf,
+              let selectedText = source.selectedText?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !selectedText.isEmpty else {
+            return
+        }
+        let key = registerWebAISource(source)
+        webView.evaluateJavaScript("window.leafReaderAddAISourceUnderlineForSelection && window.leafReaderAddAISourceUnderlineForSelection(\(jsStringLiteral(key)));")
+    }
+
+    func restoreWebAISourceUnderlines(for sources: [AIConversationSourceLocation]) {
+        webAISourceLocationsByKey.removeAll()
+        let payload = sources.compactMap { source -> [String: String]? in
+            guard source.kind == .webProgress,
+                  let selectedText = source.selectedText?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !selectedText.isEmpty else {
+                return nil
+            }
+            let key = registerWebAISource(source)
+            return [
+                "key": key,
+                "selectedText": selectedText,
+                "context": source.webContext?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            ]
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+        webView.evaluateJavaScript("window.leafReaderRestoreAISourceUnderlines && window.leafReaderRestoreAISourceUnderlines(\(json));")
+    }
+
+    func clearWebAISourceUnderlines() {
+        guard currentDocumentKind != .pdf else { return }
+        webView.evaluateJavaScript("window.leafReaderClearAISourceUnderlines && window.leafReaderClearAISourceUnderlines();")
+    }
+
+    func handleWebAISourceClick(key: String) {
+        guard currentDocumentKind != .pdf,
+              let source = webAISourceLocationsByKey[key] else {
+            return
+        }
+        setAIPanelCollapsed(false, animated: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+            self?.aiPanel.scrollToConversationSource(source)
+        }
     }
 
     func currentPDFSelectionSourceLocation(pageIndex: Int) -> AIConversationSourceLocation {
@@ -129,5 +193,14 @@ extension ReaderWindowController {
             "\(Int(bounds.width.rounded()))",
             "\(Int(bounds.height.rounded()))"
         ].joined(separator: ":")
+    }
+
+    private func registerWebAISource(_ source: AIConversationSourceLocation) -> String {
+        if let existing = webAISourceLocationsByKey.first(where: { $0.value == source })?.key {
+            return existing
+        }
+        let key = "web-source-\(UUID().uuidString)"
+        webAISourceLocationsByKey[key] = source
+        return key
     }
 }
