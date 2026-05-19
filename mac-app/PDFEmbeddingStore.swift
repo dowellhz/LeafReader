@@ -12,16 +12,29 @@ final class PDFEmbeddingStore {
     static let defaultMaximumCacheBytes: Int64 = 1024 * 1024 * 1024
 
     private let db: OpaquePointer?
+    private let databaseURL: URL
     private var cachedCacheSize: (bytes: Int64, measuredAt: Date)?
     private let cacheSizeTTL: TimeInterval = 2.0
 
-    init?() {
+    convenience init?() {
         guard let directory = Self.cacheDirectory() else { return nil }
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent("pdf-embeddings.sqlite3")
+        self.init(databaseURL: url)
+    }
+
+    init?(databaseURL: URL) {
+        try? FileManager.default.createDirectory(at: databaseURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         var handle: OpaquePointer?
-        guard sqlite3_open(url.path, &handle) == SQLITE_OK else { return nil }
+        guard sqlite3_open(databaseURL.path, &handle) == SQLITE_OK else {
+            if let handle {
+                let message = String(cString: sqlite3_errmsg(handle))
+                NSLog("Leaf Reader PDFEmbeddingStore SQLite open failed: \(message)")
+                sqlite3_close(handle)
+            }
+            return nil
+        }
         db = handle
+        self.databaseURL = databaseURL
         createTables()
     }
 
@@ -35,7 +48,7 @@ final class PDFEmbeddingStore {
         let sql = "SELECT chunk_id, embedding FROM embeddings WHERE document_id = ? AND model = ? AND chunk_id = ?"
         for chunkID in chunkIDs {
             var statement: OpaquePointer?
-            guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { continue }
+            guard prepare(sql, statement: &statement, operation: "prepare embedding lookup") else { continue }
             defer { sqlite3_finalize(statement) }
             bind(documentID, at: 1, statement: statement)
             bind(model, at: 2, statement: statement)
@@ -62,7 +75,7 @@ final class PDFEmbeddingStore {
         """
         for (chunk, embedding) in zip(chunks, embeddings) {
             var statement: OpaquePointer?
-            guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { continue }
+            guard prepare(sql, statement: &statement, operation: "prepare embedding save") else { continue }
             defer { sqlite3_finalize(statement) }
             bind(documentID, at: 1, statement: statement)
             bind(model, at: 2, statement: statement)
@@ -75,12 +88,10 @@ final class PDFEmbeddingStore {
                 sqlite3_bind_blob(statement, 7, bytes.baseAddress, Int32(data.count), SQLITE_TRANSIENT)
             }
             sqlite3_bind_double(statement, 8, Date().timeIntervalSince1970)
-            sqlite3_step(statement)
+            step(statement, operation: "save embedding row")
         }
         invalidateCacheSize()
-        if pruneIfNeeded(maximumBytes: Self.defaultMaximumCacheBytes) {
-            vacuum()
-        }
+        pruneIfNeeded(maximumBytes: Self.defaultMaximumCacheBytes)
     }
 
     func deleteDocument(documentID: String) {
@@ -100,7 +111,7 @@ final class PDFEmbeddingStore {
            Date().timeIntervalSince(cachedCacheSize.measuredAt) < cacheSizeTTL {
             return cachedCacheSize.bytes
         }
-        let bytes = Self.cacheDatabaseURL().map(Self.cacheSizeBytes(forDatabaseURL:)) ?? 0
+        let bytes = Self.cacheSizeBytes(forDatabaseURL: databaseURL)
         cachedCacheSize = (bytes, Date())
         return bytes
     }
@@ -113,11 +124,19 @@ final class PDFEmbeddingStore {
     func pruneIfNeeded(maximumBytes: Int64) -> Bool {
         guard maximumBytes > 0 else { return false }
         var didDelete = false
+        var deletedDocumentIDs = Set<String>()
         while cacheSizeBytes() > maximumBytes {
-            guard let oldestDocumentID = oldestDocumentID() else { break }
-            execute(sql: "DELETE FROM embeddings WHERE document_id = ?", bindings: [oldestDocumentID])
-            invalidateCacheSize()
+            guard let oldestDocumentID = oldestDocumentID(),
+                  !deletedDocumentIDs.contains(oldestDocumentID) else {
+                break
+            }
+            guard execute(sql: "DELETE FROM embeddings WHERE document_id = ?", bindings: [oldestDocumentID]) else {
+                break
+            }
+            deletedDocumentIDs.insert(oldestDocumentID)
             didDelete = true
+            checkpoint()
+            vacuum()
         }
         return didDelete
     }
@@ -137,7 +156,7 @@ final class PDFEmbeddingStore {
         );
         CREATE INDEX IF NOT EXISTS idx_embeddings_document_model ON embeddings(document_id, model);
         """
-        sqlite3_exec(db, sql, nil, nil, nil)
+        exec(sql, operation: "create embedding tables")
     }
 
     private func oldestDocumentID() -> String? {
@@ -149,7 +168,7 @@ final class PDFEmbeddingStore {
         LIMIT 1
         """
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return nil }
+        guard prepare(sql, statement: &statement, operation: "prepare oldest document lookup") else { return nil }
         defer { sqlite3_finalize(statement) }
         guard sqlite3_step(statement) == SQLITE_ROW,
               let pointer = sqlite3_column_text(statement, 0) else {
@@ -161,34 +180,74 @@ final class PDFEmbeddingStore {
     private func touchDocument(documentID: String, model: String) {
         let sql = "UPDATE embeddings SET updated_at = ? WHERE document_id = ? AND model = ?"
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return }
+        guard prepare(sql, statement: &statement, operation: "prepare embedding document touch") else { return }
         defer { sqlite3_finalize(statement) }
         sqlite3_bind_double(statement, 1, Date().timeIntervalSince1970)
         bind(documentID, at: 2, statement: statement)
         bind(model, at: 3, statement: statement)
-        sqlite3_step(statement)
+        step(statement, operation: "touch embedding document")
     }
 
     private func scalarInt(sql: String) -> Int {
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return 0 }
+        guard prepare(sql, statement: &statement, operation: "prepare scalar query") else { return 0 }
         defer { sqlite3_finalize(statement) }
         guard sqlite3_step(statement) == SQLITE_ROW else { return 0 }
         return Int(sqlite3_column_int(statement, 0))
     }
 
-    private func execute(sql: String, bindings: [String] = []) {
+    @discardableResult
+    private func execute(sql: String, bindings: [String] = []) -> Bool {
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return }
+        guard prepare(sql, statement: &statement, operation: "prepare execute") else { return false }
         defer { sqlite3_finalize(statement) }
         for (offset, value) in bindings.enumerated() {
             bind(value, at: Int32(offset + 1), statement: statement)
         }
-        sqlite3_step(statement)
+        return step(statement, operation: "execute statement")
+    }
+
+    @discardableResult
+    private func prepare(_ sql: String, statement: inout OpaquePointer?, operation: String) -> Bool {
+        let result = sqlite3_prepare_v2(db, sql, -1, &statement, nil)
+        guard result == SQLITE_OK else {
+            logSQLiteError(operation, result: result, sql: sql)
+            return false
+        }
+        return true
+    }
+
+    @discardableResult
+    private func step(_ statement: OpaquePointer?, operation: String) -> Bool {
+        let result = sqlite3_step(statement)
+        guard result == SQLITE_DONE || result == SQLITE_ROW else {
+            logSQLiteError(operation, result: result)
+            return false
+        }
+        return true
+    }
+
+    @discardableResult
+    private func exec(_ sql: String, operation: String) -> Bool {
+        var errorMessage: UnsafeMutablePointer<Int8>?
+        let result = sqlite3_exec(db, sql, nil, nil, &errorMessage)
+        guard result == SQLITE_OK else {
+            let message = errorMessage.map { String(cString: $0) } ?? sqliteErrorMessage()
+            sqlite3_free(errorMessage)
+            NSLog("Leaf Reader PDFEmbeddingStore SQLite \(operation) failed: \(message)")
+            return false
+        }
+        return true
     }
 
     private func vacuum() {
-        sqlite3_exec(db, "VACUUM", nil, nil, nil)
+        checkpoint()
+        exec("VACUUM", operation: "vacuum embedding cache")
+        invalidateCacheSize()
+    }
+
+    private func checkpoint() {
+        exec("PRAGMA wal_checkpoint(TRUNCATE)", operation: "checkpoint embedding cache")
         invalidateCacheSize()
     }
 
@@ -198,6 +257,16 @@ final class PDFEmbeddingStore {
 
     private func bind(_ value: String, at index: Int32, statement: OpaquePointer?) {
         sqlite3_bind_text(statement, index, value, -1, SQLITE_TRANSIENT)
+    }
+
+    private func logSQLiteError(_ operation: String, result: Int32, sql: String? = nil) {
+        let detail = sql.map { " SQL: \($0)" } ?? ""
+        NSLog("Leaf Reader PDFEmbeddingStore SQLite \(operation) failed (\(result)): \(sqliteErrorMessage()).\(detail)")
+    }
+
+    private func sqliteErrorMessage() -> String {
+        guard let pointer = sqlite3_errmsg(db) else { return "unknown error" }
+        return String(cString: pointer)
     }
 
     private static func cacheDirectory() -> URL? {

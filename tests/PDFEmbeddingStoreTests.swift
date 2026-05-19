@@ -32,11 +32,33 @@ private func testCacheSizeIncludesSQLiteSidecars() throws {
     )
 }
 
+private func testPruneRemovesCachedDocumentsOverLimit() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("leafreader-embedding-prune-tests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let databaseURL = directory.appendingPathComponent("pdf-embeddings.sqlite3")
+    guard let store = PDFEmbeddingStore(databaseURL: databaseURL) else {
+        throw TestFailure(description: "failed to create temporary embedding store")
+    }
+
+    let chunk = PDFEmbeddingChunk(id: "chunk-1", pageIndex: 0, chunkIndex: 0, text: String(repeating: "text ", count: 200))
+    let embedding = Array(repeating: Float(0.25), count: 256)
+    store.save(documentID: "doc-1", model: "test-model", chunks: [chunk], embeddings: [embedding])
+    store.save(documentID: "doc-2", model: "test-model", chunks: [chunk], embeddings: [embedding])
+
+    try expectEqual(store.documentCount(), 2, "test setup should save both documents")
+    try expectEqual(store.pruneIfNeeded(maximumBytes: 1), true, "prune should delete cache entries over the limit")
+    try expectEqual(store.documentCount(), 0, "tiny cache limit should remove all cached documents")
+}
+
 @main
 struct PDFEmbeddingStoreTestRunner {
     static func main() {
         do {
             try testCacheSizeIncludesSQLiteSidecars()
+            try testPruneRemovesCachedDocumentsOverLimit()
             print("PDFEmbeddingStoreTests passed")
         } catch {
             fputs("PDFEmbeddingStoreTests failed: \(error)\n", stderr)
