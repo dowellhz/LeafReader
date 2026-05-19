@@ -145,7 +145,7 @@ enum AISettingsStore {
             return key
         }
 
-        if let legacyKey = UserDefaults.standard.string(forKey: apiKeyDefaultsKey(for: config.provider))?.trimmingCharacters(in: .whitespacesAndNewlines), !legacyKey.isEmpty {
+        if let legacyKey = nonEmptyTrimmed(UserDefaults.standard.string(forKey: apiKeyDefaultsKey(for: config.provider))) {
             LocalEncryptedStore.save(legacyKey, forKey: encryptedAPIKeyDefaultsKey(for: config.provider))
             UserDefaults.standard.removeObject(forKey: apiKeyDefaultsKey(for: config.provider))
             UserDefaults.standard.synchronize()
@@ -176,27 +176,22 @@ enum AISettingsStore {
     }
 
     static var customEndpointString: String {
-        UserDefaults.standard.string(forKey: customEndpointKey)?.trimmingCharacters(in: .whitespacesAndNewlines)
-            ?? fallbackCustomEndpoint.absoluteString
+        trimmedStoredString(forKey: customEndpointKey) ?? fallbackCustomEndpoint.absoluteString
     }
 
     static var customModelName: String {
-        let saved = UserDefaults.standard.string(forKey: customModelNameKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return saved.isEmpty ? "custom-model" : saved
+        nonEmptyTrimmed(UserDefaults.standard.string(forKey: customModelNameKey)) ?? "custom-model"
     }
 
     static var embeddingEndpointString: String {
-        UserDefaults.standard.string(forKey: embeddingEndpointKey)?.trimmingCharacters(in: .whitespacesAndNewlines)
-            ?? fallbackEmbeddingEndpoint.absoluteString
+        trimmedStoredString(forKey: embeddingEndpointKey) ?? fallbackEmbeddingEndpoint.absoluteString
     }
 
     static var embeddingModelName: String {
-        let saved = UserDefaults.standard.string(forKey: embeddingModelNameKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !saved.isEmpty {
+        if let saved = nonEmptyTrimmed(UserDefaults.standard.string(forKey: embeddingModelNameKey)) {
             return saved
         }
-        let endpointDefaultModel = selectedEmbeddingEndpointOption.defaultModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        return endpointDefaultModel.isEmpty ? fallbackEmbeddingModelName : endpointDefaultModel
+        return nonEmptyTrimmed(selectedEmbeddingEndpointOption.defaultModel) ?? fallbackEmbeddingModelName
     }
 
     static var embeddingEndpoint: URL {
@@ -250,7 +245,7 @@ enum AISettingsStore {
             return legacyProviderKey
         }
 
-        if let legacyKey = UserDefaults.standard.string(forKey: apiKeyDefaultsKey(for: embeddingProviderID))?.trimmingCharacters(in: .whitespacesAndNewlines), !legacyKey.isEmpty {
+        if let legacyKey = nonEmptyTrimmed(UserDefaults.standard.string(forKey: apiKeyDefaultsKey(for: embeddingProviderID))) {
             LocalEncryptedStore.save(legacyKey, forKey: encryptedAPIKeyDefaultsKey(for: providerKey))
             UserDefaults.standard.removeObject(forKey: apiKeyDefaultsKey(for: embeddingProviderID))
             UserDefaults.standard.synchronize()
@@ -291,14 +286,14 @@ enum AISettingsStore {
     }
 
     static func saveEmbedding(endpoint: String, modelName: String, apiKey: String, optionID: String? = nil) {
-        let endpointValue = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        let endpointValue = trimmed(endpoint)
         if validEndpoint(from: endpointValue) != nil {
             UserDefaults.standard.set(endpointValue, forKey: embeddingEndpointKey)
         } else if endpointValue.isEmpty {
             UserDefaults.standard.removeObject(forKey: embeddingEndpointKey)
         }
 
-        let modelValue = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let modelValue = trimmed(modelName)
         if modelValue.isEmpty {
             UserDefaults.standard.removeObject(forKey: embeddingModelNameKey)
         } else {
@@ -328,8 +323,8 @@ enum AISettingsStore {
     }
 
     static func customValidationError(endpoint: String, modelName: String) -> String? {
-        let trimmedEndpoint = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedModelName = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEndpoint = trimmed(endpoint)
+        let trimmedModelName = trimmed(modelName)
         if trimmedEndpoint.isEmpty {
             return AppText.localized("请输入自定义 URL。", "Enter a custom URL.")
         }
@@ -343,32 +338,45 @@ enum AISettingsStore {
     }
 
     private static func saveCustomEndpoint(_ endpoint: String) {
-        let trimmed = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        if validEndpoint(from: trimmed) != nil {
-            UserDefaults.standard.set(trimmed, forKey: customEndpointKey)
-        } else if trimmed.isEmpty {
+        let endpointValue = trimmed(endpoint)
+        if validEndpoint(from: endpointValue) != nil {
+            UserDefaults.standard.set(endpointValue, forKey: customEndpointKey)
+        } else if endpointValue.isEmpty {
             UserDefaults.standard.removeObject(forKey: customEndpointKey)
         }
     }
 
     private static func saveCustomModelName(_ modelName: String) {
-        let trimmed = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
+        let modelValue = trimmed(modelName)
+        if modelValue.isEmpty {
             UserDefaults.standard.removeObject(forKey: customModelNameKey)
         } else {
-            UserDefaults.standard.set(trimmed, forKey: customModelNameKey)
+            UserDefaults.standard.set(modelValue, forKey: customModelNameKey)
         }
     }
 
     private static func validEndpoint(from string: String) -> URL? {
-        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: trimmed),
+        let endpointValue = trimmed(string)
+        guard let url = URL(string: endpointValue),
               let scheme = url.scheme?.lowercased(),
               ["http", "https"].contains(scheme),
               url.host != nil else {
             return nil
         }
         return url
+    }
+
+    private static func trimmed(_ string: String) -> String {
+        string.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func nonEmptyTrimmed(_ string: String?) -> String? {
+        guard let value = string.map(trimmed), !value.isEmpty else { return nil }
+        return value
+    }
+
+    private static func trimmedStoredString(forKey key: String) -> String? {
+        UserDefaults.standard.string(forKey: key).map(trimmed)
     }
 }
 
