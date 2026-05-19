@@ -29,6 +29,9 @@ echo "==> Running tests"
 ./tests/run.sh
 
 if [[ "$RUN_BUILD" -eq 1 ]]; then
+  echo "==> Building docs site"
+  ./scripts/build_docs_site.sh
+
   echo "==> Building app"
   ./scripts/build_app.sh
 else

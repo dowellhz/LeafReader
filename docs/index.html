@@ -177,6 +177,33 @@
       font-size: 14px;
     }
 
+    .docs-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+
+    .doc-link {
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+      background: var(--panel);
+    }
+
+    .doc-link strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: 16px;
+    }
+
+    .doc-link p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
     .screenshots {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -232,6 +259,7 @@
       }
 
       .features,
+      .docs-grid,
       .screenshots,
       .release {
         grid-template-columns: 1fr;
@@ -249,8 +277,8 @@
       <nav>
         <a href="#features">功能</a>
         <a href="#screenshots">截图</a>
+        <a href="#docs">文档</a>
         <a href="#download">下载</a>
-        <a href="manual/">文档</a>
         <a href="https://github.com/dowellhz/LeafReader">GitHub</a>
       </nav>
     </header>
@@ -309,6 +337,28 @@
           <img src="assets/reader-settings.png" alt="Leaf Reader settings">
           <img src="assets/reader-dark-ai.png" alt="Leaf Reader dark mode AI">
           <img src="assets/reader-dark-vocabulary.png" alt="Leaf Reader vocabulary book">
+        </div>
+      </section>
+
+      <section class="section" id="docs">
+        <h2>文档</h2>
+        <div class="docs-grid">
+          <a class="doc-link" href="manual/">
+            <strong>开发文档</strong>
+            <p>查看架构、功能地图、开发任务入口和代码地图。</p>
+          </a>
+          <a class="doc-link" href="manual/release-runbook/">
+            <strong>发布流程</strong>
+            <p>按步骤执行打包、签名、发布、Appcast 和版本验证。</p>
+          </a>
+          <a class="doc-link" href="manual/troubleshooting/">
+            <strong>故障排查</strong>
+            <p>定位更新失败、证书、PDF 翻页、AI 分析和 Wiki 同步问题。</p>
+          </a>
+          <a class="doc-link" href="manual/code-map/">
+            <strong>代码地图</strong>
+            <p>浏览主要模块、最大文件和完整 Swift 类型索引。</p>
+          </a>
         </div>
       </section>
 

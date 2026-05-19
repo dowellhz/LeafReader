@@ -11,5 +11,6 @@ if [[ ! -x "$MKDOCS_BIN" ]]; then
   MKDOCS_BIN="mkdocs"
 fi
 "$MKDOCS_BIN" build --strict
+find "$ROOT_DIR/docs/manual" -type f \( -name '*.html' -o -name '*.xml' \) -exec perl -pi -e 's/[ \t]+$//' {} +
 
 echo "Built documentation site: $ROOT_DIR/docs/manual"

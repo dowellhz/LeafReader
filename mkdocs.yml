@@ -5,9 +5,20 @@ repo_url: https://github.com/dowellhz/LeafReader
 repo_name: dowellhz/LeafReader
 docs_dir: docs/wiki
 site_dir: docs/manual
+extra:
+  homepage: https://leafreader.space/
+  social:
+    - icon: material/home
+      link: https://leafreader.space/
+      name: Leaf Reader Website
+    - icon: fontawesome/brands/github
+      link: https://github.com/dowellhz/LeafReader
+      name: GitHub Repository
 theme:
   name: material
   language: en
+  logo: ../assets/leaf-reader-icon.png
+  favicon: ../assets/leaf-reader-icon.png
   features:
     - navigation.sections
     - navigation.top
