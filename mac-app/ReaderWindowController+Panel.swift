@@ -60,6 +60,7 @@ extension ReaderWindowController {
         if collapsed == isAIPanelCollapsed {
             if !collapsed {
                 aiPanel.setContentVisible(true)
+                runPendingAIPanelExpansionAction()
             }
             updateAIHandlePosition()
             return
@@ -87,6 +88,9 @@ extension ReaderWindowController {
                 self.aiPanel.setContentVisible(true)
             }
             self.refreshPDFLayoutAfterPanelChange()
+            if !collapsed {
+                self.runPendingAIPanelExpansionAction()
+            }
         }
 
         if animated {
@@ -108,6 +112,12 @@ extension ReaderWindowController {
             window?.contentView?.layoutSubtreeIfNeeded()
             applyFinalState()
         }
+    }
+
+    func runPendingAIPanelExpansionAction() {
+        guard let action = pendingAIPanelExpansionAction else { return }
+        pendingAIPanelExpansionAction = nil
+        action()
     }
 
     func clampedAIWidth(_ width: CGFloat) -> CGFloat {

@@ -151,6 +151,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let windowResizeLayoutTask = DebouncedTask(delay: 0.08)
     let aiPanelResizeLayoutTask = DebouncedTask(delay: 0.05)
     let vocabularyPanelReloadTask = DebouncedTask(delay: 0.04)
+    var pendingAIPanelExpansionAction: (() -> Void)?
     var currentVocabularyExportRecords: [VocabularyExportRecord] = []
     var didRegisterSelectionObserver = false
     var isRestoringSession = false

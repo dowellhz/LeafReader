@@ -149,11 +149,11 @@ extension ReaderWindowController {
               let source = webAISourceLocationsByKey[key] else {
             return
         }
-        setAIPanelCollapsed(false, animated: true)
         ensureAIConversationSourceBubbleLoaded(source)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+        pendingAIPanelExpansionAction = { [weak self] in
             self?.aiPanel.scrollToConversationSource(source)
         }
+        setAIPanelCollapsed(false, animated: true)
     }
 
     func currentPDFSelectionSourceLocation(pageIndex: Int) -> AIConversationSourceLocation {
