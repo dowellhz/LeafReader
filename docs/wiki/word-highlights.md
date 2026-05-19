@@ -4,14 +4,14 @@ Leaf Reader stores vocabulary words, explanations, source context, and visible h
 
 ## Flow
 
-```mermaid
-flowchart TD
-  SelectWord --> AskAI
-  AskAI --> WordRecord
-  WordRecord --> Store[SQLite Store]
-  Store --> Restore
-  Restore --> PDFHighlight
-  Restore --> WebHighlight
+```text
+Select word
+  -> Ask AI
+  -> Word record
+  -> SQLite store
+  -> Restore
+     -> PDF highlight
+     -> Web highlight
 ```
 
 ## Files

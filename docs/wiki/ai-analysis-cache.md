@@ -4,15 +4,16 @@ AI analysis data is the local embedding/cache layer used for document-aware Q&A.
 
 ## Flow
 
-```mermaid
-flowchart TD
-  OpenDocument --> DocumentIndex[Build Text Chunks]
-  DocumentIndex --> EmbeddingClient
-  EmbeddingClient --> PDFEmbeddingStore
-  Question --> Retrieval
-  PDFEmbeddingStore --> Retrieval
-  Retrieval --> Prompt
-  Prompt --> AIChatPanel
+```text
+Open document
+  -> Build text chunks
+  -> EmbeddingClient
+  -> PDFEmbeddingStore
+
+Question
+  -> Retrieval from cached analysis data
+  -> Prompt
+  -> AIChatPanel
 ```
 
 ## Files

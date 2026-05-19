@@ -4,15 +4,15 @@ The AI panel handles selected text explanations, summaries, translations, follow
 
 ## Flow
 
-```mermaid
-flowchart TD
-  Selection --> AIChatPanel
-  AIChatPanel --> Actions[Actions and Context]
-  Actions --> Requests[Request Lifecycle]
-  Requests --> AIClient
-  AIClient --> Stream[Streaming Deltas]
-  Stream --> Bubbles[Bubble Rendering]
-  Bubbles --> ConversationStore
+```text
+Selection
+  -> AIChatPanel
+     -> Actions and context
+     -> Request lifecycle
+        -> AIClient
+        -> Streaming deltas
+     -> Bubble rendering
+     -> Conversation store
 ```
 
 ## Files

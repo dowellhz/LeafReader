@@ -4,17 +4,13 @@ Leaf Reader supports PDF, EPUB, and DOCX.
 
 ## Flow
 
-```mermaid
-flowchart TD
-  OpenFile --> Kind{Document Kind}
-  Kind -->|PDF| PDFKit[Load with PDFKit]
-  Kind -->|EPUB| EPUB[Unpack EPUB Cache]
-  Kind -->|DOCX| DOCX[Unpack DOCX Temp]
-  EPUB --> HTML[Build Reader HTML]
-  DOCX --> HTML
-  HTML --> WebKit[Render in WebKit]
-  PDFKit --> ReaderWindow
-  WebKit --> ReaderWindow
+```text
+Open file
+  -> Detect document kind
+     -> PDF: load with PDFKit
+     -> EPUB: unpack EPUB cache -> build reader HTML -> render in WebKit
+     -> DOCX: unpack temp DOCX -> build reader HTML -> render in WebKit
+  -> ReaderWindowController
 ```
 
 ## Files

@@ -4,15 +4,15 @@ Leaf Reader is a native macOS reader built with Swift, PDFKit, WebKit, and Spark
 
 ## Main Flow
 
-```mermaid
-flowchart TD
-  AppDelegate --> ReaderWindowController
-  ReaderWindowController --> DocumentLoading
-  ReaderWindowController --> PDFView[PDFKit PDF View]
-  ReaderWindowController --> WebView[WebKit EPUB/DOCX View]
-  ReaderWindowController --> AIChatPanel
-  AIChatPanel --> AIClient
-  ReaderWindowController --> Stores[SQLite and local stores]
+```text
+AppDelegate
+  -> ReaderWindowController
+     -> DocumentLoading
+     -> PDFKit PDF View
+     -> WebKit EPUB/DOCX View
+     -> AIChatPanel
+        -> AIClient
+     -> SQLite and local stores
 ```
 
 ## Key Areas
