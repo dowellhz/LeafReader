@@ -37,6 +37,7 @@ extension ReaderWindowController {
         searchUnderlineButton?.isDark = isDark
         applyChromeTheme(to: window?.contentView, isDark: isDark)
         updatePageLabelTextColor()
+        updateEmbeddingStatusTextColor()
         aiPanel.setDarkMode(isDark)
         searchOverlay.setDarkMode(isDark)
         pdfView.backgroundColor = chromeBackground
@@ -85,6 +86,13 @@ extension ReaderWindowController {
                 ? NSColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 1)
                 : NSColor(red: 0.10, green: 0.11, blue: 0.14, alpha: 1)
         }
+    }
+
+    func updateEmbeddingStatusTextColor() {
+        let isDark = ReaderTheme.selected == .dark
+        embeddingStatusLabel.textColor = isDark
+            ? NSColor(red: 0.68, green: 0.73, blue: 0.80, alpha: 1)
+            : NSColor(red: 0.60, green: 0.65, blue: 0.72, alpha: 1)
     }
 
     func applyPDFReaderTheme(isDark: Bool) {

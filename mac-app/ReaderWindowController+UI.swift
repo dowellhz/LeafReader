@@ -392,6 +392,7 @@ extension ReaderWindowController {
         embeddingStatusLabel.font = AppFont.semibold(ofSize: 12)
         embeddingStatusLabel.alignment = .right
         embeddingStatusLabel.lineBreakMode = .byTruncatingMiddle
+        updateEmbeddingStatusTextColor()
         embeddingStatusLabel.isHidden = true
         embeddingPauseButton.isHidden = true
         embeddingCancelButton.isHidden = true
