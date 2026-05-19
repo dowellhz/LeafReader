@@ -16,10 +16,7 @@ extension ReaderWindowController {
     func performSearch(_ rawQuery: String) {
         let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
-            searchResults.removeAll()
-            searchResultIndex = 0
-            lastSearchQuery = ""
-            searchOverlay.setResultText("")
+            clearSearchState()
             pdfView.clearSelection()
             clearWebSearchSelection()
             clearSearchSelectionForAI()
@@ -43,6 +40,13 @@ extension ReaderWindowController {
         }
 
         showCurrentSearchResult()
+    }
+
+    func clearSearchState() {
+        searchResults.removeAll()
+        searchResultIndex = 0
+        lastSearchQuery = ""
+        searchOverlay.setResultText("")
     }
 
     func goToPreviousSearchResult() {
@@ -121,10 +125,8 @@ extension ReaderWindowController {
     func performWebSearch(_ rawQuery: String, backwards: Bool) {
         let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
-            searchOverlay.setResultText("")
+            clearSearchState()
             clearWebSearchSelection()
-            lastSearchQuery = ""
-            searchResultIndex = 0
             clearSearchSelectionForAI()
             return
         }

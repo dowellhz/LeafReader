@@ -136,10 +136,7 @@ extension ReaderWindowController {
         lastPDFTrackpadEdgeDirection = nil
         highlightedSelectionKeys.removeAll()
         clearAISourceUnderlineTracking()
-        searchResults.removeAll()
-        searchResultIndex = 0
-        lastSearchQuery = ""
-        searchOverlay.setResultText("")
+        clearSearchState()
     }
 
     func scheduleWebPlainTextLoad(_ loader: (() -> String)?, generation: Int) {

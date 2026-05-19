@@ -139,10 +139,7 @@ extension ReaderWindowController {
         currentWebSelectionOccurrenceIndex = nil
         currentTOCItems = []
         pdfTOCDestinations = [:]
-        searchResults.removeAll()
-        searchResultIndex = 0
-        lastSearchQuery = ""
-        searchOverlay.setResultText("")
+        clearSearchState()
         pendingPDFWordRecords.removeAll()
         pendingWebWordRecords.removeAll()
         storedWordRecords.removeAll()
