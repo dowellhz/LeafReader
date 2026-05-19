@@ -2,6 +2,20 @@ import Cocoa
 import PDFKit
 import WebKit
 
+private struct ReaderToolbarSetup {
+    let toolbar: NSView
+    let zoomOut: NSButton
+    let zoomIn: NSButton
+    let leftDivider: NSView
+    let rightDivider: NSView
+    let zoomGroup: NSView
+}
+
+private struct ReaderBottomBarSetup {
+    let bottomBar: NSView
+    let settingsButton: NSButton
+}
+
 extension ReaderWindowController {
     func buildUI() {
         guard let contentView = window?.contentView else { return }
@@ -18,99 +32,17 @@ extension ReaderWindowController {
             self?.handleDroppedDocumentURLs(urls)
         }
 
-        let toolbar = NSView()
-        toolbar.wantsLayer = true
-        toolbar.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.97).cgColor
-        toolbar.layer?.borderColor = NSColor(red: 0.88, green: 0.9, blue: 0.93, alpha: 1).cgColor
-        toolbar.layer?.borderWidth = 1
+        let toolbarSetup = configureToolbarViews()
+        let toolbar = toolbarSetup.toolbar
+        let zoomOut = toolbarSetup.zoomOut
+        let zoomIn = toolbarSetup.zoomIn
+        let zoomGroup = toolbarSetup.zoomGroup
+        let leftDivider = toolbarSetup.leftDivider
+        let rightDivider = toolbarSetup.rightDivider
 
-        let bottomBar = NSView()
-        bottomBar.wantsLayer = true
-        bottomBar.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.97).cgColor
-        bottomBar.layer?.borderColor = NSColor(red: 0.88, green: 0.9, blue: 0.93, alpha: 1).cgColor
-        bottomBar.layer?.borderWidth = 1
-
-        let settingsButton = iconButton(symbol: "gearshape", action: #selector(openAISettings))
-        titleLabel.font = AppFont.semibold(ofSize: 15)
-        titleLabel.textColor = NSColor(red: 0.1, green: 0.11, blue: 0.14, alpha: 1)
-        titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.isSelectable = false
-        titleLabel.toolTip = AppText.localized("从当前目录选择文件", "Choose a file from the current folder")
-        titleLabel.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(openPDFInCurrentDirectory)))
-
-        coverImageView.imageScaling = .scaleProportionallyUpOrDown
-        coverImageView.wantsLayer = true
-        coverImageView.layer?.backgroundColor = NSColor(red: 0.92, green: 0.94, blue: 0.97, alpha: 1).cgColor
-        coverImageView.layer?.borderColor = NSColor(red: 0.78, green: 0.81, blue: 0.86, alpha: 1).cgColor
-        coverImageView.layer?.borderWidth = 1
-        coverImageView.layer?.cornerRadius = 3
-        coverImageView.layer?.masksToBounds = true
-        coverImageView.isHidden = true
-        coverImageView.toolTip = AppText.localized("从当前目录选择文件", "Choose a file from the current folder")
-        coverImageView.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(openPDFInCurrentDirectory)))
-
-        let zoomOut = plainButton(title: "-", action: #selector(ReaderWindowController.zoomOut))
-        let zoomIn = plainButton(title: "+", action: #selector(ReaderWindowController.zoomIn))
-        let zoomGroup = NSView()
-        zoomGroup.wantsLayer = true
-        zoomGroup.layer?.backgroundColor = NSColor.white.cgColor
-        zoomGroup.layer?.borderColor = NSColor(red: 0.84, green: 0.86, blue: 0.9, alpha: 1).cgColor
-        zoomGroup.layer?.borderWidth = 1
-        zoomGroup.layer?.cornerRadius = 7
-
-        zoomField.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
-        zoomField.alignment = .center
-        zoomField.isBordered = false
-        zoomField.drawsBackground = false
-        zoomField.focusRingType = .none
-        zoomField.isEditable = true
-        zoomField.isSelectable = true
-        zoomField.delegate = self
-        zoomField.target = self
-        zoomField.action = #selector(applyZoomFromField)
-
-        let leftDivider = divider()
-        let rightDivider = divider()
-        for view in [zoomOut, leftDivider, zoomField, rightDivider, zoomIn] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            zoomGroup.addSubview(view)
-        }
-        toolbarView = toolbar
-        bottomBarView = bottomBar
-        zoomGroupView = zoomGroup
-
-        pageLabel.font = AppFont.semibold(ofSize: 15)
-        pageLabel.alignment = .center
-        pageLabel.isBordered = false
-        pageLabel.drawsBackground = false
-        pageLabel.focusRingType = .none
-        pageLabel.isEditable = true
-        pageLabel.isSelectable = true
-        pageLabel.delegate = self
-        pageLabel.target = self
-        pageLabel.action = #selector(applyPageFromField)
-        pageLabel.toolTip = AppText.localized("输入页码后按回车跳转", "Enter a page number and press Return")
-        updatePageLabelTextColor()
-        searchUnderlineButton = SearchUnderlineButton(title: "", target: self, action: #selector(showSearchOverlay))
-        searchUnderlineButton.toolTip = AppText.localized("搜索文档", "Search document")
-        searchUnderlineButton.isDark = ReaderTheme.selected == .dark
-        searchButton = iconButton(symbol: "magnifyingglass", action: #selector(showSearchOverlay))
-        searchButton.toolTip = AppText.localized("搜索文档", "Search document")
-
-        fullScreenButton = capsuleButton(title: AppText.fullScreen, symbol: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullScreen))
-        tocButton = capsuleButton(title: AppText.localized("目录", "TOC"), symbol: "list.bullet", action: #selector(showTableOfContents))
-        recentButton = capsuleButton(title: AppText.localized("书架", "Shelf"), symbol: "books.vertical", action: #selector(showRecentDocuments))
-        vocabularyButton = capsuleButton(title: AppText.localized("背单词", "Vocab"), symbol: "text.book.closed", action: #selector(showVocabularyBook))
-        coverButton = capsuleButton(title: AppText.cover, symbol: "book.closed", action: #selector(goToCover))
-        prevButton = capsuleButton(title: AppText.prev, symbol: "chevron.left", action: #selector(prevPage))
-        nextButton = capsuleButton(title: AppText.next, symbol: "chevron.right", action: #selector(nextPage), imageOnRight: true)
-        pageLayoutButton = capsuleButton(title: "", symbol: "rectangle.split.2x1", action: #selector(togglePDFPageLayout))
-        pageLayoutButton.toolTip = AppText.localized("切换单页/双页浏览", "Toggle single/two-page view")
-        updatePDFPageLayoutButton()
-        embeddingPauseButton = capsuleButton(title: AppText.localized("暂停", "Pause"), symbol: "pause.fill", action: #selector(toggleEmbeddingBackfillPaused))
-        embeddingPauseButton.toolTip = AppText.localized("暂停/继续 AI 分析", "Pause/resume AI analysis")
-        embeddingCancelButton = capsuleButton(title: AppText.localized("取消", "Cancel"), symbol: "xmark", action: #selector(cancelEmbeddingBackfill))
-        embeddingCancelButton.toolTip = AppText.localized("取消本次 AI 分析任务", "Cancel this AI analysis task")
+        let bottomBarSetup = configureBottomBarViews()
+        let bottomBar = bottomBarSetup.bottomBar
+        let settingsButton = bottomBarSetup.settingsButton
 
         pdfContainer.translatesAutoresizingMaskIntoConstraints = false
         contentArea.addSubview(pdfContainer)
@@ -151,103 +83,10 @@ extension ReaderWindowController {
         contentView.addSubview(aiHandleButton, positioned: .above, relativeTo: contentArea)
         aiHandleLeadingConstraint = aiHandleButton.leadingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -SideHandleButton.handleWidth)
 
-        resizeHandle.onDragDeltaX = { [weak self] deltaX in
-            self?.resizeAIPanel(deltaX: deltaX)
-        }
-        resizeHandle.onDragEnded = { [weak self] in
-            self?.finishAIPanelResize()
-        }
-        aiPanel.onAskSelectedText = { [weak self] text in
-            guard let self else { return nil }
-            return self.contextForCurrentSelection(selectedText: text)
-        }
-        aiPanel.onSelectedWordQuestionStarted = { [weak self] text in
-            guard let self else { return nil }
-            if self.currentDocumentKind == .pdf {
-                return self.persistSelectedWordIfNeeded(self.pdfView.currentSelection, text: text)
-            }
-            return self.persistSelectedWebWordIfNeeded(text: text)
-        }
-        aiPanel.onLinkedAnswerCompleted = { [weak self] linkID, question, answer in
-            self?.updateStoredLinkedWordAnswer(linkID: linkID, question: question, answer: answer)
-        }
-        aiPanel.onLinkedAnswerFailed = { [weak self] linkID in
-            self?.discardPendingLinkedWord(linkID: linkID)
-        }
-        aiPanel.onLinkedWordAnswerAvailable = { [weak self] linkID in
-            self?.linkedWordAnswer(for: linkID)
-        }
-        aiPanel.onLinkedBubbleSelected = { [weak self] linkID in
-            self?.jumpToStoredLinkedWord(linkID: linkID)
-        }
-        aiPanel.onSummarizeCurrentContent = { [weak self] completion in
-            self?.currentSummaryContent(completion: completion)
-        }
-        aiPanel.onTranslateCurrentContent = { [weak self] completion in
-            self?.currentTranslationContent(completion: completion)
-        }
-        aiPanel.onCurrentReadingContent = { [weak self] completion in
-            self?.currentReadingQuestionContent(completion: completion)
-        }
-        aiPanel.onDocumentQuestionPrompt = { [weak self] question, context, completion in
-            self?.documentAgentPrompt(question: question, context: context, completion: completion)
-        }
-        aiPanel.onDocumentQuestionCancelled = { [weak self] in
-            self?.cancelDocumentAgentPrompt()
-        }
-        aiPanel.onSettingsRequired = { [weak self] in
-            self?.openAISettings()
-        }
-        aiPanel.onConversationChanged = { [weak self] conversation in
-            self?.saveAIConversationIfNeeded(conversation)
-        }
-        aiPanel.onConversationSourcesChanged = { [weak self] sources in
-            self?.reconcileAISourceUnderlines(activeSources: sources)
-        }
-        aiPanel.onCurrentSourceLocation = { [weak self] in
-            self?.currentAIConversationSourceLocation()
-        }
-        aiPanel.onConversationBubbleSelected = { [weak self] sourceLocation in
-            self?.jumpToAIConversationSource(sourceLocation)
-        }
-        aiPanel.onNonFollowUpSelectionInteraction = { [weak self] in
-            self?.clearReaderSelectionForBubbleSelection()
-        }
-
-        searchOverlay.isHidden = true
-        searchOverlay.onSubmit = { [weak self] query in
-            self?.performSearch(query)
-        }
-        searchOverlay.onPrevious = { [weak self] in
-            self?.goToPreviousSearchResult()
-        }
-        searchOverlay.onNext = { [weak self] in
-            self?.goToNextSearchResult()
-        }
-        searchOverlay.onClose = { [weak self] in
-            self?.hideSearchOverlay()
-        }
-        searchOverlay.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(searchOverlay, positioned: .above, relativeTo: contentArea)
+        configureAIPanelCallbacks()
+        configureSearchOverlay(in: contentView)
         configureLoadingOverlay()
         contentView.addSubview(loadingOverlay, positioned: .above, relativeTo: searchOverlay)
-
-        for view in [titleLabel, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, pageLayoutButton!, fullScreenButton!] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            toolbar.addSubview(view)
-        }
-
-        embeddingStatusLabel.font = AppFont.semibold(ofSize: 12)
-        embeddingStatusLabel.alignment = .right
-        embeddingStatusLabel.lineBreakMode = .byTruncatingMiddle
-        embeddingStatusLabel.isHidden = true
-        embeddingPauseButton.isHidden = true
-        embeddingCancelButton.isHidden = true
-
-        for view in [settingsButton, recentButton!, vocabularyButton!, tocButton!, coverButton!, prevButton!, nextButton!, embeddingStatusLabel, embeddingPauseButton!, embeddingCancelButton!] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            bottomBar.addSubview(view)
-        }
 
         NSLayoutConstraint.activate([
             toolbar.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -427,6 +266,231 @@ extension ReaderWindowController {
         }
         applyReaderTheme()
         scheduleSessionRestoreAfterInitialPaint()
+    }
+
+    private func configureToolbarViews() -> ReaderToolbarSetup {
+        let toolbar = readerBarView()
+        let zoomOut = plainButton(title: "-", action: #selector(ReaderWindowController.zoomOut))
+        let zoomIn = plainButton(title: "+", action: #selector(ReaderWindowController.zoomIn))
+        let leftDivider = divider()
+        let rightDivider = divider()
+        let zoomGroup = NSView()
+
+        toolbarView = toolbar
+        configureTitleControls()
+        configureZoomControls(zoomGroup: zoomGroup, zoomOut: zoomOut, zoomIn: zoomIn, leftDivider: leftDivider, rightDivider: rightDivider)
+        configurePageAndSearchControls()
+        configureTopRightControls()
+
+        for view in [titleLabel, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, pageLayoutButton!, fullScreenButton!] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            toolbar.addSubview(view)
+        }
+
+        return ReaderToolbarSetup(
+            toolbar: toolbar,
+            zoomOut: zoomOut,
+            zoomIn: zoomIn,
+            leftDivider: leftDivider,
+            rightDivider: rightDivider,
+            zoomGroup: zoomGroup
+        )
+    }
+
+    private func configureBottomBarViews() -> ReaderBottomBarSetup {
+        let bottomBar = readerBarView()
+        let settingsButton = iconButton(symbol: "gearshape", action: #selector(openAISettings))
+
+        bottomBarView = bottomBar
+        recentButton = capsuleButton(title: AppText.localized("书架", "Shelf"), symbol: "books.vertical", action: #selector(showRecentDocuments))
+        vocabularyButton = capsuleButton(title: AppText.localized("背单词", "Vocab"), symbol: "text.book.closed", action: #selector(showVocabularyBook))
+        tocButton = capsuleButton(title: AppText.localized("目录", "TOC"), symbol: "list.bullet", action: #selector(showTableOfContents))
+        coverButton = capsuleButton(title: AppText.cover, symbol: "book.closed", action: #selector(goToCover))
+        prevButton = capsuleButton(title: AppText.prev, symbol: "chevron.left", action: #selector(prevPage))
+        nextButton = capsuleButton(title: AppText.next, symbol: "chevron.right", action: #selector(nextPage), imageOnRight: true)
+        embeddingPauseButton = capsuleButton(title: AppText.localized("暂停", "Pause"), symbol: "pause.fill", action: #selector(toggleEmbeddingBackfillPaused))
+        embeddingPauseButton.toolTip = AppText.localized("暂停/继续 AI 分析", "Pause/resume AI analysis")
+        embeddingCancelButton = capsuleButton(title: AppText.localized("取消", "Cancel"), symbol: "xmark", action: #selector(cancelEmbeddingBackfill))
+        embeddingCancelButton.toolTip = AppText.localized("取消本次 AI 分析任务", "Cancel this AI analysis task")
+
+        embeddingStatusLabel.font = AppFont.semibold(ofSize: 12)
+        embeddingStatusLabel.alignment = .right
+        embeddingStatusLabel.lineBreakMode = .byTruncatingMiddle
+        embeddingStatusLabel.isHidden = true
+        embeddingPauseButton.isHidden = true
+        embeddingCancelButton.isHidden = true
+
+        for view in [settingsButton, recentButton!, vocabularyButton!, tocButton!, coverButton!, prevButton!, nextButton!, embeddingStatusLabel, embeddingPauseButton!, embeddingCancelButton!] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            bottomBar.addSubview(view)
+        }
+
+        return ReaderBottomBarSetup(bottomBar: bottomBar, settingsButton: settingsButton)
+    }
+
+    private func configureTitleControls() {
+        titleLabel.font = AppFont.semibold(ofSize: 15)
+        titleLabel.textColor = NSColor(red: 0.1, green: 0.11, blue: 0.14, alpha: 1)
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.isSelectable = false
+        titleLabel.toolTip = AppText.localized("从当前目录选择文件", "Choose a file from the current folder")
+        titleLabel.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(openPDFInCurrentDirectory)))
+
+        coverImageView.imageScaling = .scaleProportionallyUpOrDown
+        coverImageView.wantsLayer = true
+        coverImageView.layer?.backgroundColor = NSColor(red: 0.92, green: 0.94, blue: 0.97, alpha: 1).cgColor
+        coverImageView.layer?.borderColor = NSColor(red: 0.78, green: 0.81, blue: 0.86, alpha: 1).cgColor
+        coverImageView.layer?.borderWidth = 1
+        coverImageView.layer?.cornerRadius = 3
+        coverImageView.layer?.masksToBounds = true
+        coverImageView.isHidden = true
+        coverImageView.toolTip = AppText.localized("从当前目录选择文件", "Choose a file from the current folder")
+        coverImageView.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(openPDFInCurrentDirectory)))
+    }
+
+    private func configureZoomControls(zoomGroup: NSView, zoomOut: NSButton, zoomIn: NSButton, leftDivider: NSView, rightDivider: NSView) {
+        zoomGroupView = zoomGroup
+        zoomGroup.wantsLayer = true
+        zoomGroup.layer?.backgroundColor = NSColor.white.cgColor
+        zoomGroup.layer?.borderColor = NSColor(red: 0.84, green: 0.86, blue: 0.9, alpha: 1).cgColor
+        zoomGroup.layer?.borderWidth = 1
+        zoomGroup.layer?.cornerRadius = 7
+
+        zoomField.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
+        zoomField.alignment = .center
+        zoomField.isBordered = false
+        zoomField.drawsBackground = false
+        zoomField.focusRingType = .none
+        zoomField.isEditable = true
+        zoomField.isSelectable = true
+        zoomField.delegate = self
+        zoomField.target = self
+        zoomField.action = #selector(applyZoomFromField)
+
+        for view in [zoomOut, leftDivider, zoomField, rightDivider, zoomIn] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            zoomGroup.addSubview(view)
+        }
+    }
+
+    private func configurePageAndSearchControls() {
+        pageLabel.font = AppFont.semibold(ofSize: 15)
+        pageLabel.alignment = .center
+        pageLabel.isBordered = false
+        pageLabel.drawsBackground = false
+        pageLabel.focusRingType = .none
+        pageLabel.isEditable = true
+        pageLabel.isSelectable = true
+        pageLabel.delegate = self
+        pageLabel.target = self
+        pageLabel.action = #selector(applyPageFromField)
+        pageLabel.toolTip = AppText.localized("输入页码后按回车跳转", "Enter a page number and press Return")
+        updatePageLabelTextColor()
+
+        searchUnderlineButton = SearchUnderlineButton(title: "", target: self, action: #selector(showSearchOverlay))
+        searchUnderlineButton.toolTip = AppText.localized("搜索文档", "Search document")
+        searchUnderlineButton.isDark = ReaderTheme.selected == .dark
+        searchButton = iconButton(symbol: "magnifyingglass", action: #selector(showSearchOverlay))
+        searchButton.toolTip = AppText.localized("搜索文档", "Search document")
+    }
+
+    private func configureTopRightControls() {
+        fullScreenButton = capsuleButton(title: AppText.fullScreen, symbol: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullScreen))
+        pageLayoutButton = capsuleButton(title: "", symbol: "rectangle.split.2x1", action: #selector(togglePDFPageLayout))
+        pageLayoutButton.toolTip = AppText.localized("切换单页/双页浏览", "Toggle single/two-page view")
+        updatePDFPageLayoutButton()
+    }
+
+    private func readerBarView() -> NSView {
+        let view = NSView()
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.97).cgColor
+        view.layer?.borderColor = NSColor(red: 0.88, green: 0.9, blue: 0.93, alpha: 1).cgColor
+        view.layer?.borderWidth = 1
+        return view
+    }
+
+    private func configureAIPanelCallbacks() {
+        resizeHandle.onDragDeltaX = { [weak self] deltaX in
+            self?.resizeAIPanel(deltaX: deltaX)
+        }
+        resizeHandle.onDragEnded = { [weak self] in
+            self?.finishAIPanelResize()
+        }
+        aiPanel.onAskSelectedText = { [weak self] text in
+            guard let self else { return nil }
+            return self.contextForCurrentSelection(selectedText: text)
+        }
+        aiPanel.onSelectedWordQuestionStarted = { [weak self] text in
+            guard let self else { return nil }
+            if self.currentDocumentKind == .pdf {
+                return self.persistSelectedWordIfNeeded(self.pdfView.currentSelection, text: text)
+            }
+            return self.persistSelectedWebWordIfNeeded(text: text)
+        }
+        aiPanel.onLinkedAnswerCompleted = { [weak self] linkID, question, answer in
+            self?.updateStoredLinkedWordAnswer(linkID: linkID, question: question, answer: answer)
+        }
+        aiPanel.onLinkedAnswerFailed = { [weak self] linkID in
+            self?.discardPendingLinkedWord(linkID: linkID)
+        }
+        aiPanel.onLinkedWordAnswerAvailable = { [weak self] linkID in
+            self?.linkedWordAnswer(for: linkID)
+        }
+        aiPanel.onLinkedBubbleSelected = { [weak self] linkID in
+            self?.jumpToStoredLinkedWord(linkID: linkID)
+        }
+        aiPanel.onSummarizeCurrentContent = { [weak self] completion in
+            self?.currentSummaryContent(completion: completion)
+        }
+        aiPanel.onTranslateCurrentContent = { [weak self] completion in
+            self?.currentTranslationContent(completion: completion)
+        }
+        aiPanel.onCurrentReadingContent = { [weak self] completion in
+            self?.currentReadingQuestionContent(completion: completion)
+        }
+        aiPanel.onDocumentQuestionPrompt = { [weak self] question, context, completion in
+            self?.documentAgentPrompt(question: question, context: context, completion: completion)
+        }
+        aiPanel.onDocumentQuestionCancelled = { [weak self] in
+            self?.cancelDocumentAgentPrompt()
+        }
+        aiPanel.onSettingsRequired = { [weak self] in
+            self?.openAISettings()
+        }
+        aiPanel.onConversationChanged = { [weak self] conversation in
+            self?.saveAIConversationIfNeeded(conversation)
+        }
+        aiPanel.onConversationSourcesChanged = { [weak self] sources in
+            self?.reconcileAISourceUnderlines(activeSources: sources)
+        }
+        aiPanel.onCurrentSourceLocation = { [weak self] in
+            self?.currentAIConversationSourceLocation()
+        }
+        aiPanel.onConversationBubbleSelected = { [weak self] sourceLocation in
+            self?.jumpToAIConversationSource(sourceLocation)
+        }
+        aiPanel.onNonFollowUpSelectionInteraction = { [weak self] in
+            self?.clearReaderSelectionForBubbleSelection()
+        }
+    }
+
+    private func configureSearchOverlay(in contentView: NSView) {
+        searchOverlay.isHidden = true
+        searchOverlay.onSubmit = { [weak self] query in
+            self?.performSearch(query)
+        }
+        searchOverlay.onPrevious = { [weak self] in
+            self?.goToPreviousSearchResult()
+        }
+        searchOverlay.onNext = { [weak self] in
+            self?.goToNextSearchResult()
+        }
+        searchOverlay.onClose = { [weak self] in
+            self?.hideSearchOverlay()
+        }
+        searchOverlay.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(searchOverlay, positioned: .above, relativeTo: contentArea)
     }
 
     func configurePDFReaderView() {
