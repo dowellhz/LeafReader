@@ -28,3 +28,13 @@ Open file
 - DOCX is unpacked to a temporary directory.
 - EPUB and DOCX are rendered through generated HTML in WebKit.
 - PDF remains in PDFKit for page navigation and annotation support.
+
+## Related Files
+
+- `mac-app/DocumentLoading.swift`
+- `mac-app/DocumentLoading+Archive.swift`
+- `mac-app/DocumentLoading+EPUB.swift`
+- `mac-app/DocumentLoading+DOCX.swift`
+- `mac-app/DocumentLoading+HTML.swift`
+- `mac-app/ReaderDocumentKind.swift`
+- `mac-app/Resources/reader-web.js`

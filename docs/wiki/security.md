@@ -54,3 +54,10 @@ Security docs live in `docs/wiki/security.md` and should be synced to GitHub Wik
 ```sh
 ./scripts/sync_github_wiki.sh --push
 ```
+
+## Related Files
+
+- `docs/wiki/security.md`
+- `scripts/sync_github_wiki.sh`
+- `scripts/update_wiki.sh`
+- `.gitignore`

@@ -9,15 +9,18 @@ PUSH=0
 WIKI_PAGES=(
   Home.md
   Architecture.md
+  Feature-Map.md
   Document-Loading.md
   AI-Chat.md
   AI-Analysis-Cache.md
   Word-Highlights.md
   Release-Process.md
   Release-Checklist.md
+  Release-Runbook.md
   Security.md
   Troubleshooting.md
   Code-Map.md
+  Type-Index.md
   _Sidebar.md
 )
 
@@ -104,15 +107,18 @@ copy_page() {
 }
 
 copy_page "architecture.md" "Architecture.md"
+copy_page "feature-map.md" "Feature-Map.md"
 copy_page "document-loading.md" "Document-Loading.md"
 copy_page "ai-chat.md" "AI-Chat.md"
 copy_page "ai-analysis-cache.md" "AI-Analysis-Cache.md"
 copy_page "word-highlights.md" "Word-Highlights.md"
 copy_page "release-process.md" "Release-Process.md"
 copy_page "release-checklist.md" "Release-Checklist.md"
+copy_page "release-runbook.md" "Release-Runbook.md"
 copy_page "security.md" "Security.md"
 copy_page "troubleshooting.md" "Troubleshooting.md"
 copy_page "code-map.md" "Code-Map.md"
+copy_page "type-index.md" "Type-Index.md"
 
 CURRENT_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$ROOT_DIR/mac-app/Info.plist")"
 
@@ -141,15 +147,18 @@ This wiki explains the codebase structure and stable engineering workflows for L
 ## Pages
 
 - [Architecture](Architecture)
+- [Feature Map](Feature-Map)
 - [Document Loading](Document-Loading)
 - [AI Chat](AI-Chat)
 - [AI Analysis Cache](AI-Analysis-Cache)
 - [Word Highlights](Word-Highlights)
 - [Release Process](Release-Process)
 - [Release Checklist](Release-Checklist)
+- [Release Runbook](Release-Runbook)
 - [Security](Security)
 - [Troubleshooting](Troubleshooting)
 - [Code Map](Code-Map)
+- [Type Index](Type-Index)
 
 ## Maintenance
 
@@ -168,15 +177,18 @@ cat > "$WIKI_WORKTREE/_Sidebar.md" <<'EOF'
 
 - [Home](Home)
 - [Architecture](Architecture)
+- [Feature Map](Feature-Map)
 - [Document Loading](Document-Loading)
 - [AI Chat](AI-Chat)
 - [AI Analysis Cache](AI-Analysis-Cache)
 - [Word Highlights](Word-Highlights)
 - [Release Process](Release-Process)
 - [Release Checklist](Release-Checklist)
+- [Release Runbook](Release-Runbook)
 - [Security](Security)
 - [Troubleshooting](Troubleshooting)
 - [Code Map](Code-Map)
+- [Type Index](Type-Index)
 EOF
 
 echo "Wiki worktree: $WIKI_WORKTREE"

@@ -27,3 +27,13 @@ Select word
 - PDF words store page index and PDF bounds.
 - EPUB/DOCX words store text context, occurrence index, and scroll progress.
 - Web text lookup normalizes whitespace to improve restore accuracy across rendered HTML.
+
+## Related Files
+
+- `mac-app/ReaderWindowController+Vocabulary.swift`
+- `mac-app/ReaderWindowController+VocabularyHighlights.swift`
+- `mac-app/ReaderWindowController+VocabularyReviewUI.swift`
+- `mac-app/ReaderWindowController+VocabularyReviewSRS.swift`
+- `mac-app/WordRecordSQLiteStore.swift`
+- `mac-app/VocabularySRS.swift`
+- `mac-app/VocabularyExporter.swift`

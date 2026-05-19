@@ -41,3 +41,13 @@ Check version references:
 ## Rule
 
 Run tests and version checks before publishing. Release artifacts under `release/` are local generated outputs unless explicitly committed.
+
+## Related Files
+
+- `scripts/check.sh`
+- `scripts/build_app.sh`
+- `scripts/release_pkg.sh`
+- `scripts/publish_release.sh`
+- `scripts/bump_version.sh`
+- `docs/appcast.xml`
+- `docs/index.html`

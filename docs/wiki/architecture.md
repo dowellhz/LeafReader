@@ -28,3 +28,12 @@ AppDelegate
 ## Design Rule
 
 Large controllers are split by behavior into extensions or focused helper views. New work should prefer adding to an existing focused module instead of growing a general controller file.
+
+## Related Files
+
+- `mac-app/AppDelegate.swift`
+- `mac-app/ReaderWindowController.swift`
+- `mac-app/ReaderWindowController+UI.swift`
+- `mac-app/DocumentLoading.swift`
+- `mac-app/AIChatPanel.swift`
+- `mac-app/WordRecordSQLiteStore.swift`

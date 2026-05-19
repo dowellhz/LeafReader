@@ -28,3 +28,13 @@ Question
 
 - UI should prefer “AI analysis data” or “AI reading records” over “vector index” unless the setting is explicitly about an embedding model/provider.
 - Current buttons use short labels such as `重分析本书` and `清除本书缓存`.
+
+## Related Files
+
+- `mac-app/ReaderWindowController+Embedding.swift`
+- `mac-app/ReaderWindowController+EmbeddingBackfill.swift`
+- `mac-app/ReaderWindowController+EmbeddingStatus.swift`
+- `mac-app/PDFDocumentAgentIndex.swift`
+- `mac-app/PDFEmbeddingStore.swift`
+- `mac-app/EmbeddingClient.swift`
+- `mac-app/EmbeddingActionPolicy.swift`

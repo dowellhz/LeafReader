@@ -33,3 +33,13 @@ Selection
 - Streaming updates are throttled before re-rendering bubbles.
 - Transcript layout is debounced so long conversations do not force layout on every update.
 - Recent conversations are trimmed to keep startup and bubble restore work bounded.
+
+## Related Files
+
+- `mac-app/AIChatPanel.swift`
+- `mac-app/AIChatPanel+Actions.swift`
+- `mac-app/AIChatPanel+Requests.swift`
+- `mac-app/AIChatPanel+Bubbles.swift`
+- `mac-app/AIClient.swift`
+- `mac-app/AIResponseTextFormatter.swift`
+- `mac-app/AIPromptStore.swift`

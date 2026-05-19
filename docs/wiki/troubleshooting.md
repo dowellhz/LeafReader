@@ -2,6 +2,18 @@
 
 This page records recurring Leaf Reader issues and the fastest checks to run before changing code.
 
+## Symptom Index
+
+| Symptom | Start Here |
+| --- | --- |
+| Update check cannot retrieve information | [Sparkle Update Check Fails](#sparkle-update-check-fails) |
+| HTTPS or certificate error on the website/appcast | [GitHub Pages SSL Or Custom Domain Problems](#github-pages-ssl-or-custom-domain-problems) |
+| Package build, signing, or install verification fails | [Package Signing Or Notarization Fails](#package-signing-or-notarization-fails) |
+| PDF scrolling turns pages too early, too late, or twice | [PDF Page Turn Feels Hard Or Double-Triggers](#pdf-page-turn-feels-hard-or-double-triggers) |
+| Right-bottom AI analysis message is stale or visually wrong | [AI Analysis Status Looks Wrong](#ai-analysis-status-looks-wrong) |
+| Vocabulary or book data appears stale | [Book Or Vocabulary Records Look Stale](#book-or-vocabulary-records-look-stale) |
+| Wiki sync cannot clone, pull, or push | [Wiki Sync Fails](#wiki-sync-fails) |
+
 ## Sparkle Update Check Fails
 
 Symptoms:

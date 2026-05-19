@@ -1,25 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+OUT_FILE="$ROOT_DIR/docs/wiki/index.md"
+CURRENT_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$ROOT_DIR/mac-app/Info.plist")"
+
+cat > "$OUT_FILE" <<EOF
 # Leaf Reader Code Wiki
 
 This wiki explains the codebase structure and stable engineering workflows for Leaf Reader.
 
-This repo copy uses relative Markdown file links. The GitHub Wiki copy uses Wiki page names such as `Architecture` and `Document-Loading`.
+This repo copy uses relative Markdown file links. The GitHub Wiki copy uses Wiki page names such as \`Architecture\` and \`Document-Loading\`.
 
 ## Current Version Status
 
-- Current version: `1.4.14`
-- Git tag: `v1.4.14`
+- Current version: \`$CURRENT_VERSION\`
+- Git tag: \`v$CURRENT_VERSION\`
 - Website: [leafreader.space](https://leafreader.space)
 - Appcast: [docs/appcast.xml](../appcast.xml)
-- Latest installer: [LeafReader-1.4.14.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.14/LeafReader-1.4.14.pkg)
+- Latest installer: [LeafReader-$CURRENT_VERSION.pkg](https://github.com/dowellhz/LeafReader/releases/download/v$CURRENT_VERSION/LeafReader-$CURRENT_VERSION.pkg)
 
 ## Common Commands
 
-```sh
+\`\`\`sh
 ./scripts/check.sh
 ./scripts/release_pkg.sh <version>
 ./scripts/publish_release.sh <version>
 ./scripts/update_wiki.sh --push
-```
+\`\`\`
 
 ## Pages
 
@@ -42,8 +50,11 @@ This repo copy uses relative Markdown file links. The GitHub Wiki copy uses Wiki
 - Keep durable architecture notes in these pages.
 - Regenerate and sync Wiki source after large refactors:
 
-```sh
+\`\`\`sh
 ./scripts/update_wiki.sh
-```
+\`\`\`
 
 - Prefer short flow descriptions and source file links over copied code.
+EOF
+
+echo "Generated $OUT_FILE"

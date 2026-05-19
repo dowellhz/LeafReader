@@ -59,6 +59,7 @@ if [[ -n "$(git status --porcelain -- docs/wiki)" ]]; then
 fi
 
 ./scripts/generate_code_wiki.sh
+./scripts/generate_wiki_home.sh
 
 if [[ -n "$(git status --porcelain -- docs/wiki)" ]]; then
   echo "Local wiki source changes:"
