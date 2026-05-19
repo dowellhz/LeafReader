@@ -7,7 +7,7 @@ extension AIChatPanel {
     }
 
     @objc func startQuestion() {
-        let text = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = selectedTextTitle(for: selectedText)
         guard !text.isEmpty, !isBusy else { return }
         guard AISettingsStore.hasAPIKeyForSelectedModel else {
             onSettingsRequired?()
@@ -30,7 +30,7 @@ extension AIChatPanel {
         clearSelectedText()
         if let linkID,
            let reusedAnswer = onLinkedWordAnswerAvailable?(linkID),
-           !reusedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+           hasTrimmedText(reusedAnswer) {
             appendBubble(role: AppText.aiRole, text: reusedAnswer, collapsible: false, renderMarkdown: true, linkID: linkID)
             recordTranscript(role: AppText.aiRole, text: reusedAnswer)
             appendMessage(ChatMessage(role: "user", content: prompt))
@@ -42,7 +42,7 @@ extension AIChatPanel {
     }
 
     @objc func summarizeCurrentContent() {
-        let selected = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let selected = selectedTextTitle(for: selectedText)
         if !selected.isEmpty {
             askSelectedSummary(selected)
             return
@@ -65,7 +65,7 @@ extension AIChatPanel {
     }
 
     @objc func translateCurrentContent() {
-        let selected = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let selected = selectedTextTitle(for: selectedText)
         if !selected.isEmpty {
             askSelectedTranslation(selected)
             return
@@ -94,6 +94,10 @@ extension AIChatPanel {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    func hasTrimmedText(_ text: String) -> Bool {
+        !selectedTextTitle(for: text).isEmpty
+    }
+
     enum CurrentContentMode {
         case summary
         case translation
@@ -110,7 +114,7 @@ extension AIChatPanel {
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard let content,
-                      !content.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                      self.hasTrimmedText(content.text) else {
                     NSSound.beep()
                     return
                 }
@@ -132,7 +136,7 @@ extension AIChatPanel {
     }
 
     func isVocabularySelection(_ text: String) -> Bool {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = selectedTextTitle(for: text)
         guard normalized.count <= 80 else { return false }
         let words = normalized.split { $0.isWhitespace || $0.isNewline }
         guard (1...5).contains(words.count) else { return false }
@@ -140,7 +144,7 @@ extension AIChatPanel {
     }
 
     func isSingleEnglishWord(_ text: String) -> Bool {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = selectedTextTitle(for: text)
         guard normalized.count <= 40 else { return false }
         return normalized.range(of: #"^[A-Za-z][A-Za-z'’-]*$"#, options: .regularExpression) != nil
     }
@@ -172,7 +176,7 @@ extension AIChatPanel {
     }
 
     @objc func sendFollowUp() {
-        let text = inputField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = selectedTextTitle(for: inputField.stringValue)
         guard !text.isEmpty, !isBusy else { return }
         guard AISettingsStore.hasAPIKeyForSelectedModel else {
             onSettingsRequired?()
@@ -209,11 +213,10 @@ extension AIChatPanel {
 
     func followUpContextIncludingSelection() -> String {
         let transcript = transcriptContext()
-        let selected = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let selected = selectedTextTitle(for: selectedText)
         guard !selected.isEmpty else { return transcript }
 
-        let nearbyContext = (onAskSelectedText?(selected) ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let nearbyContext = selectedTextTitle(for: onAskSelectedText?(selected) ?? "")
         var parts: [String] = []
         if transcript != AppText.none {
             parts.append("【对话上下文】\n\(transcript)")
@@ -235,7 +238,7 @@ extension AIChatPanel {
         onCurrentReadingContent { [weak self] content in
             DispatchQueue.main.async {
                 guard let self else { return }
-                if let content, !content.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if let content, self.hasTrimmedText(content.text) {
                     self.appendMessage(ChatMessage(role: "user", content: AIPromptStore.readingFollowUpPrompt(
                         readingText: content.text,
                         context: context,
@@ -258,7 +261,7 @@ extension AIChatPanel {
     }
 
     func recordTranscript(role: String, text: String) {
-        let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let content = selectedTextTitle(for: text)
         guard !content.isEmpty else { return }
         transcriptEntries.append(TranscriptEntry(role: role, content: content))
     }

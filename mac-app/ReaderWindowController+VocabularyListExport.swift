@@ -1,6 +1,9 @@
 import Cocoa
 
 extension ReaderWindowController {
+    private static let vocabularyContextSelectionInset = CGSize(width: -120, height: -36)
+    private static let vocabularyContextFallbackInset = CGSize(width: -80, height: -24)
+
     func populateVocabularyStack(_ stack: NSStackView, records: [VocabularyExportRecord], filter: VocabularyFilter, isDark: Bool) {
         for view in stack.arrangedSubviews {
             stack.removeArrangedSubview(view)
@@ -282,16 +285,13 @@ extension ReaderWindowController {
 
     func exportVocabulary(format: VocabularyExportFormat) {
         let records = currentVocabularyExportRecordsForActiveFilter()
-            .filter { !$0.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .filter { vocabularyHasTrimmedText($0.answer) }
         guard !records.isEmpty else {
             NSSound.beep()
             return
         }
 
-        let savePanel = NSSavePanel()
-        savePanel.canCreateDirectories = true
-        savePanel.allowedContentTypes = []
-        savePanel.nameFieldStringValue = "\(safeExportFileName(documentTitleForAI()))-vocabulary.\(format.fileExtension)"
+        let savePanel = vocabularyExportSavePanel(format: format)
         savePanel.beginSheetModal(for: window ?? NSWindow()) { [weak self] response in
             guard response == .OK, let url = savePanel.url else { return }
             do {
@@ -311,6 +311,14 @@ extension ReaderWindowController {
         }
     }
 
+    func vocabularyExportSavePanel(format: VocabularyExportFormat) -> NSSavePanel {
+        let savePanel = NSSavePanel()
+        savePanel.canCreateDirectories = true
+        savePanel.allowedContentTypes = []
+        savePanel.nameFieldStringValue = "\(safeExportFileName(documentTitleForAI()))-vocabulary.\(format.fileExtension)"
+        return savePanel
+    }
+
     func currentVocabularyExportRecordsForActiveFilter() -> [VocabularyExportRecord] {
         let filter = selectedVocabularyListFilter(in: vocabularyPanel?.contentView)
         return vocabularyRecords(currentVocabularyExportRecords, matching: filter)
@@ -328,7 +336,7 @@ extension ReaderWindowController {
             lines.append("## \(record.word)")
             lines.append("")
             lines.append("- 位置：\(record.location)")
-            if !record.context.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if vocabularyHasTrimmedText(record.context) {
                 lines.append("- 原文上下文：\(record.context)")
             }
             lines.append("")
@@ -360,21 +368,28 @@ extension ReaderWindowController {
     }
 
     func pdfWordContext(for record: StoredPDFWordRecord) -> String {
-        if let context = record.context?.trimmingCharacters(in: .whitespacesAndNewlines), !context.isEmpty {
+        if let context = nonEmptyVocabularyText(record.context) {
             return context
         }
         guard let page = pdfView.document?.page(at: record.pageIndex) else { return "" }
         let pageText = page.string ?? ""
-        let selectedText = record.word.trimmingCharacters(in: .whitespacesAndNewlines)
+        let selectedText = vocabularyTrimmed(record.word)
         if let context = ReaderAIContextBuilder.selectedTextContext(selectedText: selectedText, sourceText: pageText, radius: 24) {
             return context
         }
-        let expandedBounds = record.bounds.cgRect.insetBy(dx: -120, dy: -36)
+        let expandedBounds = record.bounds.cgRect.insetBy(
+            dx: Self.vocabularyContextSelectionInset.width,
+            dy: Self.vocabularyContextSelectionInset.height
+        )
         if let nearbyText = page.selection(for: expandedBounds)?.string,
            let context = ReaderAIContextBuilder.selectedTextContext(selectedText: selectedText, sourceText: nearbyText, radius: 24) {
             return context
         }
-        return ReaderAIContextBuilder.normalizeWhitespace(page.selection(for: record.bounds.cgRect.insetBy(dx: -80, dy: -24))?.string ?? "")
+        let fallbackBounds = record.bounds.cgRect.insetBy(
+            dx: Self.vocabularyContextFallbackInset.width,
+            dy: Self.vocabularyContextFallbackInset.height
+        )
+        return ReaderAIContextBuilder.normalizeWhitespace(page.selection(for: fallbackBounds)?.string ?? "")
     }
 
     func safeExportFileName(_ name: String) -> String {
@@ -514,8 +529,21 @@ extension ReaderWindowController {
     }
 
     func isMeaningfulVocabularyContext(_ context: String) -> Bool {
-        let trimmed = context.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= 3 else { return false }
-        return trimmed.range(of: #"[A-Za-z0-9\u{4e00}-\u{9fff}]"#, options: .regularExpression) != nil
+        let contextText = vocabularyTrimmed(context)
+        guard contextText.count >= 3 else { return false }
+        return contextText.range(of: #"[A-Za-z0-9\u{4e00}-\u{9fff}]"#, options: .regularExpression) != nil
+    }
+
+    func vocabularyTrimmed(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func nonEmptyVocabularyText(_ text: String?) -> String? {
+        guard let value = text.map(vocabularyTrimmed), !value.isEmpty else { return nil }
+        return value
+    }
+
+    func vocabularyHasTrimmedText(_ text: String) -> Bool {
+        !vocabularyTrimmed(text).isEmpty
     }
 }
