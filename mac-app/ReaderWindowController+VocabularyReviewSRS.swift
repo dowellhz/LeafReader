@@ -44,7 +44,7 @@ extension ReaderWindowController {
         if let currentRecord {
             autoPlayVocabularyAnswerIfNeeded(record: currentRecord)
         }
-        reloadVocabularyPanelContent()
+        scheduleVocabularyPanelReload()
     }
 
     @objc func rememberedAfterContextVocabularyCard(_ sender: NSButton) {
@@ -57,7 +57,7 @@ extension ReaderWindowController {
         if let currentRecord {
             autoPlayVocabularyAnswerIfNeeded(record: currentRecord)
         }
-        reloadVocabularyPanelContent()
+        scheduleVocabularyPanelReload()
     }
 
     @objc func showVocabularyContext(_ sender: NSButton) {
@@ -67,7 +67,7 @@ extension ReaderWindowController {
         if let currentRecord {
             autoPlayVocabularyContextIfNeeded(record: currentRecord)
         }
-        reloadVocabularyPanelContent()
+        scheduleVocabularyPanelReload()
     }
 
     @objc func showVocabularyAnswer(_ sender: NSButton) {
@@ -78,7 +78,7 @@ extension ReaderWindowController {
         if let currentRecord {
             autoPlayVocabularyAnswerIfNeeded(record: currentRecord)
         }
-        reloadVocabularyPanelContent()
+        scheduleVocabularyPanelReload()
     }
 
     func currentVocabularyReviewRecord() -> VocabularyExportRecord? {
@@ -104,7 +104,7 @@ extension ReaderWindowController {
             vocabularyReviewBatchKeys.append(currentKey)
         }
         resetVocabularyReviewCardState(clearCardKey: true)
-        reloadVocabularyPanelContent()
+        scheduleVocabularyPanelReload()
     }
 
     func commitPendingVocabularyAnswerIfNeeded() {
@@ -129,7 +129,7 @@ extension ReaderWindowController {
         }
         vocabularyReviewIndex = min(vocabularyReviewIndex, visibleCount - 1)
         resetVocabularyReviewCardState(clearCardKey: true)
-        reloadVocabularyPanelContent()
+        scheduleVocabularyPanelReload()
     }
 
     func resetVocabularyReviewCardState(clearCardKey: Bool) {

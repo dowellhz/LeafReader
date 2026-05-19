@@ -14,6 +14,12 @@ extension ReaderWindowController {
         }
     }
 
+    func scheduleVocabularyPanelReload() {
+        vocabularyPanelReloadTask.schedule { [weak self] in
+            self?.reloadVocabularyPanelContent()
+        }
+    }
+
     @objc func markVocabularyRecordMastered(_ sender: NSButton) {
         let ids = sender.identifier?.rawValue
             .split(separator: "|")
@@ -35,7 +41,7 @@ extension ReaderWindowController {
         } else {
             vocabularyReviewIndex = min(vocabularyReviewIndex, max(0, vocabularyReviewRecords(currentVocabularyExportRecords).count - 1))
             vocabularyReviewAnswerShown = false
-            reloadVocabularyPanelContent()
+            scheduleVocabularyPanelReload()
         }
     }
 

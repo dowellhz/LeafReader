@@ -202,6 +202,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     ]
     var isBusy = false
     var pendingStreamText = ""
+    var lastStreamUpdateAt = Date.distantPast
     var isEditingFollowUp = false
     var ignoreEmptySelectionUntil = Date.distantPast
     var localMouseMonitor: Any?

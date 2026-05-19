@@ -8,7 +8,8 @@ extension AIChatPanel {
         collapsible: Bool = false,
         renderMarkdown: Bool = true,
         linkID: String? = nil,
-        sourceLocation: AIConversationSourceLocation? = nil
+        sourceLocation: AIConversationSourceLocation? = nil,
+        persist: Bool? = nil
     ) -> NSTextField {
         let box = ChatBubbleView()
         box.fillColor = bubbleFillColor(role: role)
@@ -92,7 +93,7 @@ extension AIChatPanel {
         }
         NSLayoutConstraint.activate(constraints)
 
-        if shouldPersistBubble(role: role, text: text, linkID: linkID) {
+        if persist ?? shouldPersistBubble(role: role, text: text, linkID: linkID) {
             persistentBubbleIDs.append(bodyID)
             trimVisibleNormalConversationBubblesIfNeeded()
         }
@@ -100,6 +101,18 @@ extension AIChatPanel {
 
         scheduleTranscriptLayout(scrollTarget: box, forceScroll: true)
         return body
+    }
+
+    func persistBubbleIfNeeded(_ body: NSTextField?) {
+        guard let bodyID = body?.identifier?.rawValue,
+              !persistentBubbleIDs.contains(bodyID),
+              let metadata = bubbleMetadataByID[bodyID],
+              shouldPersistBubble(role: metadata.role, text: metadata.text, linkID: metadata.linkID) else {
+            return
+        }
+        persistentBubbleIDs.append(bodyID)
+        trimVisibleNormalConversationBubblesIfNeeded()
+        notifyConversationChangedIfNeeded()
     }
 
     func trimVisibleNormalConversationBubblesIfNeeded() {
@@ -256,20 +269,37 @@ extension AIChatPanel {
 
     func scheduleStreamUpdate(_ body: NSTextField, text: String) {
         pendingStreamText = text
+        let minimumInterval: TimeInterval = 0.10
+        let elapsed = Date().timeIntervalSince(lastStreamUpdateAt)
+        if streamUpdateWorkItem == nil, elapsed >= minimumInterval {
+            applyPendingStreamUpdate(body)
+            return
+        }
         guard streamUpdateWorkItem == nil else { return }
+        let delay = max(0, minimumInterval - elapsed)
         let workItem = DispatchWorkItem { [weak self, weak body] in
             guard let self, let body else { return }
+            guard self.streamUpdateWorkItem?.isCancelled == false else {
+                self.streamUpdateWorkItem = nil
+                return
+            }
             self.streamUpdateWorkItem = nil
-            self.updateBubble(body, role: AppText.aiRole, text: self.pendingStreamText, renderMarkdown: false, notify: false)
+            self.applyPendingStreamUpdate(body)
         }
         streamUpdateWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 
     func flushStreamUpdate(_ body: NSTextField?) {
         streamUpdateWorkItem?.cancel()
         streamUpdateWorkItem = nil
         guard let body, !pendingStreamText.isEmpty else { return }
+        applyPendingStreamUpdate(body)
+    }
+
+    private func applyPendingStreamUpdate(_ body: NSTextField) {
+        guard !pendingStreamText.isEmpty else { return }
+        lastStreamUpdateAt = Date()
         updateBubble(body, role: AppText.aiRole, text: pendingStreamText, renderMarkdown: false, notify: false)
     }
 

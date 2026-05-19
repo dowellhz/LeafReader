@@ -8,7 +8,7 @@ extension AIChatPanel {
         let requestMessages = messages
         lastFailedAIRequest = nil
         setBusy(true, text: AppText.thinking)
-        let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating, linkID: linkID)
+        let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating, linkID: linkID, persist: false)
         activeAssistantBody = assistantBody
         var streamedText = ""
         currentStreamTask = client.sendStream(messages: messages, onDelta: { [weak self, weak assistantBody] delta in
@@ -33,10 +33,24 @@ extension AIChatPanel {
                 self.setBusy(false, text: "")
                 switch result {
                 case .success(let content):
+                    let finalContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !finalContent.isEmpty else {
+                        if let assistantBody = assistantBody {
+                            self.updateBubble(
+                                assistantBody,
+                                role: AppText.localized("提示", "Note"),
+                                text: AppText.localized("AI 没有返回内容。", "AI returned no content."),
+                                renderMarkdown: false,
+                                notify: false
+                            )
+                        }
+                        return
+                    }
                     self.recordTranscript(role: AppText.aiRole, text: content)
                     self.appendMessage(ChatMessage(role: "assistant", content: content))
                     if let assistantBody = assistantBody {
-                        self.updateBubble(assistantBody, role: AppText.aiRole, text: content)
+                        self.updateBubble(assistantBody, role: AppText.aiRole, text: content, notify: false)
+                        self.persistBubbleIfNeeded(assistantBody)
                     }
                     if let linkID, let linkedQuestion {
                         let visible = AIClient.visibleAnswer(from: content).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -48,9 +62,9 @@ extension AIChatPanel {
                     self.lastFailedAIRequest = FailedAIRequest(messages: requestMessages, linkID: linkID, linkedQuestion: linkedQuestion)
                     let message = self.userFacingAIError(error)
                     if streamedText.isEmpty, let assistantBody = assistantBody {
-                        self.updateBubble(assistantBody, role: AppText.errorRole, text: message)
+                        self.updateBubble(assistantBody, role: AppText.errorRole, text: message, notify: false)
                     } else {
-                        self.appendBubble(role: AppText.errorRole, text: message)
+                        self.appendBubble(role: AppText.errorRole, text: message, persist: false)
                     }
                     self.appendRetryButton()
                 }
@@ -110,9 +124,9 @@ extension AIChatPanel {
         currentStreamTask?.cancel()
         currentStreamTask = nil
         if let activeAssistantBody {
-            updateBubble(activeAssistantBody, role: AppText.localized("提示", "Note"), text: AppText.localized("已取消。", "Cancelled."), renderMarkdown: false)
+            updateBubble(activeAssistantBody, role: AppText.localized("提示", "Note"), text: AppText.localized("已取消。", "Cancelled."), renderMarkdown: false, notify: false)
         } else {
-            appendBubble(role: AppText.localized("提示", "Note"), text: AppText.localized("已取消。", "Cancelled."), collapsible: false, renderMarkdown: false)
+            appendBubble(role: AppText.localized("提示", "Note"), text: AppText.localized("已取消。", "Cancelled."), collapsible: false, renderMarkdown: false, persist: false)
         }
         activeAssistantBody = nil
         setBusy(false, text: "")
