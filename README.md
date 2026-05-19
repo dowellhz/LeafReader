@@ -189,6 +189,12 @@ Run the lightweight logic regression tests:
 ./tests/run.sh
 ```
 
+Run the full local pre-commit check, including whitespace checks, tests, and an app build:
+
+```sh
+./scripts/check.sh
+```
+
 ## Project Layout
 
 - `Leaf Reader.app` - generated macOS application bundle, ignored by git.
