@@ -206,6 +206,19 @@ Run the lightweight logic regression tests:
 - `assets/reader-dark-vocabulary.png` - dark mode vocabulary book screenshot.
 - `release/` - local release artifacts when generated.
 
+## Code Wiki
+
+Developer notes live in `docs/wiki/`:
+
+- [Code Wiki index](docs/wiki/index.md)
+- [Code Map](docs/wiki/code-map.md)
+
+Regenerate the code map after larger refactors:
+
+```sh
+./scripts/generate_code_wiki.sh
+```
+
 ## Release
 
 Current version: `1.4.12`
