@@ -527,14 +527,18 @@ extension AIChatPanel {
         }
         pendingTranscriptForceScroll = pendingTranscriptForceScroll || forceScroll
 
-        transcriptLayoutWorkItem?.cancel()
+        guard transcriptLayoutWorkItem == nil else { return }
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
+            guard self.transcriptLayoutWorkItem?.isCancelled == false else {
+                self.transcriptLayoutWorkItem = nil
+                return
+            }
             self.transcriptLayoutWorkItem = nil
             self.applyPendingTranscriptLayout()
         }
         transcriptLayoutWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.04, execute: workItem)
+        DispatchQueue.main.async(execute: workItem)
     }
 
     func flushTranscriptLayout() {
