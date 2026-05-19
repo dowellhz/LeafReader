@@ -121,7 +121,7 @@ struct ReaderAIContextBuilder {
             .joined(separator: "\n\n")
     }
 
-    private static func stripPDFPageChrome(from text: String, previousText: String, nextText: String, title: String = "") -> String {
+    static func stripPDFPageChrome(from text: String, previousText: String, nextText: String, title: String = "") -> String {
         var lines = text
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
@@ -197,7 +197,7 @@ struct ReaderAIContextBuilder {
         return trimmed(stripPDFPageChrome(from: String(normalized[..<end]), previousText: currentText, nextText: "", title: title))
     }
 
-    private static func pdfTextAppearsToStartMidParagraph(_ text: String) -> Bool {
+    static func pdfTextAppearsToStartMidParagraph(_ text: String) -> Bool {
         let lines = nonEmptyTrimmedLines(from: text)
         guard let firstLine = lines.first, let first = firstLine.first else { return false }
         if ",;:，；：)]）".contains(first) { return true }
@@ -205,7 +205,7 @@ struct ReaderAIContextBuilder {
         return firstLine.range(of: #"^(and|but|or|nor|for|so|yet|because|while|when|which|that|who|whom|whose|where|as|if|then|than|to|of|in|on|with|from|by)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
     }
 
-    private static func pdfTextAppearsToEndMidParagraph(_ text: String) -> Bool {
+    static func pdfTextAppearsToEndMidParagraph(_ text: String) -> Bool {
         let lines = nonEmptyTrimmedLines(from: text)
         guard let lastLine = lines.last, let last = lastLine.last else { return false }
         if ".!?。！？”’\"')）".contains(last) { return false }

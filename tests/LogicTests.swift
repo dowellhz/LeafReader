@@ -585,6 +585,54 @@ private func testReaderSessionPolicy() throws {
     try expect(!ReaderSessionPolicy.isRestorablePDFScale(8.1), "too-large PDF scale should not restore")
 }
 
+private func testVocabularyExporter() throws {
+    let createdAt = Date(timeIntervalSince1970: 1_700_000_000)
+    let records = [
+        VocabularyExporter.Record(word: "alpha", answer: " first answer ", location: "p. 1", context: "context", source: "Book", createdAt: createdAt),
+        VocabularyExporter.Record(word: "empty", answer: "   ", location: "p. 2", context: "", source: "Book", createdAt: createdAt)
+    ]
+    let exportable = VocabularyExporter.exportableRecords(records)
+    try expectEqual(exportable.map(\.word), ["alpha"], "empty answers should not be exported")
+    try expectEqual(VocabularyExporter.csvEscaped("a,\"b\""), "\"a,\"\"b\"\"\"", "CSV values should quote and escape quotes")
+    try expectEqual(VocabularyExporter.safeFileName("A/B?C:D"), "A-B-C-D", "unsafe filename characters should be replaced")
+
+    let markdown = VocabularyExporter.markdown(
+        records: exportable,
+        documentTitle: "Book",
+        labels: VocabularyExporter.MarkdownLabels(
+            titleSuffix: "Vocabulary",
+            exportedAt: "Exported at",
+            wordCount: "Word count",
+            location: "Location",
+            context: "Context"
+        ),
+        exportedAt: createdAt
+    ) { record in
+        record.answer
+    }
+    try expect(markdown.contains("# Book Vocabulary"), "markdown should include title")
+    try expect(markdown.contains("- Context：context"), "markdown should include non-empty context")
+
+    let csv = VocabularyExporter.csv(records: exportable) { record in
+        record.answer
+    }
+    try expect(csv.contains("Front,Back,Page,Context,Source,Created At"), "CSV should include header")
+    try expect(csv.contains("\"alpha\",\" first answer \",\"p. 1\",\"context\",\"Book\""), "CSV should include escaped record")
+}
+
+private func testReaderAIContextTextCleanup() throws {
+    let stripped = ReaderAIContextBuilder.stripPDFPageChrome(
+        from: "Book Title\n12\nReal content",
+        previousText: "Book Title\nPrevious page",
+        nextText: "Book Title\nNext page",
+        title: "Book Title"
+    )
+    try expectEqual(stripped, "Real content", "PDF chrome lines should be stripped from page edges")
+    try expect(ReaderAIContextBuilder.pdfTextAppearsToStartMidParagraph("and then the sentence continues"), "lowercase connector should look mid-paragraph")
+    try expect(ReaderAIContextBuilder.pdfTextAppearsToEndMidParagraph("This sentence keeps going without punctuation"), "long unpunctuated line should look mid-paragraph")
+    try expect(!ReaderAIContextBuilder.pdfTextAppearsToEndMidParagraph("This sentence is complete."), "terminal punctuation should end paragraph")
+}
+
 private func testCapturedPageScrollGuard() throws {
     try expect(shouldApplyCapturedPageScroll(capturedPageIndex: 2, documentPageCount: 5), "captured page in current document should be scrollable")
     try expect(!shouldApplyCapturedPageScroll(capturedPageIndex: -1, documentPageCount: 5), "negative captured page should be ignored")
@@ -625,6 +673,8 @@ private let tests: [(String, () throws -> Void)] = [
     ("Page scroll direction", testPageScrollDirection),
     ("PDF paging policy", testPDFPagingPolicy),
     ("Reader session policy", testReaderSessionPolicy),
+    ("Vocabulary exporter", testVocabularyExporter),
+    ("Reader AI context text cleanup", testReaderAIContextTextCleanup),
     ("Captured page scroll guard", testCapturedPageScrollGuard),
     ("Debounced task", testDebouncedTask)
 ]

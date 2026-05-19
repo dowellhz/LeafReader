@@ -284,8 +284,7 @@ extension ReaderWindowController {
     }
 
     func exportVocabulary(format: VocabularyExportFormat) {
-        let records = currentVocabularyExportRecordsForActiveFilter()
-            .filter { vocabularyHasTrimmedText($0.answer) }
+        let records = VocabularyExporter.exportableRecords(vocabularyExporterRecords(currentVocabularyExportRecordsForActiveFilter()))
         guard !records.isEmpty else {
             NSSound.beep()
             return
@@ -319,61 +318,54 @@ extension ReaderWindowController {
         return savePanel
     }
 
+    func vocabularyExporterRecords(_ records: [VocabularyExportRecord]) -> [VocabularyExporter.Record] {
+        let source = documentTitleForAI()
+        return records.map { record in
+            VocabularyExporter.Record(
+                word: record.word,
+                answer: record.answer,
+                location: record.location,
+                context: record.context,
+                source: source,
+                createdAt: record.createdAt
+            )
+        }
+    }
+
     func currentVocabularyExportRecordsForActiveFilter() -> [VocabularyExportRecord] {
         let filter = selectedVocabularyListFilter(in: vocabularyPanel?.contentView)
         return vocabularyRecords(currentVocabularyExportRecords, matching: filter)
     }
 
-    func vocabularyMarkdown(_ records: [VocabularyExportRecord]) -> String {
-        var lines: [String] = [
-            "# \(documentTitleForAI()) \(AppText.localized("背单词", "Vocabulary"))",
-            "",
-            "- 导出时间：\(DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short))",
-            "- 单词数量：\(records.count)",
-            ""
-        ]
-        for record in records {
-            lines.append("## \(record.word)")
-            lines.append("")
-            lines.append("- 位置：\(record.location)")
-            if vocabularyHasTrimmedText(record.context) {
-                lines.append("- 原文上下文：\(record.context)")
-            }
-            lines.append("")
-            lines.append(vocabularyAnswerBody(record.answer, word: record.word))
-            lines.append("")
+    func vocabularyMarkdown(_ records: [VocabularyExporter.Record]) -> String {
+        VocabularyExporter.markdown(
+            records: records,
+            documentTitle: documentTitleForAI(),
+            labels: VocabularyExporter.MarkdownLabels(
+                titleSuffix: AppText.localized("背单词", "Vocabulary"),
+                exportedAt: AppText.localized("导出时间", "Exported at"),
+                wordCount: AppText.localized("单词数量", "Word count"),
+                location: AppText.localized("位置", "Location"),
+                context: AppText.localized("原文上下文", "Original context")
+            )
+        ) { record in
+            vocabularyAnswerBody(record.answer, word: record.word)
         }
-        return lines.joined(separator: "\n")
     }
 
-    func vocabularyCSV(_ records: [VocabularyExportRecord]) -> String {
-        var rows = ["Front,Back,Page,Context,Source,Created At"]
-        let formatter = ISO8601DateFormatter()
-        for record in records {
-            rows.append([
-                record.word,
-                vocabularyAnswerBody(record.answer, word: record.word),
-                record.location,
-                record.context,
-                documentTitleForAI(),
-                formatter.string(from: record.createdAt)
-            ].map(csvEscaped).joined(separator: ","))
+    func vocabularyCSV(_ records: [VocabularyExporter.Record]) -> String {
+        VocabularyExporter.csv(records: records) { record in
+            vocabularyAnswerBody(record.answer, word: record.word)
         }
-        return rows.joined(separator: "\n")
-    }
-
-    func csvEscaped(_ value: String) -> String {
-        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
-        return "\"\(escaped)\""
     }
 
     func pdfWordContext(for record: StoredPDFWordRecord) -> String {
-        if let context = nonEmptyVocabularyText(record.context) {
+        if let context = VocabularyExporter.nonEmptyText(record.context) {
             return context
         }
         guard let page = pdfView.document?.page(at: record.pageIndex) else { return "" }
         let pageText = page.string ?? ""
-        let selectedText = vocabularyTrimmed(record.word)
+        let selectedText = VocabularyExporter.trimmed(record.word)
         if let context = ReaderAIContextBuilder.selectedTextContext(selectedText: selectedText, sourceText: pageText, radius: 24) {
             return context
         }
@@ -393,11 +385,7 @@ extension ReaderWindowController {
     }
 
     func safeExportFileName(_ name: String) -> String {
-        let invalid = CharacterSet(charactersIn: "/\\?%*|\"<>:")
-        return name
-            .components(separatedBy: invalid)
-            .joined(separator: "-")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        VocabularyExporter.safeFileName(name)
     }
 
     func vocabularyCard(record: VocabularyExportRecord, isDark: Bool) -> NSView {
@@ -529,21 +517,8 @@ extension ReaderWindowController {
     }
 
     func isMeaningfulVocabularyContext(_ context: String) -> Bool {
-        let contextText = vocabularyTrimmed(context)
+        let contextText = VocabularyExporter.trimmed(context)
         guard contextText.count >= 3 else { return false }
         return contextText.range(of: #"[A-Za-z0-9\u{4e00}-\u{9fff}]"#, options: .regularExpression) != nil
-    }
-
-    func vocabularyTrimmed(_ text: String) -> String {
-        text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    func nonEmptyVocabularyText(_ text: String?) -> String? {
-        guard let value = text.map(vocabularyTrimmed), !value.isEmpty else { return nil }
-        return value
-    }
-
-    func vocabularyHasTrimmedText(_ text: String) -> Bool {
-        !vocabularyTrimmed(text).isEmpty
     }
 }

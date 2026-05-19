@@ -40,11 +40,14 @@ swiftc \
   mac-app/EmbeddingWarmupPolicy.swift \
   mac-app/PDFPagingPolicy.swift \
   mac-app/ReaderSessionPolicy.swift \
+  mac-app/VocabularyExporter.swift \
+  mac-app/ReaderAIContextBuilder.swift \
   mac-app/EPUBPackageParser.swift \
   mac-app/EPUBPathResolver.swift \
   mac-app/EPUBHTMLSanitizer.swift \
   mac-app/EPUBTextDecoder.swift \
   tests/EPUBLogicTests.swift \
   tests/LogicTests.swift \
+  -framework PDFKit \
   -o /tmp/leafreader-logic-tests
 /tmp/leafreader-logic-tests

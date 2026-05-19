@@ -7,7 +7,7 @@ extension AIChatPanel {
     }
 
     @objc func startQuestion() {
-        let text = selectedTextTitle(for: selectedText)
+        let text = trimmedText(selectedText)
         guard !text.isEmpty, !isBusy else { return }
         guard AISettingsStore.hasAPIKeyForSelectedModel else {
             onSettingsRequired?()
@@ -42,7 +42,7 @@ extension AIChatPanel {
     }
 
     @objc func summarizeCurrentContent() {
-        let selected = selectedTextTitle(for: selectedText)
+        let selected = trimmedText(selectedText)
         if !selected.isEmpty {
             askSelectedSummary(selected)
             return
@@ -59,13 +59,13 @@ extension AIChatPanel {
         let displayedQuestion = selectedTextActionTitle(actionTitle: AppText.localized("总结", "Summarize"), text: text)
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
-        let title = selectedTextTitle(for: text)
+        let title = trimmedText(text)
         appendMessage(ChatMessage(role: "user", content: AIPromptStore.summaryPrompt(title: title, text: text)))
         requestAI()
     }
 
     @objc func translateCurrentContent() {
-        let selected = selectedTextTitle(for: selectedText)
+        let selected = trimmedText(selectedText)
         if !selected.isEmpty {
             askSelectedTranslation(selected)
             return
@@ -82,20 +82,20 @@ extension AIChatPanel {
         let displayedQuestion = selectedTextActionTitle(actionTitle: AppText.localized("翻译", "Translate"), text: text)
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
-        let title = selectedTextTitle(for: text)
+        let title = trimmedText(text)
         requestTranslation(title: title, text: text)
     }
 
     func selectedTextActionTitle(actionTitle: String, text: String) -> String {
-        "\(actionTitle): \(selectedTextTitle(for: text))"
+        "\(actionTitle): \(trimmedText(text))"
     }
 
-    func selectedTextTitle(for text: String) -> String {
+    func trimmedText(_ text: String) -> String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func hasTrimmedText(_ text: String) -> Bool {
-        !selectedTextTitle(for: text).isEmpty
+        !trimmedText(text).isEmpty
     }
 
     enum CurrentContentMode {
@@ -136,7 +136,7 @@ extension AIChatPanel {
     }
 
     func isVocabularySelection(_ text: String) -> Bool {
-        let normalized = selectedTextTitle(for: text)
+        let normalized = trimmedText(text)
         guard normalized.count <= 80 else { return false }
         let words = normalized.split { $0.isWhitespace || $0.isNewline }
         guard (1...5).contains(words.count) else { return false }
@@ -144,7 +144,7 @@ extension AIChatPanel {
     }
 
     func isSingleEnglishWord(_ text: String) -> Bool {
-        let normalized = selectedTextTitle(for: text)
+        let normalized = trimmedText(text)
         guard normalized.count <= 40 else { return false }
         return normalized.range(of: #"^[A-Za-z][A-Za-z'’-]*$"#, options: .regularExpression) != nil
     }
@@ -176,7 +176,7 @@ extension AIChatPanel {
     }
 
     @objc func sendFollowUp() {
-        let text = selectedTextTitle(for: inputField.stringValue)
+        let text = trimmedText(inputField.stringValue)
         guard !text.isEmpty, !isBusy else { return }
         guard AISettingsStore.hasAPIKeyForSelectedModel else {
             onSettingsRequired?()
@@ -213,10 +213,10 @@ extension AIChatPanel {
 
     func followUpContextIncludingSelection() -> String {
         let transcript = transcriptContext()
-        let selected = selectedTextTitle(for: selectedText)
+        let selected = trimmedText(selectedText)
         guard !selected.isEmpty else { return transcript }
 
-        let nearbyContext = selectedTextTitle(for: onAskSelectedText?(selected) ?? "")
+        let nearbyContext = trimmedText(onAskSelectedText?(selected) ?? "")
         var parts: [String] = []
         if transcript != AppText.none {
             parts.append("【对话上下文】\n\(transcript)")
@@ -261,7 +261,7 @@ extension AIChatPanel {
     }
 
     func recordTranscript(role: String, text: String) {
-        let content = selectedTextTitle(for: text)
+        let content = trimmedText(text)
         guard !content.isEmpty else { return }
         transcriptEntries.append(TranscriptEntry(role: role, content: content))
     }
