@@ -184,7 +184,7 @@ extension ReaderWindowController {
             webZoomPercent = percent
             zoomField.stringValue = "\(webZoomPercent)%"
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + ReaderSessionPolicy.webRestoreDelay) { [weak self] in
             guard let self, self.currentDocumentKind != .pdf else { return }
             self.applyWebZoomToPage()
             self.zoomField.stringValue = "\(self.webZoomPercent)%"
@@ -200,7 +200,7 @@ extension ReaderWindowController {
     func saveWebProgress() {
         guard !isRestoringSession, currentDocumentKind != .pdf else { return }
         let now = Date()
-        guard now.timeIntervalSince(lastWebProgressSave) > 0.5 else { return }
+        guard now.timeIntervalSince(lastWebProgressSave) > ReaderSessionPolicy.webProgressSaveInterval else { return }
         lastWebProgressSave = now
         sessionStore.saveWebProgress(scrollProgress: webScrollProgress, zoomPercent: webZoomPercent)
     }
@@ -226,7 +226,7 @@ extension ReaderWindowController {
         }
 
         let scale = progress.scale
-        if scale >= 0.1, scale <= 8 {
+        if ReaderSessionPolicy.isRestorablePDFScale(scale) {
             applyReadablePDFScale(scale)
         }
     }
@@ -275,7 +275,7 @@ extension ReaderWindowController {
     }
 
     func scheduleSessionRestoreAfterInitialPaint() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + ReaderSessionPolicy.initialRestoreDelay) { [weak self] in
             guard let self, self.currentFileURL == nil else { return }
             self.restoreSession()
         }

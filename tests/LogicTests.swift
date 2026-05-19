@@ -575,6 +575,16 @@ private func testPDFPagingPolicy() throws {
     )
 }
 
+private func testReaderSessionPolicy() throws {
+    try expectEqual(ReaderSessionPolicy.webRestoreDelay, 0.35, "web restore delay should remain explicit")
+    try expectEqual(ReaderSessionPolicy.webProgressSaveInterval, 0.5, "web progress save interval should remain explicit")
+    try expectEqual(ReaderSessionPolicy.initialRestoreDelay, 0.2, "initial restore delay should remain explicit")
+    try expect(ReaderSessionPolicy.isRestorablePDFScale(0.1), "minimum PDF scale should restore")
+    try expect(ReaderSessionPolicy.isRestorablePDFScale(8), "maximum PDF scale should restore")
+    try expect(!ReaderSessionPolicy.isRestorablePDFScale(0.09), "too-small PDF scale should not restore")
+    try expect(!ReaderSessionPolicy.isRestorablePDFScale(8.1), "too-large PDF scale should not restore")
+}
+
 private func testCapturedPageScrollGuard() throws {
     try expect(shouldApplyCapturedPageScroll(capturedPageIndex: 2, documentPageCount: 5), "captured page in current document should be scrollable")
     try expect(!shouldApplyCapturedPageScroll(capturedPageIndex: -1, documentPageCount: 5), "negative captured page should be ignored")
@@ -614,6 +624,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Word record legacy migration", testWordRecordLegacyMigrationDoesNotReviveClearedData),
     ("Page scroll direction", testPageScrollDirection),
     ("PDF paging policy", testPDFPagingPolicy),
+    ("Reader session policy", testReaderSessionPolicy),
     ("Captured page scroll guard", testCapturedPageScrollGuard),
     ("Debounced task", testDebouncedTask)
 ]

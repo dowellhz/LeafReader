@@ -39,6 +39,7 @@ swiftc \
 swiftc \
   mac-app/EmbeddingWarmupPolicy.swift \
   mac-app/PDFPagingPolicy.swift \
+  mac-app/ReaderSessionPolicy.swift \
   mac-app/EPUBPackageParser.swift \
   mac-app/EPUBPathResolver.swift \
   mac-app/EPUBHTMLSanitizer.swift \
