@@ -558,6 +558,23 @@ private func testPageScrollDirection() throws {
     try expect(pageDirectionAtEdge(deltaY: -12, isAtTop: true, isAtBottom: false) == nil, "scrolling downward at top should not go next")
 }
 
+private func testPDFPagingPolicy() throws {
+    try expectEqual(PDFPagingPolicy.wheelEdgeScrollThreshold, 40, "wheel edge threshold should remain explicit")
+    try expectEqual(PDFPagingPolicy.wheelPageTurnCooldown, 0.45, "wheel cooldown should prevent double page turns")
+    try expectEqual(PDFPagingPolicy.trackpadEdgeSlop, 22, "trackpad edge slop should remain explicit")
+    try expectEqual(PDFPagingPolicy.trackpadPageTurnCooldown, 0.8, "trackpad cooldown should prevent double page turns")
+    try expectEqual(
+        PDFPagingPolicy.trackpadPageTurnThreshold(clipHeight: 800, documentHeight: 801),
+        PDFPagingPolicy.trackpadShortPageTurnThreshold,
+        "short pages should require a stronger trackpad gesture"
+    )
+    try expectEqual(
+        PDFPagingPolicy.trackpadPageTurnThreshold(clipHeight: 800, documentHeight: 1200),
+        PDFPagingPolicy.trackpadLongPageTurnThreshold,
+        "long pages should allow a lighter edge gesture"
+    )
+}
+
 private func testCapturedPageScrollGuard() throws {
     try expect(shouldApplyCapturedPageScroll(capturedPageIndex: 2, documentPageCount: 5), "captured page in current document should be scrollable")
     try expect(!shouldApplyCapturedPageScroll(capturedPageIndex: -1, documentPageCount: 5), "negative captured page should be ignored")
@@ -596,6 +613,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Word record incremental store", testWordRecordIncrementalStore),
     ("Word record legacy migration", testWordRecordLegacyMigrationDoesNotReviveClearedData),
     ("Page scroll direction", testPageScrollDirection),
+    ("PDF paging policy", testPDFPagingPolicy),
     ("Captured page scroll guard", testCapturedPageScrollGuard),
     ("Debounced task", testDebouncedTask)
 ]

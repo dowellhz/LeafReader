@@ -121,7 +121,7 @@ extension ReaderWindowController {
         guard abs(accumulatedPDFTrackpadScroll) >= threshold else { return true }
 
         let now = Date()
-        guard now.timeIntervalSince(lastPDFTrackpadPageTurn) > 0.8 else {
+        guard now.timeIntervalSince(lastPDFTrackpadPageTurn) > PDFPagingPolicy.trackpadPageTurnCooldown else {
             accumulatedPDFTrackpadScroll = 0
             return true
         }
@@ -144,14 +144,15 @@ extension ReaderWindowController {
         }
         let clipHeight = clipView.bounds.height
         let documentHeight = documentView.bounds.height
-        guard documentHeight > clipHeight + 2 else {
+        guard documentHeight > clipHeight + PDFPagingPolicy.documentSizeTolerance else {
             return nil
         }
 
-        let edgeSlop: CGFloat = 22
         let scrollerValue = scrollView.verticalScroller?.doubleValue
-        let isAtTop = clipView.bounds.minY <= edgeSlop || scrollerValue.map { $0 <= 0.02 } == true
-        let isAtBottom = clipView.bounds.maxY >= documentHeight - edgeSlop || scrollerValue.map { $0 >= 0.98 } == true
+        let isAtTop = clipView.bounds.minY <= PDFPagingPolicy.trackpadEdgeSlop
+            || scrollerValue.map { $0 <= PDFPagingPolicy.trackpadScrollerTopLimit } == true
+        let isAtBottom = clipView.bounds.maxY >= documentHeight - PDFPagingPolicy.trackpadEdgeSlop
+            || scrollerValue.map { $0 >= PDFPagingPolicy.trackpadScrollerBottomLimit } == true
 
         if isAtTop, event.scrollingDeltaY > 0 {
             return .previous
@@ -165,14 +166,11 @@ extension ReaderWindowController {
     func pdfTrackpadPageTurnThreshold() -> CGFloat {
         guard let scrollView = firstScrollView(in: pdfView),
               let documentView = scrollView.documentView else {
-            return 220
+            return PDFPagingPolicy.trackpadFallbackPageTurnThreshold
         }
         let clipHeight = scrollView.contentView.bounds.height
         let documentHeight = documentView.bounds.height
-        if documentHeight <= clipHeight + 2 {
-            return 180
-        }
-        return 120
+        return PDFPagingPolicy.trackpadPageTurnThreshold(clipHeight: clipHeight, documentHeight: documentHeight)
     }
 
     func firstScrollView(in view: NSView) -> NSScrollView? {

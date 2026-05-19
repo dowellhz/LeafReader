@@ -12,11 +12,7 @@ extension ReaderWindowController {
     }
 
     func configureOpenPanel(_ panel: NSOpenPanel) {
-        panel.allowedFileTypes = ["pdf", "epub", "docx"]
-        panel.allowsOtherFileTypes = false
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.treatsFilePackagesAsDirectories = false
+        DocumentOpenPanelConfiguration.apply(to: panel)
     }
 
     func loadDocument(_ url: URL) {

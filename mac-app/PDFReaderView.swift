@@ -73,8 +73,7 @@ final class EdgePagingPDFView: PDFView {
 
         guard let direction else { return }
         accumulatedEdgeScroll += abs(deltaY)
-        let threshold: CGFloat = event.hasPreciseScrollingDeltas ? 10 : 40
-        guard accumulatedEdgeScroll >= threshold else { return }
+        guard accumulatedEdgeScroll >= PDFPagingPolicy.wheelEdgeScrollThreshold else { return }
 
         accumulatedEdgeScroll = 0
         turnPage(direction)
@@ -82,7 +81,7 @@ final class EdgePagingPDFView: PDFView {
 
     private func turnPage(_ direction: ScrollPageDirection) {
         let now = Date()
-        guard now.timeIntervalSince(lastEdgePageTurn) > 0.35 else { return }
+        guard now.timeIntervalSince(lastEdgePageTurn) > PDFPagingPolicy.wheelPageTurnCooldown else { return }
         lastEdgePageTurn = now
         onScrollPastPageEdge?(direction)
     }
@@ -98,8 +97,8 @@ final class EdgePagingPDFView: PDFView {
         guard let documentView = scrollView.documentView else { return true }
         let clipHeight = scrollView.contentView.bounds.height
         let documentHeight = documentView.bounds.height
-        guard documentHeight > clipHeight + 2 else { return true }
-        return clipView.bounds.maxY >= documentHeight - 2
+        guard documentHeight > clipHeight + PDFPagingPolicy.documentSizeTolerance else { return true }
+        return clipView.bounds.maxY >= documentHeight - PDFPagingPolicy.documentSizeTolerance
     }
 
     private var pdfScrollView: NSScrollView? {

@@ -24,7 +24,7 @@ extension AIChatPanel {
         }
         let selectedContext = onAskSelectedText?(text) ?? nil
         let prompt = isVocabularyItem ? wordPrompt(for: text, context: selectedContext ?? "") : sentencePrompt(for: text)
-        let displayedQuestion = isVocabularyItem ? vocabularyBubbleTitle(for: text) : "\(AppText.explainPrefix): \(text)"
+        let displayedQuestion = isVocabularyItem ? vocabularyBubbleTitle(for: text) : selectedTextActionTitle(actionTitle: AppText.explainPrefix, text: text)
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
         clearSelectedText()
@@ -56,10 +56,10 @@ extension AIChatPanel {
             onSettingsRequired?()
             return
         }
-        let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let displayedQuestion = "\(AppText.localized("总结", "Summarize")): \(title)"
+        let displayedQuestion = selectedTextActionTitle(actionTitle: AppText.localized("总结", "Summarize"), text: text)
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
+        let title = selectedTextTitle(for: text)
         appendMessage(ChatMessage(role: "user", content: AIPromptStore.summaryPrompt(title: title, text: text)))
         requestAI()
     }
@@ -79,11 +79,19 @@ extension AIChatPanel {
             onSettingsRequired?()
             return
         }
-        let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let displayedQuestion = "\(AppText.localized("翻译", "Translate")): \(title)"
+        let displayedQuestion = selectedTextActionTitle(actionTitle: AppText.localized("翻译", "Translate"), text: text)
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
+        let title = selectedTextTitle(for: text)
         requestTranslation(title: title, text: text)
+    }
+
+    func selectedTextActionTitle(actionTitle: String, text: String) -> String {
+        "\(actionTitle): \(selectedTextTitle(for: text))"
+    }
+
+    func selectedTextTitle(for text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     enum CurrentContentMode {

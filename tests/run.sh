@@ -38,6 +38,7 @@ swiftc \
 /tmp/leafreader-update-failure-classifier-tests
 swiftc \
   mac-app/EmbeddingWarmupPolicy.swift \
+  mac-app/PDFPagingPolicy.swift \
   mac-app/EPUBPackageParser.swift \
   mac-app/EPUBPathResolver.swift \
   mac-app/EPUBHTMLSanitizer.swift \

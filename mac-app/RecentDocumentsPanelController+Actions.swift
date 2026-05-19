@@ -139,12 +139,7 @@ extension RecentDocumentsPanelController {
 
     @objc func openDocumentFromShelf(_ sender: NSButton) {
         let openPanel = NSOpenPanel()
-        openPanel.allowedFileTypes = ["pdf", "epub", "docx"]
-        openPanel.allowsOtherFileTypes = false
-        openPanel.allowsMultipleSelection = false
-        openPanel.canChooseDirectories = false
-        openPanel.canChooseFiles = true
-        openPanel.treatsFilePackagesAsDirectories = false
+        DocumentOpenPanelConfiguration.apply(to: openPanel)
         guard let hostWindow = panel ?? parentWindow ?? NSApp.keyWindow else { return }
         Self.coverLoadQueue.isSuspended = true
         openPanel.beginSheetModal(for: hostWindow) { [weak self] response in
