@@ -7,42 +7,8 @@ extension ReaderWindowController {
         guard let contentView = window?.contentView else { return }
         installKeyboardPagingMonitor()
 
-        pdfView = EdgePagingPDFView()
-        pdfView.wantsLayer = true
-        pdfView.layer?.masksToBounds = true
-        pdfView.autoScales = true
-        pdfView.displayMode = .singlePage
-        pdfView.displayBox = .cropBox
-        pdfView.displaysPageBreaks = true
-        pdfView.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1)
-        pdfView.delegate = self
-        pdfView.onDroppedDocumentURLs = { [weak self] urls in
-            self?.handleDroppedDocumentURLs(urls)
-        }
-        pdfView.onScrollPastPageEdge = { [weak self] direction in
-            self?.turnPageFromScroll(direction)
-        }
-
-        let webConfiguration = WKWebViewConfiguration()
-        let userContentController = WKUserContentController()
-        userContentController.add(self, name: "selectionChanged")
-        userContentController.add(self, name: "scrollChanged")
-        userContentController.add(self, name: "webWordClicked")
-        userContentController.add(self, name: "webAISourceClicked")
-        userContentController.addUserScript(WKUserScript(
-            source: Self.webDocumentUserScriptSource(),
-            injectionTime: .atDocumentEnd,
-            forMainFrameOnly: false
-        ))
-        webConfiguration.userContentController = userContentController
-        webView = ReaderWebView(frame: .zero, configuration: webConfiguration)
-        webView.wantsLayer = true
-        webView.layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
-        webView.isHidden = true
-        webView.navigationDelegate = self
-        webView.onDroppedDocumentURLs = { [weak self] urls in
-            self?.handleDroppedDocumentURLs(urls)
-        }
+        configurePDFReaderView()
+        configureReaderWebView()
 
         NotificationCenter.default.addObserver(self, selector: #selector(pageChanged), name: .PDFViewPageChanged, object: pdfView)
 
@@ -461,6 +427,47 @@ extension ReaderWindowController {
         }
         applyReaderTheme()
         scheduleSessionRestoreAfterInitialPaint()
+    }
+
+    func configurePDFReaderView() {
+        pdfView = EdgePagingPDFView()
+        pdfView.wantsLayer = true
+        pdfView.layer?.masksToBounds = true
+        pdfView.autoScales = true
+        pdfView.displayMode = .singlePage
+        pdfView.displayBox = .cropBox
+        pdfView.displaysPageBreaks = true
+        pdfView.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1)
+        pdfView.delegate = self
+        pdfView.onDroppedDocumentURLs = { [weak self] urls in
+            self?.handleDroppedDocumentURLs(urls)
+        }
+        pdfView.onScrollPastPageEdge = { [weak self] direction in
+            self?.turnPageFromScroll(direction)
+        }
+    }
+
+    func configureReaderWebView() {
+        let webConfiguration = WKWebViewConfiguration()
+        let userContentController = WKUserContentController()
+        userContentController.add(self, name: "selectionChanged")
+        userContentController.add(self, name: "scrollChanged")
+        userContentController.add(self, name: "webWordClicked")
+        userContentController.add(self, name: "webAISourceClicked")
+        userContentController.addUserScript(WKUserScript(
+            source: Self.webDocumentUserScriptSource(),
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: false
+        ))
+        webConfiguration.userContentController = userContentController
+        webView = ReaderWebView(frame: .zero, configuration: webConfiguration)
+        webView.wantsLayer = true
+        webView.layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
+        webView.isHidden = true
+        webView.navigationDelegate = self
+        webView.onDroppedDocumentURLs = { [weak self] urls in
+            self?.handleDroppedDocumentURLs(urls)
+        }
     }
 
 }
