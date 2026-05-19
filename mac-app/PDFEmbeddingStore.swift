@@ -46,19 +46,24 @@ final class PDFEmbeddingStore {
         guard !chunkIDs.isEmpty else { return [:] }
         var result: [String: [Float]] = [:]
         let sql = "SELECT chunk_id, embedding FROM embeddings WHERE document_id = ? AND model = ? AND chunk_id = ?"
+        var statement: OpaquePointer?
+        guard prepare(sql, statement: &statement, operation: "prepare embedding lookup") else { return [:] }
+        defer { sqlite3_finalize(statement) }
         for chunkID in chunkIDs {
-            var statement: OpaquePointer?
-            guard prepare(sql, statement: &statement, operation: "prepare embedding lookup") else { continue }
-            defer { sqlite3_finalize(statement) }
+            sqlite3_reset(statement)
+            sqlite3_clear_bindings(statement)
             bind(documentID, at: 1, statement: statement)
             bind(model, at: 2, statement: statement)
             bind(chunkID, at: 3, statement: statement)
-            if sqlite3_step(statement) == SQLITE_ROW,
+            let stepResult = sqlite3_step(statement)
+            if stepResult == SQLITE_ROW,
                let idPointer = sqlite3_column_text(statement, 0),
                let blob = sqlite3_column_blob(statement, 1) {
                 let id = String(cString: idPointer)
                 let byteCount = Int(sqlite3_column_bytes(statement, 1))
                 result[id] = Self.decodeEmbedding(blob: blob, byteCount: byteCount)
+            } else if stepResult != SQLITE_DONE {
+                logSQLiteError("lookup embedding row", result: stepResult)
             }
         }
         if !result.isEmpty {
@@ -73,10 +78,18 @@ final class PDFEmbeddingStore {
         INSERT OR REPLACE INTO embeddings(document_id, model, chunk_id, page_index, chunk_index, text, embedding, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
+        guard beginTransaction() else { return }
+        var didWriteAllRows = true
+        let updatedAt = Date().timeIntervalSince1970
+        var statement: OpaquePointer?
+        guard prepare(sql, statement: &statement, operation: "prepare embedding save") else {
+            rollbackTransaction()
+            return
+        }
+        defer { sqlite3_finalize(statement) }
         for (chunk, embedding) in zip(chunks, embeddings) {
-            var statement: OpaquePointer?
-            guard prepare(sql, statement: &statement, operation: "prepare embedding save") else { continue }
-            defer { sqlite3_finalize(statement) }
+            sqlite3_reset(statement)
+            sqlite3_clear_bindings(statement)
             bind(documentID, at: 1, statement: statement)
             bind(model, at: 2, statement: statement)
             bind(chunk.id, at: 3, statement: statement)
@@ -87,8 +100,15 @@ final class PDFEmbeddingStore {
             _ = data.withUnsafeBytes { bytes in
                 sqlite3_bind_blob(statement, 7, bytes.baseAddress, Int32(data.count), SQLITE_TRANSIENT)
             }
-            sqlite3_bind_double(statement, 8, Date().timeIntervalSince1970)
-            step(statement, operation: "save embedding row")
+            sqlite3_bind_double(statement, 8, updatedAt)
+            if !step(statement, operation: "save embedding row") {
+                didWriteAllRows = false
+                break
+            }
+        }
+        guard didWriteAllRows, commitTransaction() else {
+            rollbackTransaction()
+            return
         }
         invalidateCacheSize()
         pruneIfNeeded(maximumBytes: Self.defaultMaximumCacheBytes)
@@ -238,6 +258,18 @@ final class PDFEmbeddingStore {
             return false
         }
         return true
+    }
+
+    private func beginTransaction() -> Bool {
+        exec("BEGIN IMMEDIATE TRANSACTION", operation: "begin embedding save transaction")
+    }
+
+    private func commitTransaction() -> Bool {
+        exec("COMMIT", operation: "commit embedding save transaction")
+    }
+
+    private func rollbackTransaction() {
+        exec("ROLLBACK", operation: "rollback embedding save transaction")
     }
 
     private func vacuum() {

@@ -53,12 +53,44 @@ private func testPruneRemovesCachedDocumentsOverLimit() throws {
     try expectEqual(store.documentCount(), 0, "tiny cache limit should remove all cached documents")
 }
 
+private func testBatchSaveAndLookupRoundTripsEmbeddings() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("leafreader-embedding-batch-tests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let databaseURL = directory.appendingPathComponent("pdf-embeddings.sqlite3")
+    guard let store = PDFEmbeddingStore(databaseURL: databaseURL) else {
+        throw TestFailure(description: "failed to create temporary embedding store")
+    }
+
+    let chunks = [
+        PDFEmbeddingChunk(id: "chunk-a", pageIndex: 0, chunkIndex: 0, text: "alpha"),
+        PDFEmbeddingChunk(id: "chunk-b", pageIndex: 0, chunkIndex: 1, text: "beta"),
+        PDFEmbeddingChunk(id: "chunk-c", pageIndex: 1, chunkIndex: 0, text: "gamma")
+    ]
+    let embeddings: [[Float]] = [
+        [0.1, 0.2, 0.3],
+        [1.1, 1.2, 1.3],
+        [2.1, 2.2, 2.3]
+    ]
+
+    store.save(documentID: "doc-batch", model: "test-model", chunks: chunks, embeddings: embeddings)
+    let loaded = store.embeddings(documentID: "doc-batch", model: "test-model", chunkIDs: ["chunk-c", "missing", "chunk-a"])
+
+    try expectEqual(loaded.count, 2, "lookup should return only cached chunk IDs")
+    try expectEqual(loaded["chunk-a"], embeddings[0], "lookup should round-trip the first embedding")
+    try expectEqual(loaded["chunk-c"], embeddings[2], "lookup should round-trip the last embedding")
+    try expectEqual(loaded["missing"], nil, "lookup should omit missing chunk IDs")
+}
+
 @main
 struct PDFEmbeddingStoreTestRunner {
     static func main() {
         do {
             try testCacheSizeIncludesSQLiteSidecars()
             try testPruneRemovesCachedDocumentsOverLimit()
+            try testBatchSaveAndLookupRoundTripsEmbeddings()
             print("PDFEmbeddingStoreTests passed")
         } catch {
             fputs("PDFEmbeddingStoreTests failed: \(error)\n", stderr)
