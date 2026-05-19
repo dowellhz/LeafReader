@@ -127,10 +127,7 @@ extension ReaderWindowController {
         sessionStore = ReaderSessionStore(fileMD5: currentFileMD5)
         aiConversationStore = currentFileMD5.map { AIConversationStore(fileMD5: $0) }
         loadedAIConversation = nil
-        pdfAgentIndex = nil
-        isBuildingDocumentAgentIndex = false
-        documentAgentIndexGeneration += 1
-        pendingDocumentAgentIndexCallbacks.removeAll()
+        invalidateDocumentAgentIndex()
         pendingPDFWordRecords.removeAll()
         pendingWebWordRecords.removeAll()
         cancelScheduledEmbeddingWarmup()
@@ -157,9 +154,7 @@ extension ReaderWindowController {
                     return
                 }
                 self.currentWebPlainText = plainText
-                self.pdfAgentIndex = nil
-                self.isBuildingDocumentAgentIndex = false
-                self.pendingDocumentAgentIndexCallbacks.removeAll()
+                self.invalidateDocumentAgentIndex()
                 self.scheduleDocumentEmbeddingWarmup(priorityPageIndex: self.currentEmbeddingPriorityIndex())
             }
         }

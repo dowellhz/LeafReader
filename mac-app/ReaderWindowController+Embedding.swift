@@ -67,6 +67,13 @@ extension ReaderWindowController {
         callbacks.forEach { $0() }
     }
 
+    func invalidateDocumentAgentIndex() {
+        pdfAgentIndex = nil
+        isBuildingDocumentAgentIndex = false
+        documentAgentIndexGeneration += 1
+        pendingDocumentAgentIndexCallbacks.removeAll()
+    }
+
     func currentEmbeddingPriorityIndex() -> Int? {
         if currentDocumentKind == .pdf {
             return currentPageIndex()

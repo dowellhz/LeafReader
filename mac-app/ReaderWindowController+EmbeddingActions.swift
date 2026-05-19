@@ -64,10 +64,7 @@ extension ReaderWindowController {
         embeddingStoreQueue.async { [weak self] in
             self?.pdfEmbeddingStore?.deleteDocument(documentID: documentID)
         }
-        pdfAgentIndex = nil
-        documentAgentIndexGeneration += 1
-        isBuildingDocumentAgentIndex = false
-        pendingDocumentAgentIndexCallbacks.removeAll()
+        invalidateDocumentAgentIndex()
         ensureDocumentAgentIndexAsync()
         embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已清除当前书", "AI analysis data: current book cleared")
         embeddingStatusLabel.isHidden = false

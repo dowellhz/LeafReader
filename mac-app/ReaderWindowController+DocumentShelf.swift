@@ -115,9 +115,7 @@ extension ReaderWindowController {
         resetEmbeddingStateForDocumentChange()
 
         pdfTOCGeneration += 1
-        documentAgentIndexGeneration += 1
-        isBuildingDocumentAgentIndex = false
-        pendingDocumentAgentIndexCallbacks.removeAll()
+        invalidateDocumentAgentIndex()
         pendingEmbeddingReadyCallbacks.removeAll()
 
         pdfView.document = nil
@@ -135,7 +133,6 @@ extension ReaderWindowController {
         webWordRecordStore = nil
         aiConversationStore = nil
         loadedAIConversation = nil
-        pdfAgentIndex = nil
         currentWebPlainText = ""
         webPlainTextGeneration += 1
         currentWebSelectedText = ""
@@ -185,9 +182,7 @@ extension ReaderWindowController {
             isPreparingPDFEmbeddings = false
             isEmbeddingBackfillPaused = false
             queuedEmbeddingPriorityPageIndex = nil
-            pdfAgentIndex = nil
-            documentAgentIndexGeneration += 1
-            pendingDocumentAgentIndexCallbacks.removeAll()
+            invalidateDocumentAgentIndex()
             embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已清除当前书", "AI analysis data: current book cleared")
             embeddingStatusLabel.isHidden = false
             updateEmbeddingControlButtons()
