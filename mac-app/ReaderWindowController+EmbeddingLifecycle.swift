@@ -74,13 +74,32 @@ extension ReaderWindowController {
 
     func resetEmbeddingStateForDocumentChange() {
         cancelDocumentAgentPrompt()
-        embeddingBackfillGeneration += 1
-        isPreparingPDFEmbeddings = false
-        isEmbeddingBackfillPaused = false
-        embeddingBackfillNeedsRetry = false
-        queuedEmbeddingPriorityPageIndex = nil
-        pendingEmbeddingReadyCallbacks.removeAll()
+        invalidateEmbeddingBackfill(clearPendingCallbacks: true, clearRetry: true)
         cancelScheduledEmbeddingWarmup()
         clearEmbeddingStatus()
+    }
+
+    func beginEmbeddingBackfill() {
+        isPreparingPDFEmbeddings = true
+        isEmbeddingBackfillPaused = false
+        embeddingBackfillNeedsRetry = false
+        embeddingBackfillGeneration += 1
+    }
+
+    func stopEmbeddingBackfill(clearPendingCallbacks: Bool = false) {
+        isPreparingPDFEmbeddings = false
+        isEmbeddingBackfillPaused = false
+        queuedEmbeddingPriorityPageIndex = nil
+        if clearPendingCallbacks {
+            pendingEmbeddingReadyCallbacks.removeAll()
+        }
+    }
+
+    func invalidateEmbeddingBackfill(clearPendingCallbacks: Bool = false, clearRetry: Bool = false) {
+        embeddingBackfillGeneration += 1
+        stopEmbeddingBackfill(clearPendingCallbacks: clearPendingCallbacks)
+        if clearRetry {
+            embeddingBackfillNeedsRetry = false
+        }
     }
 }

@@ -24,10 +24,7 @@ extension ReaderWindowController {
 
     @objc func cancelEmbeddingBackfill() {
         guard isPreparingPDFEmbeddings else { return }
-        embeddingBackfillGeneration += 1
-        isPreparingPDFEmbeddings = false
-        isEmbeddingBackfillPaused = false
-        queuedEmbeddingPriorityPageIndex = nil
+        invalidateEmbeddingBackfill()
         notifyEmbeddingReady(nil, includePending: true)
         embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已取消", "AI analysis data: cancelled")
         embeddingStatusLabel.isHidden = false
@@ -56,11 +53,7 @@ extension ReaderWindowController {
             NSSound.beep()
             return
         }
-        embeddingBackfillGeneration += 1
-        isPreparingPDFEmbeddings = false
-        isEmbeddingBackfillPaused = false
-        queuedEmbeddingPriorityPageIndex = nil
-        pendingEmbeddingReadyCallbacks.removeAll()
+        invalidateEmbeddingBackfill(clearPendingCallbacks: true)
         embeddingStoreQueue.async { [weak self] in
             self?.pdfEmbeddingStore?.deleteDocument(documentID: documentID)
         }

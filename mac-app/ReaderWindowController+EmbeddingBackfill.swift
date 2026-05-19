@@ -95,10 +95,7 @@ extension ReaderWindowController {
                 return
             }
 
-            self.isPreparingPDFEmbeddings = true
-            self.isEmbeddingBackfillPaused = false
-            self.embeddingBackfillNeedsRetry = false
-            self.embeddingBackfillGeneration += 1
+            self.beginEmbeddingBackfill()
             let generation = self.embeddingBackfillGeneration
             self.updateEmbeddingControlButtons()
             self.continuePDFEmbeddingBackfill(
@@ -123,8 +120,7 @@ extension ReaderWindowController {
         guard generation == embeddingBackfillGeneration,
               currentFileMD5 == documentID,
               let index = pdfAgentIndex else {
-            isPreparingPDFEmbeddings = false
-            queuedEmbeddingPriorityPageIndex = nil
+            stopEmbeddingBackfill()
             notifyEmbeddingReady(afterFirstBatch, includePending: true)
             clearEmbeddingStatus()
             return
@@ -140,9 +136,7 @@ extension ReaderWindowController {
             PDFEmbeddingChunk(id: $0.id, pageIndex: $0.pageIndex, chunkIndex: $0.chunkIndex, text: $0.text)
         }
         guard !missing.isEmpty else {
-            isPreparingPDFEmbeddings = false
-            isEmbeddingBackfillPaused = false
-            queuedEmbeddingPriorityPageIndex = nil
+            stopEmbeddingBackfill()
             notifyEmbeddingReady(afterFirstBatch, includePending: true)
             updateEmbeddingStatusForCoverage(isComplete: true)
             updateEmbeddingControlButtons()
@@ -155,9 +149,7 @@ extension ReaderWindowController {
                 guard let self else { return }
                 guard generation == self.embeddingBackfillGeneration,
                       self.currentFileMD5 == documentID else {
-                    self.isPreparingPDFEmbeddings = false
-                    self.isEmbeddingBackfillPaused = false
-                    self.queuedEmbeddingPriorityPageIndex = nil
+                    self.stopEmbeddingBackfill()
                     self.notifyEmbeddingReady(afterFirstBatch, includePending: true)
                     self.clearEmbeddingStatus()
                     self.updateEmbeddingControlButtons()
@@ -191,10 +183,8 @@ extension ReaderWindowController {
                         }
                     }
                 case .failure:
-                    self.isPreparingPDFEmbeddings = false
-                    self.isEmbeddingBackfillPaused = false
+                    self.stopEmbeddingBackfill()
                     self.embeddingBackfillNeedsRetry = true
-                    self.queuedEmbeddingPriorityPageIndex = nil
                     self.notifyEmbeddingReady(afterFirstBatch, includePending: true)
                     self.embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：失败，可重试", "AI analysis data: failed, retry available")
                     self.embeddingStatusLabel.isHidden = false

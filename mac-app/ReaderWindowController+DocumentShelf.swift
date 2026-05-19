@@ -116,7 +116,6 @@ extension ReaderWindowController {
 
         pdfTOCGeneration += 1
         invalidateDocumentAgentIndex()
-        pendingEmbeddingReadyCallbacks.removeAll()
 
         pdfView.document = nil
         pdfView.isHidden = false
@@ -178,10 +177,7 @@ extension ReaderWindowController {
             self?.pdfEmbeddingStore?.deleteDocument(documentID: documentID)
         }
         if currentFileMD5 == documentID {
-            embeddingBackfillGeneration += 1
-            isPreparingPDFEmbeddings = false
-            isEmbeddingBackfillPaused = false
-            queuedEmbeddingPriorityPageIndex = nil
+            invalidateEmbeddingBackfill()
             invalidateDocumentAgentIndex()
             embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已清除当前书", "AI analysis data: current book cleared")
             embeddingStatusLabel.isHidden = false
