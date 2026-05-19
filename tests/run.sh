@@ -40,6 +40,7 @@ swiftc \
   mac-app/EmbeddingWarmupPolicy.swift \
   mac-app/PDFPagingPolicy.swift \
   mac-app/ReaderSessionPolicy.swift \
+  mac-app/ReaderAIContextPolicy.swift \
   mac-app/VocabularyExporter.swift \
   mac-app/ReaderAIContextBuilder.swift \
   mac-app/EPUBPackageParser.swift \

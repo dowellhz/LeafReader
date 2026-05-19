@@ -633,6 +633,20 @@ private func testReaderAIContextTextCleanup() throws {
     try expect(!ReaderAIContextBuilder.pdfTextAppearsToEndMidParagraph("This sentence is complete."), "terminal punctuation should end paragraph")
 }
 
+private func testReaderAIContextPolicy() throws {
+    try expectEqual(ReaderAIContextPolicy.summaryContentLimit, 6000, "summary content limit should remain explicit")
+    try expectEqual(ReaderAIContextPolicy.translationContentLimit, 9000, "translation content limit should remain explicit")
+    try expectEqual(ReaderAIContextPolicy.questionContentLimit, 5000, "question content limit should remain explicit")
+    try expectEqual(ReaderAIContextPolicy.combinedContextSuffixLimit, 6000, "combined context suffix limit should remain explicit")
+    try expectEqual(ReaderAIContextPolicy.nearbyPageExcerptLimit, 1200, "nearby page excerpt limit should remain explicit")
+    try expectEqual(ReaderAIContextPolicy.documentAgentCurrentPageLimit, 3500, "document agent current page limit should remain explicit")
+    try expectEqual(ReaderAIContextPolicy.documentAgentNearbyTextLimit, 5000, "document agent nearby text limit should remain explicit")
+    try expectEqual(ReaderAIContextPolicy.evidenceBubbleCount, 4, "evidence bubble count should remain explicit")
+    try expectEqual(ReaderAIContextPolicy.evidenceBubbleTextLimit, 500, "evidence bubble text limit should remain explicit")
+    try expectEqual(ReaderAIContextPolicy.prefix("abcdef", limit: 3), "abc", "prefix helper should clamp text")
+    try expectEqual(ReaderAIContextPolicy.suffix("abcdef", limit: 3), "def", "suffix helper should clamp text")
+}
+
 private func testCapturedPageScrollGuard() throws {
     try expect(shouldApplyCapturedPageScroll(capturedPageIndex: 2, documentPageCount: 5), "captured page in current document should be scrollable")
     try expect(!shouldApplyCapturedPageScroll(capturedPageIndex: -1, documentPageCount: 5), "negative captured page should be ignored")
@@ -675,6 +689,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Reader session policy", testReaderSessionPolicy),
     ("Vocabulary exporter", testVocabularyExporter),
     ("Reader AI context text cleanup", testReaderAIContextTextCleanup),
+    ("Reader AI context policy", testReaderAIContextPolicy),
     ("Captured page scroll guard", testCapturedPageScrollGuard),
     ("Debounced task", testDebouncedTask)
 ]

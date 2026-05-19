@@ -49,7 +49,10 @@ extension ReaderWindowController {
                 return
             }
             let text = ReaderAIContextBuilder.normalizeWhitespace(snapshot.readingText)
-            completion(text.isEmpty ? nil : (snapshot.currentContentTitle, String(text.prefix(6000))))
+            completion(text.isEmpty ? nil : (
+                snapshot.currentContentTitle,
+                ReaderAIContextPolicy.prefix(text, limit: ReaderAIContextPolicy.summaryContentLimit)
+            ))
         }
     }
 
@@ -60,7 +63,10 @@ extension ReaderWindowController {
                 return
             }
             let text = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(snapshot.readingText)
-            completion(text.isEmpty ? nil : (snapshot.currentContentTitle, String(text.prefix(9000))))
+            completion(text.isEmpty ? nil : (
+                snapshot.currentContentTitle,
+                ReaderAIContextPolicy.prefix(text, limit: ReaderAIContextPolicy.translationContentLimit)
+            ))
         }
     }
 
@@ -71,7 +77,10 @@ extension ReaderWindowController {
                 return
             }
             let text = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(snapshot.readingText)
-            completion(text.isEmpty ? nil : (snapshot.currentContentTitle, String(text.prefix(5000))))
+            completion(text.isEmpty ? nil : (
+                snapshot.currentContentTitle,
+                ReaderAIContextPolicy.prefix(text, limit: ReaderAIContextPolicy.questionContentLimit)
+            ))
         }
     }
 
@@ -147,7 +156,10 @@ extension ReaderWindowController {
         if !snapshotContext.isEmpty {
             parts.append(snapshotContext)
         }
-        return String(parts.joined(separator: "\n\n").suffix(6000))
+        return ReaderAIContextPolicy.suffix(
+            parts.joined(separator: "\n\n"),
+            limit: ReaderAIContextPolicy.combinedContextSuffixLimit
+        )
     }
 
     func currentPDFNearbyPagesText() -> String {
@@ -161,7 +173,7 @@ extension ReaderWindowController {
             let text = ReaderAIContextBuilder.pdfPageTranslationText(document: document, page: page, title: titleLabel.stringValue)
             let normalized = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(text)
             guard !normalized.isEmpty else { return nil }
-            return "[Page \(index + 1)]\n\(String(normalized.prefix(1200)))"
+            return "[Page \(index + 1)]\n\(ReaderAIContextPolicy.prefix(normalized, limit: ReaderAIContextPolicy.nearbyPageExcerptLimit))"
         }
         return parts.joined(separator: "\n\n")
     }

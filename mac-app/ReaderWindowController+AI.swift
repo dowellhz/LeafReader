@@ -83,8 +83,8 @@ extension ReaderWindowController {
                                 completion(AIPromptStore.documentAgentPrompt(
                                     title: self.documentTitleForAI(),
                                     question: question,
-                                    currentPageText: String(currentPageText.prefix(3500)),
-                                    chapterText: String(chapterText.prefix(5000)),
+                                    currentPageText: ReaderAIContextPolicy.prefix(currentPageText, limit: ReaderAIContextPolicy.documentAgentCurrentPageLimit),
+                                    chapterText: ReaderAIContextPolicy.prefix(chapterText, limit: ReaderAIContextPolicy.documentAgentNearbyTextLimit),
                                     searchResults: searchResults,
                                     context: combinedContext
                                 ))
@@ -145,8 +145,8 @@ extension ReaderWindowController {
                                 completion(AIPromptStore.documentAgentPrompt(
                                     title: snapshot.title,
                                     question: question,
-                                    currentPageText: String(snapshot.visibleText.prefix(3500)),
-                                    chapterText: String(snapshot.nearbyText.prefix(5000)),
+                                    currentPageText: ReaderAIContextPolicy.prefix(snapshot.visibleText, limit: ReaderAIContextPolicy.documentAgentCurrentPageLimit),
+                                    chapterText: ReaderAIContextPolicy.prefix(snapshot.nearbyText, limit: ReaderAIContextPolicy.documentAgentNearbyTextLimit),
                                     searchResults: searchResults,
                                     context: combinedContext,
                                     currentTextTitle: AppText.localized("当前可见内容", "Current visible text"),
@@ -168,7 +168,7 @@ extension ReaderWindowController {
         if let top = evidence.first, top.score < 6 {
             aiPanel.appendNotice(AppText.localized("文档依据较弱，回答会以谨慎判断为主。", "Document evidence is weak; the answer will be cautious."))
         }
-        let bubbles = evidence.prefix(4).map { item in
+        let bubbles = evidence.prefix(ReaderAIContextPolicy.evidenceBubbleCount).map { item in
             let label = currentDocumentKind == .pdf
                 ? AppText.localized("第 \(item.pageNumber) 页", "Page \(item.pageNumber)")
                 : AppText.localized("片段 \(item.pageNumber)", "Section \(item.pageNumber)")
@@ -176,7 +176,7 @@ extension ReaderWindowController {
                 id: "document-source:\(item.pageIndex)",
                 word: label,
                 question: AppText.localized("检索依据 \(label)", "Source \(label)"),
-                answer: String(item.text.prefix(500))
+                answer: ReaderAIContextPolicy.prefix(item.text, limit: ReaderAIContextPolicy.evidenceBubbleTextLimit)
             )
         }
         aiPanel.appendReferenceBubbles(bubbles)
