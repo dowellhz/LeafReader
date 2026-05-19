@@ -20,7 +20,7 @@ This repo copy uses relative Markdown file links. The GitHub Wiki copy uses Wiki
 - Current version: \`$CURRENT_VERSION\`
 - Git tag: \`v$CURRENT_VERSION\`
 - Website: [leafreader.space](https://leafreader.space)
-- Appcast: [docs/appcast.xml](../appcast.xml)
+- Appcast: [docs/appcast.xml](https://dowellhz.github.io/LeafReader/appcast.xml)
 - Latest installer: [LeafReader-$CURRENT_VERSION.pkg](https://github.com/dowellhz/LeafReader/releases/download/v$CURRENT_VERSION/LeafReader-$CURRENT_VERSION.pkg)
 
 ## Common Commands

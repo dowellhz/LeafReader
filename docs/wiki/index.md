@@ -9,7 +9,7 @@ This repo copy uses relative Markdown file links. The GitHub Wiki copy uses Wiki
 - Current version: `1.4.14`
 - Git tag: `v1.4.14`
 - Website: [leafreader.space](https://leafreader.space)
-- Appcast: [docs/appcast.xml](../appcast.xml)
+- Appcast: [docs/appcast.xml](https://dowellhz.github.io/LeafReader/appcast.xml)
 - Latest installer: [LeafReader-1.4.14.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.14/LeafReader-1.4.14.pkg)
 
 ## Common Commands

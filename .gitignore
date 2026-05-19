@@ -8,6 +8,7 @@
 
 # Local build outputs
 .build/
+.venv-docs/
 mac-app/Leaf Reader
 mac-app/PDFReader
 mac-app/IconBuilder
