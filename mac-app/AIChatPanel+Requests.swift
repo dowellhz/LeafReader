@@ -126,6 +126,7 @@ extension AIChatPanel {
         currentStreamTask = nil
         currentDataTask?.cancel()
         currentDataTask = nil
+        onDocumentQuestionCancelled?()
         if let activeAssistantBody {
             updateBubble(activeAssistantBody, role: AppText.localized("提示", "Note"), text: AppText.localized("已取消。", "Cancelled."), renderMarkdown: false, notify: false)
         } else {

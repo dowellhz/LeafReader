@@ -138,25 +138,34 @@ extension ReaderWindowController {
     }
 
     func documentAgentPrompt(question: String, context: String, completion: @escaping (String?) -> Void) {
+        documentPromptGeneration += 1
+        let generation = documentPromptGeneration
         currentReadingContextSnapshot(preserveLineBreaks: true) { [weak self] snapshot in
             DispatchQueue.main.async {
-                guard let self, let snapshot else {
+                guard let self, generation == self.documentPromptGeneration, let snapshot else {
                     completion(nil)
                     return
                 }
                 if self.currentDocumentKind == .pdf {
-                    self.pdfDocumentAgentPrompt(question: question, context: context, snapshot: snapshot, completion: completion)
+                    self.pdfDocumentAgentPrompt(question: question, context: context, snapshot: snapshot, generation: generation, completion: completion)
                     return
                 }
-                self.webDocumentAgentPrompt(question: question, context: context, snapshot: snapshot, completion: completion)
+                self.webDocumentAgentPrompt(question: question, context: context, snapshot: snapshot, generation: generation, completion: completion)
             }
         }
+    }
+
+    func cancelDocumentAgentPrompt() {
+        documentPromptGeneration += 1
+        retrievalQueryTask?.cancel()
+        retrievalQueryTask = nil
     }
 
     func pdfDocumentAgentPrompt(
         question: String,
         context: String,
         snapshot: ReadingContextSnapshot,
+        generation: Int,
         completion: @escaping (String?) -> Void
     ) {
         guard pdfView.document != nil else {
@@ -168,13 +177,13 @@ extension ReaderWindowController {
         let chapterText = snapshot.nearbyText
         let combinedContext = combinedReadingContext(base: context, snapshot: snapshot)
         ensureDocumentAgentIndexAsync { [weak self] in
-            guard let self else {
+            guard let self, generation == self.documentPromptGeneration else {
                 completion(nil)
                 return
             }
-            self.crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: currentPageText) { [weak self] retrievalQuery in
+            self.crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: currentPageText, generation: generation) { [weak self] retrievalQuery in
                 DispatchQueue.main.async {
-                    guard let self else {
+                    guard let self, generation == self.documentPromptGeneration else {
                         completion(nil)
                         return
                     }
@@ -185,13 +194,13 @@ extension ReaderWindowController {
                     let retrievalQuestion = combinedRetrievalQuestion.isEmpty ? question : combinedRetrievalQuestion
                     let currentPageIndex = self.currentPageIndex()
                     self.preparePDFEmbeddingsIfPossible(priorityPageIndex: currentPageIndex) { [weak self] in
-                        guard let self else {
+                        guard let self, generation == self.documentPromptGeneration else {
                             completion(nil)
                             return
                         }
                         self.queryEmbedding(for: retrievalQuestion) { [weak self] queryEmbedding in
                             DispatchQueue.main.async {
-                                guard let self else {
+                                guard let self, generation == self.documentPromptGeneration else {
                                     completion(nil)
                                     return
                                 }
@@ -225,17 +234,18 @@ extension ReaderWindowController {
         question: String,
         context: String,
         snapshot: ReadingContextSnapshot,
+        generation: Int,
         completion: @escaping (String?) -> Void
     ) {
         let combinedContext = combinedReadingContext(base: context, snapshot: snapshot)
         ensureDocumentAgentIndexAsync { [weak self] in
-            guard let self else {
+            guard let self, generation == self.documentPromptGeneration else {
                 completion(nil)
                 return
             }
-            self.crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: snapshot.visibleText) { [weak self] retrievalQuery in
+            self.crossLingualRetrievalQueryIfNeeded(question: question, currentPageText: snapshot.visibleText, generation: generation) { [weak self] retrievalQuery in
                 DispatchQueue.main.async {
-                    guard let self else {
+                    guard let self, generation == self.documentPromptGeneration else {
                         completion(nil)
                         return
                     }
@@ -246,13 +256,13 @@ extension ReaderWindowController {
                     let retrievalQuestion = combinedRetrievalQuestion.isEmpty ? question : combinedRetrievalQuestion
                     let priorityIndex = self.currentEmbeddingPriorityIndex()
                     self.preparePDFEmbeddingsIfPossible(priorityPageIndex: priorityIndex) { [weak self] in
-                        guard let self else {
+                        guard let self, generation == self.documentPromptGeneration else {
                             completion(nil)
                             return
                         }
                         self.queryEmbedding(for: retrievalQuestion) { [weak self] queryEmbedding in
                             DispatchQueue.main.async {
-                                guard let self else {
+                                guard let self, generation == self.documentPromptGeneration else {
                                     completion(nil)
                                     return
                                 }
@@ -357,6 +367,7 @@ extension ReaderWindowController {
     func crossLingualRetrievalQueryIfNeeded(
         question: String,
         currentPageText: String,
+        generation: Int,
         completion: @escaping (String?) -> Void
     ) {
         guard questionLooksMostlyChinese(question),
@@ -378,18 +389,23 @@ extension ReaderWindowController {
         Chinese question:
         \(question)
         """
-        retrievalQueryClient.send(messages: [
+        retrievalQueryTask?.cancel()
+        retrievalQueryTask = retrievalQueryClient.send(messages: [
             ChatMessage(role: "system", content: "You create concise English search queries."),
             ChatMessage(role: "user", content: prompt)
-        ]) { result in
-            if case .success(let text) = result {
-                let cleaned = text
-                    .replacingOccurrences(of: #"^[\"“”']+|[\"“”']+$"#, with: "", options: .regularExpression)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                completion(cleaned.isEmpty ? nil : String(cleaned.prefix(240)))
-                return
+        ]) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self, generation == self.documentPromptGeneration else { return }
+                self.retrievalQueryTask = nil
+                if case .success(let text) = result {
+                    let cleaned = text
+                        .replacingOccurrences(of: #"^[\"“”']+|[\"“”']+$"#, with: "", options: .regularExpression)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    completion(cleaned.isEmpty ? nil : String(cleaned.prefix(240)))
+                    return
+                }
+                completion(nil)
             }
-            completion(nil)
         }
     }
 

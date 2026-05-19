@@ -146,6 +146,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var aiConversationStore: AIConversationStore?
     var loadedAIConversation: SavedAIConversation?
     var pendingAIConversationToSave: SavedAIConversation?
+    var documentPromptGeneration = 0
+    var retrievalQueryTask: URLSessionDataTask?
     let aiConversationSaveTask = DebouncedTask(delay: 1.0)
     let preferredAIWidthSaveTask = DebouncedTask(delay: 0.4)
     let windowResizeLayoutTask = DebouncedTask(delay: 0.08)
@@ -221,6 +223,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         windowResizeLayoutTask.cancel()
         aiPanelResizeLayoutTask.cancel()
         vocabularyPanelReloadTask.cancel()
+        retrievalQueryTask?.cancel()
         pdfWordRecordsSaveTask.cancel()
         webWordRecordsSaveTask.cancel()
         removeVocabularyPanelActivationObserver()

@@ -226,6 +226,9 @@ extension ReaderWindowController {
         aiPanel.onDocumentQuestionPrompt = { [weak self] question, context, completion in
             self?.documentAgentPrompt(question: question, context: context, completion: completion)
         }
+        aiPanel.onDocumentQuestionCancelled = { [weak self] in
+            self?.cancelDocumentAgentPrompt()
+        }
         aiPanel.onSettingsRequired = { [weak self] in
             self?.openAISettings()
         }

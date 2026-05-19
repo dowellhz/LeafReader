@@ -73,6 +73,7 @@ extension ReaderWindowController {
     }
 
     func resetEmbeddingStateForDocumentChange() {
+        cancelDocumentAgentPrompt()
         embeddingBackfillGeneration += 1
         isPreparingPDFEmbeddings = false
         isEmbeddingBackfillPaused = false
