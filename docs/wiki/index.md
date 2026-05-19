@@ -2,6 +2,8 @@
 
 This wiki explains the codebase structure and stable engineering workflows for Leaf Reader.
 
+This repo copy uses relative Markdown file links. The GitHub Wiki copy uses Wiki page names such as `Architecture` and `Document-Loading`.
+
 ## Pages
 
 - [Architecture](architecture.md)
