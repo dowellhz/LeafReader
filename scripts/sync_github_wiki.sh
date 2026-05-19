@@ -14,7 +14,9 @@ WIKI_PAGES=(
   AI-Analysis-Cache.md
   Word-Highlights.md
   Release-Process.md
+  Release-Checklist.md
   Security.md
+  Troubleshooting.md
   Code-Map.md
   _Sidebar.md
 )
@@ -107,13 +109,34 @@ copy_page "ai-chat.md" "AI-Chat.md"
 copy_page "ai-analysis-cache.md" "AI-Analysis-Cache.md"
 copy_page "word-highlights.md" "Word-Highlights.md"
 copy_page "release-process.md" "Release-Process.md"
+copy_page "release-checklist.md" "Release-Checklist.md"
 copy_page "security.md" "Security.md"
+copy_page "troubleshooting.md" "Troubleshooting.md"
 copy_page "code-map.md" "Code-Map.md"
 
-cat > "$WIKI_WORKTREE/Home.md" <<'EOF'
+CURRENT_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$ROOT_DIR/mac-app/Info.plist")"
+
+cat > "$WIKI_WORKTREE/Home.md" <<EOF
 # Leaf Reader Code Wiki
 
 This wiki explains the codebase structure and stable engineering workflows for Leaf Reader.
+
+## Current Version Status
+
+- Current version: \`$CURRENT_VERSION\`
+- Git tag: \`v$CURRENT_VERSION\`
+- Website: [leafreader.space](https://leafreader.space)
+- Appcast: [docs/appcast.xml](https://dowellhz.github.io/LeafReader/appcast.xml)
+- Latest installer: [LeafReader-$CURRENT_VERSION.pkg](https://github.com/dowellhz/LeafReader/releases/download/v$CURRENT_VERSION/LeafReader-$CURRENT_VERSION.pkg)
+
+## Common Commands
+
+~~~sh
+./scripts/check.sh
+./scripts/release_pkg.sh <version>
+./scripts/publish_release.sh <version>
+./scripts/update_wiki.sh --push
+~~~
 
 ## Pages
 
@@ -123,7 +146,9 @@ This wiki explains the codebase structure and stable engineering workflows for L
 - [AI Analysis Cache](AI-Analysis-Cache)
 - [Word Highlights](Word-Highlights)
 - [Release Process](Release-Process)
+- [Release Checklist](Release-Checklist)
 - [Security](Security)
+- [Troubleshooting](Troubleshooting)
 - [Code Map](Code-Map)
 
 ## Maintenance
@@ -131,9 +156,9 @@ This wiki explains the codebase structure and stable engineering workflows for L
 - Keep durable architecture notes in these pages.
 - Regenerate [Code Map](Code-Map) after large refactors:
 
-```sh
-./scripts/generate_code_wiki.sh
-```
+~~~sh
+./scripts/update_wiki.sh
+~~~
 
 - Prefer short flow descriptions and source file links over copied code.
 EOF
@@ -148,7 +173,9 @@ cat > "$WIKI_WORKTREE/_Sidebar.md" <<'EOF'
 - [AI Analysis Cache](AI-Analysis-Cache)
 - [Word Highlights](Word-Highlights)
 - [Release Process](Release-Process)
+- [Release Checklist](Release-Checklist)
 - [Security](Security)
+- [Troubleshooting](Troubleshooting)
 - [Code Map](Code-Map)
 EOF
 
