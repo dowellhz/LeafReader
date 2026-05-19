@@ -219,6 +219,13 @@ Regenerate the code map after larger refactors:
 ./scripts/generate_code_wiki.sh
 ```
 
+Preview and sync the GitHub Wiki copy:
+
+```sh
+./scripts/sync_github_wiki.sh
+./scripts/sync_github_wiki.sh --push
+```
+
 ## Release
 
 Current version: `1.4.12`
