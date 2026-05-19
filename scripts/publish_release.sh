@@ -47,7 +47,7 @@ if ! gh auth status >/dev/null 2>&1; then
   exit 1
 fi
 
-"$CHECK_SCRIPT"
+"$CHECK_SCRIPT" --no-build
 ./scripts/bump_version.sh --check "$VERSION" 2>/dev/null || true
 if [[ -n "$NOTES_FILE" ]]; then
   ./scripts/release_pkg.sh "$VERSION" "$NOTES_FILE"
