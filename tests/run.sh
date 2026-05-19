@@ -32,6 +32,11 @@ swiftc \
   -o /tmp/leafreader-regression-tests
 /tmp/leafreader-regression-tests
 swiftc \
+  mac-app/UpdateFailureClassifier.swift \
+  tests/UpdateFailureClassifierTests.swift \
+  -o /tmp/leafreader-update-failure-classifier-tests
+/tmp/leafreader-update-failure-classifier-tests
+swiftc \
   mac-app/EmbeddingWarmupPolicy.swift \
   mac-app/EPUBPackageParser.swift \
   mac-app/EPUBPathResolver.swift \

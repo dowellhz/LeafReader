@@ -135,24 +135,24 @@ extension AppDelegate {
             return AppText.localized("暂时无法检查更新，请稍后再试。", "Unable to check for updates right now. Please try again later.")
         }
 
-        let errors = flattenedUpdateErrors(from: nsError)
-        if containsCertificateError(errors) {
+        switch UpdateFailureClassifier.classify(nsError) {
+        case .certificate:
             return AppText.localized(
                 "更新源的 SSL 证书暂时不可用。\n请稍后重试，或确认 leafreader.space 的 GitHub Pages HTTPS 证书已生效。",
                 "The update feed SSL certificate is not available yet.\nPlease try again later, or confirm GitHub Pages HTTPS is active for leafreader.space."
             )
-        }
-        if containsNetworkConnectionError(errors) {
+        case .network:
             return AppText.localized(
                 "无法连接 Leaf Reader 更新源。\n请检查网络连接后再试。",
                 "Leaf Reader cannot reach the update feed.\nPlease check your network connection and try again."
             )
-        }
-        if containsAppcastReadError(errors) {
+        case .appcast:
             return AppText.localized(
                 "已连接更新源，但无法读取更新信息。\n请稍后重试，或确认 appcast.xml 已发布成功。",
                 "Leaf Reader reached the update feed but could not read update information.\nPlease try again later, or confirm appcast.xml was published successfully."
             )
+        case .other:
+            break
         }
 
         let description = nsError.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -169,74 +169,6 @@ extension AppDelegate {
             return description
         }
         return AppText.localized("暂时无法检查更新，请检查网络后再试。", "Unable to check for updates. Please check your network connection and try again.")
-    }
-
-    private func flattenedUpdateErrors(from error: NSError) -> [NSError] {
-        var errors = [error]
-        var cursor: NSError? = error
-        while let nestedError = cursor?.userInfo[NSUnderlyingErrorKey] as? NSError {
-            errors.append(nestedError)
-            cursor = nestedError
-        }
-        return errors
-    }
-
-    private func containsCertificateError(_ errors: [NSError]) -> Bool {
-        let certificateCodes = [
-            NSURLErrorSecureConnectionFailed,
-            NSURLErrorServerCertificateHasBadDate,
-            NSURLErrorServerCertificateUntrusted,
-            NSURLErrorServerCertificateHasUnknownRoot,
-            NSURLErrorServerCertificateNotYetValid,
-            NSURLErrorClientCertificateRejected,
-            NSURLErrorClientCertificateRequired
-        ]
-        return errors.contains { error in
-            if error.domain == NSURLErrorDomain, certificateCodes.contains(error.code) {
-                return true
-            }
-            let text = searchableUpdateErrorText(error)
-            return text.contains("ssl") || text.contains("certificate") || text.contains("cert")
-        }
-    }
-
-    private func containsNetworkConnectionError(_ errors: [NSError]) -> Bool {
-        let connectionCodes = [
-            NSURLErrorNotConnectedToInternet,
-            NSURLErrorTimedOut,
-            NSURLErrorCannotFindHost,
-            NSURLErrorCannotConnectToHost,
-            NSURLErrorDNSLookupFailed,
-            NSURLErrorNetworkConnectionLost,
-            NSURLErrorInternationalRoamingOff,
-            NSURLErrorDataNotAllowed
-        ]
-        return errors.contains { error in
-            error.domain == NSURLErrorDomain && connectionCodes.contains(error.code)
-        }
-    }
-
-    private func containsAppcastReadError(_ errors: [NSError]) -> Bool {
-        errors.contains { error in
-            let text = searchableUpdateErrorText(error)
-            return text.contains("appcast")
-                || text.contains("feed")
-                || text.contains("xml")
-                || text.contains("parse")
-                || text.contains("decode")
-        }
-    }
-
-    private func searchableUpdateErrorText(_ error: NSError) -> String {
-        [
-            error.domain,
-            error.localizedDescription,
-            error.localizedFailureReason,
-            error.localizedRecoverySuggestion
-        ]
-        .compactMap { $0 }
-        .joined(separator: " ")
-        .lowercased()
     }
 
     private func showUpToDateUpdateStatus() {
