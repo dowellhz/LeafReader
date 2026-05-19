@@ -61,10 +61,16 @@ extension ReaderWindowController {
     }
 
     func finishDocumentLoadingAfterAIBubbles(generation: Int) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+        DispatchQueue.main.async { [weak self] in
             guard let self, self.documentLoadGeneration == generation else { return }
+            self.aiPanel.flushTranscriptLayout()
             self.aiPanel.layoutSubtreeIfNeeded()
-            self.hideDocumentLoading(generation: generation)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.documentLoadGeneration == generation else { return }
+                self.aiPanel.flushTranscriptLayout()
+                self.aiPanel.layoutSubtreeIfNeeded()
+                self.hideDocumentLoading(generation: generation)
+            }
         }
     }
 
