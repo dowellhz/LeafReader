@@ -57,16 +57,14 @@ struct ReaderAIContextBuilder {
     static func pdfPageSummaryText(document: PDFDocument, page: PDFPage) -> String {
         let pageIndex = document.index(for: page)
         let currentText = page.string ?? ""
-        guard !currentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
+        guard hasTrimmedText(currentText) else { return "" }
 
         let previousText = pageIndex > 0 ? document.page(at: pageIndex - 1)?.string ?? "" : ""
         let nextText = pageIndex + 1 < document.pageCount ? document.page(at: pageIndex + 1)?.string ?? "" : ""
 
         let prefix = pdfPreviousPageParagraphTailIfNeeded(currentText: currentText, previousText: previousText)
         let suffix = pdfNextPageParagraphHeadIfNeeded(currentText: currentText, nextText: nextText)
-        return [prefix, currentText, suffix]
-            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .joined(separator: "\n\n")
+        return joinedNonEmptyParagraphs([prefix, currentText, suffix])
     }
 
     static func pdfPageTranslationText(document: PDFDocument, page: PDFPage, title: String) -> String {
@@ -76,15 +74,13 @@ struct ReaderAIContextBuilder {
         let nextRaw = pageIndex + 1 < document.pageCount ? document.page(at: pageIndex + 1)?.string ?? "" : ""
         let nextNextRaw = pageIndex + 2 < document.pageCount ? document.page(at: pageIndex + 2)?.string ?? "" : ""
         let currentText = stripPDFPageChrome(from: page.string ?? "", previousText: previousRaw, nextText: nextRaw, title: title)
-        guard !currentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
+        guard hasTrimmedText(currentText) else { return "" }
 
         let previousText = pageIndex > 0 ? stripPDFPageChrome(from: previousRaw, previousText: previousPreviousRaw, nextText: page.string ?? "", title: title) : ""
         let nextText = pageIndex + 1 < document.pageCount ? stripPDFPageChrome(from: nextRaw, previousText: page.string ?? "", nextText: nextNextRaw, title: title) : ""
         let prefix = pdfPreviousPageParagraphTailIfNeeded(currentText: currentText, previousText: previousText, title: title)
         let suffix = pdfNextPageParagraphHeadIfNeeded(currentText: currentText, nextText: nextText, title: title)
-        let combined = [prefix, currentText, suffix]
-            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .joined(separator: "\n\n")
+        let combined = joinedNonEmptyParagraphs([prefix, currentText, suffix])
         return stripPDFPageChrome(from: combined, previousText: previousRaw, nextText: nextRaw, title: title)
     }
 
@@ -104,12 +100,33 @@ struct ReaderAIContextBuilder {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private static func trimmed(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func hasTrimmedText(_ text: String) -> Bool {
+        !trimmed(text).isEmpty
+    }
+
+    private static func nonEmptyTrimmedLines(from text: String) -> [String] {
+        text
+            .components(separatedBy: .newlines)
+            .map(trimmed)
+            .filter { !$0.isEmpty }
+    }
+
+    private static func joinedNonEmptyParagraphs(_ parts: [String]) -> String {
+        parts
+            .filter(hasTrimmedText)
+            .joined(separator: "\n\n")
+    }
+
     private static func stripPDFPageChrome(from text: String, previousText: String, nextText: String, title: String = "") -> String {
         var lines = text
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
             .components(separatedBy: "\n")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map(trimmed)
         let previousEdges = pdfEdgeLines(previousText)
         let nextEdges = pdfEdgeLines(nextText)
 
@@ -164,29 +181,24 @@ struct ReaderAIContextBuilder {
 
     private static func pdfPreviousPageParagraphTailIfNeeded(currentText: String, previousText: String, title: String = "") -> String {
         guard !previousText.isEmpty, pdfTextAppearsToStartMidParagraph(currentText) else { return "" }
-        let normalized = previousText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed(previousText)
         guard !normalized.isEmpty else { return "" }
         let start = normalized.lastIndex { "\n\r.!?。！？".contains($0) }
             .map { normalized.index(after: $0) } ?? normalized.startIndex
-        return stripPDFPageChrome(from: String(normalized[start...]), previousText: "", nextText: currentText, title: title)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed(stripPDFPageChrome(from: String(normalized[start...]), previousText: "", nextText: currentText, title: title))
     }
 
     private static func pdfNextPageParagraphHeadIfNeeded(currentText: String, nextText: String, title: String = "") -> String {
         guard !nextText.isEmpty, pdfTextAppearsToEndMidParagraph(currentText) else { return "" }
-        let normalized = nextText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed(nextText)
         guard !normalized.isEmpty else { return "" }
         let end = normalized.firstIndex { ".!?。！？\n\r".contains($0) }
             .map { normalized.index(after: $0) } ?? normalized.endIndex
-        return stripPDFPageChrome(from: String(normalized[..<end]), previousText: currentText, nextText: "", title: title)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed(stripPDFPageChrome(from: String(normalized[..<end]), previousText: currentText, nextText: "", title: title))
     }
 
     private static func pdfTextAppearsToStartMidParagraph(_ text: String) -> Bool {
-        let lines = text
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        let lines = nonEmptyTrimmedLines(from: text)
         guard let firstLine = lines.first, let first = firstLine.first else { return false }
         if ",;:，；：)]）".contains(first) { return true }
         if first.isLowercase { return true }
@@ -194,10 +206,7 @@ struct ReaderAIContextBuilder {
     }
 
     private static func pdfTextAppearsToEndMidParagraph(_ text: String) -> Bool {
-        let lines = text
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        let lines = nonEmptyTrimmedLines(from: text)
         guard let lastLine = lines.last, let last = lastLine.last else { return false }
         if ".!?。！？”’\"')）".contains(last) { return false }
         if lastLine.range(of: #"[-–—]\s*$"#, options: .regularExpression) != nil { return true }
