@@ -6,24 +6,18 @@
     <description>Leaf Reader macOS app updates.</description>
     <language>zh-CN</language>
     <item>
-      <title>Leaf Reader 1.4.12</title>
-      <sparkle:version>1.4.12</sparkle:version>
-      <sparkle:shortVersionString>1.4.12</sparkle:shortVersionString>
+      <title>Leaf Reader 1.4.13</title>
+      <sparkle:version>1.4.13</sparkle:version>
+      <sparkle:shortVersionString>1.4.13</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <pubDate>Mon, 18 May 2026 15:34:06 +0000</pubDate>
+      <pubDate>Tue, 19 May 2026 05:03:42 +0000</pubDate>
       <description><![CDATA[
-        <ul>
-          <li>Improved first-load performance and kept compatibility with existing saved reading data.</li>
-          <li>Added a loading overlay that waits for initial AI bubbles before opening the document.</li>
-          <li>Reduced AI bubble startup work with recent-first restore and on-demand historical bubble loading.</li>
-          <li>Tightened AI explanation spacing and removed extra blank lines between original text and translation.</li>
-          <li>Improved PDF scroll paging and reduced window-resize stutter.</li>
-        </ul>
+        <ul><li>Leaf Reader 1.4.13 release.</li></ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dowellhz/LeafReader/releases/download/v1.4.12/LeafReader-1.4.12.pkg"
-        sparkle:edSignature="4hR2kqZ0TSuD5b4JO50Pxsryg7fOMmz/QNA4fEU1SYWjO8zv+Lnn+S2vYe8SsEr1COgcUOlorn22haGjgs1NDg=="
-        length="4852033"
+        url="https://github.com/dowellhz/LeafReader/releases/download/v1.4.13/LeafReader-1.4.13.pkg"
+        sparkle:edSignature="erCG+Ib2k1zaYJMu/26ZTR8l+6wsnXCbjCFzZVG9aUf6xF5w+Nw4whNIzsUukWdl8CyS4F9+s17oaDAcSS1tAw=="
+        length="4885639"
         type="application/octet-stream" />
     </item>
   </channel>
