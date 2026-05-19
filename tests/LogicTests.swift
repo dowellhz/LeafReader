@@ -508,6 +508,26 @@ private func testEmbeddingLegacyKeyMigration() throws {
     try expectEqual(plainStore.legacyPlainKeys["apiKey.embedding"] ?? "", "", "legacy plain key should be removed after migration")
 }
 
+private func testEmbeddingWarmupIdlePolicy() throws {
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    try expect(
+        !EmbeddingWarmupPolicy.isReaderIdle(
+            lastInteractionAt: now.addingTimeInterval(-(EmbeddingWarmupPolicy.idleThreshold - 0.1)),
+            now: now
+        ),
+        "embedding warmup should wait until the reader has been idle long enough"
+    )
+    try expect(
+        EmbeddingWarmupPolicy.isReaderIdle(
+            lastInteractionAt: now.addingTimeInterval(-EmbeddingWarmupPolicy.idleThreshold),
+            now: now
+        ),
+        "embedding warmup should start at the idle threshold"
+    )
+    try expectEqual(EmbeddingWarmupPolicy.cacheRestoreDelay, 5.0, "cache restore delay should remain explicit")
+    try expectEqual(EmbeddingWarmupPolicy.warmupDelay, 18.0, "warmup delay should remain explicit")
+}
+
 private func testWordRecordIncrementalStore() throws {
     var store = InMemoryWordRecordStore()
     store.upsert(StoredWordRecord(id: "a", answer: "old", srsReviewCount: 0))
@@ -565,6 +585,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Embedding defaults", testEmbeddingDefaults),
     ("Embedding key isolation", testEmbeddingKeyIsolation),
     ("Embedding legacy key migration", testEmbeddingLegacyKeyMigration),
+    ("Embedding warmup idle policy", testEmbeddingWarmupIdlePolicy),
     ("Reader entity decoding", EPUBLogicTests.testReaderEntityDecoding),
     ("EPUB text decoding", EPUBLogicTests.testEPUBTextDecoding),
     ("EPUB spine linear parsing", EPUBLogicTests.testEPUBSpineLinearParsing),

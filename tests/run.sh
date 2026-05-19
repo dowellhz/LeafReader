@@ -31,6 +31,7 @@ swiftc \
   -o /tmp/leafreader-regression-tests
 /tmp/leafreader-regression-tests
 swiftc \
+  mac-app/EmbeddingWarmupPolicy.swift \
   mac-app/EPUBPackageParser.swift \
   mac-app/EPUBPathResolver.swift \
   mac-app/EPUBHTMLSanitizer.swift \

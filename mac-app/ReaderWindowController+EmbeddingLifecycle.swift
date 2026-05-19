@@ -27,7 +27,7 @@ extension ReaderWindowController {
             }
         }
         scheduledEmbeddingCacheRestoreWorkItem = cacheWorkItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0, execute: cacheWorkItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + EmbeddingWarmupPolicy.cacheRestoreDelay, execute: cacheWorkItem)
 
         scheduledEmbeddingWarmupWorkItem?.cancel()
         let warmupWorkItem = DispatchWorkItem { [weak self] in
@@ -54,11 +54,11 @@ extension ReaderWindowController {
             }
         }
         scheduledEmbeddingWarmupWorkItem = warmupWorkItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 18.0, execute: warmupWorkItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + EmbeddingWarmupPolicy.warmupDelay, execute: warmupWorkItem)
     }
 
     var isReaderIdleForEmbedding: Bool {
-        Date().timeIntervalSince(lastReaderInteractionAt) >= 4.0
+        EmbeddingWarmupPolicy.isReaderIdle(lastInteractionAt: lastReaderInteractionAt)
     }
 
     func markReaderInteraction() {
