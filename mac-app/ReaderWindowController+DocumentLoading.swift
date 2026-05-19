@@ -18,40 +18,20 @@ extension ReaderWindowController {
         pdfView.isHidden = false
         webView.isHidden = true
         pdfView.document = document
-        currentFileURL = url
-        currentFileMD5 = fileMD5(for: url)
-        sessionStore = ReaderSessionStore(fileMD5: currentFileMD5)
+        prepareRuntimeStateForLoadedDocument(url: url)
         pdfWordRecordStore = currentFileMD5.map { PDFWordRecordStore(fileMD5: $0) }
         webWordRecordStore = nil
-        aiConversationStore = currentFileMD5.map { AIConversationStore(fileMD5: $0) }
-        loadedAIConversation = nil
         currentWebPlainText = ""
         webPlainTextGeneration += 1
         currentWebSelectedText = ""
-        pdfAgentIndex = nil
-        isBuildingDocumentAgentIndex = false
-        documentAgentIndexGeneration += 1
-        pendingDocumentAgentIndexCallbacks.removeAll()
-        pendingPDFWordRecords.removeAll()
-        pendingWebWordRecords.removeAll()
-        cancelScheduledEmbeddingWarmup()
         currentTOCItems = []
         pdfTOCDestinations = [:]
         schedulePDFTOCBuild(for: url, displayBox: pdfView.displayBox)
-        accumulatedPDFTrackpadScroll = 0
-        didTurnPageForCurrentPDFTrackpadGesture = false
-        lastPDFTrackpadEdgeDirection = nil
-        highlightedSelectionKeys.removeAll()
-        clearAISourceUnderlineTracking()
         storedWordRecords = loadStoredWordRecords()
         storedWebWordRecords.removeAll()
         restoreStoredWordAnnotations()
         aiPanel.loadLinkedWordBubbles(pdfWordRecordStore?.linkedWordBubbles(from: storedWordRecords) ?? [])
         loadSavedAIConversationIfNeeded()
-        searchResults.removeAll()
-        searchResultIndex = 0
-        lastSearchQuery = ""
-        searchOverlay.setResultText("")
         titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
         updateCoverThumbnail(from: document)
         pageLayoutButton.isHidden = false
@@ -97,20 +77,9 @@ extension ReaderWindowController {
         pdfDimOverlay.isHidden = true
         webView.isHidden = false
         pdfView.document = nil
-        currentFileURL = url
-        currentFileMD5 = fileMD5(for: url)
-        sessionStore = ReaderSessionStore(fileMD5: currentFileMD5)
+        prepareRuntimeStateForLoadedDocument(url: url)
         pdfWordRecordStore = nil
         webWordRecordStore = currentFileMD5.map { WebWordRecordStore(fileMD5: $0) }
-        aiConversationStore = currentFileMD5.map { AIConversationStore(fileMD5: $0) }
-        loadedAIConversation = nil
-        pdfAgentIndex = nil
-        isBuildingDocumentAgentIndex = false
-        documentAgentIndexGeneration += 1
-        pendingDocumentAgentIndexCallbacks.removeAll()
-        pendingPDFWordRecords.removeAll()
-        pendingWebWordRecords.removeAll()
-        cancelScheduledEmbeddingWarmup()
         currentWebPlainText = document.plainText
         webPlainTextGeneration += 1
         let webPlainTextGeneration = webPlainTextGeneration
@@ -119,21 +88,12 @@ extension ReaderWindowController {
         currentWebSelectionOccurrenceIndex = nil
         currentTOCItems = document.tocItems
         pdfTOCDestinations = [:]
-        accumulatedPDFTrackpadScroll = 0
-        didTurnPageForCurrentPDFTrackpadGesture = false
-        lastPDFTrackpadEdgeDirection = nil
         webZoomPercent = 100
         webScrollProgress = 0
-        highlightedSelectionKeys.removeAll()
-        clearAISourceUnderlineTracking()
         storedWordRecords.removeAll()
         storedWebWordRecords = loadStoredWebWordRecords()
         aiPanel.loadLinkedWordBubbles(webWordRecordStore?.linkedWordBubbles(from: storedWebWordRecords) ?? [])
         loadSavedAIConversationIfNeeded()
-        searchResults.removeAll()
-        searchResultIndex = 0
-        lastSearchQuery = ""
-        searchOverlay.setResultText("")
         aiPanel.setSelectedText("")
         titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
         if let coverImageURL = document.coverImageURL, let image = NSImage(contentsOf: coverImageURL) {
@@ -159,6 +119,30 @@ extension ReaderWindowController {
         scheduleWebPlainTextLoad(document.plainTextLoader, generation: webPlainTextGeneration)
         scheduleDocumentEmbeddingWarmup(priorityPageIndex: currentEmbeddingPriorityIndex())
         finishDocumentLoadingAfterAIBubbles(generation: generation)
+    }
+
+    func prepareRuntimeStateForLoadedDocument(url: URL) {
+        currentFileURL = url
+        currentFileMD5 = fileMD5(for: url)
+        sessionStore = ReaderSessionStore(fileMD5: currentFileMD5)
+        aiConversationStore = currentFileMD5.map { AIConversationStore(fileMD5: $0) }
+        loadedAIConversation = nil
+        pdfAgentIndex = nil
+        isBuildingDocumentAgentIndex = false
+        documentAgentIndexGeneration += 1
+        pendingDocumentAgentIndexCallbacks.removeAll()
+        pendingPDFWordRecords.removeAll()
+        pendingWebWordRecords.removeAll()
+        cancelScheduledEmbeddingWarmup()
+        accumulatedPDFTrackpadScroll = 0
+        didTurnPageForCurrentPDFTrackpadGesture = false
+        lastPDFTrackpadEdgeDirection = nil
+        highlightedSelectionKeys.removeAll()
+        clearAISourceUnderlineTracking()
+        searchResults.removeAll()
+        searchResultIndex = 0
+        lastSearchQuery = ""
+        searchOverlay.setResultText("")
     }
 
     func scheduleWebPlainTextLoad(_ loader: (() -> String)?, generation: Int) {
