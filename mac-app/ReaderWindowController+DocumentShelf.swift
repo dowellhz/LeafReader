@@ -116,14 +116,21 @@ extension ReaderWindowController {
 
         pdfTOCGeneration += 1
         invalidateDocumentAgentIndex()
+        clearDocumentContentViewsForUnload()
+        resetCurrentDocumentRuntimeState()
+        resetEmptyDocumentChrome()
+    }
 
+    private func clearDocumentContentViewsForUnload() {
         pdfView.document = nil
         pdfView.isHidden = false
         pdfDimOverlay.isHidden = true
         webView.stopLoading()
         webView.loadHTMLString("", baseURL: nil)
         webView.isHidden = true
+    }
 
+    private func resetCurrentDocumentRuntimeState() {
         currentFileURL = nil
         currentFileMD5 = nil
         currentDocumentKind = .pdf
@@ -151,7 +158,9 @@ extension ReaderWindowController {
         lastPDFTrackpadEdgeDirection = nil
         lastPageIndex = nil
         webScrollProgress = 0
+    }
 
+    private func resetEmptyDocumentChrome() {
         aiPanel.loadLinkedWordBubbles([])
         aiPanel.clearSelectedText()
         titleLabel.stringValue = "Leaf Reader"
