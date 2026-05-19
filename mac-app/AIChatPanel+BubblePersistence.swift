@@ -21,7 +21,7 @@ extension AIChatPanel {
         let excessCount = normalBubbleIDs.count - Self.maxVisibleNormalConversationBubbles
         guard excessCount > 0 else { return }
 
-        let activeBodyID = activeAssistantBody?.identifier?.rawValue
+        let activeBodyID = requestState.assistantBody?.identifier?.rawValue
         for bodyID in normalBubbleIDs.prefix(excessCount) where bodyID != activeBodyID {
             removeConversationBubble(bodyID: bodyID)
         }

@@ -117,6 +117,27 @@ private func testAIConversationMergeTrimsToLimitAfterPreservingNewest() throws {
     )
 }
 
+private func testAIRequestStateLifecycle() throws {
+    let state = AIRequestState()
+    let firstID = UUID()
+    let secondID = UUID()
+
+    state.begin(id: firstID)
+    try expect(state.isActive(firstID), "new request should become active")
+    try expect(!state.isActive(secondID), "unrelated request should not be active")
+    try expect(state.shouldHandleCompletion(for: firstID), "active request completion should be handled")
+
+    state.begin(id: secondID)
+    try expect(!state.shouldHandleCompletion(for: firstID), "replaced request completion should be ignored")
+    try expect(state.isActive(secondID), "newer request should replace older active request")
+
+    _ = state.cancelActive()
+    try expect(!state.isActive(secondID), "cancel should clear active request")
+    try expect(state.shouldHandleCompletion(for: secondID), "cancelled request completion should be consumed once")
+    try expect(state.consumeCancellation(for: secondID), "cancelled request should report cancellation")
+    try expect(!state.shouldHandleCompletion(for: secondID), "cancelled completion should not be handled twice")
+}
+
 @main
 struct RegressionTestRunner {
     static func main() {
@@ -131,6 +152,8 @@ struct RegressionTestRunner {
             print("PASS AI conversation lazy-save merge")
             try testAIConversationMergeTrimsToLimitAfterPreservingNewest()
             print("PASS AI conversation merge trim")
+            try testAIRequestStateLifecycle()
+            print("PASS AI request state lifecycle")
             print("RegressionTests passed")
         } catch {
             fputs("RegressionTests failed: \(error)\n", stderr)

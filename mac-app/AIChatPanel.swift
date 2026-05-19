@@ -156,11 +156,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     let sendButton = NSButton(title: "", target: nil, action: nil)
     let loadingDots = LoadingDotsView()
     let speechSynthesizer = AVSpeechSynthesizer()
-    var currentStreamTask: Task<Void, Never>?
-    var currentDataTask: URLSessionDataTask?
-    var activeRequestID: UUID?
-    var cancelledRequestIDs = Set<UUID>()
-    weak var activeAssistantBody: NSTextField?
+    let requestState = AIRequestState()
     var lastFailedAIRequest: FailedAIRequest?
 
     struct BubbleMetadata {
@@ -235,8 +231,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         }
         streamUpdateWorkItem?.cancel()
         transcriptLayoutWorkItem?.cancel()
-        currentStreamTask?.cancel()
-        currentDataTask?.cancel()
+        requestState.cancelTasks()
     }
 
     required init?(coder: NSCoder) {

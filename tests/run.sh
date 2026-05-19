@@ -22,6 +22,7 @@ swiftc \
   -o /tmp/leafreader-pdf-embedding-store-tests
 /tmp/leafreader-pdf-embedding-store-tests
 swiftc \
+  mac-app/AIRequestState.swift \
   mac-app/MarkdownRenderer.swift \
   mac-app/DocumentIdentity.swift \
   mac-app/StoredPDFWordRect.swift \
