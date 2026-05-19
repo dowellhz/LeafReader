@@ -12,6 +12,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TAG="v$VERSION"
 PKG_PATH="$ROOT_DIR/release/$VERSION/LeafReader-$VERSION.pkg"
 RELEASE_URL="https://github.com/dowellhz/LeafReader/releases/tag/$TAG"
+CHECK_SCRIPT="$ROOT_DIR/scripts/check.sh"
 
 cd "$ROOT_DIR"
 
@@ -46,7 +47,7 @@ if ! gh auth status >/dev/null 2>&1; then
   exit 1
 fi
 
-./tests/run.sh
+"$CHECK_SCRIPT"
 ./scripts/bump_version.sh --check "$VERSION" 2>/dev/null || true
 if [[ -n "$NOTES_FILE" ]]; then
   ./scripts/release_pkg.sh "$VERSION" "$NOTES_FILE"
