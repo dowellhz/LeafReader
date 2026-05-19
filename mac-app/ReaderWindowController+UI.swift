@@ -16,6 +16,69 @@ private struct ReaderBottomBarSetup {
     let settingsButton: NSButton
 }
 
+private enum ReaderUILayout {
+    static let toolbarHeight: CGFloat = 58
+    static let bottomBarHeight: CGFloat = 52
+    static let collapsedAIPanelWidth: CGFloat = 1
+    static let resizeHandleWidth: CGFloat = 6
+    static let aiHandleTopOffset: CGFloat = 90
+
+    static let settingsLeading: CGFloat = 18
+    static let settingsButtonSize: CGFloat = 24
+    static let shelfButtonLeading: CGFloat = 18
+    static let shelfButtonWidth: CGFloat = 88
+    static let vocabularyButtonLeading: CGFloat = 10
+    static let vocabularyButtonWidth: CGFloat = 92
+    static let bottomButtonHeight: CGFloat = 30
+
+    static let coverLeading: CGFloat = 128
+    static let coverSize = CGSize(width: 28, height: 38)
+    static let titleLeading: CGFloat = 10
+    static let titleMaxWidth: CGFloat = 230
+
+    static let zoomLeadingMinimum: CGFloat = 24
+    static let zoomCenterOffset: CGFloat = -80
+    static let zoomGroupSize = CGSize(width: 132, height: 32)
+    static let zoomButtonWidth: CGFloat = 40
+    static let zoomDividerWidth: CGFloat = 1
+    static let zoomFieldWidth: CGFloat = 50
+
+    static let pageLabelCenterOffset: CGFloat = 130
+    static let pageLabelWidth: CGFloat = 140
+    static let searchUnderlineLeading: CGFloat = 6
+    static let searchUnderlineSize = CGSize(width: 74, height: 28)
+    static let searchButtonLeading: CGFloat = 2
+    static let iconButtonSize: CGFloat = 28
+
+    static let pageLayoutTrailing: CGFloat = -12
+    static let pageLayoutButtonWidth: CGFloat = 84
+    static let fullScreenTrailing: CGFloat = -14
+    static let fullScreenButtonWidth: CGFloat = 76
+    static let toolbarButtonHeight: CGFloat = 30
+
+    static let searchOverlayTop: CGFloat = 10
+    static let searchOverlaySize = CGSize(width: 560, height: 70)
+    static let loadingIndicatorYOffset: CGFloat = -16
+    static let loadingLabelTop: CGFloat = 14
+    static let loadingLabelHorizontalInset: CGFloat = 32
+
+    static let tocTrailing: CGFloat = -10
+    static let tocButtonWidth: CGFloat = 88
+    static let coverButtonTrailing: CGFloat = -12
+    static let coverButtonWidth: CGFloat = 100
+    static let prevButtonCenterOffset: CGFloat = -48
+    static let readerNavButtonWidth: CGFloat = 84
+    static let nextButtonLeading: CGFloat = 12
+
+    static let embeddingTrailing: CGFloat = -18
+    static let embeddingButtonWidth: CGFloat = 58
+    static let embeddingButtonHeight: CGFloat = 26
+    static let embeddingButtonSpacing: CGFloat = -8
+    static let embeddingStatusTrailing: CGFloat = -10
+    static let embeddingStatusLeadingMinimum: CGFloat = 16
+    static let embeddingStatusMaxWidth: CGFloat = 220
+}
+
 extension ReaderWindowController {
     func buildUI() {
         guard let contentView = window?.contentView else { return }
@@ -62,7 +125,7 @@ extension ReaderWindowController {
         }
         resizeHandle.translatesAutoresizingMaskIntoConstraints = false
         contentArea.addSubview(resizeHandle, positioned: .above, relativeTo: aiPanel)
-        aiPanelWidthConstraint = aiPanel.widthAnchor.constraint(equalToConstant: 1)
+        aiPanelWidthConstraint = aiPanel.widthAnchor.constraint(equalToConstant: ReaderUILayout.collapsedAIPanelWidth)
         aiPanelWidthConstraint.priority = .required
         aiPanelWidthConstraint.isActive = true
 
@@ -92,12 +155,12 @@ extension ReaderWindowController {
             toolbar.topAnchor.constraint(equalTo: contentView.topAnchor),
             toolbar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             toolbar.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            toolbar.heightAnchor.constraint(equalToConstant: 58),
+            toolbar.heightAnchor.constraint(equalToConstant: ReaderUILayout.toolbarHeight),
 
             bottomBar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             bottomBar.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             bottomBar.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            bottomBar.heightAnchor.constraint(equalToConstant: 52),
+            bottomBar.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomBarHeight),
 
             contentArea.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
             contentArea.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
@@ -131,134 +194,134 @@ extension ReaderWindowController {
             resizeHandle.topAnchor.constraint(equalTo: contentArea.topAnchor),
             resizeHandle.bottomAnchor.constraint(equalTo: contentArea.bottomAnchor),
             resizeHandle.centerXAnchor.constraint(equalTo: aiPanel.leadingAnchor),
-            resizeHandle.widthAnchor.constraint(equalToConstant: 6),
+            resizeHandle.widthAnchor.constraint(equalToConstant: ReaderUILayout.resizeHandleWidth),
 
-            aiHandleButton.topAnchor.constraint(equalTo: contentArea.topAnchor, constant: 90),
+            aiHandleButton.topAnchor.constraint(equalTo: contentArea.topAnchor, constant: ReaderUILayout.aiHandleTopOffset),
             aiHandleLeadingConstraint,
             aiHandleButton.widthAnchor.constraint(equalToConstant: SideHandleButton.handleWidth),
             aiHandleButton.heightAnchor.constraint(equalToConstant: SideHandleButton.handleHeight),
 
-            settingsButton.leadingAnchor.constraint(equalTo: bottomBar.leadingAnchor, constant: 18),
+            settingsButton.leadingAnchor.constraint(equalTo: bottomBar.leadingAnchor, constant: ReaderUILayout.settingsLeading),
             settingsButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            settingsButton.widthAnchor.constraint(equalToConstant: 24),
-            settingsButton.heightAnchor.constraint(equalToConstant: 24),
+            settingsButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.settingsButtonSize),
+            settingsButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.settingsButtonSize),
 
-            recentButton.leadingAnchor.constraint(equalTo: settingsButton.trailingAnchor, constant: 18),
+            recentButton.leadingAnchor.constraint(equalTo: settingsButton.trailingAnchor, constant: ReaderUILayout.shelfButtonLeading),
             recentButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            recentButton.widthAnchor.constraint(equalToConstant: 88),
-            recentButton.heightAnchor.constraint(equalToConstant: 30),
+            recentButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.shelfButtonWidth),
+            recentButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
 
-            vocabularyButton.leadingAnchor.constraint(equalTo: recentButton.trailingAnchor, constant: 10),
+            vocabularyButton.leadingAnchor.constraint(equalTo: recentButton.trailingAnchor, constant: ReaderUILayout.vocabularyButtonLeading),
             vocabularyButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            vocabularyButton.widthAnchor.constraint(equalToConstant: 92),
-            vocabularyButton.heightAnchor.constraint(equalToConstant: 30),
+            vocabularyButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.vocabularyButtonWidth),
+            vocabularyButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
 
-            coverImageView.leadingAnchor.constraint(equalTo: toolbar.leadingAnchor, constant: 128),
+            coverImageView.leadingAnchor.constraint(equalTo: toolbar.leadingAnchor, constant: ReaderUILayout.coverLeading),
             coverImageView.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
-            coverImageView.widthAnchor.constraint(equalToConstant: 28),
-            coverImageView.heightAnchor.constraint(equalToConstant: 38),
+            coverImageView.widthAnchor.constraint(equalToConstant: ReaderUILayout.coverSize.width),
+            coverImageView.heightAnchor.constraint(equalToConstant: ReaderUILayout.coverSize.height),
 
-            titleLabel.leadingAnchor.constraint(equalTo: coverImageView.trailingAnchor, constant: 10),
+            titleLabel.leadingAnchor.constraint(equalTo: coverImageView.trailingAnchor, constant: ReaderUILayout.titleLeading),
             titleLabel.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
-            titleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 230),
+            titleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: ReaderUILayout.titleMaxWidth),
 
-            zoomGroup.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: 24),
+            zoomGroup.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: ReaderUILayout.zoomLeadingMinimum),
             zoomGroup.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
-            zoomGroup.centerXAnchor.constraint(equalTo: toolbar.centerXAnchor, constant: -80),
-            zoomGroup.widthAnchor.constraint(equalToConstant: 132),
-            zoomGroup.heightAnchor.constraint(equalToConstant: 32),
+            zoomGroup.centerXAnchor.constraint(equalTo: toolbar.centerXAnchor, constant: ReaderUILayout.zoomCenterOffset),
+            zoomGroup.widthAnchor.constraint(equalToConstant: ReaderUILayout.zoomGroupSize.width),
+            zoomGroup.heightAnchor.constraint(equalToConstant: ReaderUILayout.zoomGroupSize.height),
 
             zoomOut.leadingAnchor.constraint(equalTo: zoomGroup.leadingAnchor),
             zoomOut.topAnchor.constraint(equalTo: zoomGroup.topAnchor),
             zoomOut.bottomAnchor.constraint(equalTo: zoomGroup.bottomAnchor),
-            zoomOut.widthAnchor.constraint(equalToConstant: 40),
+            zoomOut.widthAnchor.constraint(equalToConstant: ReaderUILayout.zoomButtonWidth),
             leftDivider.leadingAnchor.constraint(equalTo: zoomOut.trailingAnchor),
             leftDivider.topAnchor.constraint(equalTo: zoomGroup.topAnchor),
             leftDivider.bottomAnchor.constraint(equalTo: zoomGroup.bottomAnchor),
-            leftDivider.widthAnchor.constraint(equalToConstant: 1),
+            leftDivider.widthAnchor.constraint(equalToConstant: ReaderUILayout.zoomDividerWidth),
             zoomField.leadingAnchor.constraint(equalTo: leftDivider.trailingAnchor),
             zoomField.centerYAnchor.constraint(equalTo: zoomGroup.centerYAnchor),
-            zoomField.widthAnchor.constraint(equalToConstant: 50),
+            zoomField.widthAnchor.constraint(equalToConstant: ReaderUILayout.zoomFieldWidth),
             rightDivider.leadingAnchor.constraint(equalTo: zoomField.trailingAnchor),
             rightDivider.topAnchor.constraint(equalTo: zoomGroup.topAnchor),
             rightDivider.bottomAnchor.constraint(equalTo: zoomGroup.bottomAnchor),
-            rightDivider.widthAnchor.constraint(equalToConstant: 1),
+            rightDivider.widthAnchor.constraint(equalToConstant: ReaderUILayout.zoomDividerWidth),
             zoomIn.leadingAnchor.constraint(equalTo: rightDivider.trailingAnchor),
             zoomIn.topAnchor.constraint(equalTo: zoomGroup.topAnchor),
             zoomIn.bottomAnchor.constraint(equalTo: zoomGroup.bottomAnchor),
             zoomIn.trailingAnchor.constraint(equalTo: zoomGroup.trailingAnchor),
 
-            pageLabel.centerXAnchor.constraint(equalTo: toolbar.centerXAnchor, constant: 130),
+            pageLabel.centerXAnchor.constraint(equalTo: toolbar.centerXAnchor, constant: ReaderUILayout.pageLabelCenterOffset),
             pageLabel.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
-            pageLabel.widthAnchor.constraint(equalToConstant: 140),
+            pageLabel.widthAnchor.constraint(equalToConstant: ReaderUILayout.pageLabelWidth),
 
-            searchUnderlineButton.leadingAnchor.constraint(equalTo: pageLabel.trailingAnchor, constant: 6),
+            searchUnderlineButton.leadingAnchor.constraint(equalTo: pageLabel.trailingAnchor, constant: ReaderUILayout.searchUnderlineLeading),
             searchUnderlineButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
-            searchUnderlineButton.widthAnchor.constraint(equalToConstant: 74),
-            searchUnderlineButton.heightAnchor.constraint(equalToConstant: 28),
+            searchUnderlineButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.searchUnderlineSize.width),
+            searchUnderlineButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.searchUnderlineSize.height),
 
-            searchButton.leadingAnchor.constraint(equalTo: searchUnderlineButton.trailingAnchor, constant: 2),
+            searchButton.leadingAnchor.constraint(equalTo: searchUnderlineButton.trailingAnchor, constant: ReaderUILayout.searchButtonLeading),
             searchButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
-            searchButton.widthAnchor.constraint(equalToConstant: 28),
-            searchButton.heightAnchor.constraint(equalToConstant: 28),
+            searchButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.iconButtonSize),
+            searchButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.iconButtonSize),
 
-            pageLayoutButton.trailingAnchor.constraint(equalTo: fullScreenButton.leadingAnchor, constant: -12),
+            pageLayoutButton.trailingAnchor.constraint(equalTo: fullScreenButton.leadingAnchor, constant: ReaderUILayout.pageLayoutTrailing),
             pageLayoutButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
-            pageLayoutButton.widthAnchor.constraint(equalToConstant: 84),
-            pageLayoutButton.heightAnchor.constraint(equalToConstant: 30),
+            pageLayoutButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.pageLayoutButtonWidth),
+            pageLayoutButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.toolbarButtonHeight),
 
-            fullScreenButton.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor, constant: -14),
+            fullScreenButton.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor, constant: ReaderUILayout.fullScreenTrailing),
             fullScreenButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
-            fullScreenButton.widthAnchor.constraint(equalToConstant: 76),
-            fullScreenButton.heightAnchor.constraint(equalToConstant: 30),
+            fullScreenButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.fullScreenButtonWidth),
+            fullScreenButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.toolbarButtonHeight),
 
-            searchOverlay.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
+            searchOverlay.topAnchor.constraint(equalTo: contentView.topAnchor, constant: ReaderUILayout.searchOverlayTop),
             searchOverlay.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            searchOverlay.widthAnchor.constraint(equalToConstant: 560),
-            searchOverlay.heightAnchor.constraint(equalToConstant: 70),
+            searchOverlay.widthAnchor.constraint(equalToConstant: ReaderUILayout.searchOverlaySize.width),
+            searchOverlay.heightAnchor.constraint(equalToConstant: ReaderUILayout.searchOverlaySize.height),
 
             loadingOverlay.topAnchor.constraint(equalTo: contentArea.topAnchor),
             loadingOverlay.leadingAnchor.constraint(equalTo: contentArea.leadingAnchor),
             loadingOverlay.trailingAnchor.constraint(equalTo: contentArea.trailingAnchor),
             loadingOverlay.bottomAnchor.constraint(equalTo: contentArea.bottomAnchor),
             loadingIndicator.centerXAnchor.constraint(equalTo: loadingOverlay.centerXAnchor),
-            loadingIndicator.centerYAnchor.constraint(equalTo: loadingOverlay.centerYAnchor, constant: -16),
-            loadingLabel.topAnchor.constraint(equalTo: loadingIndicator.bottomAnchor, constant: 14),
+            loadingIndicator.centerYAnchor.constraint(equalTo: loadingOverlay.centerYAnchor, constant: ReaderUILayout.loadingIndicatorYOffset),
+            loadingLabel.topAnchor.constraint(equalTo: loadingIndicator.bottomAnchor, constant: ReaderUILayout.loadingLabelTop),
             loadingLabel.centerXAnchor.constraint(equalTo: loadingOverlay.centerXAnchor),
-            loadingLabel.leadingAnchor.constraint(greaterThanOrEqualTo: loadingOverlay.leadingAnchor, constant: 32),
-            loadingLabel.trailingAnchor.constraint(lessThanOrEqualTo: loadingOverlay.trailingAnchor, constant: -32),
+            loadingLabel.leadingAnchor.constraint(greaterThanOrEqualTo: loadingOverlay.leadingAnchor, constant: ReaderUILayout.loadingLabelHorizontalInset),
+            loadingLabel.trailingAnchor.constraint(lessThanOrEqualTo: loadingOverlay.trailingAnchor, constant: -ReaderUILayout.loadingLabelHorizontalInset),
 
-            tocButton.trailingAnchor.constraint(equalTo: coverButton.leadingAnchor, constant: -10),
+            tocButton.trailingAnchor.constraint(equalTo: coverButton.leadingAnchor, constant: ReaderUILayout.tocTrailing),
             tocButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            tocButton.widthAnchor.constraint(equalToConstant: 88),
-            tocButton.heightAnchor.constraint(equalToConstant: 30),
+            tocButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.tocButtonWidth),
+            tocButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
 
-            coverButton.trailingAnchor.constraint(equalTo: prevButton.leadingAnchor, constant: -12),
+            coverButton.trailingAnchor.constraint(equalTo: prevButton.leadingAnchor, constant: ReaderUILayout.coverButtonTrailing),
             coverButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            coverButton.widthAnchor.constraint(equalToConstant: 100),
-            coverButton.heightAnchor.constraint(equalToConstant: 30),
+            coverButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.coverButtonWidth),
+            coverButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
 
-            prevButton.centerXAnchor.constraint(equalTo: bottomBar.centerXAnchor, constant: -48),
+            prevButton.centerXAnchor.constraint(equalTo: bottomBar.centerXAnchor, constant: ReaderUILayout.prevButtonCenterOffset),
             prevButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            prevButton.widthAnchor.constraint(equalToConstant: 84),
-            prevButton.heightAnchor.constraint(equalToConstant: 30),
-            nextButton.leadingAnchor.constraint(equalTo: prevButton.trailingAnchor, constant: 12),
+            prevButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.readerNavButtonWidth),
+            prevButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
+            nextButton.leadingAnchor.constraint(equalTo: prevButton.trailingAnchor, constant: ReaderUILayout.nextButtonLeading),
             nextButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            nextButton.widthAnchor.constraint(equalToConstant: 84),
-            nextButton.heightAnchor.constraint(equalToConstant: 30),
+            nextButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.readerNavButtonWidth),
+            nextButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
 
-            embeddingCancelButton.trailingAnchor.constraint(equalTo: bottomBar.trailingAnchor, constant: -18),
+            embeddingCancelButton.trailingAnchor.constraint(equalTo: bottomBar.trailingAnchor, constant: ReaderUILayout.embeddingTrailing),
             embeddingCancelButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            embeddingCancelButton.widthAnchor.constraint(equalToConstant: 58),
-            embeddingCancelButton.heightAnchor.constraint(equalToConstant: 26),
-            embeddingPauseButton.trailingAnchor.constraint(equalTo: embeddingCancelButton.leadingAnchor, constant: -8),
+            embeddingCancelButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.embeddingButtonWidth),
+            embeddingCancelButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.embeddingButtonHeight),
+            embeddingPauseButton.trailingAnchor.constraint(equalTo: embeddingCancelButton.leadingAnchor, constant: ReaderUILayout.embeddingButtonSpacing),
             embeddingPauseButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            embeddingPauseButton.widthAnchor.constraint(equalToConstant: 58),
-            embeddingPauseButton.heightAnchor.constraint(equalToConstant: 26),
-            embeddingStatusLabel.trailingAnchor.constraint(equalTo: embeddingPauseButton.leadingAnchor, constant: -10),
+            embeddingPauseButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.embeddingButtonWidth),
+            embeddingPauseButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.embeddingButtonHeight),
+            embeddingStatusLabel.trailingAnchor.constraint(equalTo: embeddingPauseButton.leadingAnchor, constant: ReaderUILayout.embeddingStatusTrailing),
             embeddingStatusLabel.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            embeddingStatusLabel.leadingAnchor.constraint(greaterThanOrEqualTo: nextButton.trailingAnchor, constant: 16),
-            embeddingStatusLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 220)
+            embeddingStatusLabel.leadingAnchor.constraint(greaterThanOrEqualTo: nextButton.trailingAnchor, constant: ReaderUILayout.embeddingStatusLeadingMinimum),
+            embeddingStatusLabel.widthAnchor.constraint(lessThanOrEqualToConstant: ReaderUILayout.embeddingStatusMaxWidth)
         ])
 
         DispatchQueue.main.async { [weak self] in
