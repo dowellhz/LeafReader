@@ -1,5 +1,7 @@
 # Word Highlights
 
+关键词：背单词、词汇、复习、SRS、单词高亮、Anki CSV、导出。
+
 Leaf Reader stores vocabulary words, explanations, source context, and visible highlights for PDF and web-rendered documents.
 
 ## Flow

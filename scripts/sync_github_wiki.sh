@@ -8,6 +8,7 @@ WIKI_WORKTREE="${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}"
 PUSH=0
 WIKI_PAGES=(
   Home.md
+  Getting-Started.md
   Architecture.md
   Feature-Map.md
   Development-Tasks.md
@@ -108,6 +109,7 @@ copy_page() {
   cp "$SOURCE_DIR/$source" "$WIKI_WORKTREE/$target"
 }
 
+copy_page "getting-started.md" "Getting-Started.md"
 copy_page "architecture.md" "Architecture.md"
 copy_page "feature-map.md" "Feature-Map.md"
 copy_page "development-tasks.md" "Development-Tasks.md"
@@ -150,6 +152,7 @@ This wiki explains the codebase structure and stable engineering workflows for L
 ## Pages
 
 - [Architecture](Architecture)
+- [Getting Started](Getting-Started)
 - [Feature Map](Feature-Map)
 - [Development Tasks](Development-Tasks)
 - [Document Loading](Document-Loading)
@@ -181,6 +184,7 @@ cat > "$WIKI_WORKTREE/_Sidebar.md" <<'EOF'
 
 - [Home](Home)
 - [Architecture](Architecture)
+- [Getting Started](Getting-Started)
 - [Feature Map](Feature-Map)
 - [Development Tasks](Development-Tasks)
 - [Document Loading](Document-Loading)

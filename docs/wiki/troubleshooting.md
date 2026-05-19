@@ -1,5 +1,7 @@
 # Troubleshooting
 
+关键词：更新失败、SSL 证书、GitHub Pages、Appcast、签名、公证、PDF 翻页、AI 分析、Wiki 同步。
+
 This page records recurring Leaf Reader issues and the fastest checks to run before changing code.
 
 ## Symptom Index

@@ -55,6 +55,8 @@ nav:
   - 首页: index.md
   - 官网: https://leafreader.space/
   - 下载: https://github.com/dowellhz/LeafReader/releases/download/v1.4.14/LeafReader-1.4.14.pkg
+  - 入门:
+      - 安装与入门: getting-started.md
   - 架构:
       - 架构总览: architecture.md
       - 功能地图: feature-map.md

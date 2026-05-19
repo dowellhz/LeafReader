@@ -1,5 +1,7 @@
 # AI Chat
 
+关键词：AI、翻译、解释、总结、选中文本、追问、流式输出、气泡、API Key。
+
 The AI panel handles selected text explanations, summaries, translations, follow-up questions, and document-aware prompts.
 
 ## Flow

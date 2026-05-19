@@ -179,7 +179,7 @@
 
     .docs-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 18px;
     }
 
@@ -223,6 +223,30 @@
       display: block;
       width: 100%;
       height: auto;
+    }
+
+    .faq {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+    }
+
+    .faq-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+      background: #fff;
+    }
+
+    .faq-item strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .faq-item p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
     }
 
     .screenshots {
@@ -282,6 +306,7 @@
       .features,
       .docs-preview,
       .docs-grid,
+      .faq,
       .screenshots,
       .release {
         grid-template-columns: 1fr;
@@ -366,9 +391,9 @@
         <h2>文档</h2>
         <div class="docs-preview">
           <div class="docs-grid">
-            <a class="doc-link" href="manual/">
-              <strong>开发文档</strong>
-              <p>查看架构、功能地图、开发任务入口和代码地图。</p>
+            <a class="doc-link" href="manual/getting-started/">
+              <strong>安装与入门</strong>
+              <p>下载、首次打开、AI 配置、翻译和背单词。</p>
             </a>
             <a class="doc-link" href="manual/release-runbook/">
               <strong>发布流程</strong>
@@ -382,10 +407,36 @@
               <strong>代码地图</strong>
               <p>浏览主要模块、最大文件和完整 Swift 类型索引。</p>
             </a>
+            <a class="doc-link" href="manual/feature-map/">
+              <strong>开发文档</strong>
+              <p>查看架构、功能地图和开发任务入口。</p>
+            </a>
           </div>
           <a class="docs-shot" href="manual/">
             <img src="assets/docs-manual-preview.png" alt="Leaf Reader documentation site preview">
           </a>
+        </div>
+      </section>
+
+      <section class="section" id="faq">
+        <h2>FAQ</h2>
+        <div class="faq">
+          <div class="faq-item">
+            <strong>支持哪些系统？</strong>
+            <p>当前版本支持 macOS 12.0 或更高版本。</p>
+          </div>
+          <div class="faq-item">
+            <strong>AI 是必须的吗？</strong>
+            <p>不是。普通阅读、书架、翻页和基础文档打开可以直接使用；AI 功能需要自行配置模型服务。</p>
+          </div>
+          <div class="faq-item">
+            <strong>文档会自动上传吗？</strong>
+            <p>不会。文档保存在本机，只有使用 AI 功能时才会把相关文本发送到你配置的模型服务。</p>
+          </div>
+          <div class="faq-item">
+            <strong>为什么检查更新失败？</strong>
+            <p>可能是网络、证书、Appcast 或旧版本更新地址问题。可查看文档站的故障排查页面。</p>
+          </div>
         </div>
       </section>
 

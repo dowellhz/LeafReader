@@ -1,5 +1,7 @@
 # AI Analysis Cache
 
+关键词：整本书问答、AI 分析、embedding、缓存、检索、PDF 问答、文档问答。
+
 AI analysis data is the local embedding/cache layer used for document-aware Q&A.
 
 ## Flow

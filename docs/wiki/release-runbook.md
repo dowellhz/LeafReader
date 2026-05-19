@@ -1,5 +1,7 @@
 # Release Runbook
 
+关键词：发布、打包、签名、公证、Sparkle、Appcast、GitHub Release、版本号。
+
 This page is the command-by-command release procedure. Use [Release Checklist](release-checklist.md) as the short preflight list.
 
 ## 1. Confirm Version State
