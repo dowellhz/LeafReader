@@ -56,9 +56,9 @@ extension AIChatPanel {
             onSettingsRequired?()
             return
         }
-        let title = AppText.localized("选中文字", "Selected text")
+        let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let displayedQuestion = "\(AppText.localized("总结", "Summarize")): \(title)"
-        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: false)
+        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
         appendMessage(ChatMessage(role: "user", content: AIPromptStore.summaryPrompt(title: title, text: text)))
         requestAI()
@@ -79,9 +79,9 @@ extension AIChatPanel {
             onSettingsRequired?()
             return
         }
-        let title = AppText.localized("选中文字", "Selected text")
+        let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let displayedQuestion = "\(AppText.localized("翻译", "Translate")): \(title)"
-        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: false)
+        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
         requestTranslation(title: title, text: text)
     }

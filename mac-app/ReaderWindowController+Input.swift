@@ -170,9 +170,9 @@ extension ReaderWindowController {
         let clipHeight = scrollView.contentView.bounds.height
         let documentHeight = documentView.bounds.height
         if documentHeight <= clipHeight + 2 {
-            return 280
+            return 180
         }
-        return 180
+        return 120
     }
 
     func firstScrollView(in view: NSView) -> NSScrollView? {
