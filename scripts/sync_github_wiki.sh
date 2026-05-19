@@ -10,6 +10,7 @@ WIKI_PAGES=(
   Home.md
   Architecture.md
   Feature-Map.md
+  Development-Tasks.md
   Document-Loading.md
   AI-Chat.md
   AI-Analysis-Cache.md
@@ -22,6 +23,7 @@ WIKI_PAGES=(
   Code-Map.md
   Type-Index.md
   _Sidebar.md
+  _Footer.md
 )
 
 usage() {
@@ -108,6 +110,7 @@ copy_page() {
 
 copy_page "architecture.md" "Architecture.md"
 copy_page "feature-map.md" "Feature-Map.md"
+copy_page "development-tasks.md" "Development-Tasks.md"
 copy_page "document-loading.md" "Document-Loading.md"
 copy_page "ai-chat.md" "AI-Chat.md"
 copy_page "ai-analysis-cache.md" "AI-Analysis-Cache.md"
@@ -148,6 +151,7 @@ This wiki explains the codebase structure and stable engineering workflows for L
 
 - [Architecture](Architecture)
 - [Feature Map](Feature-Map)
+- [Development Tasks](Development-Tasks)
 - [Document Loading](Document-Loading)
 - [AI Chat](AI-Chat)
 - [AI Analysis Cache](AI-Analysis-Cache)
@@ -178,6 +182,7 @@ cat > "$WIKI_WORKTREE/_Sidebar.md" <<'EOF'
 - [Home](Home)
 - [Architecture](Architecture)
 - [Feature Map](Feature-Map)
+- [Development Tasks](Development-Tasks)
 - [Document Loading](Document-Loading)
 - [AI Chat](AI-Chat)
 - [AI Analysis Cache](AI-Analysis-Cache)
@@ -189,6 +194,14 @@ cat > "$WIKI_WORKTREE/_Sidebar.md" <<'EOF'
 - [Troubleshooting](Troubleshooting)
 - [Code Map](Code-Map)
 - [Type Index](Type-Index)
+EOF
+
+cat > "$WIKI_WORKTREE/_Footer.md" <<'EOF'
+---
+
+Related: [Home](Home) · [Feature Map](Feature-Map) · [Development Tasks](Development-Tasks) · [Code Map](Code-Map) · [Type Index](Type-Index)
+
+Maintained by `./scripts/update_wiki.sh`.
 EOF
 
 echo "Wiki worktree: $WIKI_WORKTREE"

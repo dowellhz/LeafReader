@@ -25,6 +25,7 @@ This repo copy uses relative Markdown file links. The GitHub Wiki copy uses Wiki
 
 - [Architecture](architecture.md)
 - [Feature Map](feature-map.md)
+- [Development Tasks](development-tasks.md)
 - [Document Loading](document-loading.md)
 - [AI Chat](ai-chat.md)
 - [AI Analysis Cache](ai-analysis-cache.md)

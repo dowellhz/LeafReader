@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-OUT_DIR="$ROOT_DIR/docs/wiki"
+OUT_DIR="${WIKI_OUT_DIR:-$ROOT_DIR/docs/wiki}"
 OUT_FILE="$OUT_DIR/code-map.md"
 TYPE_INDEX_FILE="$OUT_DIR/type-index.md"
 
@@ -54,6 +54,7 @@ write_matching_files() {
 write_swift_types() {
   rg -n "^(final class|class|struct|enum|protocol|extension) " "$ROOT_DIR/mac-app" \
     | sed "s#$ROOT_DIR/##" \
+    | sort \
     | awk -F: '{ printf "| `%s` | %s | `%s` |\n", $1, $2, $3 }'
 }
 

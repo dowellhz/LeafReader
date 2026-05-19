@@ -2,8 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-OUT_FILE="$ROOT_DIR/docs/wiki/index.md"
+OUT_DIR="${WIKI_OUT_DIR:-$ROOT_DIR/docs/wiki}"
+OUT_FILE="$OUT_DIR/index.md"
 CURRENT_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$ROOT_DIR/mac-app/Info.plist")"
+
+mkdir -p "$OUT_DIR"
 
 cat > "$OUT_FILE" <<EOF
 # Leaf Reader Code Wiki
@@ -33,6 +36,7 @@ This repo copy uses relative Markdown file links. The GitHub Wiki copy uses Wiki
 
 - [Architecture](architecture.md)
 - [Feature Map](feature-map.md)
+- [Development Tasks](development-tasks.md)
 - [Document Loading](document-loading.md)
 - [AI Chat](ai-chat.md)
 - [AI Analysis Cache](ai-analysis-cache.md)

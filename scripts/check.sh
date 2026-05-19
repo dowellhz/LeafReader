@@ -22,6 +22,9 @@ cd "$ROOT_DIR"
 echo "==> Checking whitespace"
 git diff --check
 
+echo "==> Checking wiki"
+./scripts/check_wiki.sh
+
 echo "==> Running tests"
 ./tests/run.sh
 

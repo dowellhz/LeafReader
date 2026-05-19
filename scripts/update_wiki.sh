@@ -53,6 +53,12 @@ done
 
 cd "$ROOT_DIR"
 
+SOURCE_BEFORE="$(git rev-parse HEAD)"
+WIKI_BEFORE=""
+if [[ -d "${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}/.git" ]]; then
+  WIKI_BEFORE="$(git -C "${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}" rev-parse HEAD 2>/dev/null || true)"
+fi
+
 if [[ -n "$(git status --porcelain -- docs/wiki)" ]]; then
   echo "Existing local wiki source changes will be included:"
   git status --short -- docs/wiki
@@ -78,14 +84,37 @@ fi
 
 if [[ "$COMMIT_SOURCE" -ne 1 ]]; then
   echo "Leaving local docs/wiki changes uncommitted because --no-source-commit was set."
+  echo "Wiki update summary:"
+  echo "- Source commit: unchanged ($(git rev-parse --short HEAD))"
+  if [[ -d "${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}/.git" ]]; then
+    echo "- Wiki commit: $(git -C "${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}" rev-parse --short HEAD)"
+  fi
   exit 0
 fi
 
 if [[ -z "$(git status --porcelain -- docs/wiki)" ]]; then
   echo "No local wiki source changes to commit."
+  echo "Wiki update summary:"
+  echo "- Source commit: unchanged ($(git rev-parse --short HEAD))"
+  if [[ -d "${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}/.git" ]]; then
+    echo "- Wiki commit: $(git -C "${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}" rev-parse --short HEAD)"
+  fi
   exit 0
 fi
 
+echo "Source wiki files changed:"
+git status --short -- docs/wiki
 git add docs/wiki
 git commit -m "Update generated code wiki"
 git push origin "$(git branch --show-current)"
+
+echo "Wiki update summary:"
+echo "- Source commit: $(git rev-parse --short "$SOURCE_BEFORE") -> $(git rev-parse --short HEAD)"
+if [[ -d "${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}/.git" ]]; then
+  WIKI_AFTER="$(git -C "${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}" rev-parse HEAD)"
+  if [[ -n "$WIKI_BEFORE" ]]; then
+    echo "- Wiki commit: $(git -C "${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}" rev-parse --short "$WIKI_BEFORE") -> $(git -C "${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}" rev-parse --short "$WIKI_AFTER")"
+  else
+    echo "- Wiki commit: $(git -C "${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}" rev-parse --short "$WIKI_AFTER")"
+  fi
+fi
