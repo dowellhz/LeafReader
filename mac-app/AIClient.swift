@@ -2,12 +2,13 @@ import Foundation
 
 final class AIClient {
 
-    func send(messages: [ChatMessage], completion: @escaping (Result<String, Error>) -> Void) {
+    @discardableResult
+    func send(messages: [ChatMessage], completion: @escaping (Result<String, Error>) -> Void) -> URLSessionDataTask? {
         let config = AISettingsStore.selectedModel
         let apiKey = AISettingsStore.apiKey(for: config)
         guard !apiKey.isEmpty else {
             completion(.failure(Self.missingAPIKeyError(for: config)))
-            return
+            return nil
         }
 
         var request = URLRequest(url: config.endpoint)
@@ -20,10 +21,10 @@ final class AIClient {
             request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         } catch {
             completion(.failure(error))
-            return
+            return nil
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -56,7 +57,9 @@ final class AIClient {
             } catch {
                 completion(.failure(error))
             }
-        }.resume()
+        }
+        task.resume()
+        return task
     }
 
     @discardableResult

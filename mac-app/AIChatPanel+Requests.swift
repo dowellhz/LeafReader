@@ -28,6 +28,7 @@ extension AIChatPanel {
                 }
                 self.activeRequestID = nil
                 self.currentStreamTask = nil
+                self.currentDataTask = nil
                 self.activeAssistantBody = nil
                 self.flushStreamUpdate(assistantBody)
                 self.setBusy(false, text: "")
@@ -123,6 +124,8 @@ extension AIChatPanel {
         activeRequestID = nil
         currentStreamTask?.cancel()
         currentStreamTask = nil
+        currentDataTask?.cancel()
+        currentDataTask = nil
         if let activeAssistantBody {
             updateBubble(activeAssistantBody, role: AppText.localized("提示", "Note"), text: AppText.localized("已取消。", "Cancelled."), renderMarkdown: false, notify: false)
         } else {
@@ -133,21 +136,40 @@ extension AIChatPanel {
     }
 
     func requestTranslation(title: String, text: String) {
+        let requestID = UUID()
+        activeRequestID = requestID
         setBusy(true, text: AppText.localized("翻译中", "Translating"))
-        let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating, renderMarkdown: false)
+        let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating, renderMarkdown: false, persist: false)
+        activeAssistantBody = assistantBody
         let chunks = translationChunks(from: text)
         var translatedChunks = Array(repeating: "", count: chunks.count)
 
         func translateChunk(_ index: Int) {
+            guard activeRequestID == requestID else { return }
             guard index < chunks.count else {
                 let merged = translatedChunks
                     .map { indentedTranslationText($0) }
                     .filter { !$0.isEmpty }
                     .joined(separator: "\n\n")
+                let finalContent = merged.trimmingCharacters(in: .whitespacesAndNewlines)
+                activeRequestID = nil
+                currentDataTask = nil
+                activeAssistantBody = nil
+                setBusy(false, text: "")
+                guard !finalContent.isEmpty else {
+                    updateBubble(
+                        assistantBody,
+                        role: AppText.localized("提示", "Note"),
+                        text: AppText.localized("AI 没有返回内容。", "AI returned no content."),
+                        renderMarkdown: false,
+                        notify: false
+                    )
+                    return
+                }
                 recordTranscript(role: AppText.aiRole, text: merged)
                 appendMessage(ChatMessage(role: "assistant", content: merged))
-                updateBubble(assistantBody, role: AppText.aiRole, text: merged, renderMarkdown: false)
-                setBusy(false, text: "")
+                updateBubble(assistantBody, role: AppText.aiRole, text: merged, renderMarkdown: false, notify: false)
+                persistBubbleIfNeeded(assistantBody)
                 return
             }
 
@@ -158,12 +180,17 @@ extension AIChatPanel {
             updateBubble(assistantBody, role: AppText.aiRole, text: partialTranslationText(translatedChunks, currentIndex: index), renderMarkdown: false)
 
             let prompt = AIPromptStore.translationPrompt(title: title, text: chunks[index])
-            client.send(messages: [
+            currentDataTask = client.send(messages: [
                 ChatMessage(role: "system", content: AIPromptStore.systemPrompt()),
                 ChatMessage(role: "user", content: prompt)
             ]) { [weak self, weak assistantBody] result in
                 DispatchQueue.main.async {
                     guard let self, let assistantBody else { return }
+                    guard self.activeRequestID == requestID || self.cancelledRequestIDs.contains(requestID) else { return }
+                    if self.cancelledRequestIDs.remove(requestID) != nil {
+                        return
+                    }
+                    self.currentDataTask = nil
                     switch result {
                     case .success(let content):
                         translatedChunks[index] = content
@@ -171,11 +198,14 @@ extension AIChatPanel {
                             assistantBody,
                             role: AppText.aiRole,
                             text: self.partialTranslationText(translatedChunks, currentIndex: index + 1),
-                            renderMarkdown: false
+                            renderMarkdown: false,
+                            notify: false
                         )
                         translateChunk(index + 1)
                     case .failure(let error):
-                        self.updateBubble(assistantBody, role: AppText.errorRole, text: self.userFacingAIError(error))
+                        self.activeRequestID = nil
+                        self.activeAssistantBody = nil
+                        self.updateBubble(assistantBody, role: AppText.errorRole, text: self.userFacingAIError(error), notify: false)
                         self.setBusy(false, text: "")
                     }
                 }

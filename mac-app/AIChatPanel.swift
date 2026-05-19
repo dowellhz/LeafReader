@@ -157,6 +157,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     let loadingDots = LoadingDotsView()
     let speechSynthesizer = AVSpeechSynthesizer()
     var currentStreamTask: Task<Void, Never>?
+    var currentDataTask: URLSessionDataTask?
     var activeRequestID: UUID?
     var cancelledRequestIDs = Set<UUID>()
     weak var activeAssistantBody: NSTextField?
@@ -233,6 +234,8 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         }
         streamUpdateWorkItem?.cancel()
         transcriptLayoutWorkItem?.cancel()
+        currentStreamTask?.cancel()
+        currentDataTask?.cancel()
     }
 
     required init?(coder: NSCoder) {
