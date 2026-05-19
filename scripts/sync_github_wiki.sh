@@ -6,6 +6,18 @@ SOURCE_DIR="$ROOT_DIR/docs/wiki"
 WIKI_REMOTE="${WIKI_REMOTE:-git@github.com:dowellhz/LeafReader.wiki.git}"
 WIKI_WORKTREE="${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}"
 PUSH=0
+WIKI_PAGES=(
+  Home.md
+  Architecture.md
+  Document-Loading.md
+  AI-Chat.md
+  AI-Analysis-Cache.md
+  Word-Highlights.md
+  Release-Process.md
+  Security.md
+  Code-Map.md
+  _Sidebar.md
+)
 
 usage() {
   cat <<'EOF'
@@ -57,10 +69,27 @@ if [[ ! -d "$WIKI_WORKTREE/.git" ]]; then
 else
   git -C "$WIKI_WORKTREE" fetch origin
   git -C "$WIKI_WORKTREE" checkout master
-  git -C "$WIKI_WORKTREE" pull --ff-only origin master
+  if [[ -z "$(git -C "$WIKI_WORKTREE" status --porcelain)" ]]; then
+    git -C "$WIKI_WORKTREE" pull --ff-only origin master
+  fi
 fi
 
-if [[ -n "$(git -C "$WIKI_WORKTREE" status --porcelain)" ]]; then
+unexpected_dirty_files() {
+  git -C "$WIKI_WORKTREE" status --porcelain | while read -r _ path; do
+    local allowed=0
+    for page in "${WIKI_PAGES[@]}"; do
+      if [[ "$path" == "$page" ]]; then
+        allowed=1
+        break
+      fi
+    done
+    if [[ "$allowed" -ne 1 ]]; then
+      echo "$path"
+    fi
+  done
+}
+
+if [[ -n "$(unexpected_dirty_files)" ]]; then
   echo "Wiki worktree has uncommitted changes: $WIKI_WORKTREE" >&2
   git -C "$WIKI_WORKTREE" status --short >&2
   exit 1
@@ -78,6 +107,7 @@ copy_page "ai-chat.md" "AI-Chat.md"
 copy_page "ai-analysis-cache.md" "AI-Analysis-Cache.md"
 copy_page "word-highlights.md" "Word-Highlights.md"
 copy_page "release-process.md" "Release-Process.md"
+copy_page "security.md" "Security.md"
 copy_page "code-map.md" "Code-Map.md"
 
 cat > "$WIKI_WORKTREE/Home.md" <<'EOF'
@@ -93,6 +123,7 @@ This wiki explains the codebase structure and stable engineering workflows for L
 - [AI Analysis Cache](AI-Analysis-Cache)
 - [Word Highlights](Word-Highlights)
 - [Release Process](Release-Process)
+- [Security](Security)
 - [Code Map](Code-Map)
 
 ## Maintenance
@@ -117,6 +148,7 @@ cat > "$WIKI_WORKTREE/_Sidebar.md" <<'EOF'
 - [AI Analysis Cache](AI-Analysis-Cache)
 - [Word Highlights](Word-Highlights)
 - [Release Process](Release-Process)
+- [Security](Security)
 - [Code Map](Code-Map)
 EOF
 
@@ -135,6 +167,6 @@ if [[ "$PUSH" -ne 1 ]]; then
   exit 0
 fi
 
-git -C "$WIKI_WORKTREE" add Home.md Architecture.md Document-Loading.md AI-Chat.md AI-Analysis-Cache.md Word-Highlights.md Release-Process.md Code-Map.md _Sidebar.md
+git -C "$WIKI_WORKTREE" add "${WIKI_PAGES[@]}"
 git -C "$WIKI_WORKTREE" commit -m "Sync code wiki"
 git -C "$WIKI_WORKTREE" push origin master

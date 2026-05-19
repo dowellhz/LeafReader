@@ -12,6 +12,7 @@ This repo copy uses relative Markdown file links. The GitHub Wiki copy uses Wiki
 - [AI Analysis Cache](ai-analysis-cache.md)
 - [Word Highlights](word-highlights.md)
 - [Release Process](release-process.md)
+- [Security](security.md)
 - [Code Map](code-map.md)
 
 ## Maintenance
