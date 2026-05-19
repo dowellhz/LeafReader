@@ -409,8 +409,6 @@ extension ReaderWindowController {
         titleLabel.textColor = NSColor(red: 0.1, green: 0.11, blue: 0.14, alpha: 1)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.isSelectable = false
-        titleLabel.toolTip = AppText.localized("从当前目录选择文件", "Choose a file from the current folder")
-        titleLabel.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(openPDFInCurrentDirectory)))
 
         coverImageView.imageScaling = .scaleProportionallyUpOrDown
         coverImageView.wantsLayer = true
@@ -420,8 +418,6 @@ extension ReaderWindowController {
         coverImageView.layer?.cornerRadius = 3
         coverImageView.layer?.masksToBounds = true
         coverImageView.isHidden = true
-        coverImageView.toolTip = AppText.localized("从当前目录选择文件", "Choose a file from the current folder")
-        coverImageView.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(openPDFInCurrentDirectory)))
     }
 
     private func configureZoomControls(zoomGroup: NSView, zoomOut: NSButton, zoomIn: NSButton, leftDivider: NSView, rightDivider: NSView) {

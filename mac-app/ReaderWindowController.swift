@@ -19,6 +19,18 @@ final class ClickEditableTextField: NSTextField {
     }
 }
 
+final class WindowDragTextField: NSTextField {
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
+    }
+}
+
+final class WindowDragImageView: NSImageView {
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
+    }
+}
+
 final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     struct VocabularyExportRecord {
         let ids: [String]
@@ -66,8 +78,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let vocabularySpeechSynthesizer = AVSpeechSynthesizer()
     let aiHandleButton = SideHandleButton(title: "", target: nil, action: nil)
     let resizeHandle = ResizeHandleView()
-    let titleLabel = NSTextField(labelWithString: "Leaf Reader")
-    let coverImageView = NSImageView()
+    let titleLabel = WindowDragTextField(labelWithString: "Leaf Reader")
+    let coverImageView = WindowDragImageView()
     let pageLabel = ClickEditableTextField(string: AppText.noPDF)
     let zoomField = ClickEditableTextField(string: "100%")
     let searchOverlay = SearchOverlayView()
