@@ -100,9 +100,7 @@ final class PDFEmbeddingStore {
            Date().timeIntervalSince(cachedCacheSize.measuredAt) < cacheSizeTTL {
             return cachedCacheSize.bytes
         }
-        let bytes = Self.cacheDatabaseURL().flatMap { url in
-            (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value
-        } ?? 0
+        let bytes = Self.cacheDatabaseURL().map(Self.cacheSizeBytes(forDatabaseURL:)) ?? 0
         cachedCacheSize = (bytes, Date())
         return bytes
     }
@@ -209,6 +207,21 @@ final class PDFEmbeddingStore {
 
     private static func cacheDatabaseURL() -> URL? {
         cacheDirectory()?.appendingPathComponent("pdf-embeddings.sqlite3")
+    }
+
+    static func cacheSizeBytes(forDatabaseURL url: URL) -> Int64 {
+        sqliteCacheFileURLs(forDatabaseURL: url).reduce(Int64(0)) { total, fileURL in
+            let bytes = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? NSNumber)?.int64Value ?? 0
+            return total + bytes
+        }
+    }
+
+    private static func sqliteCacheFileURLs(forDatabaseURL url: URL) -> [URL] {
+        [
+            url,
+            URL(fileURLWithPath: url.path + "-wal"),
+            URL(fileURLWithPath: url.path + "-shm")
+        ]
     }
 
     private static func encodeEmbedding(_ embedding: [Float]) -> Data {

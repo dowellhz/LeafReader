@@ -16,6 +16,12 @@ swiftc \
   -o /tmp/leafreader-sqlite-word-tests
 /tmp/leafreader-sqlite-word-tests
 swiftc \
+  tests/PDFEmbeddingStoreTests.swift \
+  mac-app/PDFEmbeddingStore.swift \
+  -lsqlite3 \
+  -o /tmp/leafreader-pdf-embedding-store-tests
+/tmp/leafreader-pdf-embedding-store-tests
+swiftc \
   mac-app/MarkdownRenderer.swift \
   mac-app/DocumentIdentity.swift \
   mac-app/StoredPDFWordRect.swift \
