@@ -28,6 +28,13 @@ final class RecentDocumentsPanelController: NSObject {
     let coverSize = NSSize(width: 120, height: 205)
     static var coverCache: [String: NSImage] = [:]
     static var placeholderCoverCache: [String: NSImage] = [:]
+    static let coverLoadQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "LeafReader.ShelfCoverLoadQueue"
+        queue.qualityOfService = .utility
+        queue.maxConcurrentOperationCount = 2
+        return queue
+    }()
 
     deinit {
         removeAppActivationObserver()

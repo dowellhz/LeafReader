@@ -1,5 +1,4 @@
 import Cocoa
-import UniformTypeIdentifiers
 
 extension RecentDocumentsPanelController {
     func showPanel(_ panel: NSWindow, attachedTo parent: NSWindow?) {
@@ -140,14 +139,21 @@ extension RecentDocumentsPanelController {
 
     @objc func openDocumentFromShelf(_ sender: NSButton) {
         let openPanel = NSOpenPanel()
-        openPanel.allowedContentTypes = [.pdf, .epub, .init(filenameExtension: "docx")].compactMap { $0 }
+        openPanel.allowedFileTypes = ["pdf", "epub", "docx"]
         openPanel.allowsOtherFileTypes = false
         openPanel.allowsMultipleSelection = false
         openPanel.canChooseDirectories = false
         openPanel.canChooseFiles = true
+        openPanel.treatsFilePackagesAsDirectories = false
         guard let hostWindow = panel ?? parentWindow ?? NSApp.keyWindow else { return }
+        Self.coverLoadQueue.isSuspended = true
         openPanel.beginSheetModal(for: hostWindow) { [weak self] response in
+            Self.coverLoadQueue.isSuspended = false
             guard let self, response == .OK, let url = openPanel.url else { return }
+            guard ReaderDocumentKind.kind(for: url) != nil else {
+                NSSound.beep()
+                return
+            }
             self.pendingOpenPath = url.path
             self.close()
         }

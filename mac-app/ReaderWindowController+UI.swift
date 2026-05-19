@@ -97,16 +97,8 @@ extension ReaderWindowController {
 
         let toolbarSetup = configureToolbarViews()
         let toolbar = toolbarSetup.toolbar
-        let zoomOut = toolbarSetup.zoomOut
-        let zoomIn = toolbarSetup.zoomIn
-        let zoomGroup = toolbarSetup.zoomGroup
-        let leftDivider = toolbarSetup.leftDivider
-        let rightDivider = toolbarSetup.rightDivider
-
         let bottomBarSetup = configureBottomBarViews()
         let bottomBar = bottomBarSetup.bottomBar
-        let settingsButton = bottomBarSetup.settingsButton
-
         pdfContainer.translatesAutoresizingMaskIntoConstraints = false
         contentArea.addSubview(pdfContainer)
         pdfView.translatesAutoresizingMaskIntoConstraints = false
@@ -150,6 +142,33 @@ extension ReaderWindowController {
         configureSearchOverlay(in: contentView)
         configureLoadingOverlay()
         contentView.addSubview(loadingOverlay, positioned: .above, relativeTo: searchOverlay)
+
+        installReaderLayoutConstraints(
+            contentView: contentView,
+            toolbarSetup: toolbarSetup,
+            bottomBarSetup: bottomBarSetup
+        )
+
+        DispatchQueue.main.async { [weak self] in
+            self?.setAIPanelCollapsed(true, animated: false)
+        }
+        applyReaderTheme()
+        scheduleSessionRestoreAfterInitialPaint()
+    }
+
+    private func installReaderLayoutConstraints(
+        contentView: NSView,
+        toolbarSetup: ReaderToolbarSetup,
+        bottomBarSetup: ReaderBottomBarSetup
+    ) {
+        let toolbar = toolbarSetup.toolbar
+        let zoomOut = toolbarSetup.zoomOut
+        let zoomIn = toolbarSetup.zoomIn
+        let zoomGroup = toolbarSetup.zoomGroup
+        let leftDivider = toolbarSetup.leftDivider
+        let rightDivider = toolbarSetup.rightDivider
+        let bottomBar = bottomBarSetup.bottomBar
+        let settingsButton = bottomBarSetup.settingsButton
 
         NSLayoutConstraint.activate([
             toolbar.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -323,12 +342,6 @@ extension ReaderWindowController {
             embeddingStatusLabel.leadingAnchor.constraint(greaterThanOrEqualTo: nextButton.trailingAnchor, constant: ReaderUILayout.embeddingStatusLeadingMinimum),
             embeddingStatusLabel.widthAnchor.constraint(lessThanOrEqualToConstant: ReaderUILayout.embeddingStatusMaxWidth)
         ])
-
-        DispatchQueue.main.async { [weak self] in
-            self?.setAIPanelCollapsed(true, animated: false)
-        }
-        applyReaderTheme()
-        scheduleSessionRestoreAfterInitialPaint()
     }
 
     private func configureToolbarViews() -> ReaderToolbarSetup {

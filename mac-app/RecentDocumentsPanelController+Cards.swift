@@ -109,7 +109,8 @@ extension RecentDocumentsPanelController {
         let path = item.path
         let kind = item.kind
         let coverSize = self.coverSize
-        DispatchQueue.global(qos: .utility).async { [weak imageView] in
+        Self.coverLoadQueue.addOperation { [weak self, weak imageView] in
+            guard let self else { return }
             if let diskCover = self.loadDiskCover(cacheKey: cacheKey) {
                 DispatchQueue.main.async {
                     Self.coverCache[cacheKey] = diskCover

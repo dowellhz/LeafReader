@@ -1,5 +1,4 @@
 import Cocoa
-import UniformTypeIdentifiers
 
 extension ReaderWindowController {
     @objc func openPDF() {
@@ -8,13 +7,16 @@ extension ReaderWindowController {
         panel.allowsMultipleSelection = false
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
-            self?.loadDocument(url)
+            self?.loadSelectedDocument(url)
         }
     }
 
     func configureOpenPanel(_ panel: NSOpenPanel) {
-        panel.allowedContentTypes = [.pdf, .epub, .init(filenameExtension: "docx")].compactMap { $0 }
+        panel.allowedFileTypes = ["pdf", "epub", "docx"]
         panel.allowsOtherFileTypes = false
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.treatsFilePackagesAsDirectories = false
     }
 
     func loadDocument(_ url: URL) {
@@ -87,7 +89,15 @@ extension ReaderWindowController {
         panel.directoryURL = url.deletingLastPathComponent()
         panel.begin { [weak self] response in
             guard response == .OK, let selectedURL = panel.url else { return }
-            self?.loadDocument(selectedURL)
+            self?.loadSelectedDocument(selectedURL)
         }
+    }
+
+    func loadSelectedDocument(_ url: URL) {
+        guard ReaderDocumentKind.kind(for: url) != nil else {
+            NSSound.beep()
+            return
+        }
+        loadDocument(url)
     }
 }
