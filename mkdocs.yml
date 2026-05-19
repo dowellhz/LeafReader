@@ -5,6 +5,8 @@ repo_url: https://github.com/dowellhz/LeafReader
 repo_name: dowellhz/LeafReader
 docs_dir: docs/wiki
 site_dir: docs/manual
+extra_css:
+  - stylesheets/leafreader.css
 extra:
   homepage: https://leafreader.space/
   social:

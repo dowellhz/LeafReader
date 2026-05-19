@@ -23,20 +23,37 @@ This repo copy uses relative Markdown file links. The GitHub Wiki copy uses Wiki
 
 ## Pages
 
-- [Architecture](architecture.md)
-- [Feature Map](feature-map.md)
-- [Development Tasks](development-tasks.md)
-- [Document Loading](document-loading.md)
-- [AI Chat](ai-chat.md)
-- [AI Analysis Cache](ai-analysis-cache.md)
-- [Word Highlights](word-highlights.md)
-- [Release Process](release-process.md)
-- [Release Checklist](release-checklist.md)
-- [Release Runbook](release-runbook.md)
-- [Security](security.md)
-- [Troubleshooting](troubleshooting.md)
-- [Code Map](code-map.md)
-- [Type Index](type-index.md)
+<div class="grid" markdown>
+
+[**Architecture** - System shape and module boundaries.](architecture.md){ .card }
+
+[**Feature Map** - Find code by product feature.](feature-map.md){ .card }
+
+[**Development Tasks** - Entry points for common engineering work.](development-tasks.md){ .card }
+
+[**Document Loading** - PDF, EPUB, and DOCX loading flow.](document-loading.md){ .card }
+
+[**AI Chat** - AI panel actions, requests, and rendering.](ai-chat.md){ .card }
+
+[**AI Analysis Cache** - Embedding cache and retrieval workflow.](ai-analysis-cache.md){ .card }
+
+[**Word Highlights** - Vocabulary storage, review, and highlights.](word-highlights.md){ .card }
+
+[**Release Process** - Release scripts and files.](release-process.md){ .card }
+
+[**Release Checklist** - Preflight publishing checklist.](release-checklist.md){ .card }
+
+[**Release Runbook** - Command-by-command release procedure.](release-runbook.md){ .card }
+
+[**Security** - Secret handling and generated artifacts.](security.md){ .card }
+
+[**Troubleshooting** - Symptoms and fast checks.](troubleshooting.md){ .card }
+
+[**Code Map** - Generated module summary.](code-map.md){ .card }
+
+[**Type Index** - Generated Swift type index.](type-index.md){ .card }
+
+</div>
 
 ## Maintenance
 
