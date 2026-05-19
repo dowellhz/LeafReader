@@ -12,6 +12,8 @@ final class PDFEmbeddingStore {
     static let defaultMaximumCacheBytes: Int64 = 1024 * 1024 * 1024
 
     private let db: OpaquePointer?
+    private var cachedCacheSize: (bytes: Int64, measuredAt: Date)?
+    private let cacheSizeTTL: TimeInterval = 2.0
 
     init?() {
         guard let directory = Self.cacheDirectory() else { return nil }
@@ -75,6 +77,7 @@ final class PDFEmbeddingStore {
             sqlite3_bind_double(statement, 8, Date().timeIntervalSince1970)
             sqlite3_step(statement)
         }
+        invalidateCacheSize()
         if pruneIfNeeded(maximumBytes: Self.defaultMaximumCacheBytes) {
             vacuum()
         }
@@ -82,18 +85,26 @@ final class PDFEmbeddingStore {
 
     func deleteDocument(documentID: String) {
         execute(sql: "DELETE FROM embeddings WHERE document_id = ?", bindings: [documentID])
+        invalidateCacheSize()
         vacuum()
     }
 
     func deleteAll() {
         execute(sql: "DELETE FROM embeddings")
+        invalidateCacheSize()
         vacuum()
     }
 
     func cacheSizeBytes() -> Int64 {
-        Self.cacheDatabaseURL().flatMap { url in
+        if let cachedCacheSize,
+           Date().timeIntervalSince(cachedCacheSize.measuredAt) < cacheSizeTTL {
+            return cachedCacheSize.bytes
+        }
+        let bytes = Self.cacheDatabaseURL().flatMap { url in
             (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value
         } ?? 0
+        cachedCacheSize = (bytes, Date())
+        return bytes
     }
 
     func documentCount() -> Int {
@@ -107,6 +118,7 @@ final class PDFEmbeddingStore {
         while cacheSizeBytes() > maximumBytes {
             guard let oldestDocumentID = oldestDocumentID() else { break }
             execute(sql: "DELETE FROM embeddings WHERE document_id = ?", bindings: [oldestDocumentID])
+            invalidateCacheSize()
             didDelete = true
         }
         return didDelete
@@ -179,6 +191,11 @@ final class PDFEmbeddingStore {
 
     private func vacuum() {
         sqlite3_exec(db, "VACUUM", nil, nil, nil)
+        invalidateCacheSize()
+    }
+
+    private func invalidateCacheSize() {
+        cachedCacheSize = nil
     }
 
     private func bind(_ value: String, at index: Int32, statement: OpaquePointer?) {
