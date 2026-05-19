@@ -37,28 +37,24 @@ final class ChatInputTextField: NSTextField {
     }
 
     func copySelectionToClipboard() {
-        guard let editor = currentEditor() else { return }
-        let selectedRange = editor.selectedRange
-        guard selectedRange.length > 0,
-              let range = Range(selectedRange, in: editor.string) else {
-            return
-        }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(String(editor.string[range]), forType: .string)
+        currentEditor()?.copySelectionToClipboard()
     }
 
     func pasteFromClipboard() {
         guard let text = NSPasteboard.general.string(forType: .string) else { return }
-        let singleLineText = text
+        if let editor = currentEditor() {
+            editor.pasteStringFromClipboard(transform: normalizedSingleLinePasteText)
+        } else {
+            stringValue += normalizedSingleLinePasteText(text)
+        }
+    }
+
+    private func normalizedSingleLinePasteText(_ text: String) -> String {
+        text
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: " ")
-        if let editor = currentEditor() {
-            editor.replaceCharacters(in: editor.selectedRange, with: singleLineText)
-        } else {
-            stringValue += singleLineText
-        }
     }
 }
 
@@ -78,15 +74,7 @@ final class ChatBubbleTextField: NSTextField {
     }
 
     func copySelectionToClipboard() -> Bool {
-        guard let editor = currentEditor() else { return false }
-        let selectedRange = editor.selectedRange
-        guard selectedRange.length > 0,
-              let range = Range(selectedRange, in: editor.string) else {
-            return false
-        }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(String(editor.string[range]), forType: .string)
-        return true
+        currentEditor()?.copySelectionToClipboard() ?? false
     }
 
     func clearTextSelection() {
@@ -96,12 +84,7 @@ final class ChatBubbleTextField: NSTextField {
 
     var selectedTextValue: String {
         guard let editor = currentEditor() else { return "" }
-        let selectedRange = editor.selectedRange
-        guard selectedRange.length > 0,
-              let range = Range(selectedRange, in: editor.string) else {
-            return ""
-        }
-        return String(editor.string[range]).trimmingCharacters(in: .whitespacesAndNewlines)
+        return editor.selectedString()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
     var selectedTextRange: NSRange? {

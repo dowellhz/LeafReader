@@ -18,16 +18,11 @@ final class APIKeySecureTextField: NSSecureTextField {
             editor.selectAll(nil)
             return true
         case "v":
-            pasteFromClipboard(into: editor)
+            editor.pasteStringFromClipboard()
             return true
         default:
             return super.performKeyEquivalent(with: event)
         }
-    }
-
-    private func pasteFromClipboard(into editor: NSText) {
-        guard let text = NSPasteboard.general.string(forType: .string) else { return }
-        editor.replaceCharacters(in: editor.selectedRange, with: text)
     }
 }
 
@@ -44,32 +39,17 @@ private final class APIKeyTextField: NSTextField {
             editor.selectAll(nil)
             return true
         case "c":
-            copySelection(from: editor)
+            editor.copySelectionToClipboard()
             return true
         case "x":
-            copySelection(from: editor)
+            editor.copySelectionToClipboard()
             editor.delete(nil)
             return true
         case "v":
-            pasteFromClipboard(into: editor)
+            editor.pasteStringFromClipboard()
             return true
         default:
             return super.performKeyEquivalent(with: event)
         }
-    }
-
-    private func copySelection(from editor: NSText) {
-        let selectedRange = editor.selectedRange
-        guard selectedRange.length > 0,
-              let range = Range(selectedRange, in: editor.string) else {
-            return
-        }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(String(editor.string[range]), forType: .string)
-    }
-
-    private func pasteFromClipboard(into editor: NSText) {
-        guard let text = NSPasteboard.general.string(forType: .string) else { return }
-        editor.replaceCharacters(in: editor.selectedRange, with: text)
     }
 }

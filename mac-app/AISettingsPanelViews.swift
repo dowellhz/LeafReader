@@ -13,33 +13,18 @@ final class SettingsTextField: NSTextField {
             editor.selectAll(nil)
             return true
         case "c":
-            copySelection(from: editor)
+            editor.copySelectionToClipboard()
             return true
         case "x":
-            copySelection(from: editor)
+            editor.copySelectionToClipboard()
             editor.delete(nil)
             return true
         case "v":
-            pasteClipboard(into: editor)
+            editor.pasteStringFromClipboard()
             return true
         default:
             return super.performKeyEquivalent(with: event)
         }
-    }
-
-    func copySelection(from editor: NSText) {
-        let selectedRange = editor.selectedRange
-        guard selectedRange.length > 0,
-              let range = Range(selectedRange, in: editor.string) else {
-            return
-        }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(String(editor.string[range]), forType: .string)
-    }
-
-    func pasteClipboard(into editor: NSText) {
-        guard let text = NSPasteboard.general.string(forType: .string) else { return }
-        editor.replaceCharacters(in: editor.selectedRange, with: text)
     }
 }
 
