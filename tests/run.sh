@@ -41,6 +41,11 @@ swiftc \
   mac-app/PDFPagingPolicy.swift \
   mac-app/ReaderSessionPolicy.swift \
   mac-app/ReaderAIContextPolicy.swift \
+  mac-app/AIResponseTextFormatter.swift \
+  mac-app/EmbeddingActionPolicy.swift \
+  mac-app/AppText.swift \
+  mac-app/ReadingContextSnapshot.swift \
+  mac-app/ReaderDocumentKind.swift \
   mac-app/VocabularyExporter.swift \
   mac-app/ReaderAIContextBuilder.swift \
   mac-app/EPUBPackageParser.swift \

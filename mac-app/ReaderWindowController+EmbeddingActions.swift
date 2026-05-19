@@ -29,7 +29,7 @@ extension ReaderWindowController {
         embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已取消", "AI analysis data: cancelled")
         embeddingStatusLabel.isHidden = false
         updateEmbeddingControlButtons()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + EmbeddingActionPolicy.statusClearDelay) { [weak self] in
             guard let self, !self.isPreparingPDFEmbeddings else { return }
             self.clearEmbeddingStatus()
         }
@@ -62,7 +62,7 @@ extension ReaderWindowController {
         embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已清除当前书", "AI analysis data: current book cleared")
         embeddingStatusLabel.isHidden = false
         updateEmbeddingControlButtons()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + EmbeddingActionPolicy.statusClearDelay) { [weak self] in
             guard let self, !self.isPreparingPDFEmbeddings else { return }
             self.clearEmbeddingStatus()
         }

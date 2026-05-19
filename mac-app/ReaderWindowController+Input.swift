@@ -300,7 +300,7 @@ extension ReaderWindowController {
           return String(selection || "");
         })();
         """) { [weak self] result, _ in
-            let text = (result as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let text = self?.trimmedReaderSelection(result as? String) ?? ""
             self?.currentWebSelectedText = text.count > 1 ? text : ""
             self?.currentWebSelectionContext = text
             self?.aiPanel.setSelectedText(self?.currentWebSelectedText ?? "")
@@ -320,10 +320,14 @@ extension ReaderWindowController {
     }
 
     func copyTextToClipboard(_ text: String?) {
-        let value = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let value = trimmedReaderSelection(text)
         guard !value.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
+    }
+
+    func trimmedReaderSelection(_ text: String?) -> String {
+        text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
     var isFirstResponderInsideAIView: Bool {

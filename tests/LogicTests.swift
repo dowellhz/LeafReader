@@ -647,6 +647,39 @@ private func testReaderAIContextPolicy() throws {
     try expectEqual(ReaderAIContextPolicy.suffix("abcdef", limit: 3), "def", "suffix helper should clamp text")
 }
 
+private func testAIResponseTextFormatter() throws {
+    try expectEqual(AIResponseTextFormatter.trimmed("  answer\n"), "answer", "formatter should trim text")
+    try expect(!AIResponseTextFormatter.hasTrimmedText("   "), "blank text should not be meaningful")
+    try expectEqual(AIResponseTextFormatter.indentedTranslationText("line one\n\nline two"), "　　line one\n\n　　line two", "translation text should indent non-empty lines")
+    try expectEqual(
+        AIResponseTextFormatter.partialTranslationText(["first", ""], currentIndex: 1, generatingText: "Generating"),
+        "　　first\n\nGenerating",
+        "partial translation should include completed chunks and generating text"
+    )
+    let longText = String(repeating: "a", count: AIResponseTextFormatter.translationChunkLimit + 20)
+    try expectEqual(AIResponseTextFormatter.translationChunks(from: longText).count, 2, "long unparagraphized translations should split in two")
+}
+
+private func testEmbeddingActionPolicy() throws {
+    try expectEqual(EmbeddingActionPolicy.statusClearDelay, 1.5, "embedding status clear delay should remain explicit")
+}
+
+private func testReadingContextSnapshot() throws {
+    let snapshot = ReadingContextSnapshot(
+        title: "Book",
+        documentKind: .pdf,
+        locationLabel: " p. 2 ",
+        visibleText: " visible ",
+        nearbyText: " nearby ",
+        selectedText: " selected ",
+        selectedContext: " context "
+    )
+    try expectEqual(snapshot.currentContentTitle, "Book - p. 2", "content title should include trimmed location")
+    try expectEqual(snapshot.readingText, "visible", "visible text should win over nearby text")
+    try expect(snapshot.contextText.contains("p. 2"), "context should include location")
+    try expect(snapshot.contextText.contains("selected"), "context should include selection")
+}
+
 private func testCapturedPageScrollGuard() throws {
     try expect(shouldApplyCapturedPageScroll(capturedPageIndex: 2, documentPageCount: 5), "captured page in current document should be scrollable")
     try expect(!shouldApplyCapturedPageScroll(capturedPageIndex: -1, documentPageCount: 5), "negative captured page should be ignored")
@@ -690,6 +723,9 @@ private let tests: [(String, () throws -> Void)] = [
     ("Vocabulary exporter", testVocabularyExporter),
     ("Reader AI context text cleanup", testReaderAIContextTextCleanup),
     ("Reader AI context policy", testReaderAIContextPolicy),
+    ("AI response text formatter", testAIResponseTextFormatter),
+    ("Embedding action policy", testEmbeddingActionPolicy),
+    ("Reading context snapshot", testReadingContextSnapshot),
     ("Captured page scroll guard", testCapturedPageScrollGuard),
     ("Debounced task", testDebouncedTask)
 ]

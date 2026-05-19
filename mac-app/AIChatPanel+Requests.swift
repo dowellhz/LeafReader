@@ -15,7 +15,7 @@ extension AIChatPanel {
                 guard let self = self, let assistantBody = assistantBody else { return }
                 guard self.requestState.isActive(requestID) else { return }
                 streamedText += delta
-                let visibleText = AIClient.visibleAnswer(from: streamedText)
+                let visibleText = AIResponseTextFormatter.visibleAnswer(streamedText)
                 self.scheduleStreamUpdate(assistantBody, text: visibleText.isEmpty ? AppText.generating : visibleText)
             }
         }, completion: { [weak self, weak assistantBody] result in
@@ -30,7 +30,7 @@ extension AIChatPanel {
                 self.setBusy(false, text: "")
                 switch result {
                 case .success(let content):
-                    let finalContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let finalContent = AIResponseTextFormatter.trimmed(content)
                     guard !finalContent.isEmpty else {
                         if let assistantBody = assistantBody {
                             self.updateBubble(
@@ -50,7 +50,7 @@ extension AIChatPanel {
                         self.persistBubbleIfNeeded(assistantBody)
                     }
                     if let linkID, let linkedQuestion {
-                        let visible = AIClient.visibleAnswer(from: content).trimmingCharacters(in: .whitespacesAndNewlines)
+                        let visible = AIResponseTextFormatter.visibleAnswer(content)
                         if !visible.isEmpty {
                             self.onLinkedAnswerCompleted?(linkID, linkedQuestion, visible)
                         }
@@ -129,17 +129,17 @@ extension AIChatPanel {
         setBusy(true, text: AppText.localized("翻译中", "Translating"))
         let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating, renderMarkdown: false, persist: false)
         requestState.begin(id: requestID, assistantBody: assistantBody)
-        let chunks = translationChunks(from: text)
+        let chunks = AIResponseTextFormatter.translationChunks(from: text)
         var translatedChunks = Array(repeating: "", count: chunks.count)
 
         func translateChunk(_ index: Int) {
             guard requestState.isActive(requestID) else { return }
             guard index < chunks.count else {
                 let merged = translatedChunks
-                    .map { indentedTranslationText($0) }
+                    .map { AIResponseTextFormatter.indentedTranslationText($0) }
                     .filter { !$0.isEmpty }
                     .joined(separator: "\n\n")
-                let finalContent = merged.trimmingCharacters(in: .whitespacesAndNewlines)
+                let finalContent = AIResponseTextFormatter.trimmed(merged)
                 requestState.finish(id: requestID)
                 setBusy(false, text: "")
                 guard !finalContent.isEmpty else {
@@ -201,57 +201,15 @@ extension AIChatPanel {
     }
 
     func translationChunks(from text: String) -> [String] {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count > 3600 else { return [trimmed] }
-
-        let paragraphs = trimmed.components(separatedBy: "\n\n")
-        guard paragraphs.count > 1 else {
-            let midpoint = trimmed.index(trimmed.startIndex, offsetBy: trimmed.count / 2)
-            let split = trimmed[midpoint...].firstIndex { ".!?。！？\n".contains($0) } ?? midpoint
-            return [
-                String(trimmed[..<split]).trimmingCharacters(in: .whitespacesAndNewlines),
-                String(trimmed[split...]).trimmingCharacters(in: .whitespacesAndNewlines)
-            ].filter { !$0.isEmpty }
-        }
-
-        let target = max(1, trimmed.count / 2)
-        var first: [String] = []
-        var second: [String] = []
-        var firstLength = 0
-        for paragraph in paragraphs {
-            if firstLength < target || second.isEmpty {
-                first.append(paragraph)
-                firstLength += paragraph.count
-            } else {
-                second.append(paragraph)
-            }
-        }
-        return [first.joined(separator: "\n\n"), second.joined(separator: "\n\n")]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        AIResponseTextFormatter.translationChunks(from: text)
     }
 
     func partialTranslationText(_ chunks: [String], currentIndex: Int) -> String {
-        let completed = chunks[..<currentIndex]
-            .map { indentedTranslationText($0) }
-            .filter { !$0.isEmpty }
-            .joined(separator: "\n\n")
-        if completed.isEmpty { return AppText.generating }
-        return completed + "\n\n" + AppText.generating
+        AIResponseTextFormatter.partialTranslationText(chunks, currentIndex: currentIndex, generatingText: AppText.generating)
     }
 
     func indentedTranslationText(_ text: String) -> String {
-        text
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-            .components(separatedBy: "\n")
-            .map { line in
-                let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { return "" }
-                return "　　" + trimmed
-            }
-            .joined(separator: "\n")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        AIResponseTextFormatter.indentedTranslationText(text)
     }
 
     func userFacingAIError(_ error: Error) -> String {

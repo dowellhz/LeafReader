@@ -10,30 +10,38 @@ struct ReadingContextSnapshot {
     let selectedContext: String
 
     var currentContentTitle: String {
-        let trimmedLocation = locationLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLocation = trimmed(locationLabel)
         return trimmedLocation.isEmpty ? title : "\(title) - \(trimmedLocation)"
     }
 
     var readingText: String {
-        let visible = visibleText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let visible = trimmed(visibleText)
         if !visible.isEmpty { return visible }
-        return nearbyText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed(nearbyText)
     }
 
     var contextText: String {
         var parts: [String] = []
-        if !locationLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if hasTrimmedText(locationLabel) {
             parts.append(AppText.localized("【当前位置】\n\(locationLabel)", "[Current location]\n\(locationLabel)"))
         }
-        if !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if hasTrimmedText(selectedText) {
             parts.append(AppText.localized("【当前选中内容】\n\(selectedText)", "[Selected text]\n\(selectedText)"))
         }
-        if !selectedContext.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if hasTrimmedText(selectedContext) {
             parts.append(AppText.localized("【选中内容附近上下文】\n\(selectedContext)", "[Selection context]\n\(selectedContext)"))
         }
-        if !nearbyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if hasTrimmedText(nearbyText) {
             parts.append(AppText.localized("【当前位置附近内容】\n\(nearbyText)", "[Nearby reading text]\n\(nearbyText)"))
         }
         return String(parts.joined(separator: "\n\n").prefix(5000))
+    }
+
+    private func trimmed(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func hasTrimmedText(_ text: String) -> Bool {
+        !trimmed(text).isEmpty
     }
 }

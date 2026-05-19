@@ -53,7 +53,7 @@ final class AIClient {
                         NSLocalizedDescriptionKey: "Unexpected response: \(body)"
                     ])
                 }
-                completion(.success(Self.visibleAnswer(from: content)))
+                completion(.success(AIResponseTextFormatter.visibleAnswer(content)))
             } catch {
                 completion(.failure(error))
             }
@@ -113,7 +113,7 @@ final class AIClient {
                     onDelta(delta)
                 }
 
-                completion(.success(Self.visibleAnswer(from: fullText)))
+                completion(.success(AIResponseTextFormatter.visibleAnswer(fullText)))
             } catch {
                 completion(.failure(error))
             }
@@ -302,10 +302,4 @@ final class AIClient {
         ])
     }
 
-    static func visibleAnswer(from content: String) -> String {
-        content
-            .replacingOccurrences(of: #"(?s)<think>.*?(</think>|$)\s*"#, with: "", options: .regularExpression)
-            .replacingOccurrences(of: #"(?s)<reasoning>.*?(</reasoning>|$)\s*"#, with: "", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
 }
