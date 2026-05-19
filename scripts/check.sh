@@ -31,6 +31,7 @@ echo "==> Running tests"
 if [[ "$RUN_BUILD" -eq 1 ]]; then
   echo "==> Building docs site"
   ./scripts/build_docs_site.sh
+  ./scripts/check_docs_visual.sh
 
   echo "==> Building app"
   ./scripts/build_app.sh

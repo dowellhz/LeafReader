@@ -9,40 +9,53 @@ CURRENT_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString
 mkdir -p "$OUT_DIR"
 
 cat > "$OUT_FILE" <<EOF
-# Leaf Reader Code Wiki
+# Leaf Reader Docs
 
-This wiki explains the codebase structure and stable engineering workflows for Leaf Reader.
+Leaf Reader 的工程文档、发布流程和故障排查入口。当前版本：\`$CURRENT_VERSION\`。
 
-This repo copy uses relative Markdown file links. The GitHub Wiki copy uses Wiki page names such as \`Architecture\` and \`Document-Loading\`.
+<div class="hero-actions" markdown>
 
-## Current Version Status
+[返回官网](https://leafreader.space/){ .button .primary }
+[下载 Leaf Reader](https://github.com/dowellhz/LeafReader/releases/download/v$CURRENT_VERSION/LeafReader-$CURRENT_VERSION.pkg){ .button }
+[GitHub](https://github.com/dowellhz/LeafReader){ .button }
 
-- Current version: \`$CURRENT_VERSION\`
-- Git tag: \`v$CURRENT_VERSION\`
-- Website: [leafreader.space](https://leafreader.space)
-- Appcast: [docs/appcast.xml](https://dowellhz.github.io/LeafReader/appcast.xml)
-- Latest installer: [LeafReader-$CURRENT_VERSION.pkg](https://github.com/dowellhz/LeafReader/releases/download/v$CURRENT_VERSION/LeafReader-$CURRENT_VERSION.pkg)
+</div>
 
-## Common Commands
+## 快速入口
+
+<div class="grid" markdown>
+
+[**开发文档** - 架构、功能地图、开发任务入口。](feature-map.md){ .card }
+
+[**功能模块** - 文档加载、AI、词汇和高亮。](document-loading.md){ .card }
+
+[**发布流程** - 打包、签名、发布和 Appcast。](release-runbook.md){ .card }
+
+[**故障排查** - 更新失败、证书、翻页、AI 分析和 Wiki 同步。](troubleshooting.md){ .card }
+
+</div>
+
+## 常用命令
 
 \`\`\`sh
 ./scripts/check.sh
+./scripts/build_docs_site.sh
 ./scripts/release_pkg.sh <version>
 ./scripts/publish_release.sh <version>
 ./scripts/update_wiki.sh --push
 \`\`\`
 
-## Pages
+## 文档分组
 
 <div class="grid" markdown>
 
 [**Architecture** - System shape and module boundaries.](architecture.md){ .card }
 
-[**Feature Map** - Find code by product feature.](feature-map.md){ .card }
-
 [**Development Tasks** - Entry points for common engineering work.](development-tasks.md){ .card }
 
-[**Document Loading** - PDF, EPUB, and DOCX loading flow.](document-loading.md){ .card }
+[**Code Map** - Generated module summary.](code-map.md){ .card }
+
+[**Type Index** - Generated Swift type index.](type-index.md){ .card }
 
 [**AI Chat** - AI panel actions, requests, and rendering.](ai-chat.md){ .card }
 
@@ -50,32 +63,9 @@ This repo copy uses relative Markdown file links. The GitHub Wiki copy uses Wiki
 
 [**Word Highlights** - Vocabulary storage, review, and highlights.](word-highlights.md){ .card }
 
-[**Release Process** - Release scripts and files.](release-process.md){ .card }
-
-[**Release Checklist** - Preflight publishing checklist.](release-checklist.md){ .card }
-
-[**Release Runbook** - Command-by-command release procedure.](release-runbook.md){ .card }
-
 [**Security** - Secret handling and generated artifacts.](security.md){ .card }
 
-[**Troubleshooting** - Symptoms and fast checks.](troubleshooting.md){ .card }
-
-[**Code Map** - Generated module summary.](code-map.md){ .card }
-
-[**Type Index** - Generated Swift type index.](type-index.md){ .card }
-
 </div>
-
-## Maintenance
-
-- Keep durable architecture notes in these pages.
-- Regenerate and sync Wiki source after large refactors:
-
-\`\`\`sh
-./scripts/update_wiki.sh
-\`\`\`
-
-- Prefer short flow descriptions and source file links over copied code.
 EOF
 
 echo "Generated $OUT_FILE"

@@ -1,5 +1,5 @@
-site_name: Leaf Reader Docs
-site_description: Developer and release documentation for Leaf Reader.
+site_name: Leaf Reader 文档
+site_description: Leaf Reader 开发、发布和故障排查文档。
 site_url: https://leafreader.space/manual/
 repo_url: https://github.com/dowellhz/LeafReader
 repo_name: dowellhz/LeafReader
@@ -18,7 +18,7 @@ extra:
       name: GitHub Repository
 theme:
   name: material
-  language: en
+  language: zh
   logo: ../assets/leaf-reader-icon.png
   favicon: ../assets/leaf-reader-icon.png
   features:
@@ -33,13 +33,13 @@ theme:
       accent: light green
       toggle:
         icon: material/weather-night
-        name: Switch to dark mode
+        name: 切换到深色模式
     - scheme: slate
       primary: green
       accent: light green
       toggle:
         icon: material/weather-sunny
-        name: Switch to light mode
+        name: 切换到浅色模式
 markdown_extensions:
   - admonition
   - attr_list
@@ -52,21 +52,23 @@ markdown_extensions:
       anchor_linenums: true
   - pymdownx.superfences
 nav:
-  - Home: index.md
-  - Architecture:
-      - Architecture: architecture.md
-      - Feature Map: feature-map.md
-      - Development Tasks: development-tasks.md
-      - Code Map: code-map.md
-      - Type Index: type-index.md
-  - Features:
-      - Document Loading: document-loading.md
-      - AI Chat: ai-chat.md
-      - AI Analysis Cache: ai-analysis-cache.md
-      - Word Highlights: word-highlights.md
-  - Release:
-      - Release Process: release-process.md
-      - Release Checklist: release-checklist.md
-      - Release Runbook: release-runbook.md
-      - Troubleshooting: troubleshooting.md
-      - Security: security.md
+  - 首页: index.md
+  - 官网: https://leafreader.space/
+  - 下载: https://github.com/dowellhz/LeafReader/releases/download/v1.4.14/LeafReader-1.4.14.pkg
+  - 架构:
+      - 架构总览: architecture.md
+      - 功能地图: feature-map.md
+      - 开发任务入口: development-tasks.md
+      - 代码地图: code-map.md
+      - 类型索引: type-index.md
+  - 功能:
+      - 文档加载: document-loading.md
+      - AI 聊天: ai-chat.md
+      - AI 分析缓存: ai-analysis-cache.md
+      - 单词高亮: word-highlights.md
+  - 发布:
+      - 发布流程: release-process.md
+      - 发布检查清单: release-checklist.md
+      - 发布 Runbook: release-runbook.md
+      - 故障排查: troubleshooting.md
+      - 安全: security.md

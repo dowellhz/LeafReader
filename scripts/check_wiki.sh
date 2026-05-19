@@ -38,7 +38,7 @@ wiki_target_for_source() {
   local source="$1"
   grep -E "copy_page \"$source\" " "$SYNC_SCRIPT" \
     | sed -E 's/^.*copy_page "[^"]+" "([^"]+)".*$/\1/' \
-    | head -n 1
+    | head -n 1 || true
 }
 
 check_sync_registration() {
@@ -46,6 +46,7 @@ check_sync_registration() {
   while IFS= read -r source; do
     basename="$(basename "$source")"
     [[ "$basename" == "index.md" ]] && continue
+    [[ "$basename" == "manual-index.md" ]] && continue
     target="$(wiki_target_for_source "$basename")"
     if [[ -z "$target" ]]; then
       fail "$basename is not registered in sync_github_wiki.sh copy_page list"
@@ -81,11 +82,8 @@ check_generated_files() {
 check_version_status() {
   local version
   version="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$ROOT_DIR/mac-app/Info.plist")"
-  if ! grep -q "Current version: \`$version\`" "$WIKI_DIR/index.md"; then
+  if ! grep -q "当前版本：\`$version\`" "$WIKI_DIR/index.md"; then
     fail "docs/wiki/index.md current version does not match Info.plist ($version)"
-  fi
-  if ! grep -q "Git tag: \`v$version\`" "$WIKI_DIR/index.md"; then
-    fail "docs/wiki/index.md Git tag does not match Info.plist ($version)"
   fi
 }
 

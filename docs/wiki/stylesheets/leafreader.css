@@ -140,6 +140,31 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 }
 
+.md-typeset .hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 1.2rem 0 2rem;
+}
+
+.md-typeset .button {
+  align-items: center;
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--leaf-line);
+  border-radius: 8px;
+  color: var(--leaf-text);
+  display: inline-flex;
+  font-weight: 700;
+  min-height: 2.35rem;
+  padding: 0 0.9rem;
+}
+
+.md-typeset .button.primary {
+  background: var(--leaf-blue);
+  border-color: var(--leaf-blue);
+  color: #ffffff;
+}
+
 .md-typeset .card {
   background: var(--leaf-panel);
   border: 1px solid var(--leaf-line);
