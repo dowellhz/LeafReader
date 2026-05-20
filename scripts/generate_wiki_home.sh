@@ -5,8 +5,6 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="${WIKI_OUT_DIR:-$ROOT_DIR/docs/wiki}"
 OUT_FILE="$OUT_DIR/index.md"
 CURRENT_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$ROOT_DIR/mac-app/Info.plist")"
-SOURCE_COMMIT="$(git -C "$ROOT_DIR" rev-parse --short=7 HEAD 2>/dev/null || echo unknown)"
-GENERATED_AT="$(git -C "$ROOT_DIR" show -s --format=%cI HEAD 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 mkdir -p "$OUT_DIR"
 
@@ -18,8 +16,6 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 ## 文档状态
 
 - 当前版本：\`$CURRENT_VERSION\`
-- 生成时间：\`$GENERATED_AT\`
-- 对应提交：\`$SOURCE_COMMIT\`
 
 <div class="hero-actions" markdown>
 
