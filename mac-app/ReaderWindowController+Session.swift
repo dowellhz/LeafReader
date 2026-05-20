@@ -61,24 +61,40 @@ extension ReaderWindowController {
     func updatePageLabel() {
         if isEditingPageField { return }
         guard currentDocumentKind == .pdf else {
-            if pageLabel.stringValue == AppText.noPDF || pageLabel.stringValue == "EPUB" || pageLabel.stringValue == "DOCX" {
-                pageLabel.stringValue = "0%"
-                updatePageLabelTextColor()
-            }
+            updateWebProgressLabel(webScrollProgress)
             return
         }
         guard let document = pdfView.document else {
             pageLabel.stringValue = AppText.noPDF
+            pageLabel.toolTip = nil
             updatePageLabelTextColor()
             return
         }
         guard let page = pdfView.currentPage else {
-            pageLabel.stringValue = "1  /  \(document.pageCount)"
+            pageLabel.stringValue = ReaderProgressFormatter.pdfPageText(pageIndex: 0, pageCount: document.pageCount)
+            pageLabel.toolTip = pdfProgressTooltip(pageIndex: 0, pageCount: document.pageCount)
             updatePageLabelTextColor()
             return
         }
-        pageLabel.stringValue = "\(document.index(for: page) + 1)  /  \(document.pageCount)"
+        let pageIndex = document.index(for: page)
+        pageLabel.stringValue = ReaderProgressFormatter.pdfPageText(pageIndex: pageIndex, pageCount: document.pageCount)
+        pageLabel.toolTip = pdfProgressTooltip(pageIndex: pageIndex, pageCount: document.pageCount)
         updatePageLabelTextColor()
+    }
+
+    func updateWebProgressLabel(_ progress: Double) {
+        let percent = ReaderProgressFormatter.webProgressPercent(progress)
+        pageLabel.stringValue = "\(percent)%"
+        pageLabel.toolTip = AppText.localized("阅读进度 \(percent)%", "Reading progress \(percent)%")
+        updatePageLabelTextColor()
+    }
+
+    func pdfProgressTooltip(pageIndex: Int, pageCount: Int) -> String {
+        let percent = ReaderProgressFormatter.pdfProgressPercent(pageIndex: pageIndex, pageCount: pageCount)
+        return AppText.localized(
+            "阅读进度 \(percent)%，点击输入页码后按回车跳转",
+            "Reading progress \(percent)%. Click to enter a page number, then press Return."
+        )
     }
 
     func currentPageIndex() -> Int? {
@@ -116,18 +132,7 @@ extension ReaderWindowController {
         ensureDocumentAgentIndex()
         let count = max(1, pdfAgentIndex?.locationCount ?? 1)
         let progress = count <= 1 ? 0 : Double(min(max(index, 0), count - 1)) / Double(count - 1)
-        webScrollProgress = progress
-        pageLabel.stringValue = "\(Int(round(progress * 100)))%"
-        updatePageLabelTextColor()
-        let script = """
-        (() => {
-          const progress = \(progress);
-          const scrollHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-          window.scrollTo({ top: scrollHeight * progress, behavior: 'smooth' });
-        })();
-        """
-        webView.evaluateJavaScript(script)
-        saveWebProgress()
+        jumpToWebProgress(progress, animated: true)
     }
 
 
@@ -154,7 +159,22 @@ extension ReaderWindowController {
 
     func hasStoredDocumentData(documentID: String) -> Bool {
         let defaults = UserDefaults.standard
-        for suffix in ["pageIndex", "scale", "webProgress", "webZoom", "wordRecords", "webWordRecords"] {
+        for suffix in [
+            "pageIndex",
+            "scale",
+            "pdfAnchorX",
+            "pdfAnchorY",
+            "webProgress",
+            "webZoom",
+            "farthestPDFPageIndex",
+            "farthestPDFScale",
+            "farthestPDFAnchorX",
+            "farthestPDFAnchorY",
+            "farthestWebProgress",
+            "farthestWebZoom",
+            "wordRecords",
+            "webWordRecords"
+        ] {
             if defaults.object(forKey: "bookSession.\(documentID).\(suffix)") != nil {
                 return true
             }
@@ -178,8 +198,7 @@ extension ReaderWindowController {
         }
         let scrollProgress = progress.scrollProgress
         webScrollProgress = scrollProgress
-        pageLabel.stringValue = "\(Int(round(scrollProgress * 100)))%"
-        updatePageLabelTextColor()
+        updateWebProgressLabel(scrollProgress)
         if let percent = progress.zoomPercent {
             webZoomPercent = percent
             zoomField.stringValue = "\(webZoomPercent)%"
@@ -199,6 +218,7 @@ extension ReaderWindowController {
 
     func saveWebProgress() {
         guard !isRestoringSession, currentDocumentKind != .pdf else { return }
+        sessionStore.saveFarthestWebProgress(webScrollProgress, zoomPercent: webZoomPercent)
         let now = Date()
         guard now.timeIntervalSince(lastWebProgressSave) > ReaderSessionPolicy.webProgressSaveInterval else { return }
         lastWebProgressSave = now
@@ -212,7 +232,6 @@ extension ReaderWindowController {
                 pdfView.go(to: firstPage)
             }
             applyReadablePDFScale()
-            reapplyPDFZoomModeIfNeeded()
             return
         }
 
@@ -236,7 +255,6 @@ extension ReaderWindowController {
         if let restoredPage, let anchorPoint = progress.anchorPoint {
             restorePDFViewportAnchor(page: restoredPage, point: anchorPoint)
         }
-        reapplyPDFZoomModeIfNeeded()
     }
 
     func applyReadablePDFScale(_ scale: CGFloat = ReaderWindowController.minimumReadablePDFScale) {
@@ -247,6 +265,9 @@ extension ReaderWindowController {
 
     func saveSession() {
         if isRestoringSession { return }
+        if let url = currentFileURL {
+            sessionStore.saveLastDocumentURL(url)
+        }
         sessionSaveTask.schedule { [weak self] in
             self?.performSessionSave()
         }
@@ -255,15 +276,25 @@ extension ReaderWindowController {
     func performSessionSave() {
         sessionSaveTask.cancel()
         guard let url = currentFileURL else { return }
-        sessionStore.saveLastDocumentURL(url)
         guard currentDocumentKind == .pdf else {
             saveWebProgress()
             RecentDocumentsStore.updateProgress(url: url, kind: currentDocumentKind, progress: webScrollProgress)
             return
         }
         let anchor = currentPDFViewportAnchor()
-        let pageIndex = anchor?.pageIndex ?? pdfView.document?.index(for: pdfView.currentPage ?? PDFPage()) ?? 0
+        let pageIndex: Int
+        if let anchor {
+            pageIndex = anchor.pageIndex
+        } else if let document = pdfView.document,
+                  let currentPage = pdfView.currentPage {
+            let currentIndex = document.index(for: currentPage)
+            guard currentIndex != NSNotFound else { return }
+            pageIndex = currentIndex
+        } else {
+            return
+        }
         sessionStore.savePDFProgress(pageIndex: pageIndex, scale: pdfView.scaleFactor, anchorPoint: anchor?.point)
+        sessionStore.saveFarthestPDFProgress(pageIndex: pageIndex, scale: pdfView.scaleFactor, anchorPoint: anchor?.point)
         let pageCount = max(1, pdfView.document?.pageCount ?? 1)
         RecentDocumentsStore.updateProgress(
             url: url,

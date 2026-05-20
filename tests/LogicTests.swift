@@ -579,6 +579,7 @@ private func testPDFPagingPolicy() throws {
 private func testReaderSessionPolicy() throws {
     try expectEqual(ReaderSessionPolicy.webRestoreDelay, 0.35, "web restore delay should remain explicit")
     try expectEqual(ReaderSessionPolicy.webProgressSaveInterval, 0.5, "web progress save interval should remain explicit")
+    try expectEqual(ReaderSessionPolicy.lastPositionSaveDelay, 3.0, "last position should only save after a stable dwell")
     try expectEqual(ReaderSessionPolicy.initialRestoreDelay, 0.2, "initial restore delay should remain explicit")
     try expectEqual(ReaderSessionPolicy.pdfViewportAnchorTopInset, 24, "PDF viewport anchor inset should remain explicit")
     try expect(ReaderSessionPolicy.isRestorablePDFScale(0.1), "minimum PDF scale should restore")
@@ -609,6 +610,102 @@ private func testReaderSessionStorePDFAnchor() throws {
 
     store.clearProgress()
     try expect(store.loadPDFProgress() == nil, "clearProgress should remove PDF page and anchor data")
+}
+
+private func testReaderSessionStoreFarthestProgress() throws {
+    let suiteName = "LeafReaderTests.ReaderSessionStoreFarthestProgress.\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+        throw TestFailure(description: "could not create isolated defaults suite")
+    }
+    defer {
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    let store = ReaderSessionStore(fileMD5: "book", defaults: defaults)
+    store.saveFarthestPDFProgress(pageIndex: 8, scale: 1.5, anchorPoint: CGPoint(x: 20, y: 40))
+    store.saveFarthestPDFPageIndex(3)
+    try expectEqual(store.loadFarthestPDFPageIndex(), 8, "farthest PDF page should not move backward")
+    try expectEqual(store.loadFarthestPDFProgress()?.scale, 1.5, "farthest PDF scale should not be replaced by an earlier page")
+    try expectEqual(store.loadFarthestPDFProgress()?.anchorPoint?.x, 20, "farthest PDF anchor should not be replaced by an earlier page")
+
+    store.saveFarthestPDFProgress(pageIndex: 12, scale: 2.0, anchorPoint: CGPoint(x: 30, y: 60))
+    try expectEqual(store.loadFarthestPDFPageIndex(), 12, "farthest PDF page should move forward")
+    try expectEqual(store.loadFarthestPDFProgress()?.scale, 2.0, "farthest PDF scale should move with the farthest page")
+    try expectEqual(store.loadFarthestPDFProgress()?.anchorPoint?.y, 60, "farthest PDF anchor should move with the farthest page")
+
+    store.saveFarthestWebProgress(0.4, zoomPercent: 120)
+    store.saveFarthestWebProgress(0.2, zoomPercent: 160)
+    try expectEqual(store.loadFarthestWebProgress()?.scrollProgress, 0.4, "farthest web progress should not move backward")
+    try expectEqual(store.loadFarthestWebProgress()?.zoomPercent, 120, "farthest web zoom should not be replaced by earlier progress")
+
+    store.saveFarthestWebProgress(1.5, zoomPercent: 180)
+    try expectEqual(store.loadFarthestWebProgress()?.scrollProgress, 1.0, "farthest web progress should clamp to one")
+    try expectEqual(store.loadFarthestWebProgress()?.zoomPercent, 180, "farthest web zoom should move with farthest progress")
+
+    store.clearProgress()
+    try expect(store.loadFarthestPDFPageIndex() == nil, "clearProgress should remove farthest PDF page")
+    try expect(store.loadFarthestWebProgress() == nil, "clearProgress should remove farthest web progress")
+}
+
+private func testReaderSessionStoreWebProgressBounds() throws {
+    let suiteName = "LeafReaderTests.ReaderSessionStoreWebProgressBounds.\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+        throw TestFailure(description: "could not create isolated defaults suite")
+    }
+    defer {
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    let store = ReaderSessionStore(fileMD5: "book", defaults: defaults)
+    try expect(store.loadWebProgress() == nil, "missing web progress should not load as zero")
+
+    store.saveWebProgress(scrollProgress: 1.25, zoomPercent: 140)
+    try expectEqual(store.loadWebProgress()?.scrollProgress, 1.0, "web progress should clamp high on save")
+    try expectEqual(store.loadWebProgress()?.zoomPercent, 140, "web zoom should round-trip")
+
+    store.saveWebProgress(scrollProgress: -0.5, zoomPercent: 40)
+    try expectEqual(store.loadWebProgress()?.scrollProgress, 0.0, "web progress should clamp low on save")
+    try expect(store.loadWebProgress()?.zoomPercent == nil, "invalid web zoom should not load")
+}
+
+private func testReaderProgressFormatter() throws {
+    try expectEqual(ReaderProgressFormatter.pdfPageText(pageIndex: 0, pageCount: 10), "1  /  10", "PDF page text should be one-based")
+    try expectEqual(ReaderProgressFormatter.pdfPageText(pageIndex: -4, pageCount: 10), "1  /  10", "PDF page text should clamp low page")
+    try expectEqual(ReaderProgressFormatter.pdfPageText(pageIndex: 99, pageCount: 10), "10  /  10", "PDF page text should clamp high page")
+    try expectEqual(ReaderProgressFormatter.pdfPageText(pageIndex: 0, pageCount: 0), "1  /  1", "PDF page text should handle empty counts")
+
+    try expectEqual(ReaderProgressFormatter.pdfProgressPercent(pageIndex: 0, pageCount: 10), 10, "PDF progress should use the current one-based page")
+    try expectEqual(ReaderProgressFormatter.pdfProgressPercent(pageIndex: 9, pageCount: 10), 100, "PDF progress should reach 100 on the last page")
+    try expectEqual(ReaderProgressFormatter.pdfProgressPercent(pageIndex: -4, pageCount: 10), 10, "PDF progress should clamp low page")
+    try expectEqual(ReaderProgressFormatter.pdfProgressPercent(pageIndex: 99, pageCount: 10), 100, "PDF progress should clamp high page")
+    try expectEqual(ReaderProgressFormatter.pdfProgressPercent(pageIndex: 0, pageCount: 0), 0, "PDF progress should handle empty counts")
+
+    try expectEqual(ReaderProgressFormatter.webProgressPercent(-0.2), 0, "web progress should clamp low")
+    try expectEqual(ReaderProgressFormatter.webProgressPercent(0.126), 13, "web progress should round")
+    try expectEqual(ReaderProgressFormatter.webProgressPercent(1.4), 100, "web progress should clamp high")
+}
+
+private func testVocabularyTextPolicy() throws {
+    try expect(VocabularyTextPolicy.isSingleEnglishWord("high-pitched"), "hyphenated words should count as one vocabulary word")
+    try expect(VocabularyTextPolicy.isSingleEnglishWord("reader’s"), "curly apostrophes should be accepted in vocabulary words")
+    try expect(!VocabularyTextPolicy.isSingleEnglishWord("two words"), "phrases should not count as a single word")
+    try expectEqual(VocabularyTextPolicy.speakableWord(" high-pitched "), "high-pitched", "speakable words should be trimmed")
+
+    try expect(VocabularyTextPolicy.isVocabularySelection("high-pitched voice"), "short English phrases should be vocabulary selections")
+    try expect(!VocabularyTextPolicy.isVocabularySelection("one two three four five six"), "long phrases should not be vocabulary selections")
+    try expect(!VocabularyTextPolicy.isVocabularySelection("high-pitched voice."), "punctuated sentences should not be saved as vocabulary items")
+
+    guard let searchPattern = VocabularyTextPolicy.boundedSearchPattern(for: "high-pitched") else {
+        throw TestFailure(description: "bounded search pattern should be built")
+    }
+    let searchRegex = try NSRegularExpression(pattern: searchPattern)
+    let sample = "A high-pitched voice, not higher-pitched or low-pitched."
+    let sampleRange = NSRange(location: 0, length: (sample as NSString).length)
+    try expectEqual(searchRegex.matches(in: sample, range: sampleRange).count, 1, "bounded search should match the exact hyphenated word only")
+
+    let emphasisPattern = VocabularyTextPolicy.emphasisPattern(for: "high-pitched")
+    let emphasisRegex = try NSRegularExpression(pattern: emphasisPattern, options: [.caseInsensitive])
+    try expectEqual(emphasisRegex.matches(in: sample, range: sampleRange).count, 1, "emphasis should use the same word boundary rule")
 }
 
 private func testVocabularyExporter() throws {
@@ -758,6 +855,11 @@ private let tests: [(String, () throws -> Void)] = [
     ("Page scroll direction", testPageScrollDirection),
     ("PDF paging policy", testPDFPagingPolicy),
     ("Reader session policy", testReaderSessionPolicy),
+    ("Reader session PDF anchor", testReaderSessionStorePDFAnchor),
+    ("Reader session farthest progress", testReaderSessionStoreFarthestProgress),
+    ("Reader session web progress bounds", testReaderSessionStoreWebProgressBounds),
+    ("Reader progress formatter", testReaderProgressFormatter),
+    ("Vocabulary text policy", testVocabularyTextPolicy),
     ("Vocabulary exporter", testVocabularyExporter),
     ("Reader AI context text cleanup", testReaderAIContextTextCleanup),
     ("Reader AI context policy", testReaderAIContextPolicy),
