@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+  schedule:
+    - cron: "23 2 * * 1"
 
 jobs:
   docs:
@@ -22,3 +24,11 @@ jobs:
         run: |
           ./scripts/check_wiki.sh
           ./scripts/check_docs_visual.sh
+
+  external-links:
+    if: github.event_name == 'schedule'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check public docs links
+        run: ./scripts/check_docs_links.sh
