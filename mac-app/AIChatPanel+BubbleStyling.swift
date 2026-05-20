@@ -60,38 +60,90 @@ extension AIChatPanel {
     }
 
     var panelBackgroundColor: NSColor {
-        isDarkMode
-            ? NSColor(red: 0.07, green: 0.09, blue: 0.11, alpha: 0.96)
-            : NSColor.white.withAlphaComponent(0.97)
+        switch readerTheme {
+        case .original:
+            return NSColor.white.withAlphaComponent(0.97)
+        case .eyeCare:
+            return NSColor(red: 0.86, green: 0.82, blue: 0.68, alpha: 0.97)
+        case .dark:
+            return NSColor(red: 0.07, green: 0.09, blue: 0.11, alpha: 0.96)
+        }
     }
 
     var primaryTextColor: NSColor {
-        isDarkMode
-            ? NSColor(red: 0.78, green: 0.81, blue: 0.86, alpha: 1)
-            : NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
+        switch readerTheme {
+        case .original:
+            return NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.18, green: 0.15, blue: 0.09, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.78, green: 0.81, blue: 0.86, alpha: 1)
+        }
     }
 
     var secondaryTextColor: NSColor {
-        isDarkMode
-            ? NSColor(red: 0.55, green: 0.60, blue: 0.68, alpha: 1)
-            : NSColor(red: 0.42, green: 0.44, blue: 0.49, alpha: 1)
+        switch readerTheme {
+        case .original:
+            return NSColor(red: 0.42, green: 0.44, blue: 0.49, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.45, green: 0.39, blue: 0.26, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.55, green: 0.60, blue: 0.68, alpha: 1)
+        }
     }
 
     var inputBackgroundColor: NSColor {
-        isDarkMode
-            ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
-            : NSColor(red: 0.93, green: 0.94, blue: 0.95, alpha: 1)
+        switch readerTheme {
+        case .original:
+            return NSColor(red: 0.93, green: 0.94, blue: 0.95, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.91, green: 0.86, blue: 0.70, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+        }
+    }
+
+    var inputBorderColor: NSColor {
+        switch readerTheme {
+        case .original:
+            return .clear
+        case .eyeCare:
+            return NSColor(red: 0.66, green: 0.60, blue: 0.43, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.22, green: 0.26, blue: 0.32, alpha: 1)
+        }
+    }
+
+    var sendButtonTintColor: NSColor {
+        switch readerTheme {
+        case .original:
+            return NSColor(red: 0.0, green: 0.35, blue: 0.9, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.53, green: 0.37, blue: 0.14, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.32, green: 0.55, blue: 1, alpha: 1)
+        }
     }
 
     var bubbleBorderColor: NSColor {
-        isDarkMode
-            ? NSColor(red: 0.22, green: 0.26, blue: 0.32, alpha: 1)
-            : NSColor(red: 0.87, green: 0.89, blue: 0.92, alpha: 1)
+        switch readerTheme {
+        case .original:
+            return NSColor(red: 0.87, green: 0.89, blue: 0.92, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.68, green: 0.62, blue: 0.45, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.22, green: 0.26, blue: 0.32, alpha: 1)
+        }
     }
 
     func bubbleFillColor(role: String) -> NSColor {
-        guard isDarkMode else {
+        if readerTheme == .original {
             return role == AppText.userRole ? NSColor(red: 0.92, green: 0.96, blue: 1, alpha: 1) : .white
+        }
+        if readerTheme == .eyeCare {
+            return role == AppText.userRole
+                ? NSColor(red: 0.82, green: 0.77, blue: 0.59, alpha: 1)
+                : NSColor(red: 0.90, green: 0.85, blue: 0.70, alpha: 1)
         }
         return role == AppText.userRole
             ? NSColor(red: 0.12, green: 0.18, blue: 0.28, alpha: 1)

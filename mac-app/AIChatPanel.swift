@@ -194,6 +194,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var transcriptLayoutWorkItem: DispatchWorkItem?
     weak var pendingTranscriptScrollTarget: NSView?
     var pendingTranscriptForceScroll = false
+    var readerTheme: ReaderTheme = .original
     var isDarkMode = false
     var bubbleMetadataByID: [String: BubbleMetadata] = [:]
     var bubbleBoxByLinkID: [String: ChatBubbleView] = [:]
@@ -301,18 +302,23 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     }
 
     func setDarkMode(_ enabled: Bool) {
-        isDarkMode = enabled
+        setTheme(enabled ? .dark : .original)
+    }
+
+    func setTheme(_ theme: ReaderTheme) {
+        readerTheme = theme
+        isDarkMode = theme == .dark
         layer?.backgroundColor = panelBackgroundColor.cgColor
         statusLabel.textColor = secondaryTextColor
         inputBar.layer?.backgroundColor = inputBackgroundColor.cgColor
-        inputBar.layer?.borderWidth = enabled ? 1 : 0
-        inputBar.layer?.borderColor = NSColor(red: 0.22, green: 0.26, blue: 0.32, alpha: 1).cgColor
+        inputBar.layer?.borderWidth = theme == .original ? 0 : 1
+        inputBar.layer?.borderColor = inputBorderColor.cgColor
         inputField.textColor = primaryTextColor
-        summaryButton.isDark = enabled
-        translateButton.isDark = enabled
-        sendButton.contentTintColor = enabled
-            ? NSColor(red: 0.32, green: 0.55, blue: 1, alpha: 1)
-            : NSColor(red: 0.0, green: 0.35, blue: 0.9, alpha: 1)
+        askButton.theme = theme
+        summaryButton.theme = theme
+        translateButton.theme = theme
+        sendButton.contentTintColor = sendButtonTintColor
+        cancelRequestButton.contentTintColor = secondaryTextColor
         restyleTranscript()
     }
 }

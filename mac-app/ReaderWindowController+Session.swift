@@ -217,10 +217,13 @@ extension ReaderWindowController {
 
         let pageIndex = progress.pageIndex
         let beforePageIndex = currentPageIndex()
+        var restoredPage: PDFPage?
         if pageIndex >= 0, pageIndex < document.pageCount, let page = document.page(at: pageIndex) {
+            restoredPage = page
             pdfView.go(to: page)
             recordPageJump(source: "session-restore", before: beforePageIndex, after: currentPageIndex(), detail: "target=\(pageIndex + 1)")
         } else if let firstPage = document.page(at: 0) {
+            restoredPage = firstPage
             pdfView.go(to: firstPage)
             recordPageJump(source: "home", before: beforePageIndex, after: currentPageIndex())
         }
@@ -228,6 +231,9 @@ extension ReaderWindowController {
         let scale = progress.scale
         if ReaderSessionPolicy.isRestorablePDFScale(scale) {
             applyReadablePDFScale(scale)
+        }
+        if let restoredPage, let anchorPoint = progress.anchorPoint {
+            restorePDFViewportAnchor(page: restoredPage, point: anchorPoint)
         }
     }
 
@@ -253,14 +259,45 @@ extension ReaderWindowController {
             RecentDocumentsStore.updateProgress(url: url, kind: currentDocumentKind, progress: webScrollProgress)
             return
         }
-        let pageIndex = pdfView.document?.index(for: pdfView.currentPage ?? PDFPage()) ?? 0
-        sessionStore.savePDFProgress(pageIndex: pageIndex, scale: pdfView.scaleFactor)
+        let anchor = currentPDFViewportAnchor()
+        let pageIndex = anchor?.pageIndex ?? pdfView.document?.index(for: pdfView.currentPage ?? PDFPage()) ?? 0
+        sessionStore.savePDFProgress(pageIndex: pageIndex, scale: pdfView.scaleFactor, anchorPoint: anchor?.point)
         let pageCount = max(1, pdfView.document?.pageCount ?? 1)
         RecentDocumentsStore.updateProgress(
             url: url,
             kind: currentDocumentKind,
             progress: Double(pageIndex + 1) / Double(pageCount)
         )
+    }
+
+    func currentPDFViewportAnchor() -> (pageIndex: Int, point: CGPoint)? {
+        guard currentDocumentKind == .pdf,
+              let document = pdfView.document,
+              document.pageCount > 0 else {
+            return nil
+        }
+        let anchorInView = NSPoint(
+            x: pdfView.bounds.midX,
+            y: max(pdfView.bounds.minY, pdfView.bounds.maxY - ReaderSessionPolicy.pdfViewportAnchorTopInset)
+        )
+        let page = pdfView.page(for: anchorInView, nearest: true) ?? pdfView.currentPage
+        guard let page else { return nil }
+        let pageIndex = document.index(for: page)
+        guard pageIndex != NSNotFound else { return nil }
+        let point = pdfView.convert(anchorInView, to: page)
+        return (pageIndex, point)
+    }
+
+    func restorePDFViewportAnchor(page: PDFPage, point: CGPoint) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  self.currentDocumentKind == .pdf,
+                  self.pdfView.document?.index(for: page) != NSNotFound else {
+                return
+            }
+            self.pdfView.go(to: PDFDestination(page: page, at: point))
+            self.updatePageLabel()
+        }
     }
 
     func restoreSession() {

@@ -69,16 +69,11 @@ final class RecentDocumentsPanelController: NSObject {
             backing: .buffered,
             defer: false
         )
-        let isDark = ReaderTheme.selected == .dark
-        let panelBackground = isDark
-            ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
-            : NSColor.white
-        let primaryText = isDark
-            ? NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
-            : NSColor(red: 0.06, green: 0.07, blue: 0.09, alpha: 1)
-        let secondaryText = isDark
-            ? NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
-            : NSColor(red: 0.45, green: 0.49, blue: 0.60, alpha: 1)
+        let theme = ReaderTheme.selected
+        let isDark = theme == .dark
+        let panelBackground = shelfBackgroundColor(for: theme)
+        let primaryText = shelfPrimaryTextColor(for: theme)
+        let secondaryText = shelfSecondaryTextColor(for: theme)
 
         panel.backgroundColor = .clear
         panel.appearance = isDark ? NSAppearance(named: .darkAqua) : NSAppearance(named: .aqua)
@@ -93,10 +88,7 @@ final class RecentDocumentsPanelController: NSObject {
         content.wantsLayer = true
         content.layer?.backgroundColor = panelBackground.cgColor
         content.layer?.borderWidth = 1
-        content.layer?.borderColor = (isDark
-            ? NSColor(red: 0.28, green: 0.34, blue: 0.42, alpha: 1)
-            : NSColor(red: 0.84, green: 0.87, blue: 0.92, alpha: 1)
-        ).cgColor
+        content.layer?.borderColor = shelfBorderColor(for: theme).cgColor
         content.layer?.cornerRadius = 14
         content.layer?.masksToBounds = false
         content.layer?.shadowColor = NSColor.black.cgColor
@@ -136,6 +128,8 @@ final class RecentDocumentsPanelController: NSObject {
 
         let scrollView = NSScrollView()
         scrollView.drawsBackground = false
+        scrollView.contentView.drawsBackground = true
+        scrollView.contentView.backgroundColor = panelBackground
         scrollView.hasVerticalScroller = false
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
@@ -144,6 +138,8 @@ final class RecentDocumentsPanelController: NSObject {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
 
         let stack = NSStackView()
+        stack.wantsLayer = true
+        stack.layer?.backgroundColor = panelBackground.cgColor
         stack.orientation = .horizontal
         stack.alignment = .top
         stack.spacing = 28

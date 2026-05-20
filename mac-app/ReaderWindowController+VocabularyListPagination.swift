@@ -32,16 +32,14 @@ extension ReaderWindowController {
         container.translatesAutoresizingMaskIntoConstraints = false
 
         let previousButton = NSButton(title: AppText.localized("上一页", "Previous"), target: self, action: #selector(previousVocabularyListPage(_:)))
-        previousButton.bezelStyle = .rounded
         previousButton.controlSize = .large
-        previousButton.font = AppFont.semibold(ofSize: 13)
+        styleVocabularyButton(previousButton, fontSize: 13)
         previousButton.isEnabled = currentPage > 0
         previousButton.translatesAutoresizingMaskIntoConstraints = false
 
         let nextButton = NSButton(title: AppText.localized("下一页", "Next"), target: self, action: #selector(nextVocabularyListPage(_:)))
-        nextButton.bezelStyle = .rounded
         nextButton.controlSize = .large
-        nextButton.font = AppFont.semibold(ofSize: 13)
+        styleVocabularyButton(nextButton, fontSize: 13)
         nextButton.isEnabled = currentPage + 1 < pageCount
         nextButton.translatesAutoresizingMaskIntoConstraints = false
 

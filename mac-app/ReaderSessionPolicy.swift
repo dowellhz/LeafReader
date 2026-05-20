@@ -6,6 +6,7 @@ enum ReaderSessionPolicy {
     static let initialRestoreDelay: TimeInterval = 0.2
     static let minimumRestoredPDFScale: CGFloat = 0.1
     static let maximumRestoredPDFScale: CGFloat = 8
+    static let pdfViewportAnchorTopInset: CGFloat = 24
 
     static func isRestorablePDFScale(_ scale: CGFloat) -> Bool {
         scale >= minimumRestoredPDFScale && scale <= maximumRestoredPDFScale

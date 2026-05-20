@@ -30,19 +30,34 @@ final class SearchOverlayView: NSView {
     }
 
     func setDarkMode(_ enabled: Bool) {
-        layer?.backgroundColor = (enabled
-            ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 0.98)
-            : NSColor(red: 0.995, green: 0.985, blue: 0.995, alpha: 0.98)
-        ).cgColor
-        layer?.borderWidth = enabled ? 1 : 0
-        layer?.borderColor = NSColor(red: 0.24, green: 0.28, blue: 0.34, alpha: 1).cgColor
+        setTheme(enabled ? .dark : .original)
+    }
 
-        let textColor = enabled
-            ? NSColor(red: 0.84, green: 0.87, blue: 0.92, alpha: 1)
-            : NSColor(red: 0.16, green: 0.17, blue: 0.20, alpha: 1)
-        let secondaryColor = enabled
-            ? NSColor(red: 0.55, green: 0.60, blue: 0.68, alpha: 1)
-            : NSColor(red: 0.42, green: 0.42, blue: 0.47, alpha: 1)
+    func setTheme(_ theme: ReaderTheme) {
+        let backgroundColor: NSColor
+        let borderColor: NSColor
+        let textColor: NSColor
+        let secondaryColor: NSColor
+        switch theme {
+        case .original:
+            backgroundColor = NSColor(red: 0.995, green: 0.985, blue: 0.995, alpha: 0.98)
+            borderColor = .clear
+            textColor = NSColor(red: 0.16, green: 0.17, blue: 0.20, alpha: 1)
+            secondaryColor = NSColor(red: 0.42, green: 0.42, blue: 0.47, alpha: 1)
+        case .eyeCare:
+            backgroundColor = NSColor(red: 0.90, green: 0.85, blue: 0.70, alpha: 0.98)
+            borderColor = NSColor(red: 0.67, green: 0.60, blue: 0.42, alpha: 1)
+            textColor = NSColor(red: 0.18, green: 0.15, blue: 0.09, alpha: 1)
+            secondaryColor = NSColor(red: 0.43, green: 0.37, blue: 0.25, alpha: 1)
+        case .dark:
+            backgroundColor = NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 0.98)
+            borderColor = NSColor(red: 0.24, green: 0.28, blue: 0.34, alpha: 1)
+            textColor = NSColor(red: 0.84, green: 0.87, blue: 0.92, alpha: 1)
+            secondaryColor = NSColor(red: 0.55, green: 0.60, blue: 0.68, alpha: 1)
+        }
+        layer?.backgroundColor = backgroundColor.cgColor
+        layer?.borderWidth = theme == .original ? 0 : 1
+        layer?.borderColor = borderColor.cgColor
         searchField.textColor = textColor
         resultLabel.textColor = secondaryColor
         for button in [previousButton, nextButton, closeButton] {

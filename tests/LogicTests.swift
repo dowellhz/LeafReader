@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 private struct TestFailure: Error, CustomStringConvertible {
     let description: String
@@ -579,10 +580,35 @@ private func testReaderSessionPolicy() throws {
     try expectEqual(ReaderSessionPolicy.webRestoreDelay, 0.35, "web restore delay should remain explicit")
     try expectEqual(ReaderSessionPolicy.webProgressSaveInterval, 0.5, "web progress save interval should remain explicit")
     try expectEqual(ReaderSessionPolicy.initialRestoreDelay, 0.2, "initial restore delay should remain explicit")
+    try expectEqual(ReaderSessionPolicy.pdfViewportAnchorTopInset, 24, "PDF viewport anchor inset should remain explicit")
     try expect(ReaderSessionPolicy.isRestorablePDFScale(0.1), "minimum PDF scale should restore")
     try expect(ReaderSessionPolicy.isRestorablePDFScale(8), "maximum PDF scale should restore")
     try expect(!ReaderSessionPolicy.isRestorablePDFScale(0.09), "too-small PDF scale should not restore")
     try expect(!ReaderSessionPolicy.isRestorablePDFScale(8.1), "too-large PDF scale should not restore")
+}
+
+private func testReaderSessionStorePDFAnchor() throws {
+    let suiteName = "LeafReaderTests.ReaderSessionStorePDFAnchor.\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+        throw TestFailure(description: "could not create isolated defaults suite")
+    }
+    defer {
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    let store = ReaderSessionStore(fileMD5: "book", defaults: defaults)
+    store.savePDFProgress(pageIndex: 4, scale: 1.25, anchorPoint: CGPoint(x: 12.5, y: 98.75))
+
+    guard let progress = store.loadPDFProgress() else {
+        throw TestFailure(description: "PDF progress should load after save")
+    }
+    try expectEqual(progress.pageIndex, 4, "PDF page index should round-trip")
+    try expectEqual(progress.scale, 1.25, "PDF scale should round-trip")
+    try expectEqual(progress.anchorPoint?.x, 12.5, "PDF anchor x should round-trip")
+    try expectEqual(progress.anchorPoint?.y, 98.75, "PDF anchor y should round-trip")
+
+    store.clearProgress()
+    try expect(store.loadPDFProgress() == nil, "clearProgress should remove PDF page and anchor data")
 }
 
 private func testVocabularyExporter() throws {
@@ -650,10 +676,10 @@ private func testReaderAIContextPolicy() throws {
 private func testAIResponseTextFormatter() throws {
     try expectEqual(AIResponseTextFormatter.trimmed("  answer\n"), "answer", "formatter should trim text")
     try expect(!AIResponseTextFormatter.hasTrimmedText("   "), "blank text should not be meaningful")
-    try expectEqual(AIResponseTextFormatter.indentedTranslationText("line one\n\nline two"), "　　line one\n\n　　line two", "translation text should indent non-empty lines")
+    try expectEqual(AIResponseTextFormatter.indentedTranslationText("　　line one\n\nline two"), "line one\n\nline two", "translation text should trim model indentation")
     try expectEqual(
         AIResponseTextFormatter.partialTranslationText(["first", ""], currentIndex: 1, generatingText: "Generating"),
-        "　　first\n\nGenerating",
+        "first\n\nGenerating",
         "partial translation should include completed chunks and generating text"
     )
     let longText = String(repeating: "a", count: AIResponseTextFormatter.translationChunkLimit + 20)
@@ -684,6 +710,18 @@ private func testCapturedPageScrollGuard() throws {
     try expect(shouldApplyCapturedPageScroll(capturedPageIndex: 2, documentPageCount: 5), "captured page in current document should be scrollable")
     try expect(!shouldApplyCapturedPageScroll(capturedPageIndex: -1, documentPageCount: 5), "negative captured page should be ignored")
     try expect(!shouldApplyCapturedPageScroll(capturedPageIndex: 5, documentPageCount: 5), "captured page outside current document should be ignored")
+}
+
+private func testPDFBrightnessPolicy() throws {
+    try expectEqual(PDFBrightnessPolicy.sliderMaximum, 0.6, "brightness slider maximum should stay explicit")
+    try expectEqual(PDFBrightnessPolicy.sliderValue(forDimmingStrength: 0), 0.6, "no dimming should put brightness at the right edge")
+    try expectEqual(PDFBrightnessPolicy.sliderValue(forDimmingStrength: 0.6), 0, "maximum dimming should put brightness at the left edge")
+    try expectEqual(PDFBrightnessPolicy.dimmingStrength(forSliderValue: 0), 0.6, "left edge should be darkest")
+    try expectEqual(PDFBrightnessPolicy.dimmingStrength(forSliderValue: 0.6), 0, "right edge should be brightest")
+    try expectEqual(PDFBrightnessPolicy.sliderValue(forDimmingStrength: -1), 0.6, "dimming below range should clamp to brightest")
+    try expectEqual(PDFBrightnessPolicy.sliderValue(forDimmingStrength: 2), 0, "dimming above range should clamp to darkest")
+    try expectEqual(PDFBrightnessPolicy.dimmingStrength(forSliderValue: -1), 0.6, "slider below range should clamp to darkest")
+    try expectEqual(PDFBrightnessPolicy.dimmingStrength(forSliderValue: 2), 0, "slider above range should clamp to brightest")
 }
 
 private func testDebouncedTask() throws {
@@ -727,6 +765,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Embedding action policy", testEmbeddingActionPolicy),
     ("Reading context snapshot", testReadingContextSnapshot),
     ("Captured page scroll guard", testCapturedPageScrollGuard),
+    ("PDF brightness policy", testPDFBrightnessPolicy),
     ("Debounced task", testDebouncedTask)
 ]
 

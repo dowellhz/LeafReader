@@ -71,17 +71,18 @@ extension ReaderWindowController {
     }
 
     func vocabularyReviewCard(record: VocabularyExportRecord, position: Int, total: Int, contextShown: Bool, answerShown: Bool, isDark: Bool) -> NSView {
+        let theme = ReaderTheme.selected
         let card = NSView()
         card.wantsLayer = true
         card.layer?.cornerRadius = 14
-        card.layer?.backgroundColor = (isDark ? NSColor(red: 0.13, green: 0.16, blue: 0.20, alpha: 1) : NSColor(red: 0.985, green: 0.988, blue: 0.995, alpha: 1)).cgColor
+        card.layer?.backgroundColor = vocabularyCardBackgroundColor(for: theme).cgColor
         card.layer?.borderWidth = 1
-        card.layer?.borderColor = (isDark ? NSColor(red: 0.25, green: 0.30, blue: 0.36, alpha: 1) : NSColor(red: 0.88, green: 0.90, blue: 0.94, alpha: 1)).cgColor
+        card.layer?.borderColor = vocabularyCardBorderColor(for: theme).cgColor
         card.translatesAutoresizingMaskIntoConstraints = false
 
         let wordLabel = NSTextField(labelWithString: record.word)
         wordLabel.font = AppFont.semibold(ofSize: 34)
-        wordLabel.textColor = isDark ? NSColor(red: 0.92, green: 0.95, blue: 0.98, alpha: 1) : NSColor(red: 0.08, green: 0.10, blue: 0.14, alpha: 1)
+        wordLabel.textColor = vocabularyPrimaryTextColor(for: theme)
         wordLabel.maximumNumberOfLines = 2
         wordLabel.lineBreakMode = .byWordWrapping
         wordLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -171,7 +172,7 @@ extension ReaderWindowController {
             let answerAttributedText = MarkdownRenderer.render(
                 body,
                 fontSize: 14,
-                textColor: isDark ? NSColor(red: 0.78, green: 0.82, blue: 0.88, alpha: 1) : NSColor(red: 0.22, green: 0.25, blue: 0.31, alpha: 1)
+                textColor: vocabularyBodyTextColor(for: theme)
             )
             textView.textStorage?.setAttributedString(
                 emphasizedVocabularyWord(in: answerAttributedText, word: record.word, boldFontSize: 14)
@@ -207,7 +208,7 @@ extension ReaderWindowController {
         } else if contextShown {
             let contextText = record.context.trimmingCharacters(in: .whitespacesAndNewlines)
             let meaningfulContext = isMeaningfulVocabularyContext(contextText) ? contextText : AppText.localized("没有可用的原文句子。", "No source sentence available.")
-            let contextColor = isDark ? NSColor(red: 0.78, green: 0.82, blue: 0.88, alpha: 1) : NSColor(red: 0.22, green: 0.25, blue: 0.31, alpha: 1)
+            let contextColor = vocabularyBodyTextColor(for: theme)
             let contextLabel = NSTextField(labelWithAttributedString: vocabularyExampleAttributedString(meaningfulContext, word: record.word, fontSize: 17, textColor: contextColor))
             contextLabel.maximumNumberOfLines = 0
             contextLabel.lineBreakMode = .byWordWrapping
@@ -245,10 +246,24 @@ extension ReaderWindowController {
     }
 
     func vocabularyReviewActionButton(title: String, action: Selector, width: CGFloat) -> NSButton {
+        let theme = ReaderTheme.selected
         let button = NSButton(title: title, target: self, action: action)
-        button.bezelStyle = .rounded
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.backgroundColor = vocabularyButtonBackgroundColor(for: theme).cgColor
+        button.layer?.borderWidth = 1
+        button.layer?.borderColor = vocabularyBorderColor(for: theme).cgColor
+        button.layer?.cornerRadius = 8
+        button.layer?.masksToBounds = true
         button.controlSize = .large
         button.font = AppFont.semibold(ofSize: 15)
+        button.attributedTitle = NSAttributedString(
+            string: title,
+            attributes: [
+                .font: AppFont.semibold(ofSize: 15),
+                .foregroundColor: vocabularyPrimaryTextColor(for: theme)
+            ]
+        )
         button.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             button.widthAnchor.constraint(equalToConstant: width),

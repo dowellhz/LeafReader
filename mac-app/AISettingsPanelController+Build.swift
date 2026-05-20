@@ -12,16 +12,25 @@ extension AISettingsPanelController {
             lastCustomEmbeddingModel = AISettingsStore.embeddingModelName
         }
         let settingsFontSize: CGFloat = 14
-        let isDark = ReaderTheme.selected == .dark
-        let panelBackground = isDark
-            ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
-            : NSColor.white
-        let primaryText = isDark
-            ? NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
-            : NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
-        let secondaryText = isDark
-            ? NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
-            : NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
+        let theme = ReaderTheme.selected
+        let isDark = theme == .dark
+        let panelBackground: NSColor
+        let primaryText: NSColor
+        let secondaryText: NSColor
+        switch theme {
+        case .original:
+            panelBackground = .white
+            primaryText = NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)
+            secondaryText = NSColor(red: 0.47, green: 0.50, blue: 0.58, alpha: 1)
+        case .eyeCare:
+            panelBackground = NSColor(red: 0.91, green: 0.87, blue: 0.74, alpha: 1)
+            primaryText = NSColor(red: 0.15, green: 0.13, blue: 0.09, alpha: 1)
+            secondaryText = NSColor(red: 0.45, green: 0.39, blue: 0.27, alpha: 1)
+        case .dark:
+            panelBackground = NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+            primaryText = NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
+            secondaryText = NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
+        }
         let layout = AISettingsLayoutMetrics()
 
         let panel = makeSettingsPanel(isDark: isDark)
@@ -34,21 +43,18 @@ extension AISettingsPanelController {
         closeButton.contentTintColor = primaryText
         closeButton.translatesAutoresizingMaskIntoConstraints = false
 
-        let tabControl = NSSegmentedControl(
+        let tabControl = SettingsTabsView(
             labels: [
             AppText.localized("基础", "General"),
             AppText.localized("模型", "Model"),
             AppText.localized("AI 分析", "AI Analysis"),
             AppText.localized("缓存", "Cache")
             ],
-            trackingMode: .selectOne,
-            target: self,
-            action: #selector(settingsSegmentChanged(_:))
+            selectedIndex: initialTab.rawValue
         )
-        tabControl.selectedSegment = initialTab.rawValue
-        tabControl.segmentStyle = .rounded
-        tabControl.controlSize = .large
-        tabControl.font = AppFont.semibold(ofSize: 18)
+        tabControl.onSelectionChanged = { [weak self] index in
+            self?.settingsTabChanged(index: index)
+        }
         tabControl.translatesAutoresizingMaskIntoConstraints = false
 
         let scrollView = NSScrollView()
@@ -61,21 +67,21 @@ extension AISettingsPanelController {
         scrollView.borderType = .noBorder
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.contentView = VerticalOnlyClipView()
+        scrollView.contentView.drawsBackground = true
+        scrollView.contentView.backgroundColor = panelBackground
 
         let formContent = NSView()
+        formContent.wantsLayer = true
+        formContent.layer?.backgroundColor = panelBackground.cgColor
         formContent.translatesAutoresizingMaskIntoConstraints = false
         formContent.setContentHuggingPriority(.required, for: .horizontal)
         formContent.setContentCompressionResistancePriority(.required, for: .horizontal)
         scrollView.documentView = formContent
 
-        let basicPage = NSView()
-        basicPage.translatesAutoresizingMaskIntoConstraints = false
-        let modelPage = NSView()
-        modelPage.translatesAutoresizingMaskIntoConstraints = false
-        let embeddingPage = NSView()
-        embeddingPage.translatesAutoresizingMaskIntoConstraints = false
-        let cachePage = NSView()
-        cachePage.translatesAutoresizingMaskIntoConstraints = false
+        let basicPage = themedPage(backgroundColor: panelBackground)
+        let modelPage = themedPage(backgroundColor: panelBackground)
+        let embeddingPage = themedPage(backgroundColor: panelBackground)
+        let cachePage = themedPage(backgroundColor: panelBackground)
         for page in [basicPage, modelPage, embeddingPage, cachePage] {
             formContent.addSubview(page)
         }
@@ -86,32 +92,23 @@ extension AISettingsPanelController {
         let modelLabel = label(AppText.model, size: settingsFontSize, weight: .semibold, color: primaryText)
         let modelHelpLabel = label(AppText.modelHelp, size: settingsFontSize, color: secondaryText)
         modelHelpLabel.isHidden = true
-        let modelPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-        modelPopup.controlSize = .large
-        modelPopup.font = AppFont.semibold(ofSize: settingsFontSize)
-        modelPopup.translatesAutoresizingMaskIntoConstraints = false
-        for model in AISettingsStore.models {
-            modelPopup.addItem(withTitle: model.displayName)
-            modelPopup.lastItem?.representedObject = model.id
-            modelPopup.lastItem?.isEnabled = true
-        }
-        modelPopup.isEnabled = true
-        modelPopup.menu?.autoenablesItems = false
-        if let index = AISettingsStore.models.firstIndex(where: { $0.id == selectedModel.id }) {
-            modelPopup.selectItem(at: index)
-        }
+        let modelPopup = popup(
+            items: AISettingsStore.models.map { ($0.displayName, $0.id) },
+            selected: selectedModel.id,
+            fontSize: settingsFontSize
+        )
 
         let customEndpointLabel = label(AppText.localized("自定义 / Azure URL", "Custom / Azure URL"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let customEndpointField = inputField(AISettingsStore.customEndpointString, placeholder: "https://resource.openai.azure.com/openai/deployments/deployment/chat/completions?api-version=2024-10-21", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
+        let customEndpointField = inputField(AISettingsStore.customEndpointString, placeholder: "https://resource.openai.azure.com/openai/deployments/deployment/chat/completions?api-version=2024-10-21", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground())
         let customModelLabel = label(AppText.localized("模型 ID / Azure 部署名", "Model ID / Azure Deployment"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let customModelField = inputField(AISettingsStore.customModelName, placeholder: "gpt-4o-mini", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
-        let customModelContainer = settingsCard(isDark: isDark)
+        let customModelField = inputField(AISettingsStore.customModelName, placeholder: "gpt-4o-mini", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground())
+        let customModelContainer = settingsCard()
 
         let keyLabel = label("API Key", size: settingsFontSize, weight: .semibold, color: primaryText)
         let keyHelpLabel = label(AppText.keyHelp, size: settingsFontSize, color: secondaryText)
         keyHelpLabel.isHidden = true
         let keyField = APIKeySecureTextField(string: AISettingsStore.apiKey(for: selectedModel))
-        configureKeyField(keyField, placeholder: AppText.apiKeyPlaceholder, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
+        configureKeyField(keyField, placeholder: AppText.apiKeyPlaceholder, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground())
 
         let languageLabel = label(AppText.language, size: settingsFontSize, weight: .semibold, color: primaryText)
         let languageHelpLabel = label(AppText.languageHelp, size: settingsFontSize, color: secondaryText)
@@ -122,56 +119,40 @@ extension AISettingsPanelController {
         let themeHelpLabel = label(ReaderTheme.selected.helpText, size: settingsFontSize, color: secondaryText)
         themeHelpLabel.isHidden = true
         let themePopup = popup(items: ReaderTheme.allCases.map { ($0.title, $0.rawValue) }, selected: ReaderTheme.selected.rawValue, fontSize: settingsFontSize)
+        let pdfDimmingLabel = label(AppText.localized("阅读区亮度", "Reading Area Brightness"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let pdfDimmingSlider = ThemedSettingsSlider(value: pdfBrightnessSliderValue(forDimmingStrength: ReaderTheme.pdfDimmingStrength), minValue: 0, maxValue: Self.pdfBrightnessSliderMaximum)
+        pdfDimmingSlider.theme = theme
+        pdfDimmingSlider.numberOfTickMarks = 7
+        pdfDimmingSlider.target = self
+        pdfDimmingSlider.action = #selector(pdfDimmingSliderChanged(_:))
+        pdfDimmingSlider.translatesAutoresizingMaskIntoConstraints = false
         let speakSelectedWordLabel = label(AppText.localized("自动播放单词", "Auto Play Words"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let speakSelectedWordCheckbox = NSButton(
-            checkboxWithTitle: "",
-            target: nil,
-            action: nil
-        )
-        speakSelectedWordCheckbox.font = AppFont.semibold(ofSize: settingsFontSize)
-        speakSelectedWordCheckbox.lineBreakMode = .byTruncatingTail
-        speakSelectedWordCheckbox.state = AISettingsStore.speakSelectedWordEnabled ? .on : .off
-        speakSelectedWordCheckbox.translatesAutoresizingMaskIntoConstraints = false
+        let speakSelectedWordCheckbox = settingsCheckbox(isOn: AISettingsStore.speakSelectedWordEnabled, theme: theme, fontSize: settingsFontSize)
         let saveAIConversationLabel = label(AppText.localized("保存 AI 对话信息", "Save AI Chat"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let saveAIConversationCheckbox = NSButton(
-            checkboxWithTitle: "",
-            target: nil,
-            action: nil
-        )
-        saveAIConversationCheckbox.font = AppFont.semibold(ofSize: settingsFontSize)
-        saveAIConversationCheckbox.lineBreakMode = .byTruncatingTail
-        saveAIConversationCheckbox.state = AISettingsStore.saveAIConversationEnabled ? .on : .off
-        saveAIConversationCheckbox.translatesAutoresizingMaskIntoConstraints = false
+        let saveAIConversationCheckbox = settingsCheckbox(isOn: AISettingsStore.saveAIConversationEnabled, theme: theme, fontSize: settingsFontSize)
 
         let embeddingLabel = label(AppText.localized("向量服务", "Embedding Service"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let embeddingProviderPopup = popup(items: AISettingsStore.embeddingEndpointOptions.map { ($0.title, $0.id) }, selected: selectedEmbeddingEndpoint.id, fontSize: settingsFontSize)
         let embeddingEndpointLabel = label(AppText.localized("接口 URL", "Endpoint URL"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let embeddingEndpointField = inputField(AISettingsStore.embeddingEndpointString, placeholder: "https://api.openai.com/v1/embeddings", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
-        let embeddingEndpointContainer = settingsCard(isDark: isDark)
+        let embeddingEndpointField = inputField(AISettingsStore.embeddingEndpointString, placeholder: "https://api.openai.com/v1/embeddings", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground())
+        let embeddingEndpointContainer = settingsCard()
         let embeddingModelNameLabel = label(AppText.localized("向量模型", "Embedding Model"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let embeddingModelField = inputField(AISettingsStore.embeddingModelName, placeholder: AISettingsStore.fallbackEmbeddingModelName, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
+        let embeddingModelField = inputField(AISettingsStore.embeddingModelName, placeholder: AISettingsStore.fallbackEmbeddingModelName, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground())
         let embeddingKeyLabel = label(AppText.localized("向量 API Key", "Embedding API Key"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let embeddingKeyField = APIKeySecureTextField(string: AISettingsStore.embeddingAPIKeyMigratingLegacyIfNeeded(for: selectedEmbeddingEndpoint.id))
-        configureKeyField(embeddingKeyField, placeholder: AppText.apiKeyPlaceholder, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground(isDark: isDark))
+        configureKeyField(embeddingKeyField, placeholder: AppText.apiKeyPlaceholder, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground())
         let embeddingHelpLabel = label(AppText.localized("用于 PDF、EPUB 和 DOCX 向量检索。聊天模型和向量模型可以使用不同 API Key。默认使用 OpenAI text-embedding-3-small，也可填兼容接口。", "Used for PDF, EPUB, and DOCX vector retrieval. Chat and embedding models can use different API keys. Defaults to OpenAI text-embedding-3-small; compatible endpoints can be used."), size: settingsFontSize, color: secondaryText)
-        let autoEmbeddingIndexCheckbox = NSButton(checkboxWithTitle: AppText.localized("打开书后自动生成 AI 分析数据", "Automatically build AI analysis data after opening a book"), target: nil, action: nil)
-        autoEmbeddingIndexCheckbox.font = AppFont.semibold(ofSize: settingsFontSize)
-        autoEmbeddingIndexCheckbox.lineBreakMode = .byTruncatingTail
-        autoEmbeddingIndexCheckbox.state = AISettingsStore.autoEmbeddingIndexEnabled ? .on : .off
-        autoEmbeddingIndexCheckbox.translatesAutoresizingMaskIntoConstraints = false
+        let autoEmbeddingIndexCheckbox = settingsCheckbox(
+            title: AppText.localized("打开书后自动生成 AI 分析数据", "Automatically build AI analysis data after opening a book"),
+            isOn: AISettingsStore.autoEmbeddingIndexEnabled,
+            theme: theme,
+            fontSize: settingsFontSize
+        )
 
-        let testChatButton = NSButton(title: AppText.localized("测试模型连接", "Test Chat"), target: self, action: #selector(testChatConnection(_:)))
-        testChatButton.bezelStyle = .rounded
-        testChatButton.controlSize = .large
+        let testChatButton = settingsActionButton(title: AppText.localized("测试模型连接", "Test Chat"), target: self, action: #selector(testChatConnection(_:)))
         testChatButton.font = AppFont.semibold(ofSize: settingsFontSize)
-        testChatButton.lineBreakMode = .byTruncatingTail
-        testChatButton.translatesAutoresizingMaskIntoConstraints = false
-        let testEmbeddingButton = NSButton(title: AppText.localized("测试向量连接", "Test Embedding"), target: self, action: #selector(testEmbeddingConnection(_:)))
-        testEmbeddingButton.bezelStyle = .rounded
-        testEmbeddingButton.controlSize = .large
+        let testEmbeddingButton = settingsActionButton(title: AppText.localized("测试向量连接", "Test Embedding"), target: self, action: #selector(testEmbeddingConnection(_:)))
         testEmbeddingButton.font = AppFont.semibold(ofSize: settingsFontSize)
-        testEmbeddingButton.lineBreakMode = .byTruncatingTail
-        testEmbeddingButton.translatesAutoresizingMaskIntoConstraints = false
 
         let cacheLabel = label(AppText.localized("AI 阅读记录", "AI Reading Records"), size: 15, weight: .semibold, color: primaryText)
         let cacheStatusLabel = label(AppText.localized("正在统计缓存...", "Calculating cache..."), size: settingsFontSize, color: secondaryText)
@@ -186,8 +167,7 @@ extension AISettingsPanelController {
             symbol: "trash",
             tint: NSColor(red: 1.00, green: 0.16, blue: 0.18, alpha: 1),
             target: self,
-            action: #selector(clearVectorCache(_:)),
-            isDark: isDark
+            action: #selector(clearVectorCache(_:))
         )
         clearVectorCacheButton.layer?.cornerRadius = 8
         clearVectorCacheButton.font = AppFont.semibold(ofSize: 14)
@@ -203,45 +183,32 @@ extension AISettingsPanelController {
         let currentIndexStatusLabel = label(currentVectorIndexStatus?() ?? AppText.noPDF, size: settingsFontSize, color: secondaryText)
         currentIndexStatusLabel.maximumNumberOfLines = 2
         currentIndexStatusLabel.lineBreakMode = .byWordWrapping
-        let startIndexButton = cacheActionButton(title: AppText.localized("重分析本书", "Reanalyze Book"), symbol: "play.circle", tint: NSColor(red: 0.00, green: 0.48, blue: 1.00, alpha: 1), target: self, action: #selector(startCurrentVectorIndex(_:)), isDark: isDark)
-        let pauseIndexButton = cacheActionButton(title: AppText.localized("暂停/继续", "Pause / Resume"), symbol: "pause.circle", tint: NSColor(red: 1.00, green: 0.58, blue: 0.00, alpha: 1), target: self, action: #selector(toggleCurrentVectorIndex(_:)), isDark: isDark)
-        let cancelIndexButton = cacheActionButton(title: AppText.localized("取消分析", "Cancel"), symbol: "minus.circle", tint: NSColor(red: 1.00, green: 0.22, blue: 0.28, alpha: 1), target: self, action: #selector(cancelCurrentVectorIndex(_:)), isDark: isDark)
-        let clearCurrentIndexButton = cacheActionButton(title: AppText.localized("清除本书缓存", "Clear Book Cache"), symbol: "paintbrush", tint: NSColor(red: 0.60, green: 0.27, blue: 1.00, alpha: 1), target: self, action: #selector(clearCurrentVectorIndex(_:)), isDark: isDark)
-        let clearCurrentWordsButton = cacheActionButton(title: AppText.localized("清除当前书单词记录", "Clear Current Book Words"), symbol: "trash", tint: NSColor(red: 0.00, green: 0.72, blue: 0.74, alpha: 1), target: self, action: #selector(clearCurrentWordRecords(_:)), isDark: isDark)
-        let currentIndexCard = settingsCard(isDark: isDark)
-        let vectorCacheCard = settingsCard(isDark: isDark)
+        let startIndexButton = cacheActionButton(title: AppText.localized("重分析本书", "Reanalyze Book"), symbol: "play.circle", tint: NSColor(red: 0.00, green: 0.48, blue: 1.00, alpha: 1), target: self, action: #selector(startCurrentVectorIndex(_:)))
+        let pauseIndexButton = cacheActionButton(title: AppText.localized("暂停/继续", "Pause / Resume"), symbol: "pause.circle", tint: NSColor(red: 1.00, green: 0.58, blue: 0.00, alpha: 1), target: self, action: #selector(toggleCurrentVectorIndex(_:)))
+        let cancelIndexButton = cacheActionButton(title: AppText.localized("取消分析", "Cancel"), symbol: "minus.circle", tint: NSColor(red: 1.00, green: 0.22, blue: 0.28, alpha: 1), target: self, action: #selector(cancelCurrentVectorIndex(_:)))
+        let clearCurrentIndexButton = cacheActionButton(title: AppText.localized("清除本书缓存", "Clear Book Cache"), symbol: "paintbrush", tint: NSColor(red: 0.60, green: 0.27, blue: 1.00, alpha: 1), target: self, action: #selector(clearCurrentVectorIndex(_:)))
+        let clearCurrentWordsButton = cacheActionButton(title: AppText.localized("清除当前书单词记录", "Clear Current Book Words"), symbol: "trash", tint: NSColor(red: 0.00, green: 0.72, blue: 0.74, alpha: 1), target: self, action: #selector(clearCurrentWordRecords(_:)))
+        let currentIndexCard = settingsCard()
+        let vectorCacheCard = settingsCard()
 
-        let cancelButton = NSButton(title: AppText.cancel, target: self, action: #selector(cancel(_:)))
-        styleSettingsActionButton(
-            cancelButton,
-            backgroundColor: .white,
-            titleColor: NSColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1),
-            borderColor: NSColor(red: 0.80, green: 0.83, blue: 0.88, alpha: 1)
-        )
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        let saveButton = NSButton(title: AppText.confirm, target: self, action: #selector(save(_:)))
-        styleSettingsActionButton(
-            saveButton,
-            backgroundColor: NSColor(red: 0.02, green: 0.48, blue: 0.98, alpha: 1),
-            titleColor: .white,
-            borderColor: NSColor(red: 0.02, green: 0.48, blue: 0.98, alpha: 1)
-        )
+        let cancelButton = settingsActionButton(title: AppText.cancel, target: self, action: #selector(cancel(_:)))
+        let saveButton = settingsActionButton(title: AppText.confirm, target: self, action: #selector(save(_:)), isPrimary: true)
         saveButton.keyEquivalent = "\r"
-        saveButton.identifier = NSUserInterfaceItemIdentifier("saveAISettings")
-        saveButton.translatesAutoresizingMaskIntoConstraints = false
 
         modelPopup.target = self
         modelPopup.action = #selector(modelChanged(_:))
+        themePopup.target = self
+        themePopup.action = #selector(themeChanged(_:))
         embeddingProviderPopup.target = self
         embeddingProviderPopup.action = #selector(embeddingProviderChanged(_:))
-        modelPopup.identifier = NSUserInterfaceItemIdentifier("modelPopup")
-        languagePopup.identifier = NSUserInterfaceItemIdentifier("languagePopup")
-        themePopup.identifier = NSUserInterfaceItemIdentifier("themePopup")
-        keyField.identifier = NSUserInterfaceItemIdentifier("keyField")
-        embeddingProviderPopup.identifier = NSUserInterfaceItemIdentifier("embeddingProviderPopup")
-        embeddingEndpointField.identifier = NSUserInterfaceItemIdentifier("embeddingEndpointField")
-        embeddingModelField.identifier = NSUserInterfaceItemIdentifier("embeddingModelField")
-        embeddingKeyField.identifier = NSUserInterfaceItemIdentifier("embeddingKeyField")
+        modelPopup.identifier = Identifiers.modelPopup
+        languagePopup.identifier = Identifiers.languagePopup
+        themePopup.identifier = Identifiers.themePopup
+        keyField.identifier = Identifiers.keyField
+        embeddingProviderPopup.identifier = Identifiers.embeddingProviderPopup
+        embeddingEndpointField.identifier = Identifiers.embeddingEndpointField
+        embeddingModelField.identifier = Identifiers.embeddingModelField
+        embeddingKeyField.identifier = Identifiers.embeddingKeyField
 
         for view in [titleLabel, closeButton, tabControl, scrollView, cancelButton, saveButton] {
             content.addSubview(view)
@@ -258,7 +225,7 @@ extension AISettingsPanelController {
         for view in [cacheLabel, cacheStatusLabel, cacheDisclosureButton, clearVectorCacheButton] {
             vectorCacheCard.addSubview(view)
         }
-        for view in [languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, speakSelectedWordLabel, speakSelectedWordCheckbox, saveAIConversationLabel, saveAIConversationCheckbox] {
+        for view in [languageLabel, languagePopup, languageHelpLabel, themeLabel, themePopup, themeHelpLabel, pdfDimmingLabel, pdfDimmingSlider, speakSelectedWordLabel, speakSelectedWordCheckbox, saveAIConversationLabel, saveAIConversationCheckbox] {
             basicPage.addSubview(view)
         }
         for view in [modelLabel, modelPopup, modelHelpLabel, customModelContainer, keyLabel, keyField, keyHelpLabel, testChatButton] {
@@ -284,6 +251,14 @@ extension AISettingsPanelController {
         keyTopWithoutCustomConstraint = keyTopWithoutCustom
         embeddingModelTopWithCustomEndpointConstraint = embeddingModelTopWithCustomEndpoint
         embeddingModelTopWithoutCustomEndpointConstraint = embeddingModelTopWithoutCustomEndpoint
+
+        let pdfDimmingLabelTopConstraint = pdfDimmingLabel.topAnchor.constraint(equalTo: themePopup.bottomAnchor, constant: 22)
+        let speakSelectedWordTopToDimmingConstraint = speakSelectedWordLabel.topAnchor.constraint(equalTo: pdfDimmingSlider.bottomAnchor, constant: 22)
+        let speakSelectedWordTopToThemeConstraint = speakSelectedWordLabel.topAnchor.constraint(equalTo: themePopup.bottomAnchor, constant: 22)
+        let pdfDimmingCollapsedConstraints = [
+            pdfDimmingLabel.heightAnchor.constraint(equalToConstant: 0),
+            pdfDimmingSlider.heightAnchor.constraint(equalToConstant: 0)
+        ]
 
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: content.topAnchor, constant: 34),
@@ -348,7 +323,14 @@ extension AISettingsPanelController {
             themeHelpLabel.leadingAnchor.constraint(equalTo: themePopup.leadingAnchor),
             themeHelpLabel.widthAnchor.constraint(equalToConstant: fieldWidth),
 
-            speakSelectedWordLabel.topAnchor.constraint(equalTo: themePopup.bottomAnchor, constant: 18),
+            pdfDimmingLabelTopConstraint,
+            pdfDimmingLabel.leadingAnchor.constraint(equalTo: basicPage.leadingAnchor),
+            pdfDimmingLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            pdfDimmingSlider.centerYAnchor.constraint(equalTo: pdfDimmingLabel.centerYAnchor),
+            pdfDimmingSlider.leadingAnchor.constraint(equalTo: basicPage.leadingAnchor, constant: labelColumnWidth),
+            pdfDimmingSlider.widthAnchor.constraint(equalToConstant: fieldWidth),
+
+            speakSelectedWordTopToDimmingConstraint,
             speakSelectedWordLabel.leadingAnchor.constraint(equalTo: basicPage.leadingAnchor),
             speakSelectedWordLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
             speakSelectedWordCheckbox.centerYAnchor.constraint(equalTo: speakSelectedWordLabel.centerYAnchor),
@@ -523,6 +505,12 @@ extension AISettingsPanelController {
         self.modelPopup = modelPopup
         self.languagePopup = languagePopup
         self.themePopup = themePopup
+        self.pdfDimmingLabel = pdfDimmingLabel
+        self.pdfDimmingSlider = pdfDimmingSlider
+        self.pdfDimmingLabelTopConstraint = pdfDimmingLabelTopConstraint
+        self.speakSelectedWordTopToDimmingConstraint = speakSelectedWordTopToDimmingConstraint
+        self.speakSelectedWordTopToThemeConstraint = speakSelectedWordTopToThemeConstraint
+        self.pdfDimmingCollapsedConstraints = pdfDimmingCollapsedConstraints
         self.secureKeyField = keyField
         self.customModelContainer = customModelContainer
         self.customEndpointLabel = customEndpointLabel
@@ -542,6 +530,7 @@ extension AISettingsPanelController {
         self.currentIndexStatusLabel = currentIndexStatusLabel
         updateCustomModelFields(for: selectedModel.id)
         updateEmbeddingEndpointFields(for: selectedEmbeddingEndpoint.id, fillDefaults: false)
+        updatePDFDimmingControlsVisibility()
         settingsTabChanged(index: initialTab.rawValue)
 
         installAppActivationObserver()

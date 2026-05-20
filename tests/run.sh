@@ -39,7 +39,9 @@ swiftc \
 swiftc \
   mac-app/EmbeddingWarmupPolicy.swift \
   mac-app/PDFPagingPolicy.swift \
+  mac-app/PDFBrightnessPolicy.swift \
   mac-app/ReaderSessionPolicy.swift \
+  mac-app/ReaderSessionStore.swift \
   mac-app/ReaderAIContextPolicy.swift \
   mac-app/AIResponseTextFormatter.swift \
   mac-app/EmbeddingActionPolicy.swift \

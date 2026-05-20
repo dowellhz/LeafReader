@@ -29,14 +29,36 @@ final class HelpCardView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.58).cgColor
-        layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.85).cgColor
+        layer?.backgroundColor = Self.backgroundColor.cgColor
+        layer?.borderColor = Self.borderColor.cgColor
         layer?.borderWidth = 1
         layer?.cornerRadius = 6
     }
 
     required init?(coder: NSCoder) {
         nil
+    }
+
+    private static var backgroundColor: NSColor {
+        switch ReaderTheme.selected {
+        case .original:
+            return NSColor.controlBackgroundColor.withAlphaComponent(0.58)
+        case .eyeCare:
+            return NSColor(red: 0.88, green: 0.83, blue: 0.68, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.12, green: 0.14, blue: 0.18, alpha: 1)
+        }
+    }
+
+    private static var borderColor: NSColor {
+        switch ReaderTheme.selected {
+        case .original:
+            return NSColor.separatorColor.withAlphaComponent(0.85)
+        case .eyeCare:
+            return NSColor(red: 0.68, green: 0.61, blue: 0.43, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.25, green: 0.30, blue: 0.36, alpha: 1)
+        }
     }
 }
 
@@ -78,8 +100,8 @@ final class HelpTipView: NSView {
         self.text = text
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.backgroundColor = NSColor(calibratedRed: 0.93, green: 1.00, blue: 0.96, alpha: 0.78).cgColor
-        layer?.borderColor = NSColor(calibratedRed: 0.55, green: 0.86, blue: 0.66, alpha: 0.85).cgColor
+        layer?.backgroundColor = Self.backgroundColor.cgColor
+        layer?.borderColor = Self.borderColor.cgColor
         layer?.borderWidth = 1
         layer?.cornerRadius = 6
 
@@ -90,13 +112,13 @@ final class HelpTipView: NSView {
         let title = NSTextField(labelWithString: AppText.localized("小贴士", "Tip"))
         title.translatesAutoresizingMaskIntoConstraints = false
         title.font = .systemFont(ofSize: 15, weight: .semibold)
-        title.textColor = .labelColor
+        title.textColor = Self.textColor
         addSubview(title)
 
         let label = NSTextField(wrappingLabelWithString: text)
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = .systemFont(ofSize: 14, weight: .regular)
-        label.textColor = .labelColor
+        label.textColor = Self.textColor
         label.maximumNumberOfLines = 1
         addSubview(label)
 
@@ -117,6 +139,39 @@ final class HelpTipView: NSView {
 
     required init?(coder: NSCoder) {
         nil
+    }
+
+    private static var backgroundColor: NSColor {
+        switch ReaderTheme.selected {
+        case .original:
+            return NSColor(calibratedRed: 0.93, green: 1.00, blue: 0.96, alpha: 0.78)
+        case .eyeCare:
+            return NSColor(red: 0.86, green: 0.82, blue: 0.66, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.10, green: 0.14, blue: 0.12, alpha: 1)
+        }
+    }
+
+    private static var borderColor: NSColor {
+        switch ReaderTheme.selected {
+        case .original:
+            return NSColor(calibratedRed: 0.55, green: 0.86, blue: 0.66, alpha: 0.85)
+        case .eyeCare:
+            return NSColor(red: 0.61, green: 0.54, blue: 0.35, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.26, green: 0.42, blue: 0.31, alpha: 1)
+        }
+    }
+
+    private static var textColor: NSColor {
+        switch ReaderTheme.selected {
+        case .original:
+            return .labelColor
+        case .eyeCare:
+            return NSColor(red: 0.16, green: 0.13, blue: 0.08, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.84, green: 0.87, blue: 0.92, alpha: 1)
+        }
     }
 }
 
@@ -295,4 +350,3 @@ final class HelpLeafIconView: NSView {
         stem.stroke()
     }
 }
-

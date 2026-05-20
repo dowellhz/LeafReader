@@ -26,9 +26,10 @@ extension ReaderWindowController {
         guard let window else { return }
         let controller = AISettingsPanelController()
         controller.onSaved = { [weak self] in
-            self?.refreshLanguageUI()
-            self?.applyReaderTheme()
-            self?.applyAIConversationPersistenceSetting()
+            self?.applySettingsChangesToReader()
+        }
+        controller.onAppearanceChanged = { [weak self] in
+            self?.applySettingsChangesToReader()
         }
         controller.currentVectorIndexStatus = { [weak self] in
             self?.currentVectorIndexStatusText() ?? AppText.noPDF
@@ -50,6 +51,12 @@ extension ReaderWindowController {
         }
         aiSettingsPanelController = controller
         controller.show(attachedTo: window, initialTab: tab)
+    }
+
+    func applySettingsChangesToReader() {
+        refreshLanguageUI()
+        applyReaderTheme()
+        applyAIConversationPersistenceSetting()
     }
 
     @objc func toggleAIPanel() {

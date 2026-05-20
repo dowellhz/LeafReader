@@ -27,10 +27,29 @@ extension AppDelegate {
         window.minSize = NSSize(width: 820, height: 560)
         window.center()
 
+        let theme = ReaderTheme.selected
+        let backgroundColor: NSColor
+        let primaryText: NSColor
+        let secondaryText: NSColor
+        switch theme {
+        case .original:
+            backgroundColor = .white
+            primaryText = .labelColor
+            secondaryText = .secondaryLabelColor
+        case .eyeCare:
+            backgroundColor = NSColor(red: 0.91, green: 0.87, blue: 0.74, alpha: 1)
+            primaryText = NSColor(red: 0.16, green: 0.13, blue: 0.08, alpha: 1)
+            secondaryText = NSColor(red: 0.45, green: 0.39, blue: 0.26, alpha: 1)
+        case .dark:
+            backgroundColor = NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+            primaryText = NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
+            secondaryText = NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
+        }
+
         let contentView = NSView()
         contentView.translatesAutoresizingMaskIntoConstraints = false
         contentView.wantsLayer = true
-        contentView.layer?.backgroundColor = NSColor.white.cgColor
+        contentView.layer?.backgroundColor = backgroundColor.cgColor
         window.contentView = contentView
 
         let pageStack = NSStackView()
@@ -66,7 +85,7 @@ extension AppDelegate {
         let nameLabel = NSTextField(labelWithString: "Leaf Reader")
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         nameLabel.font = .systemFont(ofSize: 32, weight: .semibold)
-        nameLabel.textColor = .labelColor
+        nameLabel.textColor = primaryText
         nameRow.addArrangedSubview(nameLabel)
         nameRow.addArrangedSubview(HelpVersionBadgeView(text: helpVersionText()))
         titleStack.addArrangedSubview(nameRow)
@@ -75,7 +94,7 @@ extension AppDelegate {
             AppText.localized("您的智能文档阅读与学习助手", "Your smart document reading and learning assistant"),
             size: 18,
             weight: .semibold,
-            color: .labelColor
+            color: primaryText
         )
         titleStack.addArrangedSubview(subtitleLabel)
 
@@ -86,7 +105,7 @@ extension AppDelegate {
             ),
             size: 14,
             weight: .regular,
-            color: .secondaryLabelColor
+            color: secondaryText
         )
         titleStack.addArrangedSubview(descriptionLabel)
         header.addArrangedSubview(titleStack)

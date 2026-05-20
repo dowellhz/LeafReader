@@ -40,10 +40,29 @@ extension AppDelegate {
         window.isReleasedWhenClosed = false
         window.center()
 
+        let theme = ReaderTheme.selected
+        let backgroundColor: NSColor
+        let primaryText: NSColor
+        let messageText: NSColor
+        switch theme {
+        case .original:
+            backgroundColor = .white
+            primaryText = .labelColor
+            messageText = NSColor(red: 0.27, green: 0.29, blue: 0.33, alpha: 1)
+        case .eyeCare:
+            backgroundColor = NSColor(red: 0.91, green: 0.87, blue: 0.74, alpha: 1)
+            primaryText = NSColor(red: 0.16, green: 0.13, blue: 0.08, alpha: 1)
+            messageText = NSColor(red: 0.36, green: 0.31, blue: 0.21, alpha: 1)
+        case .dark:
+            backgroundColor = NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+            primaryText = NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
+            messageText = NSColor(red: 0.68, green: 0.73, blue: 0.80, alpha: 1)
+        }
+
         let content = NSView()
         content.translatesAutoresizingMaskIntoConstraints = false
         content.wantsLayer = true
-        content.layer?.backgroundColor = NSColor.white.cgColor
+        content.layer?.backgroundColor = backgroundColor.cgColor
         window.contentView = content
 
         let iconView = NSImageView(image: NSApp.applicationIconImage)
@@ -55,14 +74,14 @@ extension AppDelegate {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.alignment = .center
         titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
-        titleLabel.textColor = .labelColor
+        titleLabel.textColor = primaryText
         content.addSubview(titleLabel)
 
         let messageLabel = NSTextField(wrappingLabelWithString: message)
         messageLabel.translatesAutoresizingMaskIntoConstraints = false
         messageLabel.alignment = .center
         messageLabel.font = .systemFont(ofSize: 14, weight: .regular)
-        messageLabel.textColor = NSColor(red: 0.27, green: 0.29, blue: 0.33, alpha: 1)
+        messageLabel.textColor = messageText
         messageLabel.maximumNumberOfLines = 3
         content.addSubview(messageLabel)
 

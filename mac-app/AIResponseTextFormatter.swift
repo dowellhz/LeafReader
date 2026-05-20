@@ -67,7 +67,7 @@ enum AIResponseTextFormatter {
                .map { line in
                    let trimmed = trimmed(line)
                    guard !trimmed.isEmpty else { return "" }
-                   return "　　" + trimmed
+                   return trimmed
                }
                .joined(separator: "\n")
               .trimmingCharacters(in: .newlines)

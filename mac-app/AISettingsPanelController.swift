@@ -8,7 +8,20 @@ final class AISettingsPanelController {
         case cache = 3
     }
 
+    enum Identifiers {
+        static let saveButton = NSUserInterfaceItemIdentifier("saveAISettings")
+        static let modelPopup = NSUserInterfaceItemIdentifier("modelPopup")
+        static let languagePopup = NSUserInterfaceItemIdentifier("languagePopup")
+        static let themePopup = NSUserInterfaceItemIdentifier("themePopup")
+        static let keyField = NSUserInterfaceItemIdentifier("keyField")
+        static let embeddingProviderPopup = NSUserInterfaceItemIdentifier("embeddingProviderPopup")
+        static let embeddingEndpointField = NSUserInterfaceItemIdentifier("embeddingEndpointField")
+        static let embeddingModelField = NSUserInterfaceItemIdentifier("embeddingModelField")
+        static let embeddingKeyField = NSUserInterfaceItemIdentifier("embeddingKeyField")
+    }
+
     var onSaved: (() -> Void)?
+    var onAppearanceChanged: (() -> Void)?
     var currentVectorIndexStatus: (() -> String)?
     var onStartVectorIndex: (() -> Void)?
     var onToggleVectorIndexPaused: (() -> Void)?
@@ -19,7 +32,7 @@ final class AISettingsPanelController {
     let vectorCacheQueue = DispatchQueue(label: "com.linlu.leafreader.settings-vector-cache", qos: .utility)
     weak var parentWindow: NSWindow?
     var panel: SettingsPanel?
-    weak var settingsTabControl: NSSegmentedControl?
+    weak var settingsTabControl: NSView?
     weak var settingsScrollView: NSScrollView?
     weak var basicPage: NSView?
     weak var modelPage: NSView?
@@ -28,6 +41,12 @@ final class AISettingsPanelController {
     weak var modelPopup: NSPopUpButton?
     weak var languagePopup: NSPopUpButton?
     weak var themePopup: NSPopUpButton?
+    weak var pdfDimmingLabel: NSTextField?
+    weak var pdfDimmingSlider: ThemedSettingsSlider?
+    var pdfDimmingLabelTopConstraint: NSLayoutConstraint?
+    var speakSelectedWordTopToDimmingConstraint: NSLayoutConstraint?
+    var speakSelectedWordTopToThemeConstraint: NSLayoutConstraint?
+    var pdfDimmingCollapsedConstraints: [NSLayoutConstraint] = []
     weak var secureKeyField: NSSecureTextField?
     weak var customModelContainer: NSView?
     weak var customEndpointLabel: NSTextField?
@@ -64,4 +83,3 @@ final class AISettingsPanelController {
     }
 
 }
-

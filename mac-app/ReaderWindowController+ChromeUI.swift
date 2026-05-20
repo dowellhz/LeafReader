@@ -43,7 +43,7 @@ extension ReaderWindowController {
         button.identifier = Self.capsuleButtonIdentifier
         button.controlSize = .regular
         button.font = AppFont.semibold(ofSize: 13)
-        button.isDark = ReaderTheme.selected == .dark
+        button.theme = ReaderTheme.selected
         return button
     }
 
@@ -87,7 +87,7 @@ extension ReaderWindowController {
         updatePDFPageLayoutButton()
         for button in [coverButton, tocButton, recentButton, vocabularyButton, prevButton, nextButton, pageLayoutButton] {
             if let capsule = button as? CapsuleChromeButton {
-                capsule.isDark = ReaderTheme.selected == .dark
+                capsule.theme = ReaderTheme.selected
             }
         }
         if pdfView.document == nil {

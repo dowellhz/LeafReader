@@ -56,10 +56,14 @@ extension ReaderWindowController {
     }
 
     @objc func changeVocabularyTab(_ sender: NSSegmentedControl) {
+        changeVocabularyTab(index: sender.selectedSegment)
+    }
+
+    func changeVocabularyTab(index selectedSegment: Int) {
         guard let panel = vocabularyPanel,
               let root = panel.contentView else { return }
         commitPendingVocabularyAnswerIfNeeded()
-        if sender.selectedSegment == 0 {
+        if selectedSegment == 0 {
             vocabularyListModeEnabled = false
             vocabularyReviewIndex = 0
             vocabularyReviewBatchKeys = []
@@ -67,7 +71,7 @@ extension ReaderWindowController {
             showVocabularyReviewMode(in: root, autoPlay: true)
             return
         }
-        let filter = vocabularyFilter(forSegment: sender.selectedSegment)
+        let filter = vocabularyFilter(forSegment: selectedSegment)
         vocabularyReviewFilter = filter
         vocabularyReviewIndex = 0
         vocabularyListPageIndex = 0
@@ -119,11 +123,7 @@ extension ReaderWindowController {
     }
 
     func selectedVocabularyListFilter(in root: NSView?) -> VocabularyFilter {
-        guard let root,
-              let filterControl = root.subviews.compactMap({ $0 as? NSSegmentedControl }).first else {
-            return vocabularyReviewFilter
-        }
-        return vocabularyFilter(forSegment: filterControl.selectedSegment)
+        vocabularyReviewFilter
     }
 
 }

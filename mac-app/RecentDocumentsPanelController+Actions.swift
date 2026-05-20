@@ -1,6 +1,50 @@
 import Cocoa
 
 extension RecentDocumentsPanelController {
+    func shelfBackgroundColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return .white
+        case .eyeCare:
+            return NSColor(red: 0.91, green: 0.87, blue: 0.74, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+        }
+    }
+
+    func shelfPrimaryTextColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.06, green: 0.07, blue: 0.09, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.16, green: 0.13, blue: 0.08, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
+        }
+    }
+
+    func shelfSecondaryTextColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.45, green: 0.49, blue: 0.60, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.45, green: 0.39, blue: 0.26, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
+        }
+    }
+
+    func shelfBorderColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.84, green: 0.87, blue: 0.92, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.68, green: 0.61, blue: 0.43, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.28, green: 0.34, blue: 0.42, alpha: 1)
+        }
+    }
+
     func showPanel(_ panel: NSWindow, attachedTo parent: NSWindow?) {
         ModalOverlayManager.shared.present(panel, attachedTo: parent)
     }

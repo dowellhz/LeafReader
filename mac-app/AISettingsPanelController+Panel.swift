@@ -74,6 +74,9 @@ extension AISettingsPanelController {
            let theme = ReaderTheme(rawValue: rawTheme) {
             ReaderTheme.selected = theme
         }
+        if let pdfDimmingSlider {
+            ReaderTheme.pdfDimmingStrength = pdfDimmingStrength(forBrightnessSliderValue: pdfDimmingSlider.doubleValue)
+        }
         AISettingsStore.save(
             modelID: modelID,
             apiKey: keyField.stringValue,

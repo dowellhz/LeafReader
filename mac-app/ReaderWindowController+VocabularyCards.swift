@@ -2,15 +2,16 @@ import Cocoa
 
 extension ReaderWindowController {
     func vocabularyCard(record: VocabularyExportRecord, isDark: Bool) -> NSView {
+        let theme = ReaderTheme.selected
         let word = record.word
         let answer = record.answer
         let location = record.location
         let card = NSView()
         card.wantsLayer = true
         card.layer?.cornerRadius = 10
-        card.layer?.backgroundColor = (isDark ? NSColor(red: 0.13, green: 0.16, blue: 0.20, alpha: 1) : NSColor(red: 0.985, green: 0.988, blue: 0.995, alpha: 1)).cgColor
+        card.layer?.backgroundColor = vocabularyCardBackgroundColor(for: theme).cgColor
         card.layer?.borderWidth = 1
-        card.layer?.borderColor = (isDark ? NSColor(red: 0.25, green: 0.30, blue: 0.36, alpha: 1) : NSColor(red: 0.88, green: 0.90, blue: 0.94, alpha: 1)).cgColor
+        card.layer?.borderColor = vocabularyCardBorderColor(for: theme).cgColor
         card.translatesAutoresizingMaskIntoConstraints = false
 
         let bullet = NSTextField(labelWithString: "•")
@@ -20,7 +21,7 @@ extension ReaderWindowController {
 
         let wordLabel = NSTextField(labelWithString: word)
         wordLabel.font = AppFont.semibold(ofSize: 17)
-        wordLabel.textColor = isDark ? NSColor(red: 0.90, green: 0.93, blue: 0.97, alpha: 1) : NSColor(red: 0.10, green: 0.12, blue: 0.16, alpha: 1)
+        wordLabel.textColor = vocabularyPrimaryTextColor(for: theme)
         wordLabel.lineBreakMode = .byTruncatingTail
         wordLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         wordLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -40,25 +41,24 @@ extension ReaderWindowController {
 
         let locationLabel = NSTextField(labelWithString: location)
         locationLabel.font = AppFont.semibold(ofSize: 12)
-        locationLabel.textColor = isDark ? NSColor(red: 0.56, green: 0.63, blue: 0.72, alpha: 1) : NSColor(red: 0.48, green: 0.54, blue: 0.66, alpha: 1)
+        locationLabel.textColor = vocabularySecondaryTextColor(for: theme)
         locationLabel.alignment = .right
         locationLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let srsLabel = NSTextField(labelWithString: vocabularySRSStatusText(record.srs))
         srsLabel.font = AppFont.semibold(ofSize: 12)
-        srsLabel.textColor = isDark ? NSColor(red: 0.58, green: 0.67, blue: 0.78, alpha: 1) : NSColor(red: 0.40, green: 0.48, blue: 0.62, alpha: 1)
+        srsLabel.textColor = vocabularySecondaryTextColor(for: theme)
         srsLabel.lineBreakMode = .byTruncatingTail
         srsLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         srsLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let masteredButton = NSButton(title: AppText.localized("删除", "Delete"), target: self, action: #selector(markVocabularyRecordMastered(_:)))
-        masteredButton.bezelStyle = .rounded
         masteredButton.controlSize = .small
-        masteredButton.font = AppFont.semibold(ofSize: 12)
+        styleVocabularyButton(masteredButton, fontSize: 12)
         masteredButton.identifier = NSUserInterfaceItemIdentifier(record.ids.joined(separator: "|"))
         masteredButton.translatesAutoresizingMaskIntoConstraints = false
 
-        let answerColor = isDark ? NSColor(red: 0.76, green: 0.80, blue: 0.86, alpha: 1) : NSColor(red: 0.23, green: 0.26, blue: 0.32, alpha: 1)
+        let answerColor = vocabularyBodyTextColor(for: theme)
         let answerBody = vocabularyAnswerBody(answer, word: word)
         let answerLabel = NSTextField(labelWithAttributedString: MarkdownRenderer.render(String(answerBody.prefix(900)), fontSize: 13, textColor: answerColor))
         answerLabel.maximumNumberOfLines = 0

@@ -5,6 +5,10 @@ final class FlippedStackView: NSStackView {
 }
 
 final class GradientButton: NSButton {
+    var theme: ReaderTheme = .original {
+        didSet { needsDisplay = true }
+    }
+
     var previewText = "" {
         didSet { needsDisplay = true }
     }
@@ -21,16 +25,13 @@ final class GradientButton: NSButton {
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 18, yRadius: 18)
 
         if isEnabled {
-            let gradient = NSGradient(colors: [
-                NSColor(red: 0.45, green: 0.18, blue: 0.96, alpha: 1),
-                NSColor(red: 0.21, green: 0.50, blue: 0.98, alpha: 1)
-            ])
+            let gradient = NSGradient(colors: enabledGradientColors)
             gradient?.draw(in: path, angle: 0)
-            NSColor(red: 0.25, green: 0.33, blue: 0.92, alpha: 0.24).setStroke()
+            enabledStrokeColor.setStroke()
         } else {
-            NSColor(red: 0.93, green: 0.94, blue: 0.95, alpha: 1).setFill()
+            disabledFillColor.setFill()
             path.fill()
-            NSColor(red: 0.88, green: 0.89, blue: 0.92, alpha: 1).setStroke()
+            disabledStrokeColor.setStroke()
         }
         path.lineWidth = 1
         path.stroke()
@@ -38,7 +39,7 @@ final class GradientButton: NSButton {
         let title = AppText.askAI
         let titleAttrs: [NSAttributedString.Key: Any] = [
             .font: AppFont.semibold(ofSize: 16),
-            .foregroundColor: isEnabled ? NSColor.white : NSColor(red: 0.70, green: 0.71, blue: 0.76, alpha: 1)
+            .foregroundColor: isEnabled ? NSColor.white : disabledTextColor
         ]
         let previewAttrs: [NSAttributedString.Key: Any] = [
             .font: AppFont.semibold(ofSize: 13),
@@ -78,6 +79,70 @@ final class GradientButton: NSButton {
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
+    private var enabledGradientColors: [NSColor] {
+        switch theme {
+        case .original:
+            return [
+                NSColor(red: 0.45, green: 0.18, blue: 0.96, alpha: 1),
+                NSColor(red: 0.21, green: 0.50, blue: 0.98, alpha: 1)
+            ]
+        case .eyeCare:
+            return [
+                NSColor(red: 0.66, green: 0.43, blue: 0.13, alpha: 1),
+                NSColor(red: 0.40, green: 0.53, blue: 0.24, alpha: 1)
+            ]
+        case .dark:
+            return [
+                NSColor(red: 0.34, green: 0.24, blue: 0.78, alpha: 1),
+                NSColor(red: 0.16, green: 0.42, blue: 0.84, alpha: 1)
+            ]
+        }
+    }
+
+    private var enabledStrokeColor: NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.25, green: 0.33, blue: 0.92, alpha: 0.24)
+        case .eyeCare:
+            return NSColor(red: 0.46, green: 0.33, blue: 0.14, alpha: 0.30)
+        case .dark:
+            return NSColor(red: 0.24, green: 0.36, blue: 0.88, alpha: 0.30)
+        }
+    }
+
+    private var disabledFillColor: NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.93, green: 0.94, blue: 0.95, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.86, green: 0.81, blue: 0.66, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+        }
+    }
+
+    private var disabledStrokeColor: NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.88, green: 0.89, blue: 0.92, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.70, green: 0.64, blue: 0.46, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.22, green: 0.26, blue: 0.32, alpha: 1)
+        }
+    }
+
+    private var disabledTextColor: NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.70, green: 0.71, blue: 0.76, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.54, green: 0.47, blue: 0.30, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.45, green: 0.49, blue: 0.55, alpha: 1)
+        }
+    }
 }
 
 final class SideHandleButton: NSButton {
@@ -112,8 +177,15 @@ final class SideHandleButton: NSButton {
 }
 
 final class CapsuleChromeButton: NSButton {
-    var isDark = false {
+    var theme: ReaderTheme = .original {
         didSet { needsDisplay = true }
+    }
+
+    var isDark = false {
+        didSet {
+            theme = isDark ? .dark : .original
+            needsDisplay = true
+        }
     }
 
     override var isHighlighted: Bool {
@@ -149,11 +221,16 @@ final class CapsuleChromeButton: NSButton {
         let fillColor: NSColor
         let strokeColor: NSColor
         let textColor: NSColor
-        if isDark {
+        switch theme {
+        case .dark:
             fillColor = NSColor(red: isHighlighted ? 0.15 : 0.09, green: isHighlighted ? 0.18 : 0.11, blue: isHighlighted ? 0.23 : 0.15, alpha: 1)
             strokeColor = NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1)
             textColor = isEnabled ? NSColor(red: 0.86, green: 0.89, blue: 0.94, alpha: 1) : NSColor(red: 0.45, green: 0.49, blue: 0.55, alpha: 1)
-        } else {
+        case .eyeCare:
+            fillColor = NSColor(red: isHighlighted ? 0.82 : 0.88, green: isHighlighted ? 0.76 : 0.82, blue: isHighlighted ? 0.58 : 0.66, alpha: 1)
+            strokeColor = NSColor(red: 0.66, green: 0.60, blue: 0.43, alpha: 1)
+            textColor = isEnabled ? NSColor(red: 0.18, green: 0.15, blue: 0.09, alpha: 1) : NSColor(red: 0.54, green: 0.48, blue: 0.33, alpha: 1)
+        case .original:
             fillColor = NSColor(red: isHighlighted ? 0.92 : 1.0, green: isHighlighted ? 0.94 : 1.0, blue: isHighlighted ? 0.97 : 1.0, alpha: 1)
             strokeColor = NSColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 1)
             textColor = isEnabled ? NSColor(red: 0.12, green: 0.14, blue: 0.18, alpha: 1) : NSColor(red: 0.64, green: 0.67, blue: 0.72, alpha: 1)

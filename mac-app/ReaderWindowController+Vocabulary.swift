@@ -35,6 +35,113 @@ extension ReaderWindowController {
     var vocabularyReviewButtonWidth: CGFloat { 128 }
     var vocabularyListPageSize: Int { 20 }
 
+    func vocabularyPanelBackgroundColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return .white
+        case .eyeCare:
+            return NSColor(red: 0.91, green: 0.87, blue: 0.74, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+        }
+    }
+
+    func vocabularyPrimaryTextColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.16, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.16, green: 0.13, blue: 0.08, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.88, green: 0.91, blue: 0.95, alpha: 1)
+        }
+    }
+
+    func vocabularySecondaryTextColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.48, green: 0.54, blue: 0.66, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.45, green: 0.39, blue: 0.26, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.60, green: 0.67, blue: 0.76, alpha: 1)
+        }
+    }
+
+    func vocabularyBorderColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.68, green: 0.61, blue: 0.43, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1)
+        }
+    }
+
+    func vocabularyCardBackgroundColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.985, green: 0.988, blue: 0.995, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.88, green: 0.83, blue: 0.68, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.13, green: 0.16, blue: 0.20, alpha: 1)
+        }
+    }
+
+    func vocabularyCardBorderColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.88, green: 0.90, blue: 0.94, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.68, green: 0.61, blue: 0.43, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.25, green: 0.30, blue: 0.36, alpha: 1)
+        }
+    }
+
+    func vocabularyBodyTextColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.22, green: 0.25, blue: 0.31, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.25, green: 0.20, blue: 0.12, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.78, green: 0.82, blue: 0.88, alpha: 1)
+        }
+    }
+
+    func vocabularyButtonBackgroundColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return .white
+        case .eyeCare:
+            return NSColor(red: 0.92, green: 0.87, blue: 0.72, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+        }
+    }
+
+    func styleVocabularyButton(_ button: NSButton, fontSize: CGFloat = 14) {
+        let theme = ReaderTheme.selected
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.backgroundColor = vocabularyButtonBackgroundColor(for: theme).cgColor
+        button.layer?.borderWidth = 1
+        button.layer?.borderColor = vocabularyBorderColor(for: theme).cgColor
+        button.layer?.cornerRadius = 8
+        button.layer?.masksToBounds = true
+        button.font = AppFont.semibold(ofSize: fontSize)
+        button.attributedTitle = NSAttributedString(
+            string: button.title,
+            attributes: [
+                .font: AppFont.semibold(ofSize: fontSize),
+                .foregroundColor: vocabularyPrimaryTextColor(for: theme)
+            ]
+        )
+    }
+
     enum VocabularyFilter: Int {
         case due = 0
         case new = 1
@@ -95,13 +202,17 @@ extension ReaderWindowController {
         panel.hasShadow = true
         panel.isReleasedWhenClosed = true
 
-        let isDark = ReaderTheme.selected == .dark
+        let theme = ReaderTheme.selected
+        let isDark = theme == .dark
+        let panelBackground = vocabularyPanelBackgroundColor(for: theme)
+        let primaryText = vocabularyPrimaryTextColor(for: theme)
+        let secondaryText = vocabularySecondaryTextColor(for: theme)
         let root = NSView()
         root.wantsLayer = true
-        root.layer?.backgroundColor = (isDark ? NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1) : NSColor.white).cgColor
+        root.layer?.backgroundColor = panelBackground.cgColor
         root.layer?.cornerRadius = 16
         root.layer?.borderWidth = 1
-        root.layer?.borderColor = (isDark ? NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1) : NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)).cgColor
+        root.layer?.borderColor = vocabularyBorderColor(for: theme).cgColor
         root.layer?.masksToBounds = false
         root.layer?.shadowColor = NSColor.black.cgColor
         root.layer?.shadowOpacity = isDark ? 0.42 : 0.24
@@ -114,7 +225,7 @@ extension ReaderWindowController {
 
         let title = NSTextField(labelWithString: AppText.localized("本书背单词", "Book Vocabulary Trainer"))
         title.font = AppFont.semibold(ofSize: 20)
-        title.textColor = isDark ? NSColor(red: 0.88, green: 0.91, blue: 0.95, alpha: 1) : NSColor(red: 0.10, green: 0.12, blue: 0.16, alpha: 1)
+        title.textColor = primaryText
         title.translatesAutoresizingMaskIntoConstraints = false
 
         let icon = NSImageView(image: NSImage(systemSymbolName: "text.book.closed.fill", accessibilityDescription: nil) ?? NSImage())
@@ -125,11 +236,15 @@ extension ReaderWindowController {
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers = false
         scrollView.drawsBackground = false
+        scrollView.contentView.drawsBackground = true
+        scrollView.contentView.backgroundColor = panelBackground
         scrollView.borderType = .noBorder
         scrollView.identifier = NSUserInterfaceItemIdentifier("vocabularyScrollView")
         scrollView.translatesAutoresizingMaskIntoConstraints = false
 
         let stack = NSStackView()
+        stack.wantsLayer = true
+        stack.layer?.backgroundColor = panelBackground.cgColor
         stack.orientation = .vertical
         stack.alignment = .width
         stack.spacing = 10
@@ -138,27 +253,29 @@ extension ReaderWindowController {
         stack.identifier = NSUserInterfaceItemIdentifier("vocabularyStack")
         scrollView.documentView = stack
 
-        let filterControl = NSSegmentedControl(
+        let filterControl = SettingsTabsView(
             labels: [
                 AppText.localized("背单词", "Review"),
                 AppText.localized("复习", "Reviewed"),
                 AppText.localized("新词", "New"),
                 AppText.localized("全部", "All")
             ],
-            trackingMode: .selectOne,
-            target: self,
-            action: #selector(changeVocabularyTab(_:))
+            selectedIndex: 0
         )
-        filterControl.selectedSegment = 0
+        filterControl.onSelectionChanged = { [weak self] index in
+            self?.changeVocabularyTab(index: index)
+        }
         filterControl.translatesAutoresizingMaskIntoConstraints = false
 
         let summaryLabel = NSTextField(labelWithString: vocabularySummaryText(records: aggregatedRecords, filter: .due))
         summaryLabel.font = AppFont.semibold(ofSize: 13)
-        summaryLabel.textColor = isDark ? NSColor(red: 0.60, green: 0.67, blue: 0.76, alpha: 1) : NSColor(red: 0.48, green: 0.54, blue: 0.66, alpha: 1)
+        summaryLabel.textColor = secondaryText
         summaryLabel.translatesAutoresizingMaskIntoConstraints = false
         summaryLabel.identifier = NSUserInterfaceItemIdentifier("vocabularySummaryLabel")
 
         let reviewContainer = NSView()
+        reviewContainer.wantsLayer = true
+        reviewContainer.layer?.backgroundColor = panelBackground.cgColor
         reviewContainer.identifier = NSUserInterfaceItemIdentifier("vocabularyReviewContainer")
         reviewContainer.translatesAutoresizingMaskIntoConstraints = false
 
@@ -167,25 +284,22 @@ extension ReaderWindowController {
         scrollView.isHidden = true
 
         let closeButton = NSButton(title: AppText.close, target: nil, action: nil)
-        closeButton.bezelStyle = .rounded
         closeButton.controlSize = .large
-        closeButton.font = AppFont.semibold(ofSize: 14)
+        styleVocabularyButton(closeButton, fontSize: 14)
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         closeButton.target = self
         closeButton.action = #selector(closeVocabularyBook(_:))
         closeButton.identifier = NSUserInterfaceItemIdentifier("closeVocabularyBook")
 
         let exportMarkdownButton = NSButton(title: AppText.localized("导出 MD", "Export MD"), target: self, action: #selector(exportVocabularyMarkdown(_:)))
-        exportMarkdownButton.bezelStyle = .rounded
         exportMarkdownButton.controlSize = .large
-        exportMarkdownButton.font = AppFont.semibold(ofSize: 14)
+        styleVocabularyButton(exportMarkdownButton, fontSize: 14)
         exportMarkdownButton.identifier = NSUserInterfaceItemIdentifier("vocabularyExportMarkdownButton")
         exportMarkdownButton.translatesAutoresizingMaskIntoConstraints = false
 
         let exportCSVButton = NSButton(title: AppText.localized("导出 Anki CSV", "Export Anki CSV"), target: self, action: #selector(exportVocabularyCSV(_:)))
-        exportCSVButton.bezelStyle = .rounded
         exportCSVButton.controlSize = .large
-        exportCSVButton.font = AppFont.semibold(ofSize: 14)
+        styleVocabularyButton(exportCSVButton, fontSize: 14)
         exportCSVButton.identifier = NSUserInterfaceItemIdentifier("vocabularyExportCSVButton")
         exportCSVButton.translatesAutoresizingMaskIntoConstraints = false
 
