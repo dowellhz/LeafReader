@@ -38,7 +38,8 @@ final class EdgePagingPDFView: PDFView {
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
-        super.menu(for: event) ?? fallbackContextMenu()
+        let sourceMenu = super.menu(for: event) ?? fallbackContextMenu()
+        return sanitizedContextMenu(from: sourceMenu)
     }
 
     override func rightMouseDown(with event: NSEvent) {
@@ -144,74 +145,72 @@ final class EdgePagingPDFView: PDFView {
     private func fallbackContextMenu() -> NSMenu {
         let menu = NSMenu()
         menu.allowsContextMenuPlugIns = false
-        menu.addItem(NSMenuItem(title: localizedMenuTitle(zh: "复制", en: "Copy"), action: #selector(copy(_:)), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: localizedMenuTitle(zh: "全选", en: "Select All"), action: #selector(selectAll(_:)), keyEquivalent: ""))
         return menu
     }
 
     private func sanitizedContextMenu(from sourceMenu: NSMenu) -> NSMenu {
         let menu = NSMenu()
         menu.allowsContextMenuPlugIns = false
-        for item in sourceMenu.items {
-            if item.isSeparatorItem {
-                if menu.items.last?.isSeparatorItem == false {
-                    menu.addItem(.separator())
+
+        let groups = [
+            resizeContextMenuTitles,
+            pageLayoutContextMenuTitles,
+            pageTurnContextMenuTitles
+        ]
+        for allowedGroup in groups {
+            var didAddGroupItem = false
+            for item in sourceMenu.items {
+                guard !item.isSeparatorItem,
+                      allowedGroup.contains(normalizedContextMenuTitle(item.title)) else {
+                    continue
                 }
-                continue
+                let copy = NSMenuItem(title: localizedAllowedContextMenuTitle(item.title), action: item.action, keyEquivalent: "")
+                copy.target = item.target
+                copy.state = item.state
+                copy.isEnabled = item.isEnabled
+                copy.tag = item.tag
+                copy.representedObject = item.representedObject
+                copy.image = item.image
+                menu.addItem(copy)
+                didAddGroupItem = true
             }
-            guard !shouldRemoveContextMenuItem(item) else { continue }
-            let copy = NSMenuItem(title: localizedContextMenuTitle(item.title), action: item.action, keyEquivalent: "")
-            copy.target = item.target
-            copy.state = item.state
-            copy.isEnabled = item.isEnabled
-            copy.tag = item.tag
-            copy.representedObject = item.representedObject
-            copy.image = item.image
-            menu.addItem(copy)
+            if didAddGroupItem {
+                menu.addItem(.separator())
+            }
         }
         trimContextMenuSeparators(menu)
         return menu
     }
 
-    private func shouldRemoveContextMenuItem(_ item: NSMenuItem) -> Bool {
-        guard !item.isSeparatorItem else { return false }
-        let title = item.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalized = title
+    private func normalizedContextMenuTitle(_ title: String) -> String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "…", with: "...")
             .lowercased()
-        if normalized.hasPrefix("look up ")
-            || normalized.hasPrefix("translate ")
-            || normalized.hasPrefix("search with ")
-            || normalized.hasPrefix("查询 ")
-            || normalized.hasPrefix("translate ")
-            || (normalized.hasPrefix("用 ") && normalized.hasSuffix(" 搜索"))
-            || normalized == "services"
-            || normalized == "服务"
-            || normalized == "speech"
-            || normalized == "朗读"
-            || normalized == "start speaking"
-            || normalized == "stop speaking"
-            || normalized == "开始朗读"
-            || normalized == "停止朗读" {
-            return true
-        }
-        return !allowedContextMenuTitles.contains(normalized)
     }
 
-    private var allowedContextMenuTitles: Set<String> {
-        [
-            "copy", "复制",
+    private var resizeContextMenuTitles: Set<String> {
+        Set([
             "automatically resize", "自动调整大小",
             "zoom in", "放大",
             "zoom out", "缩小",
-            "actual size", "实际大小",
+            "actual size", "实际大小"
+        ])
+    }
+
+    private var pageLayoutContextMenuTitles: Set<String> {
+        Set([
             "single page", "单页",
             "single page continuous", "单页连续",
             "two pages", "双页",
-            "two pages continuous", "双页连续",
+            "two pages continuous", "双页连续"
+        ])
+    }
+
+    private var pageTurnContextMenuTitles: Set<String> {
+        Set([
             "next page", "下一页",
             "previous page", "上一页"
-        ]
+        ])
     }
 
     private func trimContextMenuSeparators(_ menu: NSMenu) {
@@ -227,6 +226,33 @@ final class EdgePagingPDFView: PDFView {
                 menu.removeItem(at: index)
             }
             index -= 1
+        }
+    }
+
+    private func localizedAllowedContextMenuTitle(_ title: String) -> String {
+        switch normalizedContextMenuTitle(title) {
+        case "automatically resize", "自动调整大小":
+            return localizedMenuTitle(zh: "自动调整大小", en: "Automatically Resize")
+        case "zoom in", "放大":
+            return localizedMenuTitle(zh: "放大", en: "Zoom In")
+        case "zoom out", "缩小":
+            return localizedMenuTitle(zh: "缩小", en: "Zoom Out")
+        case "actual size", "实际大小":
+            return localizedMenuTitle(zh: "实际大小", en: "Actual Size")
+        case "single page", "单页":
+            return localizedMenuTitle(zh: "单页", en: "Single Page")
+        case "single page continuous", "单页连续":
+            return localizedMenuTitle(zh: "单页连续", en: "Single Page Continuous")
+        case "two pages", "双页":
+            return localizedMenuTitle(zh: "双页", en: "Two Pages")
+        case "two pages continuous", "双页连续":
+            return localizedMenuTitle(zh: "双页连续", en: "Two Pages Continuous")
+        case "next page", "下一页":
+            return localizedMenuTitle(zh: "下一页", en: "Next Page")
+        case "previous page", "上一页":
+            return localizedMenuTitle(zh: "上一页", en: "Previous Page")
+        default:
+            return title
         }
     }
 

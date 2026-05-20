@@ -37,6 +37,24 @@ extension AIChatPanel {
         )
 
         box.addSubview(body)
+        let sourceLabel: NSTextField?
+        if role == AppText.aiRole, let effectiveSourceLocation {
+            let label = NSTextField(labelWithString: sourceSummaryText(for: effectiveSourceLocation))
+            label.font = AppFont.semibold(ofSize: 11)
+            label.textColor = sourceSummaryTextColor
+            label.lineBreakMode = .byTruncatingTail
+            label.maximumNumberOfLines = 1
+            label.wantsLayer = true
+            label.layer?.backgroundColor = sourceSummaryBackgroundColor.cgColor
+            label.layer?.cornerRadius = 5
+            label.layer?.masksToBounds = true
+            label.toolTip = sourceTooltipText(for: effectiveSourceLocation)
+            label.translatesAutoresizingMaskIntoConstraints = false
+            box.addSubview(label)
+            sourceLabel = label
+        } else {
+            sourceLabel = nil
+        }
         let speakerButton: NSButton?
         if let word = speakerWordForBubble(role: role, text: text, linkID: linkID) {
             let button = WordSpeakerButton(title: "", target: self, action: #selector(playBubbleWord(_:)))
@@ -75,10 +93,19 @@ extension AIChatPanel {
 
         var constraints: [NSLayoutConstraint] = [
             box.widthAnchor.constraint(equalTo: transcriptStack.widthAnchor),
-            body.topAnchor.constraint(equalTo: box.topAnchor, constant: 12),
             body.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 12),
             body.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -12)
         ]
+        if let sourceLabel {
+            constraints.append(contentsOf: [
+                sourceLabel.topAnchor.constraint(equalTo: box.topAnchor, constant: 10),
+                sourceLabel.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 12),
+                sourceLabel.trailingAnchor.constraint(lessThanOrEqualTo: box.trailingAnchor, constant: -12),
+                body.topAnchor.constraint(equalTo: sourceLabel.bottomAnchor, constant: 8)
+            ])
+        } else {
+            constraints.append(body.topAnchor.constraint(equalTo: box.topAnchor, constant: 12))
+        }
         if let speakerButton {
             constraints.append(contentsOf: [
                 body.trailingAnchor.constraint(lessThanOrEqualTo: box.trailingAnchor, constant: -78),

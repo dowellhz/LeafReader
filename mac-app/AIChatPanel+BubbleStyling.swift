@@ -92,6 +92,28 @@ extension AIChatPanel {
         }
     }
 
+    var sourceSummaryTextColor: NSColor {
+        switch readerTheme {
+        case .original:
+            return NSColor(red: 0.18, green: 0.34, blue: 0.58, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.34, green: 0.27, blue: 0.12, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.72, green: 0.80, blue: 0.92, alpha: 1)
+        }
+    }
+
+    var sourceSummaryBackgroundColor: NSColor {
+        switch readerTheme {
+        case .original:
+            return NSColor(red: 0.90, green: 0.95, blue: 1.0, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.82, green: 0.76, blue: 0.56, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.13, green: 0.18, blue: 0.25, alpha: 1)
+        }
+    }
+
     var inputBackgroundColor: NSColor {
         switch readerTheme {
         case .original:
@@ -148,6 +170,39 @@ extension AIChatPanel {
         return role == AppText.userRole
             ? NSColor(red: 0.12, green: 0.18, blue: 0.28, alpha: 1)
             : NSColor(red: 0.08, green: 0.10, blue: 0.13, alpha: 1)
+    }
+
+    func sourceSummaryText(for source: AIConversationSourceLocation) -> String {
+        let label: String
+        switch source.kind {
+        case .pdfPage:
+            label = AppText.localized("来源 第 \(source.index + 1) 页", "Source p. \(source.index + 1)")
+        case .webProgress:
+            if let progress = source.progress {
+                let percent = Int((progress * 100).rounded())
+                label = AppText.localized("来源 位置 \(percent)%", "Source \(percent)%")
+            } else {
+                label = AppText.localized("来源 当前位置", "Source current position")
+            }
+        }
+        let snippet = sourceSnippetText(for: source, limit: 42)
+        return snippet.isEmpty ? label : "\(label) · \(snippet)"
+    }
+
+    func sourceTooltipText(for source: AIConversationSourceLocation) -> String {
+        let base = sourceSummaryText(for: source)
+        let selected = sourceSnippetText(for: source, limit: 180)
+        guard !selected.isEmpty else { return base }
+        return "\(base)\n\(selected)"
+    }
+
+    private func sourceSnippetText(for source: AIConversationSourceLocation, limit: Int) -> String {
+        let raw = source.selectedText ?? source.webContext ?? ""
+        let normalized = raw
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalized.count > limit else { return normalized }
+        return "\(normalized.prefix(limit))..."
     }
 
     func restyleTranscript() {
