@@ -179,15 +179,8 @@
 
     .docs-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 18px;
-    }
-
-    .docs-preview {
-      display: grid;
-      grid-template-columns: minmax(0, 0.95fr) minmax(420px, 1.05fr);
-      gap: 28px;
-      align-items: center;
     }
 
     .doc-link {
@@ -209,20 +202,6 @@
       margin: 0;
       color: var(--muted);
       font-size: 14px;
-    }
-
-    .docs-shot {
-      overflow: hidden;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-      box-shadow: 0 18px 46px rgba(15, 23, 42, 0.10);
-    }
-
-    .docs-shot img {
-      display: block;
-      width: 100%;
-      height: auto;
     }
 
     .faq {
@@ -304,7 +283,6 @@
       }
 
       .features,
-      .docs-preview,
       .docs-grid,
       .faq,
       .screenshots,
@@ -389,31 +367,26 @@
 
       <section class="section" id="docs">
         <h2>文档</h2>
-        <div class="docs-preview">
-          <div class="docs-grid">
-            <a class="doc-link" href="manual/getting-started/">
-              <strong>安装与入门</strong>
-              <p>下载、首次打开、AI 配置、翻译和背单词。</p>
-            </a>
-            <a class="doc-link" href="manual/release-runbook/">
-              <strong>发布流程</strong>
-              <p>按步骤执行打包、签名、发布、Appcast 和版本验证。</p>
-            </a>
-            <a class="doc-link" href="manual/troubleshooting/">
-              <strong>故障排查</strong>
-              <p>定位更新失败、证书、PDF 翻页、AI 分析和 Wiki 同步问题。</p>
-            </a>
-            <a class="doc-link" href="manual/code-map/">
-              <strong>代码地图</strong>
-              <p>浏览主要模块、最大文件和完整 Swift 类型索引。</p>
-            </a>
-            <a class="doc-link" href="manual/feature-map/">
-              <strong>开发文档</strong>
-              <p>查看架构、功能地图和开发任务入口。</p>
-            </a>
-          </div>
-          <a class="docs-shot" href="manual/">
-            <img src="assets/docs-manual-preview.png" alt="Leaf Reader documentation site preview">
+        <div class="docs-grid">
+          <a class="doc-link" href="manual/getting-started/">
+            <strong>安装与入门</strong>
+            <p>下载、首次打开、AI 配置、翻译和背单词。</p>
+          </a>
+          <a class="doc-link" href="manual/release-runbook/">
+            <strong>发布流程</strong>
+            <p>按步骤执行打包、签名、发布、Appcast 和版本验证。</p>
+          </a>
+          <a class="doc-link" href="manual/troubleshooting/">
+            <strong>故障排查</strong>
+            <p>定位更新失败、证书、PDF 翻页、AI 分析和 Wiki 同步问题。</p>
+          </a>
+          <a class="doc-link" href="manual/code-map/">
+            <strong>代码地图</strong>
+            <p>浏览主要模块、最大文件和完整 Swift 类型索引。</p>
+          </a>
+          <a class="doc-link" href="manual/feature-map/">
+            <strong>开发文档</strong>
+            <p>查看架构、功能地图和开发任务入口。</p>
           </a>
         </div>
       </section>

@@ -18,6 +18,7 @@ elif [[ $# -eq 1 ]]; then
 fi
 
 cd "$ROOT_DIR"
+export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-/private/tmp/leafreader-clang-cache}"
 
 echo "==> Checking whitespace"
 git diff --check
