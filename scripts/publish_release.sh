@@ -42,8 +42,8 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! gh auth status >/dev/null 2>&1; then
-  echo "GitHub CLI is not authenticated. Run: gh auth login" >&2
+if ! gh api user >/dev/null 2>&1; then
+  echo "GitHub CLI cannot access GitHub API. Run: gh auth login -h github.com" >&2
   exit 1
 fi
 
