@@ -165,18 +165,45 @@ extension RecentDocumentsPanelController {
 
     func loadDiskCover(cacheKey: String) -> NSImage? {
         guard let url = diskCoverURL(cacheKey: cacheKey) else { return nil }
-        return NSImage(contentsOf: url)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        if let image = NSImage(contentsOf: url) {
+            return image
+        }
+        logCoverCacheFailure("Failed to read cached cover at \(url.path)", cacheKey: cacheKey)
+        return nil
     }
 
     func saveDiskCover(_ image: NSImage, cacheKey: String) {
-        guard let url = diskCoverURL(cacheKey: cacheKey),
-              let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff),
-              let data = bitmap.representation(using: .png, properties: [:]) else {
+        guard let url = diskCoverURL(cacheKey: cacheKey) else {
+            logCoverCacheFailure("No cover cache URL available", cacheKey: cacheKey)
             return
         }
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? data.write(to: url, options: .atomic)
+        guard let tiff = image.tiffRepresentation else {
+            logCoverCacheFailure("Failed to create cover TIFF representation", cacheKey: cacheKey)
+            return
+        }
+        guard let bitmap = NSBitmapImageRep(data: tiff) else {
+            logCoverCacheFailure("Failed to create cover bitmap representation", cacheKey: cacheKey)
+            return
+        }
+        guard let data = bitmap.representation(using: .png, properties: [:]) else {
+            logCoverCacheFailure("Failed to create cover PNG representation", cacheKey: cacheKey)
+            return
+        }
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: url, options: .atomic)
+        } catch {
+            logCoverCacheFailure("Failed to write cover cache at \(url.path)", cacheKey: cacheKey, error: error)
+        }
+    }
+
+    func logCoverCacheFailure(_ message: String, cacheKey: String, error: Error? = nil) {
+        if let error {
+            NSLog("LeafReader cover cache: %@ (cacheKey=%@, error=%@)", message, cacheKey, error.localizedDescription)
+        } else {
+            NSLog("LeafReader cover cache: %@ (cacheKey=%@)", message, cacheKey)
+        }
     }
 
     func diskCoverURL(cacheKey: String) -> URL? {
