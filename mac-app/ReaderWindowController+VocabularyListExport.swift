@@ -89,7 +89,7 @@ extension ReaderWindowController {
                 try output.write(to: url, atomically: true, encoding: .utf8)
             } catch {
                 let alert = NSAlert(error: error)
-                alert.applyLeafWhiteStyle()
+                alert.applyLeafStyle()
                 alert.runModal()
             }
         }

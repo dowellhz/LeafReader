@@ -51,7 +51,7 @@ extension ReaderWindowController {
         guard documentLoadGeneration == generation else { return }
         hideDocumentLoading(generation: generation)
         let alert = NSAlert(error: error)
-        alert.applyLeafWhiteStyle()
+        alert.applyLeafStyle()
         alert.runModal()
     }
 

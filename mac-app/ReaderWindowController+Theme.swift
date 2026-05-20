@@ -1,5 +1,4 @@
 import Cocoa
-import CoreImage
 
 extension ReaderWindowController {
     func applyReaderTheme() {
@@ -32,8 +31,6 @@ extension ReaderWindowController {
         searchOverlay.setTheme(theme)
         pdfView.backgroundColor = chromeBackground
         pdfView.enclosingScrollView?.backgroundColor = chromeBackground
-        pdfView.documentView?.wantsLayer = true
-        pdfView.documentView?.layer?.backgroundColor = chromeBackground.cgColor
         applyPDFReaderTheme(theme: theme)
 
         applyWebReaderTheme(theme: theme)
@@ -159,49 +156,18 @@ extension ReaderWindowController {
     }
 
     func applyPDFReaderTheme(theme: ReaderTheme) {
-        guard let documentView = pdfView.documentView else { return }
         pdfView.displaysPageBreaks = true
         pdfView.pageShadowsEnabled = true
-        documentView.wantsLayer = true
-        documentView.layer?.backgroundColor = pdfDocumentBackgroundColor(for: theme).cgColor
-        documentView.layer?.filters = pdfContentFilters(for: theme)
+        clearPDFContentFilters()
         let dimming = ReaderTheme.pdfDimmingStrength
         pdfDimOverlay.isHidden = currentDocumentKind != .pdf || theme == .original || dimming <= 0
         pdfDimOverlay.layer?.backgroundColor = pdfDimmingColor(for: theme, strength: dimming).cgColor
-        documentView.needsDisplay = true
+        pdfView.documentView?.needsDisplay = true
         pdfView.setNeedsDisplay(pdfView.bounds)
     }
 
-    func pdfDocumentBackgroundColor(for theme: ReaderTheme) -> NSColor {
-        switch theme {
-        case .original:
-            return .clear
-        case .eyeCare:
-            return NSColor(red: 0.94, green: 0.92, blue: 0.84, alpha: 1)
-        case .dark:
-            return .clear
-        }
-    }
-
-    func pdfContentFilters(for theme: ReaderTheme) -> [CIFilter] {
-        guard theme != .original,
-              let colorControls = CIFilter(name: "CIColorControls") else {
-            return []
-        }
-        colorControls.setDefaults()
-        switch theme {
-        case .original:
-            return []
-        case .eyeCare:
-            colorControls.setValue(0.92, forKey: kCIInputSaturationKey)
-            colorControls.setValue(-0.035, forKey: kCIInputBrightnessKey)
-            colorControls.setValue(0.98, forKey: kCIInputContrastKey)
-        case .dark:
-            colorControls.setValue(0.86, forKey: kCIInputSaturationKey)
-            colorControls.setValue(-0.06, forKey: kCIInputBrightnessKey)
-            colorControls.setValue(0.96, forKey: kCIInputContrastKey)
-        }
-        return [colorControls]
+    func clearPDFContentFilters() {
+        pdfView.documentView?.layer?.filters = nil
     }
 
     func pdfDimmingColor(for theme: ReaderTheme, strength: Double) -> NSColor {

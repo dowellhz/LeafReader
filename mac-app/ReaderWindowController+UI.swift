@@ -568,8 +568,6 @@ extension ReaderWindowController {
 
     func configurePDFReaderView() {
         pdfView = EdgePagingPDFView()
-        pdfView.wantsLayer = true
-        pdfView.layer?.masksToBounds = true
         pdfView.autoScales = true
         pdfView.displayMode = .singlePage
         pdfView.displayBox = .cropBox

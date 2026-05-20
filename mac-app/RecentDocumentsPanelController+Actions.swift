@@ -56,7 +56,7 @@ extension RecentDocumentsPanelController {
         alert.alertStyle = .warning
         alert.addButton(withTitle: confirmTitle)
         alert.addButton(withTitle: AppText.cancel)
-        alert.applyLeafWhiteStyle()
+        alert.applyLeafStyle()
         return alert.runModal() == .alertFirstButtonReturn
     }
 
@@ -109,7 +109,7 @@ extension RecentDocumentsPanelController {
             stack.bottomAnchor.constraint(lessThanOrEqualTo: accessory.bottomAnchor, constant: -6)
         ])
         alert.accessoryView = accessory
-        alert.applyLeafWhiteStyle()
+        alert.applyLeafStyle()
 
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         return ShelfRemovalOptions(
