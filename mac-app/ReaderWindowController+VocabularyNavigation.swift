@@ -31,9 +31,10 @@ extension ReaderWindowController {
         }
         setAIPanelCollapsed(false, animated: true)
         let beforePageIndex = currentPageIndex()
+        let bounds = displayBounds(for: record, page: page)
         let destination = PDFDestination(
             page: page,
-            at: NSPoint(x: record.bounds.cgRect.minX, y: record.bounds.cgRect.maxY + 80)
+            at: NSPoint(x: bounds.minX, y: bounds.maxY + 80)
         )
         pdfView.go(to: destination)
         lastPageIndex = record.pageIndex

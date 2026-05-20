@@ -161,7 +161,6 @@ extension ReaderWindowController {
     func refreshPDFLayoutAfterPanelChange() {
         pdfContainer.layoutSubtreeIfNeeded()
         pdfView.layoutSubtreeIfNeeded()
-        reapplyPDFZoomModeIfNeeded()
         pdfView.needsDisplay = true
         pdfView.documentView?.needsDisplay = true
     }
@@ -191,6 +190,8 @@ extension ReaderWindowController {
             collapsed: isAIPanelCollapsed,
             aiWidth: isAIPanelCollapsed ? 1 : aiPanelWidthConstraint.constant
         )
+        aiHandleButton.isHidden = false
+        resizeHandle.isHidden = isAIPanelCollapsed
         windowResizeLayoutTask.schedule { [weak self] in
             guard let self else { return }
             self.contentArea.layoutSubtreeIfNeeded()
@@ -224,11 +225,25 @@ extension ReaderWindowController {
     }
 
     func windowDidResize(_ notification: Notification) {
+        hideSelectionToolbar()
         updateFullScreenButton()
         syncAIPanelLayoutAfterResize()
     }
 
+    func windowDidMove(_ notification: Notification) {
+        hideSelectionToolbar()
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        hideSelectionToolbar()
+    }
+
+    @objc func applicationDidResignActive(_ notification: Notification) {
+        hideSelectionToolbar()
+    }
+
     func windowDidEnterFullScreen(_ notification: Notification) {
+        hideSelectionToolbar()
         updateFullScreenButton()
         windowResizeLayoutTask.cancel()
         syncAIPanelLayoutAfterResize()
@@ -236,6 +251,7 @@ extension ReaderWindowController {
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
+        hideSelectionToolbar()
         updateFullScreenButton()
         windowResizeLayoutTask.cancel()
         syncAIPanelLayoutAfterResize()
@@ -244,11 +260,14 @@ extension ReaderWindowController {
 
     func windowWillClose(_ notification: Notification) {
         selectionActionToolbarWindow?.orderOut(nil)
+        if let selectionActionToolbarWindow {
+            window?.removeChildWindow(selectionActionToolbarWindow)
+        }
         selectionActionToolbarWindow = nil
         windowResizeLayoutTask.flush()
         aiPanelResizeLayoutTask.flush()
         preferredAIWidthSaveTask.flush()
-        sessionSaveTask.flush()
+        sessionSaveTask.cancel()
         flushCurrentBookWordRecordSaves()
         saveCurrentAIConversationBeforeDocumentChange()
     }

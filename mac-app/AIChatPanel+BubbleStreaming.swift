@@ -34,6 +34,6 @@ extension AIChatPanel {
     private func applyPendingStreamUpdate(_ body: NSTextField) {
         guard !pendingStreamText.isEmpty else { return }
         lastStreamUpdateAt = Date()
-        updateBubble(body, role: AppText.aiRole, text: pendingStreamText, renderMarkdown: false, notify: false)
+        updateBubble(body, role: AppText.aiRole, text: pendingStreamText, renderMarkdown: true, notify: false)
     }
 }

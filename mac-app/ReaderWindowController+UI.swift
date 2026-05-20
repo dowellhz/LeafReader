@@ -14,6 +14,7 @@ private struct ReaderToolbarSetup {
 private struct ReaderBottomBarSetup {
     let bottomBar: NSView
     let settingsButton: NSButton
+    let navigationStack: NSStackView
 }
 
 private enum ReaderUILayout {
@@ -44,7 +45,7 @@ private enum ReaderUILayout {
     static let zoomFieldWidth: CGFloat = 50
 
     static let pageLabelCenterOffset: CGFloat = 130
-    static let pageLabelWidth: CGFloat = 140
+    static let pageLabelWidth: CGFloat = 170
     static let searchUnderlineLeading: CGFloat = 6
     static let searchUnderlineSize = CGSize(width: 74, height: 28)
     static let searchButtonLeading: CGFloat = 2
@@ -52,8 +53,8 @@ private enum ReaderUILayout {
 
     static let pageLayoutTrailing: CGFloat = -8
     static let pageLayoutButtonWidth: CGFloat = 84
-    static let fitWidthTrailing: CGFloat = -8
-    static let fitWidthButtonWidth: CGFloat = 84
+    static let cropButtonTrailing: CGFloat = -8
+    static let cropButtonWidth: CGFloat = 84
     static let fullScreenTrailing: CGFloat = -14
     static let fullScreenButtonWidth: CGFloat = 76
     static let toolbarButtonHeight: CGFloat = 30
@@ -64,13 +65,11 @@ private enum ReaderUILayout {
     static let loadingLabelTop: CGFloat = 14
     static let loadingLabelHorizontalInset: CGFloat = 32
 
-    static let tocTrailing: CGFloat = -10
     static let tocButtonWidth: CGFloat = 88
-    static let coverButtonTrailing: CGFloat = -12
+    static let farthestPositionButtonWidth: CGFloat = 112
     static let coverButtonWidth: CGFloat = 100
-    static let prevButtonCenterOffset: CGFloat = -48
     static let readerNavButtonWidth: CGFloat = 84
-    static let nextButtonLeading: CGFloat = 12
+    static let navigationStackSpacing: CGFloat = 20
 
     static let embeddingTrailing: CGFloat = -18
     static let embeddingButtonWidth: CGFloat = 58
@@ -90,6 +89,12 @@ extension ReaderWindowController {
         configureReaderWebView()
 
         NotificationCenter.default.addObserver(self, selector: #selector(pageChanged), name: .PDFViewPageChanged, object: pdfView)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationDidResignActive),
+            name: NSApplication.didResignActiveNotification,
+            object: NSApp
+        )
 
         contentArea.wantsLayer = true
         contentArea.layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
@@ -170,6 +175,7 @@ extension ReaderWindowController {
         let rightDivider = toolbarSetup.rightDivider
         let bottomBar = bottomBarSetup.bottomBar
         let settingsButton = bottomBarSetup.settingsButton
+        let navigationStack = bottomBarSetup.navigationStack
 
         NSLayoutConstraint.activate([
             toolbar.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -285,15 +291,15 @@ extension ReaderWindowController {
             searchButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.iconButtonSize),
             searchButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.iconButtonSize),
 
-            pageLayoutButton.trailingAnchor.constraint(equalTo: fitWidthButton.leadingAnchor, constant: ReaderUILayout.pageLayoutTrailing),
+            pageLayoutButton.trailingAnchor.constraint(equalTo: cropButton.leadingAnchor, constant: ReaderUILayout.pageLayoutTrailing),
             pageLayoutButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
             pageLayoutButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.pageLayoutButtonWidth),
             pageLayoutButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.toolbarButtonHeight),
 
-            fitWidthButton.trailingAnchor.constraint(equalTo: fullScreenButton.leadingAnchor, constant: ReaderUILayout.fitWidthTrailing),
-            fitWidthButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
-            fitWidthButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.fitWidthButtonWidth),
-            fitWidthButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.toolbarButtonHeight),
+            cropButton.trailingAnchor.constraint(equalTo: fullScreenButton.leadingAnchor, constant: ReaderUILayout.cropButtonTrailing),
+            cropButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
+            cropButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.cropButtonWidth),
+            cropButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.toolbarButtonHeight),
 
             fullScreenButton.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor, constant: ReaderUILayout.fullScreenTrailing),
             fullScreenButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
@@ -316,24 +322,24 @@ extension ReaderWindowController {
             loadingLabel.leadingAnchor.constraint(greaterThanOrEqualTo: loadingOverlay.leadingAnchor, constant: ReaderUILayout.loadingLabelHorizontalInset),
             loadingLabel.trailingAnchor.constraint(lessThanOrEqualTo: loadingOverlay.trailingAnchor, constant: -ReaderUILayout.loadingLabelHorizontalInset),
 
-            tocButton.trailingAnchor.constraint(equalTo: coverButton.leadingAnchor, constant: ReaderUILayout.tocTrailing),
-            tocButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
+            navigationStack.centerXAnchor.constraint(equalTo: bottomBar.centerXAnchor),
+            navigationStack.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
+            navigationStack.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
+
             tocButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.tocButtonWidth),
             tocButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
 
-            coverButton.trailingAnchor.constraint(equalTo: prevButton.leadingAnchor, constant: ReaderUILayout.coverButtonTrailing),
-            coverButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
             coverButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.coverButtonWidth),
             coverButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
 
-            prevButton.centerXAnchor.constraint(equalTo: bottomBar.centerXAnchor, constant: ReaderUILayout.prevButtonCenterOffset),
-            prevButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
             prevButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.readerNavButtonWidth),
             prevButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
-            nextButton.leadingAnchor.constraint(equalTo: prevButton.trailingAnchor, constant: ReaderUILayout.nextButtonLeading),
-            nextButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
+
             nextButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.readerNavButtonWidth),
             nextButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
+
+            farthestPositionButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.farthestPositionButtonWidth),
+            farthestPositionButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
 
             embeddingCancelButton.trailingAnchor.constraint(equalTo: bottomBar.trailingAnchor, constant: ReaderUILayout.embeddingTrailing),
             embeddingCancelButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
@@ -345,7 +351,7 @@ extension ReaderWindowController {
             embeddingPauseButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.embeddingButtonHeight),
             embeddingStatusLabel.trailingAnchor.constraint(equalTo: embeddingPauseButton.leadingAnchor, constant: ReaderUILayout.embeddingStatusTrailing),
             embeddingStatusLabel.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
-            embeddingStatusLabel.leadingAnchor.constraint(greaterThanOrEqualTo: nextButton.trailingAnchor, constant: ReaderUILayout.embeddingStatusLeadingMinimum),
+            embeddingStatusLabel.leadingAnchor.constraint(greaterThanOrEqualTo: navigationStack.trailingAnchor, constant: ReaderUILayout.embeddingStatusLeadingMinimum),
             embeddingStatusLabel.widthAnchor.constraint(lessThanOrEqualToConstant: ReaderUILayout.embeddingStatusMaxWidth)
         ])
     }
@@ -364,7 +370,7 @@ extension ReaderWindowController {
         configurePageAndSearchControls()
         configureTopRightControls()
 
-        for view in [titleLabel, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, pageLayoutButton!, fitWidthButton!, fullScreenButton!] {
+        for view in [titleLabel, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, pageLayoutButton!, cropButton!, fullScreenButton!] {
             view.translatesAutoresizingMaskIntoConstraints = false
             toolbar.addSubview(view)
         }
@@ -382,10 +388,13 @@ extension ReaderWindowController {
     private func configureBottomBarViews() -> ReaderBottomBarSetup {
         let bottomBar = readerBarView()
         let settingsButton = iconButton(symbol: "gearshape", action: #selector(openAISettings))
+        let navigationStack = NSStackView()
 
         bottomBarView = bottomBar
         recentButton = capsuleButton(title: AppText.localized("书架", "Shelf"), symbol: "books.vertical", action: #selector(showRecentDocuments))
         vocabularyButton = capsuleButton(title: AppText.localized("背单词", "Vocab"), symbol: "text.book.closed", action: #selector(showVocabularyBook))
+        farthestPositionButton = capsuleButton(title: AppText.localized("上次位置", "Last"), symbol: "arrow.turn.down.right", action: #selector(goToFarthestReadingPosition))
+        farthestPositionButton.toolTip = AppText.localized("跳到本书阅读过的最远位置", "Jump to the farthest read position in this book")
         tocButton = capsuleButton(title: AppText.localized("目录", "TOC"), symbol: "list.bullet", action: #selector(showTableOfContents))
         coverButton = capsuleButton(title: AppText.cover, symbol: "book.closed", action: #selector(goToCover))
         prevButton = capsuleButton(title: AppText.prev, symbol: "chevron.left", action: #selector(prevPage))
@@ -403,12 +412,21 @@ extension ReaderWindowController {
         embeddingPauseButton.isHidden = true
         embeddingCancelButton.isHidden = true
 
-        for view in [settingsButton, recentButton!, vocabularyButton!, tocButton!, coverButton!, prevButton!, nextButton!, embeddingStatusLabel, embeddingPauseButton!, embeddingCancelButton!] {
+        navigationStack.orientation = .horizontal
+        navigationStack.alignment = .centerY
+        navigationStack.distribution = .fill
+        navigationStack.spacing = ReaderUILayout.navigationStackSpacing
+        for button in [tocButton!, coverButton!, prevButton!, nextButton!, farthestPositionButton!] {
+            button.translatesAutoresizingMaskIntoConstraints = false
+            navigationStack.addArrangedSubview(button)
+        }
+
+        for view in [settingsButton, recentButton!, vocabularyButton!, navigationStack, embeddingStatusLabel, embeddingPauseButton!, embeddingCancelButton!] {
             view.translatesAutoresizingMaskIntoConstraints = false
             bottomBar.addSubview(view)
         }
 
-        return ReaderBottomBarSetup(bottomBar: bottomBar, settingsButton: settingsButton)
+        return ReaderBottomBarSetup(bottomBar: bottomBar, settingsButton: settingsButton, navigationStack: navigationStack)
     }
 
     private func configureTitleControls() {
@@ -477,9 +495,10 @@ extension ReaderWindowController {
         fullScreenButton = capsuleButton(title: AppText.fullScreen, symbol: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullScreen))
         pageLayoutButton = capsuleButton(title: "", symbol: "rectangle.split.2x1", action: #selector(togglePDFPageLayout))
         pageLayoutButton.toolTip = AppText.localized("切换单页/双页浏览", "Toggle single/two-page view")
-        fitWidthButton = capsuleButton(title: AppText.localized("适宽", "Fit Width"), symbol: "arrow.left.and.right", action: #selector(fitPDFToWidth))
-        fitWidthButton.toolTip = AppText.localized("让当前 PDF 适合阅读区宽度", "Fit the PDF to the reader width")
+        cropButton = capsuleButton(title: "", symbol: "crop", action: #selector(togglePDFMarginCrop))
+        cropButton.toolTip = AppText.localized("裁掉 PDF 页面外侧空白", "Crop outer PDF margins")
         updatePDFPageLayoutButton()
+        updatePDFMarginCropButton()
     }
 
     private func readerBarView() -> NSView {

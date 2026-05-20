@@ -11,19 +11,24 @@ extension ReaderWindowController {
     func installKeyboardPagingMonitor() {
         guard localEventMonitor == nil else { return }
         localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .scrollWheel, .leftMouseDown]) { [weak self] event in
-            guard let self = self, event.window === self.window else { return event }
+            guard let self = self,
+                  event.window === self.window || event.window === self.selectionActionToolbarWindow else {
+                return event
+            }
             switch event.type {
             case .keyDown:
                 guard self.handlePageKey(event) else { return event }
                 return nil
             case .scrollWheel:
                 self.markReaderInteraction()
+                self.hideSelectionToolbar()
                 DispatchQueue.main.async { [weak self] in
                     self?.updateZoomLabel()
                 }
                 guard self.handlePDFTrackpadScroll(event) else { return event }
                 return nil
             case .leftMouseDown:
+                self.hideSelectionToolbarIfClickingOutsideReader(event)
                 if self.handleStoredWordClick(event) {
                     return nil
                 }
@@ -81,6 +86,15 @@ extension ReaderWindowController {
         guard !searchOverlay.bounds.contains(pointInSearch) else { return }
 
         hideSearchOverlay()
+    }
+
+    func hideSelectionToolbarIfClickingOutsideReader(_ event: NSEvent) {
+        guard event.window === window,
+              !selectionActionToolbar.isHidden,
+              !isMouseEventInsidePDFArea(event) else {
+            return
+        }
+        hideSelectionToolbar()
     }
 
     func handlePDFTrackpadScroll(_ event: NSEvent) -> Bool {
@@ -197,6 +211,10 @@ extension ReaderWindowController {
     }
 
     func handlePageKey(_ event: NSEvent) -> Bool {
+        if event.keyCode == 53, !selectionActionToolbar.isHidden {
+            hideSelectionToolbar()
+            return true
+        }
         if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "f" {
             showSearchOverlay()
             return true

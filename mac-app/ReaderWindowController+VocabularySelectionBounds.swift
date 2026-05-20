@@ -38,14 +38,7 @@ extension ReaderWindowController {
 
     func pdfTextRanges(matching query: String, in pageText: String) -> [NSRange] {
         let nsText = pageText as NSString
-        let words = query.split { $0.isWhitespace || $0.isNewline }.map(String.init)
-        let escaped = words.map { NSRegularExpression.escapedPattern(for: $0) }.joined(separator: #"\s+"#)
-        let pattern: String
-        if words.count == 1 {
-            pattern = #"(?i)(?<![A-Za-z'’-])"# + escaped + #"(?![A-Za-z'’-])"#
-        } else {
-            pattern = #"(?i)(?<![A-Za-z'’-])"# + escaped + #"(?![A-Za-z'’-])"#
-        }
+        guard let pattern = VocabularyTextPolicy.boundedSearchPattern(for: query) else { return [] }
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         return regex.matches(in: pageText, range: NSRange(location: 0, length: nsText.length)).map(\.range)
     }

@@ -140,11 +140,10 @@ extension AppDelegate {
             target: controller
         ))
         menu.addItem(menuItem(
-            AppText.localized("适合宽度", "Fit Width"),
-            action: #selector(ReaderWindowController.fitPDFToWidth),
-            key: "0",
-            target: controller,
-            modifiers: [.command]
+            AppText.localized("裁边/原边", "Crop/Original Margins"),
+            action: #selector(ReaderWindowController.togglePDFMarginCrop),
+            key: "3",
+            target: controller
         ))
         menu.addItem(.separator())
         menu.addItem(menuItem(

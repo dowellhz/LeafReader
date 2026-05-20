@@ -20,7 +20,7 @@ extension ReaderWindowController {
         documentLoadGeneration += 1
         let generation = documentLoadGeneration
         showDocumentLoading(for: url)
-        sessionSaveTask.flush()
+        sessionSaveTask.cancel()
         flushCurrentBookWordRecordSaves()
         saveCurrentAIConversationBeforeDocumentChange()
         resetEmbeddingStateForDocumentChange()

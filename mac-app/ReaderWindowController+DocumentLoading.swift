@@ -19,6 +19,8 @@ extension ReaderWindowController {
         webView.isHidden = true
         pdfView.document = document
         prepareRuntimeStateForLoadedDocument(url: url)
+        captureOriginalPDFCropBoxes()
+        applyPDFMarginCropIfNeeded()
         pdfWordRecordStore = currentFileMD5.map { PDFWordRecordStore(fileMD5: $0) }
         webWordRecordStore = nil
         currentWebPlainText = ""
@@ -36,8 +38,8 @@ extension ReaderWindowController {
         titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
         updateCoverThumbnail(from: document)
         pageLayoutButton.isHidden = false
-        fitWidthButton.isHidden = false
-        pdfZoomMode = loadPDFZoomMode()
+        cropButton.isHidden = false
+        updatePDFMarginCropButton()
         applyPDFPageLayout(animated: false)
 
         if !didRegisterSelectionObserver {
@@ -107,9 +109,8 @@ extension ReaderWindowController {
         }
         coverImageView.isHidden = false
         pageLayoutButton.isHidden = true
-        fitWidthButton.isHidden = true
-        pageLabel.stringValue = "0%"
-        updatePageLabelTextColor()
+        cropButton.isHidden = true
+        updateWebProgressLabel(0)
         zoomField.stringValue = "100%"
         if let htmlFileURL = document.htmlFileURL {
             webView.loadFileURL(htmlFileURL, allowingReadAccessTo: document.baseURL)
@@ -142,6 +143,7 @@ extension ReaderWindowController {
         highlightedSelectionKeys.removeAll()
         clearAISourceUnderlineTracking()
         clearSearchState()
+        originalPDFCropBoxes.removeAll()
     }
 
     func scheduleWebPlainTextLoad(_ loader: (() -> String)?, generation: Int) {

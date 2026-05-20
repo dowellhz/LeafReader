@@ -313,11 +313,7 @@ extension ReaderWindowController {
     }
 
     func vocabularyWordEmphasisPattern(for word: String) -> String {
-        let escaped = NSRegularExpression.escapedPattern(for: word)
-        if word.range(of: #"^[A-Za-z][A-Za-z'’-]*$"#, options: .regularExpression) != nil {
-            return #"(?<![A-Za-z])"# + escaped + #"(?![A-Za-z])"#
-        }
-        return escaped
+        VocabularyTextPolicy.emphasisPattern(for: word)
     }
 
 }

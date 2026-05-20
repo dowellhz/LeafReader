@@ -12,15 +12,24 @@ extension ReaderWindowController {
 
     func addStoredWordAnnotation(_ record: StoredPDFWordRecord) {
         guard let page = pdfView.document?.page(at: record.pageIndex) else { return }
-        let key = pdfWordRecordStore?.recordKey(pageIndex: record.pageIndex, bounds: record.bounds.cgRect)
-            ?? "\(record.pageIndex):\(Int(record.bounds.x.rounded())):\(Int(record.bounds.y.rounded())):\(Int(record.bounds.width.rounded())):\(Int(record.bounds.height.rounded()))"
+        let bounds = displayBounds(for: record, page: page)
+        let key = pdfWordRecordStore?.recordKey(pageIndex: record.pageIndex, bounds: bounds)
+            ?? "\(record.pageIndex):\(Int(bounds.origin.x.rounded())):\(Int(bounds.origin.y.rounded())):\(Int(bounds.width.rounded())):\(Int(bounds.height.rounded()))"
         guard !highlightedSelectionKeys.contains(key) else { return }
         highlightedSelectionKeys.insert(key)
 
-        let annotation = PDFAnnotation(bounds: record.bounds.cgRect, forType: .highlight, withProperties: nil)
+        let annotation = PDFAnnotation(bounds: bounds, forType: .highlight, withProperties: nil)
         annotation.color = NSColor.systemYellow.withAlphaComponent(0.68)
         annotation.contents = "leaf-word:\(record.id)"
         page.addAnnotation(annotation)
+    }
+
+    func displayBounds(for record: StoredPDFWordRecord, page: PDFPage) -> CGRect {
+        precisePDFSelectionBounds(
+            page: page,
+            originalBounds: record.bounds.cgRect,
+            queryText: record.word
+        ) ?? record.bounds.cgRect
     }
 
     func restoreStoredWebWordHighlights(completion: (() -> Void)? = nil) {

@@ -8,9 +8,8 @@ extension ReaderWindowController {
             markReaderInteraction()
             let progress = message.body as? Double ?? 0
             webScrollProgress = progress
-            pageLabel.stringValue = "\(Int(round(progress * 100)))%"
-            updatePageLabelTextColor()
-            saveWebProgress()
+            updateWebProgressLabel(progress)
+            saveSession()
             return
         }
         if message.name == "webWordClicked" {

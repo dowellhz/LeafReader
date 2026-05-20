@@ -418,7 +418,9 @@
       const source = block ? (block.innerText || block.textContent || "") : text;
       context = source.replace(/\s+/g, " ").trim().slice(0, 360);
       let occurrenceIndex = 0;
-      const selectionRect = selection.getRangeAt(0).getBoundingClientRect();
+      const range = selection.getRangeAt(0);
+      const firstLineRect = Array.from(range.getClientRects()).find((rect) => rect.width > 0 && rect.height > 0);
+      const selectionRect = firstLineRect || range.getBoundingClientRect();
       const rect = {
         x: selectionRect.left,
         y: selectionRect.top,

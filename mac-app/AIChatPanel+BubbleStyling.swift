@@ -12,7 +12,7 @@ extension AIChatPanel {
         NSAttributedString(string: text, attributes: [
             .font: NSFont.systemFont(ofSize: Self.readerBodyFontSize),
             .foregroundColor: primaryTextColor,
-            .paragraphStyle: paragraphStyle(spacing: 8)
+            .paragraphStyle: paragraphStyle(spacing: 4)
         ])
     }
 
@@ -42,7 +42,7 @@ extension AIChatPanel {
         NSAttributedString(string: text, attributes: [
             .font: AppFont.semibold(ofSize: Self.readerBodyFontSize),
             .foregroundColor: primaryTextColor,
-            .paragraphStyle: paragraphStyle(spacing: 8)
+            .paragraphStyle: paragraphStyle(spacing: 4)
         ])
     }
 
@@ -52,7 +52,7 @@ extension AIChatPanel {
 
     func paragraphStyle(spacing: CGFloat, headIndent: CGFloat = 0, firstLineHeadIndent: CGFloat? = nil) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
-        style.lineSpacing = 5
+        style.lineSpacing = 3
         style.paragraphSpacing = spacing
         style.headIndent = headIndent
         style.firstLineHeadIndent = firstLineHeadIndent ?? headIndent

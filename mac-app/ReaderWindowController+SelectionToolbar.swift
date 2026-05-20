@@ -37,10 +37,10 @@ extension ReaderWindowController {
             hideSelectionToolbar()
             return
         }
-        showSelectionToolbar(near: rect, text: text)
+        showSelectionToolbar(near: rect, text: text, preferredEdge: .below)
     }
 
-    func showSelectionToolbar(near sourceRect: NSRect, text: String) {
+    func showSelectionToolbar(near sourceRect: NSRect, text: String, preferredEdge: SelectionToolbarEdge = .above) {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             hideSelectionToolbar()
             return
@@ -56,7 +56,13 @@ extension ReaderWindowController {
         let aboveY = sourceRect.maxY + 10
         let belowY = sourceRect.minY - size.height - 10
         let maximumY = readerFrame.maxY - size.height - 12
-        let y = aboveY <= maximumY ? aboveY : max(readerFrame.minY + 12, belowY)
+        let y: CGFloat
+        switch preferredEdge {
+        case .above:
+            y = aboveY <= maximumY ? aboveY : max(readerFrame.minY + 12, belowY)
+        case .below:
+            y = belowY >= readerFrame.minY + 12 ? belowY : min(aboveY, maximumY)
+        }
         showSelectionToolbarWindow(frameInContent: NSRect(origin: CGPoint(x: x, y: y), size: size))
     }
 
@@ -111,10 +117,14 @@ extension ReaderWindowController {
         selectionActionToolbarWindow = toolbarWindow
         selectionActionToolbar.frame = NSRect(origin: .zero, size: frameInContent.size)
         selectionActionToolbar.isHidden = false
+        if toolbarWindow.parent !== parentWindow {
+            toolbarWindow.parent?.removeChildWindow(toolbarWindow)
+            parentWindow.addChildWindow(toolbarWindow, ordered: .above)
+        }
         let originInWindow = contentArea.convert(frameInContent.origin, to: nil)
         let originOnScreen = parentWindow.convertPoint(toScreen: originInWindow)
         toolbarWindow.setFrame(NSRect(origin: originOnScreen, size: frameInContent.size), display: true)
-        toolbarWindow.level = .floating
+        toolbarWindow.level = parentWindow.level
         toolbarWindow.orderFront(nil)
     }
 
@@ -133,5 +143,10 @@ extension ReaderWindowController {
         toolbarWindow.collectionBehavior = [.fullScreenAuxiliary, .transient]
         toolbarWindow.contentView = selectionActionToolbar
         return toolbarWindow
+    }
+
+    enum SelectionToolbarEdge {
+        case above
+        case below
     }
 }

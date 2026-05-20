@@ -101,19 +101,7 @@ extension ReaderWindowController {
     }
 
     func jumpToWebDocumentProgress(_ progressValue: Double?) {
-        let progress = min(1, max(0, progressValue ?? webScrollProgress))
-        webScrollProgress = progress
-        pageLabel.stringValue = "\(Int(round(progress * 100)))%"
-        updatePageLabelTextColor()
-        let script = """
-        (() => {
-          const progress = \(progress);
-          const scrollHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-          window.scrollTo({ top: scrollHeight * progress, behavior: 'smooth' });
-        })();
-        """
-        webView.evaluateJavaScript(script)
-        saveWebProgress()
+        jumpToWebProgress(progressValue ?? webScrollProgress, animated: true)
     }
 
     @discardableResult

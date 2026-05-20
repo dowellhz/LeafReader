@@ -136,17 +136,11 @@ extension AIChatPanel {
     }
 
     func isVocabularySelection(_ text: String) -> Bool {
-        let normalized = trimmedText(text)
-        guard normalized.count <= 80 else { return false }
-        let words = normalized.split { $0.isWhitespace || $0.isNewline }
-        guard (1...5).contains(words.count) else { return false }
-        return normalized.range(of: #"^[A-Za-z][A-Za-z'’-]*(\s+[A-Za-z][A-Za-z'’-]*){0,4}$"#, options: .regularExpression) != nil
+        VocabularyTextPolicy.isVocabularySelection(text)
     }
 
     func isSingleEnglishWord(_ text: String) -> Bool {
-        let normalized = trimmedText(text)
-        guard normalized.count <= 40 else { return false }
-        return normalized.range(of: #"^[A-Za-z][A-Za-z'’-]*$"#, options: .regularExpression) != nil
+        VocabularyTextPolicy.isSingleEnglishWord(text)
     }
 
     func speakSelectedWordIfNeeded(_ text: String) {

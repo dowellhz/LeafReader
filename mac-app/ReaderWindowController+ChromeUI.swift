@@ -83,13 +83,13 @@ extension ReaderWindowController {
         vocabularyButton.title = AppText.localized("背单词", "Vocab")
         prevButton.title = AppText.prev
         nextButton.title = AppText.next
-        fitWidthButton.title = AppText.localized("适宽", "Fit Width")
-        fitWidthButton.toolTip = AppText.localized("让当前 PDF 适合阅读区宽度", "Fit the PDF to the reader width")
+        farthestPositionButton.title = AppText.localized("上次位置", "Last")
         selectionActionToolbar.refreshLanguage()
         selectionActionToolbar.applyTheme(ReaderTheme.selected)
         refreshEmbeddingStatusLanguage()
         updatePDFPageLayoutButton()
-        for button in [coverButton, tocButton, recentButton, vocabularyButton, prevButton, nextButton, pageLayoutButton, fitWidthButton] {
+        updatePDFMarginCropButton()
+        for button in [coverButton, tocButton, recentButton, vocabularyButton, prevButton, nextButton, farthestPositionButton, pageLayoutButton, cropButton] {
             if let capsule = button as? CapsuleChromeButton {
                 capsule.theme = ReaderTheme.selected
             }

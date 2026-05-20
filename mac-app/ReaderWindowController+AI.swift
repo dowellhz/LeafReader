@@ -202,10 +202,6 @@ extension ReaderWindowController {
     }
 
     func shouldPersistHighlight(for text: String) -> Bool {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard normalized.count <= 80 else { return false }
-        let words = normalized.split { $0.isWhitespace || $0.isNewline }
-        guard (1...5).contains(words.count) else { return false }
-        return normalized.range(of: #"^[A-Za-z][A-Za-z'’-]*(\s+[A-Za-z][A-Za-z'’-]*){0,4}$"#, options: .regularExpression) != nil
+        VocabularyTextPolicy.isVocabularySelection(text)
     }
 }

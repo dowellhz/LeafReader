@@ -82,12 +82,7 @@ extension ReaderWindowController {
     }
 
     func vocabularySpeakerWord(_ text: String) -> String? {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard normalized.count <= 40,
-              normalized.range(of: #"^[A-Za-z][A-Za-z'’-]*$"#, options: .regularExpression) != nil else {
-            return nil
-        }
-        return normalized
+        VocabularyTextPolicy.speakableWord(text)
     }
 
     @objc func playVocabularyWord(_ sender: NSButton) {

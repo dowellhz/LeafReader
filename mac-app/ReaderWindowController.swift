@@ -62,7 +62,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     static let preferredAIWidthDefaultsKey = "preferredAIWidth"
     static let pdfTwoPageModeDefaultsKey = "pdfTwoPageMode"
-    static let pdfZoomModeDefaultsKey = "pdfZoomMode"
+    static let pdfMarginCropDefaultsKey = "pdfMarginCrop"
     static let fileMD5CacheDefaultsKey = "fileMD5Cache"
     static let minimumReadablePDFScale: CGFloat = 1.0
     static let capsuleButtonIdentifier = NSUserInterfaceItemIdentifier("leafReaderCapsuleButton")
@@ -91,10 +91,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var tocButton: NSButton!
     var recentButton: NSButton!
     var vocabularyButton: NSButton!
+    var farthestPositionButton: NSButton!
     var prevButton: NSButton!
     var nextButton: NSButton!
     var pageLayoutButton: NSButton!
-    var fitWidthButton: NSButton!
+    var cropButton: NSButton!
     var searchButton: NSButton!
     var searchUnderlineButton: SearchUnderlineButton!
     let embeddingStatusLabel = NSTextField(labelWithString: "")
@@ -119,7 +120,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var pdfTOCGeneration = 0
     var webZoomPercent = 100
     var webScrollProgress: Double = 0
-    var pdfZoomMode: PDFZoomMode = .custom
+    var originalPDFCropBoxes: [Int: CGRect] = [:]
     var lastWebProgressSave = Date.distantPast
     var accumulatedPDFTrackpadScroll: CGFloat = 0
     var lastPDFTrackpadPageTurn = Date.distantPast
@@ -146,7 +147,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var scheduledEmbeddingCacheRestoreWorkItem: DispatchWorkItem?
     var scheduledEmbeddingWarmupWorkItem: DispatchWorkItem?
     var lastReaderInteractionAt = Date()
-    let sessionSaveTask = DebouncedTask(delay: 0.35)
+    let sessionSaveTask = DebouncedTask(delay: ReaderSessionPolicy.lastPositionSaveDelay)
     var suppressSearchSelectionForAIUntil = Date.distantPast
     var highlightedSelectionKeys = Set<String>()
     var aiSourceUnderlineKeys = Set<String>()
