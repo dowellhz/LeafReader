@@ -108,5 +108,6 @@ extension ReaderWindowController {
         }
         applyWebZoomToPage()
         zoomField.stringValue = "\(webZoomPercent)%"
+        applyPendingWebProgressRestoreIfReady()
     }
 }

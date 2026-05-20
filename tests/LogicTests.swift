@@ -577,7 +577,6 @@ private func testPDFPagingPolicy() throws {
 }
 
 private func testReaderSessionPolicy() throws {
-    try expectEqual(ReaderSessionPolicy.webRestoreDelay, 0.35, "web restore delay should remain explicit")
     try expectEqual(ReaderSessionPolicy.webProgressSaveInterval, 0.5, "web progress save interval should remain explicit")
     try expectEqual(ReaderSessionPolicy.lastPositionSaveDelay, 3.0, "last position should only save after a stable dwell")
     try expectEqual(ReaderSessionPolicy.initialRestoreDelay, 0.2, "initial restore delay should remain explicit")

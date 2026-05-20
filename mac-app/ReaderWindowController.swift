@@ -115,6 +115,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var currentWebSelectionContext = ""
     var currentWebSelectionOccurrenceIndex: Int?
     var currentWebSelectionRect: NSRect?
+    var pendingWebProgressRestore: (generation: Int, progress: Double, zoomPercent: Int?)?
     var currentTOCItems: [ReaderTOCItem] = []
     var pdfTOCDestinations: [String: ReaderTOCHelper.PDFTOCDestination] = [:]
     var pdfTOCGeneration = 0
@@ -173,6 +174,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let aiPanelResizeLayoutTask = DebouncedTask(delay: 0.05)
     let vocabularyPanelReloadTask = DebouncedTask(delay: 0.04)
     var pendingAIPanelExpansionAction: (() -> Void)?
+    var pendingAISourceClickWorkItem: DispatchWorkItem?
     var currentVocabularyExportRecords: [VocabularyExportRecord] = []
     var didRegisterSelectionObserver = false
     var isRestoringSession = false
@@ -242,6 +244,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         windowResizeLayoutTask.cancel()
         aiPanelResizeLayoutTask.cancel()
         vocabularyPanelReloadTask.cancel()
+        pendingAISourceClickWorkItem?.cancel()
         retrievalQueryTask?.cancel()
         pdfWordRecordsSaveTask.cancel()
         webWordRecordsSaveTask.cancel()

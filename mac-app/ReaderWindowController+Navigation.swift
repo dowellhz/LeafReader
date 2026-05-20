@@ -138,17 +138,28 @@ extension ReaderWindowController {
         let progress = min(1, max(0, progressValue))
         webScrollProgress = progress
         updateWebProgressLabel(progress)
+        scrollWebToProgress(progress, animated: animated)
+        saveSession()
+        window?.makeFirstResponder(webView)
+    }
+
+    func scrollWebToProgress(_ progress: Double, animated: Bool) {
         let behavior = animated ? "smooth" : "auto"
         let script = """
         (() => {
           const progress = \(progress);
-          const scrollHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-          window.scrollTo({ top: scrollHeight * progress, behavior: '\(behavior)' });
+          const scroll = () => {
+            const scrollHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+            window.scrollTo({ top: scrollHeight * progress, behavior: '\(behavior)' });
+          };
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => requestAnimationFrame(scroll), { once: true });
+          } else {
+            requestAnimationFrame(() => requestAnimationFrame(scroll));
+          }
         })();
         """
         webView.evaluateJavaScript(script)
-        saveSession()
-        window?.makeFirstResponder(webView)
     }
 
 

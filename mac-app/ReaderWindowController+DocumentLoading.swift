@@ -92,6 +92,7 @@ extension ReaderWindowController {
         currentWebSelectionContext = ""
         currentWebSelectionOccurrenceIndex = nil
         currentWebSelectionRect = nil
+        pendingWebProgressRestore = nil
         currentTOCItems = document.tocItems
         pdfTOCDestinations = [:]
         webZoomPercent = 100

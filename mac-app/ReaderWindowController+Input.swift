@@ -2,11 +2,6 @@ import Cocoa
 import PDFKit
 import WebKit
 
-private enum ReaderInputPolicy {
-    static let aiSourceClickSelectionDelay: TimeInterval = 0.18
-    static let aiSourceClickScrollDelay: TimeInterval = 0.08
-}
-
 extension ReaderWindowController {
     func installKeyboardPagingMonitor() {
         guard localEventMonitor == nil else { return }
@@ -58,16 +53,19 @@ extension ReaderWindowController {
               let source = aiSourceLocation(at: event) else {
             return false
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + ReaderInputPolicy.aiSourceClickSelectionDelay) { [weak self] in
+        pendingAISourceClickWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
             let selectedText = self.pdfView.currentSelection?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard selectedText.isEmpty else { return }
-            self.setAIPanelCollapsed(false, animated: true)
             self.ensureAIConversationSourceBubbleLoaded(source)
-            DispatchQueue.main.asyncAfter(deadline: .now() + ReaderInputPolicy.aiSourceClickScrollDelay) { [weak self] in
+            self.pendingAIPanelExpansionAction = { [weak self] in
                 self?.aiPanel.scrollToConversationSource(source)
             }
+            self.setAIPanelCollapsed(false, animated: true)
         }
+        pendingAISourceClickWorkItem = workItem
+        DispatchQueue.main.async(execute: workItem)
         return false
     }
 

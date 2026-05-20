@@ -194,6 +194,7 @@ extension ReaderWindowController {
     func restoreWebProgressAfterLoad() {
         guard currentDocumentKind != .pdf,
               let progress = sessionStore.loadWebProgress() else {
+            pendingWebProgressRestore = nil
             return
         }
         let scrollProgress = progress.scrollProgress
@@ -203,17 +204,26 @@ extension ReaderWindowController {
             webZoomPercent = percent
             zoomField.stringValue = "\(webZoomPercent)%"
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + ReaderSessionPolicy.webRestoreDelay) { [weak self] in
-            guard let self, self.currentDocumentKind != .pdf else { return }
-            self.applyWebZoomToPage()
-            self.zoomField.stringValue = "\(self.webZoomPercent)%"
-            self.webView.evaluateJavaScript("""
-            (() => {
-              const height = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-              window.scrollTo(0, height * \(scrollProgress));
-            })();
-            """)
+        pendingWebProgressRestore = (
+            generation: documentLoadGeneration,
+            progress: scrollProgress,
+            zoomPercent: progress.zoomPercent
+        )
+    }
+
+    func applyPendingWebProgressRestoreIfReady() {
+        guard currentDocumentKind != .pdf,
+              let pending = pendingWebProgressRestore,
+              pending.generation == documentLoadGeneration else {
+            return
         }
+        pendingWebProgressRestore = nil
+        if let zoomPercent = pending.zoomPercent {
+            webZoomPercent = zoomPercent
+            zoomField.stringValue = "\(webZoomPercent)%"
+        }
+        applyWebZoomToPage()
+        scrollWebToProgress(pending.progress, animated: false)
     }
 
     func saveWebProgress() {
