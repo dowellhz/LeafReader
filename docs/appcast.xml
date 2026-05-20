@@ -6,18 +6,18 @@
     <description>Leaf Reader macOS app updates.</description>
     <language>zh-CN</language>
     <item>
-      <title>Leaf Reader 1.4.14</title>
-      <sparkle:version>1.4.14</sparkle:version>
-      <sparkle:shortVersionString>1.4.14</sparkle:shortVersionString>
+      <title>Leaf Reader 1.4.15</title>
+      <sparkle:version>1.4.15</sparkle:version>
+      <sparkle:shortVersionString>1.4.15</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <pubDate>Tue, 19 May 2026 13:10:36 +0000</pubDate>
+      <pubDate>Wed, 20 May 2026 06:03:29 +0000</pubDate>
       <description><![CDATA[
-        <ul><li>Leaf Reader 1.4.14 release.</li></ul>
+        <ul><li>Leaf Reader 1.4.15 release.</li></ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dowellhz/LeafReader/releases/download/v1.4.14/LeafReader-1.4.14.pkg"
-        sparkle:edSignature="R4FpTj6FxNGQ1NHBa3+dzZnQ4laQV4eUG46GSz3RxfRKDs6oYyqkE5MDOgtbWQMmXdw2NplRQQQnH8MZTBioBA=="
-        length="4910208"
+        url="https://github.com/dowellhz/LeafReader/releases/download/v1.4.15/LeafReader-1.4.15.pkg"
+        sparkle:edSignature="lmvrE+SEJRpssokJGPBchpYOtp4cqVI5U2cXvCIrIn7EcGNytSdximigCo30EZI9az9vD1ljAZQiVN3XeQrdBg=="
+        length="5026856"
         type="application/octet-stream" />
     </item>
   </channel>
