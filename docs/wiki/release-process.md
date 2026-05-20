@@ -40,7 +40,7 @@ Check version references:
 
 ## Rule
 
-Run tests and version checks before publishing. Release artifacts under `release/` are local generated outputs unless explicitly committed.
+Add a `## What's New in <version>` section to `README.md`, then run tests and version checks before publishing. Release artifacts under `release/` are local generated outputs unless explicitly committed.
 
 ## Related Files
 

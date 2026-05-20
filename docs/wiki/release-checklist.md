@@ -5,6 +5,7 @@ Use this checklist before publishing a Leaf Reader release.
 ## Before Building
 
 - Confirm the working tree is clean or only contains intended release changes.
+- Add a `## What's New in <version>` section to `README.md` with user-facing release notes.
 - Confirm the target version is valid:
 
 ```sh

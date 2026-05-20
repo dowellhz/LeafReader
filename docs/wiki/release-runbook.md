@@ -15,6 +15,7 @@ Expected:
 
 - Version references already match `<version>`, or the release task intentionally updates them.
 - The working tree contains only intended release changes.
+- `README.md` includes `## What's New in <version>` with user-facing release notes.
 
 ## 2. Run Full Local Verification
 

@@ -47,6 +47,11 @@ if ! gh auth status >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! grep -q "## What's New in $VERSION" README.md; then
+  echo "README.md must include release notes section: ## What's New in $VERSION" >&2
+  exit 1
+fi
+
 "$CHECK_SCRIPT" --no-build
 ./scripts/bump_version.sh --check "$VERSION" 2>/dev/null || true
 if [[ -n "$NOTES_FILE" ]]; then

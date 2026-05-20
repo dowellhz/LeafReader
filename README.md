@@ -35,6 +35,15 @@ Download the latest macOS installer:
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
 
+## What's New in 1.4.17
+
+- Improved EPUB loading diagnostics so missing, invalid, or undecodable chapters are reported instead of being silently skipped.
+- Made EPUB fallback pages show useful diagnostics when no readable spine content can be loaded.
+- Made web reading-position restores and AI source jumps event-driven, improving reliability on large EPUB and DOCX documents.
+- Improved reader session progress handling, including clearer handling for missing web progress and safer PDF page saves.
+- Hardened AI settings persistence with isolated defaults coverage for model, embedding, and conversation options.
+- Split logic tests by domain to make future regression coverage easier to maintain.
+
 ## What's New in 1.4.12
 
 - Improved first-load performance by replacing full-file MD5 reads with a fast document identifier while preserving compatible access to existing saved data.
