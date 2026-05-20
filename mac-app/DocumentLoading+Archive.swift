@@ -18,7 +18,11 @@ extension WebDocumentLoader {
         let destination = cacheRoot.appendingPathComponent(key, isDirectory: true)
         let containerURL = destination.appendingPathComponent("META-INF/container.xml")
         if FileManager.default.fileExists(atPath: containerURL.path) {
-            try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: destination.path)
+            do {
+                try FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: destination.path)
+            } catch {
+                logEPUBCacheFailure("Failed to refresh cache entry modification date at \(destination.path)", error: error)
+            }
             return destination
         }
 
@@ -27,12 +31,20 @@ extension WebDocumentLoader {
         do {
             try unzip(url: fileURL, to: temporaryDestination)
             if FileManager.default.fileExists(atPath: destination.path) {
-                try? FileManager.default.removeItem(at: destination)
+                do {
+                    try FileManager.default.removeItem(at: destination)
+                } catch {
+                    logEPUBCacheFailure("Failed to replace existing cache entry at \(destination.path)", error: error)
+                }
             }
             try FileManager.default.moveItem(at: temporaryDestination, to: destination)
             return destination
         } catch {
-            try? FileManager.default.removeItem(at: temporaryDestination)
+            do {
+                try FileManager.default.removeItem(at: temporaryDestination)
+            } catch {
+                logEPUBCacheFailure("Failed to remove temporary cache entry at \(temporaryDestination.path)", error: error)
+            }
             throw error
         }
     }
@@ -48,11 +60,18 @@ extension WebDocumentLoader {
     }
 
     static func cleanupOldEPUBCacheEntries(in cacheRoot: URL, keeping currentKey: String) {
-        guard let entries = try? FileManager.default.contentsOfDirectory(
-            at: cacheRoot,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        ), entries.count > 10 else {
+        let entries: [URL]
+        do {
+            entries = try FileManager.default.contentsOfDirectory(
+                at: cacheRoot,
+                includingPropertiesForKeys: [.contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            )
+        } catch {
+            logEPUBCacheFailure("Failed to list EPUB cache directory at \(cacheRoot.path)", error: error)
+            return
+        }
+        guard entries.count > 10 else {
             return
         }
         let staleEntries = entries
@@ -64,8 +83,16 @@ extension WebDocumentLoader {
             }
             .prefix(max(0, entries.count - 10))
         for entry in staleEntries {
-            try? FileManager.default.removeItem(at: entry)
+            do {
+                try FileManager.default.removeItem(at: entry)
+            } catch {
+                logEPUBCacheFailure("Failed to remove stale cache entry at \(entry.path)", error: error)
+            }
         }
+    }
+
+    static func logEPUBCacheFailure(_ message: String, error: Error) {
+        NSLog("LeafReader EPUB cache: %@ (error=%@)", message, error.localizedDescription)
     }
 
     static func unzip(url: URL) throws -> URL {

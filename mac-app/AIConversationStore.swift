@@ -72,11 +72,15 @@ final class AIConversationStore {
     }
 
     func load() -> SavedAIConversation {
-        guard let data = defaults.data(forKey: key),
-              let conversation = try? JSONDecoder().decode(SavedAIConversation.self, from: data) else {
+        guard let data = defaults.data(forKey: key) else {
             return .empty
         }
-        return conversation
+        do {
+            return try JSONDecoder().decode(SavedAIConversation.self, from: data)
+        } catch {
+            NSLog("LeafReader AI conversation: failed to decode conversation (key=%@, error=%@)", key, error.localizedDescription)
+            return .empty
+        }
     }
 
     func save(_ conversation: SavedAIConversation) {
@@ -84,7 +88,13 @@ final class AIConversationStore {
             defaults.removeObject(forKey: key)
             return
         }
-        guard let data = try? JSONEncoder().encode(conversation) else { return }
+        let data: Data
+        do {
+            data = try JSONEncoder().encode(conversation)
+        } catch {
+            NSLog("LeafReader AI conversation: failed to encode conversation (key=%@, bubbles=%d, error=%@)", key, conversation.bubbles.count, error.localizedDescription)
+            return
+        }
         defaults.set(data, forKey: key)
     }
 

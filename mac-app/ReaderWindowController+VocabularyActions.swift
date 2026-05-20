@@ -129,10 +129,7 @@ extension ReaderWindowController {
             vocabularySpeechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)
         }
         for text in playableTexts {
-            let utterance = AVSpeechUtterance(string: text)
-            utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-            utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
-            vocabularySpeechSynthesizer.speak(utterance)
+            vocabularySpeechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
         }
     }
 

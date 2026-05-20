@@ -8,6 +8,7 @@ extension ReaderWindowController {
         case addWord
         case summarize
         case speak
+        case copy
     }
 
     func selectedReaderTextForToolbar() -> String {
@@ -98,6 +99,8 @@ extension ReaderWindowController {
             aiPanel.summarizeCurrentContent()
         case .speak:
             speakVocabularyTexts([text])
+        case .copy:
+            copyTextToClipboard(text)
         }
         hideSelectionToolbar()
     }

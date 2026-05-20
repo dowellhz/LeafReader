@@ -86,8 +86,14 @@ enum RecentDocumentsStore {
     }
 
     static func load() -> [RecentDocumentItem] {
-        guard let data = UserDefaults.standard.data(forKey: defaultsKey),
-              let items = try? JSONDecoder().decode([RecentDocumentItem].self, from: data) else {
+        guard let data = UserDefaults.standard.data(forKey: defaultsKey) else {
+            return []
+        }
+        let items: [RecentDocumentItem]
+        do {
+            items = try JSONDecoder().decode([RecentDocumentItem].self, from: data)
+        } catch {
+            NSLog("LeafReader recent documents: failed to decode store (error=%@)", error.localizedDescription)
             return []
         }
         return items.filter { FileManager.default.fileExists(atPath: $0.path) }
@@ -136,7 +142,13 @@ enum RecentDocumentsStore {
     }
 
     private static func save(_ items: [RecentDocumentItem]) {
-        guard let data = try? JSONEncoder().encode(items) else { return }
+        let data: Data
+        do {
+            data = try JSONEncoder().encode(items)
+        } catch {
+            NSLog("LeafReader recent documents: failed to encode store (count=%d, error=%@)", items.count, error.localizedDescription)
+            return
+        }
         UserDefaults.standard.set(data, forKey: defaultsKey)
     }
 }

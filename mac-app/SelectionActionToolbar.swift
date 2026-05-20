@@ -6,12 +6,14 @@ final class SelectionActionToolbar: NSView {
     var onAddWord: (() -> Void)?
     var onSummarize: (() -> Void)?
     var onSpeak: (() -> Void)?
+    var onCopy: (() -> Void)?
 
     private let stack = NSStackView()
     private let translateButton = SelectionActionButton(title: AppText.localized("翻译", "Translate"), target: nil, action: nil)
     private let explainButton = SelectionActionButton(title: AppText.localized("解释", "Explain"), target: nil, action: nil)
     private let contextButton = SelectionActionButton(title: AppText.localized("总结", "Summarize"), target: nil, action: nil)
     private let speakButton = SelectionActionButton(title: AppText.localized("朗读", "Speak"), target: nil, action: nil)
+    private let copyButton = SelectionActionButton(title: AppText.localized("复制", "Copy"), target: nil, action: nil)
     private var contextAction: ContextAction = .summarize
 
     enum ContextAction {
@@ -41,6 +43,7 @@ final class SelectionActionToolbar: NSView {
         configureButton(explainButton, action: #selector(explainTapped))
         configureButton(contextButton, action: #selector(contextTapped))
         configureButton(speakButton, action: #selector(speakTapped))
+        configureButton(copyButton, action: #selector(copyTapped))
 
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: topAnchor),
@@ -57,7 +60,7 @@ final class SelectionActionToolbar: NSView {
     }
 
     var preferredSize: CGSize {
-        CGSize(width: 330, height: 44)
+        CGSize(width: 410, height: 44)
     }
 
     func applyTheme(_ theme: ReaderTheme) {
@@ -77,7 +80,7 @@ final class SelectionActionToolbar: NSView {
         layer?.backgroundColor = background.cgColor
         layer?.borderColor = border.cgColor
         layer?.borderWidth = 1
-        [translateButton, explainButton, contextButton, speakButton].forEach { $0.applyTheme(theme) }
+        [translateButton, explainButton, contextButton, speakButton, copyButton].forEach { $0.applyTheme(theme) }
     }
 
     func refreshLanguage() {
@@ -87,7 +90,8 @@ final class SelectionActionToolbar: NSView {
             ? AppText.localized("加入单词本", "Add Word")
             : AppText.localized("总结", "Summarize")
         speakButton.title = AppText.localized("朗读", "Speak")
-        [translateButton, explainButton, contextButton, speakButton].forEach { $0.applyTheme(ReaderTheme.selected) }
+        copyButton.title = AppText.localized("复制", "Copy")
+        [translateButton, explainButton, contextButton, speakButton, copyButton].forEach { $0.applyTheme(ReaderTheme.selected) }
     }
 
     func setContextAction(_ action: ContextAction) {
@@ -110,6 +114,8 @@ final class SelectionActionToolbar: NSView {
             }
         case speakButton:
             onSpeak?()
+        case copyButton:
+            onCopy?()
         default:
             break
         }
@@ -136,6 +142,10 @@ final class SelectionActionToolbar: NSView {
 
     @objc private func speakTapped() {
         onSpeak?()
+    }
+
+    @objc private func copyTapped() {
+        onCopy?()
     }
 }
 

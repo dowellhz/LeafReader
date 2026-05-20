@@ -66,7 +66,11 @@ extension WebDocumentLoader {
             : sections.joined(separator: "\n")
         let html = pageHTML(title: url.deletingPathExtension().lastPathComponent, body: body, documentStyles: "", profile: .epub)
         let htmlFileURL = opfDirectory.appendingPathComponent(".leafreader-rendered.html")
-        try? html.write(to: htmlFileURL, atomically: true, encoding: .utf8)
+        do {
+            try html.write(to: htmlFileURL, atomically: true, encoding: .utf8)
+        } catch {
+            NSLog("LeafReader EPUB: failed to write rendered HTML at %@ (error=%@)", htmlFileURL.path, error.localizedDescription)
+        }
         return WebReadableDocument(
             html: html,
             htmlFileURL: FileManager.default.fileExists(atPath: htmlFileURL.path) ? htmlFileURL : nil,

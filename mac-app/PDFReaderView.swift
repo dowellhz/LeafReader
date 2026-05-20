@@ -38,8 +38,29 @@ final class EdgePagingPDFView: PDFView {
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
-        let sourceMenu = super.menu(for: event) ?? fallbackContextMenu()
-        return sanitizedContextMenu(from: sourceMenu)
+        super.menu(for: event) ?? fallbackContextMenu()
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        guard let selection = copiedCurrentSelection(),
+              (selection.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            super.rightMouseDown(with: event)
+            return
+        }
+
+        setCurrentSelection(selection, animate: false)
+        guard let menu = menu(for: event) else {
+            super.rightMouseDown(with: event)
+            return
+        }
+        NSMenu.popUpContextMenu(menu, with: event, for: self)
+        if currentSelection?.string?.isEmpty != false {
+            setCurrentSelection(selection, animate: false)
+        }
+    }
+
+    private func copiedCurrentSelection() -> PDFSelection? {
+        currentSelection?.copy() as? PDFSelection
     }
 
     override func scrollWheel(with event: NSEvent) {

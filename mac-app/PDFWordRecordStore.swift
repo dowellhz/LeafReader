@@ -68,11 +68,15 @@ struct PDFWordRecordStore {
     }
 
     private func loadLegacyRecords() -> [StoredPDFWordRecord] {
-        guard let data = defaults.data(forKey: storageKey),
-              let records = try? JSONDecoder().decode([StoredPDFWordRecord].self, from: data) else {
+        guard let data = defaults.data(forKey: storageKey) else {
             return []
         }
-        return records
+        do {
+            return try JSONDecoder().decode([StoredPDFWordRecord].self, from: data)
+        } catch {
+            NSLog("LeafReader word records: failed to decode legacy PDF records (documentID=%@, error=%@)", documentID, error.localizedDescription)
+            return []
+        }
     }
 
     func recordKey(pageIndex: Int, bounds: CGRect) -> String {

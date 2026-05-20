@@ -35,6 +35,14 @@ Download the latest macOS installer:
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
 
+## What's New in 1.4.18
+
+- Added a Copy button at the end of the floating text-selection toolbar for faster PDF and web text copying.
+- Fixed PDF right-click behavior so selected text stays selected and PDFKit's native context-menu actions remain available.
+- Added automatic Chinese speech voice selection so selected Chinese text can be read aloud when a Chinese system voice is installed.
+- Improved diagnostics for recent documents, AI conversations, EPUB cache cleanup, rendered EPUB HTML writes, and word-record storage failures.
+- Split reader toolbar and layout code into focused files to make future UI work easier to maintain.
+
 ## What's New in 1.4.17
 
 - Improved EPUB loading diagnostics so missing, invalid, or undecodable chapters are reported instead of being silently skipped.

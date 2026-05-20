@@ -155,10 +155,7 @@ extension AIChatPanel {
         if speechSynthesizer.isSpeaking {
             speechSynthesizer.stopSpeaking(at: .immediate)
         }
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
-        speechSynthesizer.speak(utterance)
+        speechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
     }
 
     func wordPrompt(for word: String, context: String) -> String {
