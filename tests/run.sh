@@ -60,6 +60,9 @@ swiftc \
   mac-app/EPUBHTMLSanitizer.swift \
   mac-app/EPUBTextDecoder.swift \
   tests/EPUBLogicTests.swift \
+  tests/ReaderShelfLogicTests.swift \
+  tests/AISettingsLogicTests.swift \
+  tests/VocabularyLogicTests.swift \
   tests/LogicTests.swift \
   -framework PDFKit \
   -framework Cocoa \
