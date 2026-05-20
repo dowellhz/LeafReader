@@ -8,6 +8,7 @@ struct WebReadableDocument {
     let plainTextLoader: (() -> String)?
     let coverImageURL: URL?
     let tocItems: [ReaderTOCItem]
+    let diagnostics: [String]
 }
 
 struct ReaderTOCItem {

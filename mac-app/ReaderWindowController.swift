@@ -116,6 +116,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var currentWebSelectionOccurrenceIndex: Int?
     var currentWebSelectionRect: NSRect?
     var pendingWebProgressRestore: (generation: Int, progress: Double, zoomPercent: Int?)?
+    var currentDocumentDiagnostics: [String] = []
     var currentTOCItems: [ReaderTOCItem] = []
     var pdfTOCDestinations: [String: ReaderTOCHelper.PDFTOCDestination] = [:]
     var pdfTOCGeneration = 0

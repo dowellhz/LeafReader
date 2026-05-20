@@ -86,6 +86,25 @@ enum EPUBHTMLSanitizer {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    static func unreadableBody(diagnostics: [String]) -> String {
+        let items = diagnostics.prefix(8).map { "<li>\(escapeHTML($0))</li>" }.joined()
+        let details = items.isEmpty ? "" : "<ul>\(items)</ul>"
+        return """
+        <section class="reader-section">
+          <p>Unable to read EPUB content.</p>
+          \(details)
+        </section>
+        """
+    }
+
+    static func escapeHTML(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+    }
+
     static func decodeEntities(_ text: String) -> String {
         var output = decodeNumericEntities(in: text)
         for entity in namedEntities {

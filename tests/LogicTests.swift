@@ -847,6 +847,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("EPUB spine linear parsing", EPUBLogicTests.testEPUBSpineLinearParsing),
     ("EPUB OPF XML parsing", EPUBLogicTests.testEPUBOPFXMLParsing),
     ("EPUB lazy images and safe paths", EPUBLogicTests.testEPUBLazyImagesAndSafePaths),
+    ("EPUB unreadable body diagnostics", EPUBLogicTests.testEPUBUnreadableBodyDiagnostics),
     ("EPUB TOC href normalization", EPUBLogicTests.testEPUBTOCHrefNormalization),
     ("EPUB internal links and sanitizing", EPUBLogicTests.testEPUBInternalLinkTargetsAndSanitizing),
     ("Word record incremental store", testWordRecordIncrementalStore),

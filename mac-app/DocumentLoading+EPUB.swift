@@ -24,10 +24,23 @@ extension WebDocumentLoader {
         let package = EPUBPackageParser.package(from: opfXML)
         var sections: [String] = []
         var chapterURLs: [URL] = []
+        var diagnostics: [String] = []
         for item in package.spineItems where item.isLinear {
-            guard let href = package.manifest[item.id] else { continue }
-            guard let chapterURL = existingEPUBResourceURL(href, relativeTo: opfDirectory, epubRootURL: directory) else { continue }
-            guard let chapter = try? EPUBTextDecoder.text(at: chapterURL) else { continue }
+            guard let href = package.manifest[item.id] else {
+                diagnostics.append("Spine item '\(item.id)' is missing from the manifest.")
+                continue
+            }
+            guard let chapterURL = existingEPUBResourceURL(href, relativeTo: opfDirectory, epubRootURL: directory) else {
+                diagnostics.append("Chapter '\(href)' is missing or outside the EPUB container.")
+                continue
+            }
+            let chapter: String
+            do {
+                chapter = try EPUBTextDecoder.text(at: chapterURL)
+            } catch {
+                diagnostics.append("Chapter '\(href)' could not be decoded: \(error.localizedDescription)")
+                continue
+            }
             chapterURLs.append(chapterURL)
             let fragment = htmlBodyFragment(from: chapter)
             let content = EPUBHTMLSanitizer.sanitizeContent(
@@ -48,7 +61,9 @@ extension WebDocumentLoader {
             sections.append("<section\(attributes)>\(content)</section>")
         }
 
-        let body = sections.isEmpty ? "<p>Unable to read EPUB content.</p>" : sections.joined(separator: "\n")
+        let body = sections.isEmpty
+            ? EPUBHTMLSanitizer.unreadableBody(diagnostics: diagnostics)
+            : sections.joined(separator: "\n")
         let html = pageHTML(title: url.deletingPathExtension().lastPathComponent, body: body, documentStyles: "", profile: .epub)
         let htmlFileURL = opfDirectory.appendingPathComponent(".leafreader-rendered.html")
         try? html.write(to: htmlFileURL, atomically: true, encoding: .utf8)
@@ -59,7 +74,8 @@ extension WebDocumentLoader {
             plainText: "",
             plainTextLoader: { epubPlainText(from: chapterURLs) },
             coverImageURL: epubCoverImageURL(opfXML: opfXML, manifestItems: package.manifestItems, opfDirectory: opfDirectory, epubRootURL: directory),
-            tocItems: epubTOCItems(opfXML: opfXML, manifest: package.manifest, opfDirectory: opfDirectory, epubRootURL: directory)
+            tocItems: epubTOCItems(opfXML: opfXML, manifest: package.manifest, opfDirectory: opfDirectory, epubRootURL: directory),
+            diagnostics: diagnostics
         )
     }
 

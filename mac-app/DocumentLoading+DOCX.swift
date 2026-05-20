@@ -26,7 +26,8 @@ extension WebDocumentLoader {
             plainText: plainText,
             plainTextLoader: nil,
             coverImageURL: nil,
-            tocItems: docxTOCItems(from: body)
+            tocItems: docxTOCItems(from: body),
+            diagnostics: []
         )
     }
 

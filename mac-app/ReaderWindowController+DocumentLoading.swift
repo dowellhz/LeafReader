@@ -27,6 +27,7 @@ extension ReaderWindowController {
         webPlainTextGeneration += 1
         currentWebSelectedText = ""
         currentWebSelectionRect = nil
+        currentDocumentDiagnostics = []
         currentTOCItems = []
         pdfTOCDestinations = [:]
         schedulePDFTOCBuild(for: url, displayBox: pdfView.displayBox)
@@ -36,6 +37,7 @@ extension ReaderWindowController {
         aiPanel.loadLinkedWordBubbles(pdfWordRecordStore?.linkedWordBubbles(from: storedWordRecords) ?? [])
         loadSavedAIConversationIfNeeded()
         titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
+        applyDocumentDiagnostics([], fileName: url.lastPathComponent)
         updateCoverThumbnail(from: document)
         pageLayoutButton.isHidden = false
         cropButton.isHidden = false
@@ -93,6 +95,7 @@ extension ReaderWindowController {
         currentWebSelectionOccurrenceIndex = nil
         currentWebSelectionRect = nil
         pendingWebProgressRestore = nil
+        currentDocumentDiagnostics = document.diagnostics
         currentTOCItems = document.tocItems
         pdfTOCDestinations = [:]
         webZoomPercent = 100
@@ -103,6 +106,7 @@ extension ReaderWindowController {
         loadSavedAIConversationIfNeeded()
         aiPanel.setSelectedText("")
         titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
+        applyDocumentDiagnostics(document.diagnostics, fileName: url.lastPathComponent)
         if let coverImageURL = document.coverImageURL, let image = NSImage(contentsOf: coverImageURL) {
             coverImageView.image = image
         } else {
@@ -145,6 +149,19 @@ extension ReaderWindowController {
         clearAISourceUnderlineTracking()
         clearSearchState()
         originalPDFCropBoxes.removeAll()
+    }
+
+    func applyDocumentDiagnostics(_ diagnostics: [String], fileName: String) {
+        guard !diagnostics.isEmpty else {
+            titleLabel.toolTip = nil
+            return
+        }
+        let summary = diagnostics.prefix(8).joined(separator: "\n")
+        titleLabel.toolTip = AppText.localized(
+            "部分 EPUB 内容未能读取：\n\(summary)",
+            "Some EPUB content could not be read:\n\(summary)"
+        )
+        NSLog("LeafReader EPUB diagnostics for %@: %@", fileName, diagnostics.joined(separator: " | "))
     }
 
     func scheduleWebPlainTextLoad(_ loader: (() -> String)?, generation: Int) {

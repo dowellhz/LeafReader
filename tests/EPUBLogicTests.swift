@@ -100,6 +100,15 @@ enum EPUBLogicTests {
         try expect(EPUBPathResolver.safeArchivePath("/absolute/file") == nil, "safe EPUB archive path should reject absolute paths")
     }
 
+    static func testEPUBUnreadableBodyDiagnostics() throws {
+        let body = EPUBHTMLSanitizer.unreadableBody(diagnostics: [
+            "Chapter '<bad>.xhtml' could not be decoded: nope"
+        ])
+        try expect(body.contains("Unable to read EPUB content."), "unreadable EPUB body should include fallback text")
+        try expect(body.contains("&lt;bad&gt;.xhtml"), "unreadable EPUB diagnostics should be HTML escaped")
+        try expect(!body.contains("<bad>.xhtml"), "unreadable EPUB diagnostics should not inject raw HTML")
+    }
+
     static func testEPUBTOCHrefNormalization() throws {
         try expectEqual(
             EPUBPathResolver.normalizedTOCHref("../Text/Chapter%201.xhtml#sec%202", relativeTo: "OPS/nav/toc.xhtml"),
