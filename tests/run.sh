@@ -48,6 +48,9 @@ swiftc \
   mac-app/AIResponseTextFormatter.swift \
   mac-app/EmbeddingActionPolicy.swift \
   mac-app/AppText.swift \
+  mac-app/AIModelConfig.swift \
+  mac-app/LocalEncryptedStore.swift \
+  mac-app/AISettingsStore.swift \
   mac-app/ReadingContextSnapshot.swift \
   mac-app/ReaderDocumentKind.swift \
   mac-app/VocabularyExporter.swift \
@@ -59,5 +62,6 @@ swiftc \
   tests/EPUBLogicTests.swift \
   tests/LogicTests.swift \
   -framework PDFKit \
+  -framework Cocoa \
   -o /tmp/leafreader-logic-tests
 /tmp/leafreader-logic-tests

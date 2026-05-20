@@ -41,6 +41,7 @@ enum AISettingsStore {
     static let autoEmbeddingIndexEnabledKey = "autoEmbeddingIndexEnabled"
     static let speakSelectedWordEnabledKey = "speakSelectedWordEnabled"
     static let saveAIConversationEnabledKey = "saveAIConversationEnabled"
+    private static var defaults: UserDefaults = .standard
     private static let fallbackCustomEndpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private static let fallbackEmbeddingEndpoint = URL(string: "https://api.openai.com/v1/embeddings")!
     static let fallbackEmbeddingModelName = "text-embedding-3-small"
@@ -57,6 +58,13 @@ enum AISettingsStore {
             EmbeddingEndpointOption(id: "llamacpp", title: AppText.localized("llama.cpp 本地向量", "llama.cpp Local Embeddings"), endpoint: "http://127.0.0.1:8080/v1/embeddings", defaultModel: "nomic-embed-text", requiresAPIKey: false),
             EmbeddingEndpointOption(id: customEmbeddingEndpointID, title: AppText.localized("其他", "Other"), endpoint: "", defaultModel: "")
         ]
+    }
+
+    static func withDefaults<T>(_ defaults: UserDefaults, perform work: () throws -> T) rethrows -> T {
+        let previousDefaults = self.defaults
+        self.defaults = defaults
+        defer { self.defaults = previousDefaults }
+        return try work()
     }
 
     static var models: [AIModelConfig] {
@@ -129,7 +137,7 @@ enum AISettingsStore {
     }
 
     static var selectedModel: AIModelConfig {
-        let selectedID = UserDefaults.standard.string(forKey: selectedModelKey)
+        let selectedID = defaults.string(forKey: selectedModelKey)
         let model = models.first { $0.id == selectedID } ?? models[0]
         guard model.id == customModelID else { return model }
         return customModelConfig()
@@ -145,10 +153,10 @@ enum AISettingsStore {
             return key
         }
 
-        if let legacyKey = nonEmptyTrimmed(UserDefaults.standard.string(forKey: apiKeyDefaultsKey(for: config.provider))) {
+        if let legacyKey = nonEmptyTrimmed(defaults.string(forKey: apiKeyDefaultsKey(for: config.provider))) {
             LocalEncryptedStore.save(legacyKey, forKey: encryptedAPIKeyDefaultsKey(for: config.provider))
-            UserDefaults.standard.removeObject(forKey: apiKeyDefaultsKey(for: config.provider))
-            UserDefaults.standard.synchronize()
+            defaults.removeObject(forKey: apiKeyDefaultsKey(for: config.provider))
+            defaults.synchronize()
             return legacyKey
         }
 
@@ -157,14 +165,14 @@ enum AISettingsStore {
 
     static func save(modelID: String, apiKey: String, customEndpoint: String = "", customModelName: String = "") {
         guard let model = models.first(where: { $0.id == modelID }) else { return }
-        UserDefaults.standard.set(modelID, forKey: selectedModelKey)
+        defaults.set(modelID, forKey: selectedModelKey)
         if modelID == customModelID {
             saveCustomEndpoint(customEndpoint)
             saveCustomModelName(customModelName)
         }
         LocalEncryptedStore.save(apiKey, forKey: encryptedAPIKeyDefaultsKey(for: model.provider))
-        UserDefaults.standard.removeObject(forKey: apiKeyDefaultsKey(for: model.provider))
-        UserDefaults.standard.synchronize()
+        defaults.removeObject(forKey: apiKeyDefaultsKey(for: model.provider))
+        defaults.synchronize()
     }
 
     static func apiKeyDefaultsKey(for provider: String) -> String {
@@ -180,7 +188,7 @@ enum AISettingsStore {
     }
 
     static var customModelName: String {
-        nonEmptyTrimmed(UserDefaults.standard.string(forKey: customModelNameKey)) ?? "custom-model"
+        nonEmptyTrimmed(defaults.string(forKey: customModelNameKey)) ?? "custom-model"
     }
 
     static var embeddingEndpointString: String {
@@ -188,7 +196,7 @@ enum AISettingsStore {
     }
 
     static var embeddingModelName: String {
-        if let saved = nonEmptyTrimmed(UserDefaults.standard.string(forKey: embeddingModelNameKey)) {
+        if let saved = nonEmptyTrimmed(defaults.string(forKey: embeddingModelNameKey)) {
             return saved
         }
         return nonEmptyTrimmed(selectedEmbeddingEndpointOption.defaultModel) ?? fallbackEmbeddingModelName
@@ -241,14 +249,14 @@ enum AISettingsStore {
         if !legacyProviderKey.isEmpty {
             LocalEncryptedStore.save(legacyProviderKey, forKey: encryptedAPIKeyDefaultsKey(for: providerKey))
             LocalEncryptedStore.save("", forKey: encryptedAPIKeyDefaultsKey(for: embeddingProviderID))
-            UserDefaults.standard.synchronize()
+            defaults.synchronize()
             return legacyProviderKey
         }
 
-        if let legacyKey = nonEmptyTrimmed(UserDefaults.standard.string(forKey: apiKeyDefaultsKey(for: embeddingProviderID))) {
+        if let legacyKey = nonEmptyTrimmed(defaults.string(forKey: apiKeyDefaultsKey(for: embeddingProviderID))) {
             LocalEncryptedStore.save(legacyKey, forKey: encryptedAPIKeyDefaultsKey(for: providerKey))
-            UserDefaults.standard.removeObject(forKey: apiKeyDefaultsKey(for: embeddingProviderID))
-            UserDefaults.standard.synchronize()
+            defaults.removeObject(forKey: apiKeyDefaultsKey(for: embeddingProviderID))
+            defaults.synchronize()
             return legacyKey
         }
 
@@ -256,54 +264,54 @@ enum AISettingsStore {
     }
 
     static var autoEmbeddingIndexEnabled: Bool {
-        UserDefaults.standard.bool(forKey: autoEmbeddingIndexEnabledKey)
+        defaults.bool(forKey: autoEmbeddingIndexEnabledKey)
     }
 
     static func saveAutoEmbeddingIndexEnabled(_ enabled: Bool) {
-        UserDefaults.standard.set(enabled, forKey: autoEmbeddingIndexEnabledKey)
-        UserDefaults.standard.synchronize()
+        defaults.set(enabled, forKey: autoEmbeddingIndexEnabledKey)
+        defaults.synchronize()
     }
 
     static var speakSelectedWordEnabled: Bool {
-        if UserDefaults.standard.object(forKey: speakSelectedWordEnabledKey) == nil {
+        if defaults.object(forKey: speakSelectedWordEnabledKey) == nil {
             return true
         }
-        return UserDefaults.standard.bool(forKey: speakSelectedWordEnabledKey)
+        return defaults.bool(forKey: speakSelectedWordEnabledKey)
     }
 
     static func saveSpeakSelectedWordEnabled(_ enabled: Bool) {
-        UserDefaults.standard.set(enabled, forKey: speakSelectedWordEnabledKey)
-        UserDefaults.standard.synchronize()
+        defaults.set(enabled, forKey: speakSelectedWordEnabledKey)
+        defaults.synchronize()
     }
 
     static var saveAIConversationEnabled: Bool {
-        UserDefaults.standard.bool(forKey: saveAIConversationEnabledKey)
+        defaults.bool(forKey: saveAIConversationEnabledKey)
     }
 
     static func saveAIConversationEnabled(_ enabled: Bool) {
-        UserDefaults.standard.set(enabled, forKey: saveAIConversationEnabledKey)
-        UserDefaults.standard.synchronize()
+        defaults.set(enabled, forKey: saveAIConversationEnabledKey)
+        defaults.synchronize()
     }
 
     static func saveEmbedding(endpoint: String, modelName: String, apiKey: String, optionID: String? = nil) {
         let endpointValue = trimmed(endpoint)
         if validEndpoint(from: endpointValue) != nil {
-            UserDefaults.standard.set(endpointValue, forKey: embeddingEndpointKey)
+            defaults.set(endpointValue, forKey: embeddingEndpointKey)
         } else if endpointValue.isEmpty {
-            UserDefaults.standard.removeObject(forKey: embeddingEndpointKey)
+            defaults.removeObject(forKey: embeddingEndpointKey)
         }
 
         let modelValue = trimmed(modelName)
         if modelValue.isEmpty {
-            UserDefaults.standard.removeObject(forKey: embeddingModelNameKey)
+            defaults.removeObject(forKey: embeddingModelNameKey)
         } else {
-            UserDefaults.standard.set(modelValue, forKey: embeddingModelNameKey)
+            defaults.set(modelValue, forKey: embeddingModelNameKey)
         }
 
         let selectedOptionID = optionID ?? selectedEmbeddingEndpointOption.id
         LocalEncryptedStore.save(apiKey, forKey: encryptedAPIKeyDefaultsKey(for: embeddingAPIKeyProviderID(for: selectedOptionID)))
-        UserDefaults.standard.removeObject(forKey: apiKeyDefaultsKey(for: embeddingProviderID))
-        UserDefaults.standard.synchronize()
+        defaults.removeObject(forKey: apiKeyDefaultsKey(for: embeddingProviderID))
+        defaults.synchronize()
     }
 
     private static func embeddingAPIKeyProviderID(for optionID: String) -> String {
@@ -340,18 +348,18 @@ enum AISettingsStore {
     private static func saveCustomEndpoint(_ endpoint: String) {
         let endpointValue = trimmed(endpoint)
         if validEndpoint(from: endpointValue) != nil {
-            UserDefaults.standard.set(endpointValue, forKey: customEndpointKey)
+            defaults.set(endpointValue, forKey: customEndpointKey)
         } else if endpointValue.isEmpty {
-            UserDefaults.standard.removeObject(forKey: customEndpointKey)
+            defaults.removeObject(forKey: customEndpointKey)
         }
     }
 
     private static func saveCustomModelName(_ modelName: String) {
         let modelValue = trimmed(modelName)
         if modelValue.isEmpty {
-            UserDefaults.standard.removeObject(forKey: customModelNameKey)
+            defaults.removeObject(forKey: customModelNameKey)
         } else {
-            UserDefaults.standard.set(modelValue, forKey: customModelNameKey)
+            defaults.set(modelValue, forKey: customModelNameKey)
         }
     }
 
@@ -376,7 +384,7 @@ enum AISettingsStore {
     }
 
     private static func trimmedStoredString(forKey key: String) -> String? {
-        UserDefaults.standard.string(forKey: key).map(trimmed)
+        defaults.string(forKey: key).map(trimmed)
     }
 }
 

@@ -479,6 +479,59 @@ private func testEmbeddingDefaults() throws {
     try expectEqual(localCustom.requiresAPIKey, false, "custom local embedding endpoints should not require API key")
 }
 
+private func withIsolatedAISettingsDefaults(_ body: (UserDefaults) throws -> Void) throws {
+    let suiteName = "LeafReaderTests.AISettingsStore.\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+        throw TestFailure(description: "could not create isolated defaults suite")
+    }
+    defer {
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+    try AISettingsStore.withDefaults(defaults) {
+        try body(defaults)
+    }
+}
+
+private func testAISettingsStoreInjectedDefaultsModelSelection() throws {
+    try withIsolatedAISettingsDefaults { defaults in
+        try expectEqual(AISettingsStore.selectedModel.id, "deepseek-v4-flash", "missing selected model should use the first built-in model")
+
+        defaults.set("openai-gpt-4-1", forKey: AISettingsStore.selectedModelKey)
+        try expectEqual(AISettingsStore.selectedModel.id, "openai-gpt-4-1", "selected model should read from injected defaults")
+
+        defaults.set(AISettingsStore.customModelID, forKey: AISettingsStore.selectedModelKey)
+        defaults.set(" https://example.com/v1/chat/completions ", forKey: AISettingsStore.customEndpointKey)
+        defaults.set(" custom-chat ", forKey: AISettingsStore.customModelNameKey)
+        let custom = AISettingsStore.selectedModel
+        try expectEqual(custom.id, AISettingsStore.customModelID, "custom model selection should use injected defaults")
+        try expectEqual(custom.endpoint.absoluteString, "https://example.com/v1/chat/completions", "custom endpoint should be trimmed")
+        try expectEqual(custom.model, "custom-chat", "custom model name should be trimmed")
+    }
+}
+
+private func testAISettingsStoreInjectedDefaultsEmbeddingAndToggles() throws {
+    try withIsolatedAISettingsDefaults { defaults in
+        defaults.set("https://api.siliconflow.cn/v1/embeddings", forKey: AISettingsStore.embeddingEndpointKey)
+        try expectEqual(AISettingsStore.selectedEmbeddingEndpointOption.id, "siliconflow", "embedding endpoint should read from injected defaults")
+        try expectEqual(AISettingsStore.embeddingModelName, "Qwen/Qwen3-Embedding-8B", "embedding model should fall back to selected provider default")
+
+        defaults.set(" custom-embedding ", forKey: AISettingsStore.embeddingModelNameKey)
+        try expectEqual(AISettingsStore.embeddingModelName, "custom-embedding", "saved embedding model should be trimmed")
+
+        try expect(AISettingsStore.speakSelectedWordEnabled, "speak selected word should default to enabled")
+        AISettingsStore.saveSpeakSelectedWordEnabled(false)
+        try expect(!AISettingsStore.speakSelectedWordEnabled, "speak selected word should save to injected defaults")
+
+        try expect(!AISettingsStore.autoEmbeddingIndexEnabled, "auto embedding index should default to disabled")
+        AISettingsStore.saveAutoEmbeddingIndexEnabled(true)
+        try expect(AISettingsStore.autoEmbeddingIndexEnabled, "auto embedding index should save to injected defaults")
+
+        try expect(!AISettingsStore.saveAIConversationEnabled, "AI conversation saving should default to disabled")
+        AISettingsStore.saveAIConversationEnabled(true)
+        try expect(AISettingsStore.saveAIConversationEnabled, "AI conversation saving should save to injected defaults")
+    }
+}
+
 private func testEmbeddingKeyIsolation() throws {
     var store = EmbeddingKeyStore()
     store.saveEmbeddingKey("openai-key", optionID: "openai")
@@ -839,6 +892,8 @@ private let tests: [(String, () throws -> Void)] = [
     ("Recent document sorting/import", testRecentDocumentSortingAndImport),
     ("Dropped document actions", testDroppedDocumentActions),
     ("Embedding defaults", testEmbeddingDefaults),
+    ("AI settings injected defaults model selection", testAISettingsStoreInjectedDefaultsModelSelection),
+    ("AI settings injected defaults embedding and toggles", testAISettingsStoreInjectedDefaultsEmbeddingAndToggles),
     ("Embedding key isolation", testEmbeddingKeyIsolation),
     ("Embedding legacy key migration", testEmbeddingLegacyKeyMigration),
     ("Embedding warmup idle policy", testEmbeddingWarmupIdlePolicy),
