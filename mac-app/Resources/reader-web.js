@@ -418,6 +418,13 @@
       const source = block ? (block.innerText || block.textContent || "") : text;
       context = source.replace(/\s+/g, " ").trim().slice(0, 360);
       let occurrenceIndex = 0;
+      const selectionRect = selection.getRangeAt(0).getBoundingClientRect();
+      const rect = {
+        x: selectionRect.left,
+        y: selectionRect.top,
+        width: selectionRect.width,
+        height: selectionRect.height
+      };
       if (block) {
         try {
           const beforeRange = document.createRange();
@@ -426,13 +433,13 @@
           occurrenceIndex = occurrenceIndexInText(source, text, beforeRange.toString());
         } catch (_) {}
       }
-      window.webkit.messageHandlers.selectionChanged.postMessage({ text, context, occurrenceIndex });
+      window.webkit.messageHandlers.selectionChanged.postMessage({ text, context, occurrenceIndex, rect });
       documentMouseDown = false;
       return;
     } else if (documentMouseDown) {
       clearPreservedSelectionHighlight();
     }
-    window.webkit.messageHandlers.selectionChanged.postMessage({ text, context, occurrenceIndex: null });
+    window.webkit.messageHandlers.selectionChanged.postMessage({ text, context, occurrenceIndex: null, rect: null });
     documentMouseDown = false;
   };
   const sendScroll = (force = false) => {

@@ -24,6 +24,7 @@ extension ReaderWindowController {
         currentWebPlainText = ""
         webPlainTextGeneration += 1
         currentWebSelectedText = ""
+        currentWebSelectionRect = nil
         currentTOCItems = []
         pdfTOCDestinations = [:]
         schedulePDFTOCBuild(for: url, displayBox: pdfView.displayBox)
@@ -35,6 +36,8 @@ extension ReaderWindowController {
         titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
         updateCoverThumbnail(from: document)
         pageLayoutButton.isHidden = false
+        fitWidthButton.isHidden = false
+        pdfZoomMode = loadPDFZoomMode()
         applyPDFPageLayout(animated: false)
 
         if !didRegisterSelectionObserver {
@@ -86,6 +89,7 @@ extension ReaderWindowController {
         currentWebSelectedText = ""
         currentWebSelectionContext = ""
         currentWebSelectionOccurrenceIndex = nil
+        currentWebSelectionRect = nil
         currentTOCItems = document.tocItems
         pdfTOCDestinations = [:]
         webZoomPercent = 100
@@ -103,6 +107,7 @@ extension ReaderWindowController {
         }
         coverImageView.isHidden = false
         pageLayoutButton.isHidden = true
+        fitWidthButton.isHidden = true
         pageLabel.stringValue = "0%"
         updatePageLabelTextColor()
         zoomField.stringValue = "100%"

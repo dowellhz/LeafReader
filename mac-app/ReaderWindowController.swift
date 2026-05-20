@@ -62,6 +62,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     static let preferredAIWidthDefaultsKey = "preferredAIWidth"
     static let pdfTwoPageModeDefaultsKey = "pdfTwoPageMode"
+    static let pdfZoomModeDefaultsKey = "pdfZoomMode"
     static let fileMD5CacheDefaultsKey = "fileMD5Cache"
     static let minimumReadablePDFScale: CGFloat = 1.0
     static let capsuleButtonIdentifier = NSUserInterfaceItemIdentifier("leafReaderCapsuleButton")
@@ -83,6 +84,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let pageLabel = ClickEditableTextField(string: AppText.noPDF)
     let zoomField = ClickEditableTextField(string: "100%")
     let searchOverlay = SearchOverlayView()
+    let selectionActionToolbar = SelectionActionToolbar()
+    var selectionActionToolbarWindow: NSWindow?
     var fullScreenButton: NSButton!
     var coverButton: NSButton!
     var tocButton: NSButton!
@@ -91,6 +94,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var prevButton: NSButton!
     var nextButton: NSButton!
     var pageLayoutButton: NSButton!
+    var fitWidthButton: NSButton!
     var searchButton: NSButton!
     var searchUnderlineButton: SearchUnderlineButton!
     let embeddingStatusLabel = NSTextField(labelWithString: "")
@@ -109,11 +113,13 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var currentWebSelectedText = ""
     var currentWebSelectionContext = ""
     var currentWebSelectionOccurrenceIndex: Int?
+    var currentWebSelectionRect: NSRect?
     var currentTOCItems: [ReaderTOCItem] = []
     var pdfTOCDestinations: [String: ReaderTOCHelper.PDFTOCDestination] = [:]
     var pdfTOCGeneration = 0
     var webZoomPercent = 100
     var webScrollProgress: Double = 0
+    var pdfZoomMode: PDFZoomMode = .custom
     var lastWebProgressSave = Date.distantPast
     var accumulatedPDFTrackpadScroll: CGFloat = 0
     var lastPDFTrackpadPageTurn = Date.distantPast

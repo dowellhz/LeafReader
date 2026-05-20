@@ -163,7 +163,9 @@ extension ReaderWindowController {
         currentWebSelectedText = ""
         currentWebSelectionContext = ""
         currentWebSelectionOccurrenceIndex = nil
+        currentWebSelectionRect = nil
         aiPanel.clearSelectedText()
+        hideSelectionToolbar()
     }
 
     func clearWebSearchSelection() {

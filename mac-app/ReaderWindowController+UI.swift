@@ -50,8 +50,10 @@ private enum ReaderUILayout {
     static let searchButtonLeading: CGFloat = 2
     static let iconButtonSize: CGFloat = 28
 
-    static let pageLayoutTrailing: CGFloat = -12
+    static let pageLayoutTrailing: CGFloat = -8
     static let pageLayoutButtonWidth: CGFloat = 84
+    static let fitWidthTrailing: CGFloat = -8
+    static let fitWidthButtonWidth: CGFloat = 84
     static let fullScreenTrailing: CGFloat = -14
     static let fullScreenButtonWidth: CGFloat = 76
     static let toolbarButtonHeight: CGFloat = 30
@@ -110,7 +112,6 @@ extension ReaderWindowController {
         pdfDimOverlay.translatesAutoresizingMaskIntoConstraints = false
         pdfDimOverlay.isHidden = true
         pdfContainer.addSubview(pdfDimOverlay, positioned: .above, relativeTo: pdfView)
-
         for view in [aiPanel] {
             view.translatesAutoresizingMaskIntoConstraints = false
             contentArea.addSubview(view)
@@ -284,10 +285,15 @@ extension ReaderWindowController {
             searchButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.iconButtonSize),
             searchButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.iconButtonSize),
 
-            pageLayoutButton.trailingAnchor.constraint(equalTo: fullScreenButton.leadingAnchor, constant: ReaderUILayout.pageLayoutTrailing),
+            pageLayoutButton.trailingAnchor.constraint(equalTo: fitWidthButton.leadingAnchor, constant: ReaderUILayout.pageLayoutTrailing),
             pageLayoutButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
             pageLayoutButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.pageLayoutButtonWidth),
             pageLayoutButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.toolbarButtonHeight),
+
+            fitWidthButton.trailingAnchor.constraint(equalTo: fullScreenButton.leadingAnchor, constant: ReaderUILayout.fitWidthTrailing),
+            fitWidthButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
+            fitWidthButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.fitWidthButtonWidth),
+            fitWidthButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.toolbarButtonHeight),
 
             fullScreenButton.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor, constant: ReaderUILayout.fullScreenTrailing),
             fullScreenButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
@@ -358,7 +364,7 @@ extension ReaderWindowController {
         configurePageAndSearchControls()
         configureTopRightControls()
 
-        for view in [titleLabel, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, pageLayoutButton!, fullScreenButton!] {
+        for view in [titleLabel, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, pageLayoutButton!, fitWidthButton!, fullScreenButton!] {
             view.translatesAutoresizingMaskIntoConstraints = false
             toolbar.addSubview(view)
         }
@@ -471,6 +477,8 @@ extension ReaderWindowController {
         fullScreenButton = capsuleButton(title: AppText.fullScreen, symbol: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullScreen))
         pageLayoutButton = capsuleButton(title: "", symbol: "rectangle.split.2x1", action: #selector(togglePDFPageLayout))
         pageLayoutButton.toolTip = AppText.localized("切换单页/双页浏览", "Toggle single/two-page view")
+        fitWidthButton = capsuleButton(title: AppText.localized("适宽", "Fit Width"), symbol: "arrow.left.and.right", action: #selector(fitPDFToWidth))
+        fitWidthButton.toolTip = AppText.localized("让当前 PDF 适合阅读区宽度", "Fit the PDF to the reader width")
         updatePDFPageLayoutButton()
     }
 
@@ -545,6 +553,21 @@ extension ReaderWindowController {
         }
         aiPanel.onNonFollowUpSelectionInteraction = { [weak self] in
             self?.clearReaderSelectionForBubbleSelection()
+        }
+        selectionActionToolbar.onTranslate = { [weak self] in
+            self?.runSelectionToolbarAction(.translate)
+        }
+        selectionActionToolbar.onExplain = { [weak self] in
+            self?.runSelectionToolbarAction(.explain)
+        }
+        selectionActionToolbar.onAddWord = { [weak self] in
+            self?.runSelectionToolbarAction(.addWord)
+        }
+        selectionActionToolbar.onSummarize = { [weak self] in
+            self?.runSelectionToolbarAction(.summarize)
+        }
+        selectionActionToolbar.onSpeak = { [weak self] in
+            self?.runSelectionToolbarAction(.speak)
         }
     }
 

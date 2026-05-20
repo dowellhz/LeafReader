@@ -42,20 +42,44 @@ extension ReaderWindowController {
             text = (payload["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             context = (payload["context"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             currentWebSelectionOccurrenceIndex = payload["occurrenceIndex"] as? Int
+            currentWebSelectionRect = webSelectionRect(from: payload["rect"])
         } else {
             text = (message.body as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             context = ""
             currentWebSelectionOccurrenceIndex = nil
+            currentWebSelectionRect = nil
         }
         currentWebSelectedText = text.count > 1 ? text : ""
         currentWebSelectionContext = currentWebSelectedText.isEmpty ? "" : context
         if currentWebSelectedText.isEmpty {
             currentWebSelectionOccurrenceIndex = nil
+            currentWebSelectionRect = nil
         }
         aiPanel.setSelectedText(currentWebSelectedText)
-        if !currentWebSelectedText.isEmpty {
-            setAIPanelCollapsed(false, animated: true)
+        if currentWebSelectedText.isEmpty {
+            hideSelectionToolbar()
+        } else {
+            showSelectionToolbarForWebSelection(rect: currentWebSelectionRect, text: currentWebSelectedText)
         }
+    }
+
+    func webSelectionRect(from value: Any?) -> NSRect? {
+        guard let rect = value as? [String: Any],
+              let x = rect["x"] as? Double,
+              let y = rect["y"] as? Double,
+              let width = rect["width"] as? Double,
+              let height = rect["height"] as? Double,
+              width > 0,
+              height > 0 else {
+            return nil
+        }
+        let viewRect = NSRect(
+            x: x,
+            y: Double(webView.bounds.height) - y - height,
+            width: width,
+            height: height
+        )
+        return webView.convert(viewRect, to: contentArea)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {

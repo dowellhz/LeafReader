@@ -139,6 +139,13 @@ extension AppDelegate {
             key: "2",
             target: controller
         ))
+        menu.addItem(menuItem(
+            AppText.localized("适合宽度", "Fit Width"),
+            action: #selector(ReaderWindowController.fitPDFToWidth),
+            key: "0",
+            target: controller,
+            modifiers: [.command]
+        ))
         menu.addItem(.separator())
         menu.addItem(menuItem(
             AppText.localized("放大", "Zoom In"),

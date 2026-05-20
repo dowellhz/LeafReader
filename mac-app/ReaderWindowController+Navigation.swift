@@ -8,6 +8,7 @@ extension ReaderWindowController {
             setWebZoom(webZoomPercent + 10)
             return
         }
+        setPDFZoomMode(.custom)
         pdfView.autoScales = false
         pdfView.scaleFactor = min(pdfView.scaleFactor * 1.25, 8)
         updateZoomLabel()
@@ -20,6 +21,7 @@ extension ReaderWindowController {
             setWebZoom(webZoomPercent - 10)
             return
         }
+        setPDFZoomMode(.custom)
         pdfView.autoScales = false
         pdfView.scaleFactor = max(pdfView.scaleFactor * 0.8, 0.1)
         updateZoomLabel()
@@ -50,6 +52,7 @@ extension ReaderWindowController {
             updateZoomLabel()
             return
         }
+        setPDFZoomMode(.custom)
         pdfView.autoScales = false
         pdfView.scaleFactor = min(max(percent, 10), 800) / 100
         updateZoomLabel()
@@ -132,6 +135,16 @@ extension ReaderWindowController {
         let nextValue = !isPDFTwoPageModeEnabled()
         setPDFTwoPageModeEnabled(nextValue)
         applyPDFPageLayout(animated: true)
+        reapplyPDFZoomModeIfNeeded()
+        saveSession()
+        window?.makeFirstResponder(pdfView)
+    }
+
+    @objc func fitPDFToWidth() {
+        markReaderInteraction()
+        guard currentDocumentKind == .pdf else { return }
+        setPDFZoomMode(.fitWidth)
+        applyPDFWidthFit(preserveViewport: true)
         saveSession()
         window?.makeFirstResponder(pdfView)
     }
@@ -176,6 +189,7 @@ extension ReaderWindowController {
             }
             self.pdfView.scaleFactor = currentScaleFactor
             self.pageLayoutButton?.isEnabled = true
+            self.reapplyPDFZoomModeIfNeeded()
             self.updateZoomLabel()
         }
         updatePDFPageLayoutButton()
@@ -211,6 +225,54 @@ extension ReaderWindowController {
             return Self.pdfTwoPageModeDefaultsKey
         }
         return "\(Self.pdfTwoPageModeDefaultsKey).\(currentFileMD5)"
+    }
+
+    func loadPDFZoomMode() -> PDFZoomMode {
+        let defaults = UserDefaults.standard
+        let key = pdfZoomModeDefaultsKeyForCurrentBook()
+        let rawValue = defaults.string(forKey: key) ?? defaults.string(forKey: Self.pdfZoomModeDefaultsKey)
+        return rawValue.flatMap(PDFZoomMode.init(rawValue:)) ?? .custom
+    }
+
+    func setPDFZoomMode(_ mode: PDFZoomMode) {
+        pdfZoomMode = mode
+        let defaults = UserDefaults.standard
+        defaults.set(mode.rawValue, forKey: pdfZoomModeDefaultsKeyForCurrentBook())
+        defaults.set(mode.rawValue, forKey: Self.pdfZoomModeDefaultsKey)
+    }
+
+    func pdfZoomModeDefaultsKeyForCurrentBook() -> String {
+        guard let currentFileMD5, !currentFileMD5.isEmpty else {
+            return Self.pdfZoomModeDefaultsKey
+        }
+        return "\(Self.pdfZoomModeDefaultsKey).\(currentFileMD5)"
+    }
+
+    func reapplyPDFZoomModeIfNeeded() {
+        guard currentDocumentKind == .pdf, pdfZoomMode == .fitWidth else { return }
+        applyPDFWidthFit(preserveViewport: true)
+    }
+
+    func applyPDFWidthFit(preserveViewport: Bool) {
+        guard currentDocumentKind == .pdf,
+              let page = pdfView.currentPage ?? pdfView.document?.page(at: 0) else {
+            return
+        }
+        let currentDestination = preserveViewport
+            ? PDFDestination(page: page, at: pdfView.convert(pdfView.bounds.origin, to: page))
+            : nil
+        let pageBounds = page.bounds(for: pdfView.displayBox)
+        let pageCountAcross: CGFloat = isPDFTwoPageModeEnabled() ? 2 : 1
+        let contentWidth = max(pageBounds.width * pageCountAcross, 1)
+        let viewportWidth = pdfView.enclosingScrollView?.contentView.bounds.width ?? pdfView.bounds.width
+        let horizontalPadding: CGFloat = isPDFTwoPageModeEnabled() ? 56 : 36
+        let targetScale = min(max((viewportWidth - horizontalPadding) / contentWidth, 0.1), 8)
+        pdfView.autoScales = false
+        pdfView.scaleFactor = targetScale
+        if let currentDestination {
+            pdfView.go(to: currentDestination)
+        }
+        updateZoomLabel()
     }
 
     func setWebZoom(_ percent: Int) {
@@ -280,7 +342,9 @@ extension ReaderWindowController {
         currentWebSelectedText = ""
         currentWebSelectionContext = ""
         currentWebSelectionOccurrenceIndex = nil
+        currentWebSelectionRect = nil
         aiPanel.clearSelectedText()
+        hideSelectionToolbar()
 
         if currentDocumentKind == .pdf {
             pdfView.clearSelection()
@@ -293,6 +357,8 @@ extension ReaderWindowController {
         currentWebSelectedText = ""
         currentWebSelectionContext = ""
         currentWebSelectionOccurrenceIndex = nil
+        currentWebSelectionRect = nil
+        hideSelectionToolbar()
         if currentDocumentKind == .pdf {
             pdfView.clearSelection()
         } else {
@@ -344,6 +410,7 @@ extension ReaderWindowController {
 
     func handlePDFPageChange() {
         markReaderInteraction()
+        hideSelectionToolbar()
         let newPageIndex = currentPageIndex()
         guard newPageIndex != lastPageIndex else {
             updatePageLabel()
@@ -366,8 +433,10 @@ extension ReaderWindowController {
         let text = selection?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let selectedText = text.count > 1 ? text : ""
         aiPanel.setSelectedText(selectedText)
-        if !selectedText.isEmpty {
-            setAIPanelCollapsed(false, animated: true)
+        if selectedText.isEmpty {
+            hideSelectionToolbar()
+        } else if let selection {
+            showSelectionToolbarForPDFSelection(selection, text: selectedText)
         }
     }
 }

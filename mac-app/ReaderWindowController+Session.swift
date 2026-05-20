@@ -212,6 +212,7 @@ extension ReaderWindowController {
                 pdfView.go(to: firstPage)
             }
             applyReadablePDFScale()
+            reapplyPDFZoomModeIfNeeded()
             return
         }
 
@@ -235,6 +236,7 @@ extension ReaderWindowController {
         if let restoredPage, let anchorPoint = progress.anchorPoint {
             restorePDFViewportAnchor(page: restoredPage, point: anchorPoint)
         }
+        reapplyPDFZoomModeIfNeeded()
     }
 
     func applyReadablePDFScale(_ scale: CGFloat = ReaderWindowController.minimumReadablePDFScale) {

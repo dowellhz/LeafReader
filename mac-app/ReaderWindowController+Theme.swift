@@ -29,6 +29,7 @@ extension ReaderWindowController {
         updateEmbeddingStatusTextColor()
         aiPanel.setTheme(theme)
         searchOverlay.setTheme(theme)
+        selectionActionToolbar.applyTheme(theme)
         pdfView.backgroundColor = chromeBackground
         pdfView.enclosingScrollView?.backgroundColor = chromeBackground
         applyPDFReaderTheme(theme: theme)

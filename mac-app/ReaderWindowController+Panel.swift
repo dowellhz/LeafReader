@@ -161,6 +161,7 @@ extension ReaderWindowController {
     func refreshPDFLayoutAfterPanelChange() {
         pdfContainer.layoutSubtreeIfNeeded()
         pdfView.layoutSubtreeIfNeeded()
+        reapplyPDFZoomModeIfNeeded()
         pdfView.needsDisplay = true
         pdfView.documentView?.needsDisplay = true
     }
@@ -242,6 +243,8 @@ extension ReaderWindowController {
     }
 
     func windowWillClose(_ notification: Notification) {
+        selectionActionToolbarWindow?.orderOut(nil)
+        selectionActionToolbarWindow = nil
         windowResizeLayoutTask.flush()
         aiPanelResizeLayoutTask.flush()
         preferredAIWidthSaveTask.flush()
