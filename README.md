@@ -24,6 +24,10 @@ Download the latest macOS installer:
 
 [Leaf Reader 1.4.18 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.4.18/LeafReader-1.4.18.pkg)
 
+Project website:
+
+https://leafreader.space/
+
 ## Highlights
 
 - Open local PDF, EPUB, and DOCX files in one macOS app.
@@ -268,7 +272,7 @@ release/1.4.18/
 Sparkle updates use:
 
 ```text
-https://dowellhz.github.io/LeafReader/appcast.xml
+https://leafreader.space/appcast.xml
 ```
 
 The appcast entry points to the signed and notarized pkg uploaded to GitHub Releases. For pkg updates, update `docs/appcast.xml` manually with the new version, pkg URL, file length, and EdDSA signature from Sparkle's `sign_update` tool.
