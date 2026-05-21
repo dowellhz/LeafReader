@@ -163,7 +163,6 @@ extension AISettingsPanelController {
 
         guard let runtimeID,
               let runtime = SpeechRuntimeResourceManager.Runtime.runtime(for: runtimeID),
-              runtime.isUsableForReadAloud,
               SpeechRuntimeResourceManager.isInstalled(runtime) else {
             return
         }
@@ -182,9 +181,7 @@ extension AISettingsPanelController {
 
     private func refreshSpeechRuntimePopup() {
         guard let popup = speechRuntimePopup else { return }
-        let installedRuntimes = SpeechRuntimeResourceManager.Runtime.allCases.filter { runtime in
-            runtime.isUsableForReadAloud && SpeechRuntimeResourceManager.isInstalled(runtime)
-        }
+        let installedRuntimes = installedSpeechRuntimes()
         let selectedRuntime = installedRuntimes.first { $0.id == AISettingsStore.selectedSpeechRuntimeID }
             ?? installedRuntimes.first
 
@@ -195,12 +192,14 @@ extension AISettingsPanelController {
             item.title = installed
                 ? runtime.title
                 : AppText.localized("\(runtime.title)（未下载）", "\(runtime.title) (Not downloaded)")
-            item.isEnabled = installed && runtime.isUsableForReadAloud
+            item.isEnabled = installed
         }
         popup.isEnabled = !installedRuntimes.isEmpty
         if let selectedRuntime,
            let selectedItem = popup.itemArray.first(where: { ($0.representedObject as? String) == selectedRuntime.id }) {
             popup.select(selectedItem)
+        } else if let fallbackItem = popup.itemArray.first {
+            popup.select(fallbackItem)
         }
     }
 
@@ -231,9 +230,7 @@ extension AISettingsPanelController {
     }
 
     private func selectSpeechRuntimeAfterDownload(_ downloadedRuntime: SpeechRuntimeResourceManager.Runtime) {
-        let installedRuntimes = SpeechRuntimeResourceManager.Runtime.allCases.filter { runtime in
-            runtime.isUsableForReadAloud && SpeechRuntimeResourceManager.isInstalled(runtime)
-        }
+        let installedRuntimes = installedSpeechRuntimes()
         guard installedRuntimes.contains(downloadedRuntime) else { return }
 
         let selectedRuntime = SpeechRuntimeResourceManager.Runtime.runtime(for: AISettingsStore.selectedSpeechRuntimeID)
@@ -253,10 +250,21 @@ extension AISettingsPanelController {
         KittenTTSPlayer.shared.shutdown()
         do {
             try SpeechRuntimeResourceManager.delete(runtime)
+            selectInstalledSpeechRuntimeIfNeeded(deletedRuntime: runtime)
             refreshSpeechRuntimeStatus()
         } catch {
             showSpeechDeleteError(error)
         }
+    }
+
+    private func selectInstalledSpeechRuntimeIfNeeded(deletedRuntime: SpeechRuntimeResourceManager.Runtime) {
+        guard AISettingsStore.selectedSpeechRuntimeID == deletedRuntime.id else { return }
+        guard let replacement = installedSpeechRuntimes().first else { return }
+        AISettingsStore.saveSelectedSpeechRuntimeID(replacement.id)
+    }
+
+    private func installedSpeechRuntimes() -> [SpeechRuntimeResourceManager.Runtime] {
+        SpeechRuntimeResourceManager.installedReadAloudRuntimes()
     }
 
     private func showSpeechDownloadError(_ error: Error) {

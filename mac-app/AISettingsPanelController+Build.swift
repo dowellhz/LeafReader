@@ -162,10 +162,7 @@ extension AISettingsPanelController {
         let speechLabel = label(AppText.localized("朗读", "Read Aloud"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let speechRuntimeLabel = label(AppText.localized("朗读模型", "TTS Model"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let speechRuntimePopup = popup(
-            items: [
-                ("Kokoro", "kokoro"),
-                ("KittenTTS", "kitten")
-            ],
+            items: SpeechRuntimeResourceManager.Runtime.displayOrder.map { ($0.title, $0.id) },
             selected: AISettingsStore.selectedSpeechRuntimeID,
             fontSize: settingsFontSize
         )
@@ -556,14 +553,14 @@ extension AISettingsPanelController {
             speechSpeedPopup.widthAnchor.constraint(equalToConstant: fieldWidth),
             speechSpeedPopup.heightAnchor.constraint(equalToConstant: controlHeight),
 
-            kokoroSpeechCard.topAnchor.constraint(equalTo: speechSpeedPopup.bottomAnchor, constant: 28),
-            kokoroSpeechCard.leadingAnchor.constraint(equalTo: speechPage.leadingAnchor),
-            kokoroSpeechCard.trailingAnchor.constraint(equalTo: speechPage.trailingAnchor),
-            kokoroSpeechCard.heightAnchor.constraint(equalToConstant: 58),
-            kittenSpeechCard.topAnchor.constraint(equalTo: kokoroSpeechCard.bottomAnchor, constant: 10),
-            kittenSpeechCard.leadingAnchor.constraint(equalTo: kokoroSpeechCard.leadingAnchor),
-            kittenSpeechCard.trailingAnchor.constraint(equalTo: kokoroSpeechCard.trailingAnchor),
+            kittenSpeechCard.topAnchor.constraint(equalTo: speechSpeedPopup.bottomAnchor, constant: 28),
+            kittenSpeechCard.leadingAnchor.constraint(equalTo: speechPage.leadingAnchor),
+            kittenSpeechCard.trailingAnchor.constraint(equalTo: speechPage.trailingAnchor),
             kittenSpeechCard.heightAnchor.constraint(equalToConstant: 58),
+            kokoroSpeechCard.topAnchor.constraint(equalTo: kittenSpeechCard.bottomAnchor, constant: 10),
+            kokoroSpeechCard.leadingAnchor.constraint(equalTo: kittenSpeechCard.leadingAnchor),
+            kokoroSpeechCard.trailingAnchor.constraint(equalTo: kittenSpeechCard.trailingAnchor),
+            kokoroSpeechCard.heightAnchor.constraint(equalToConstant: 58),
 
             kokoroSpeechLabel.centerYAnchor.constraint(equalTo: kokoroSpeechCard.centerYAnchor),
             kokoroSpeechLabel.leadingAnchor.constraint(equalTo: kokoroSpeechCard.leadingAnchor, constant: 16),
@@ -617,7 +614,7 @@ extension AISettingsPanelController {
             kittenSpeechDeleteButton.trailingAnchor.constraint(equalTo: kittenSpeechCard.trailingAnchor, constant: -16),
             kittenSpeechDeleteButton.widthAnchor.constraint(equalToConstant: 76),
             kittenSpeechDeleteButton.heightAnchor.constraint(equalToConstant: controlHeight),
-            kittenSpeechCard.bottomAnchor.constraint(lessThanOrEqualTo: speechPage.bottomAnchor, constant: -8),
+            kokoroSpeechCard.bottomAnchor.constraint(lessThanOrEqualTo: speechPage.bottomAnchor, constant: -8),
 
             currentIndexCard.topAnchor.constraint(equalTo: cachePage.topAnchor, constant: 4),
             currentIndexCard.leadingAnchor.constraint(equalTo: cachePage.leadingAnchor),

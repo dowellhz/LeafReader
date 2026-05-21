@@ -94,11 +94,11 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         queue.async {
             switch Self.preferredBackend() {
             case .kokoroCoreML:
-                if !self.ensureKokoroWorker() {
-                    _ = self.ensureServer()
-                }
+                _ = self.ensureKokoroWorker()
             case .kitten:
                 _ = self.ensureServer()
+            case .none:
+                self.stopRuntimeProcesses()
             }
         }
     }
@@ -807,12 +807,16 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
                 }
             }
             return false
+        case .none:
+            stopRuntimeProcesses()
+            return false
         }
     }
 
     private enum PreferredBackend {
         case kokoroCoreML
         case kitten
+        case none
     }
 
     private static func preferredBackend() -> PreferredBackend {
@@ -828,13 +832,16 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             switch SpeechRuntimeResourceManager.installedRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) {
             case .kitten:
                 return .kitten
-            case .kokoro, .none:
+            case .kokoro:
                 return .kokoroCoreML
+            case .none:
+                return .none
             }
         }
     }
 
     private static func generateWAVWithKokoroCoreML(text: String, outputURL: URL) -> Bool {
+        guard SpeechRuntimeResourceManager.isInstalled(.kokoro) else { return false }
         guard let cliURL = kokoroCoreMLRuntime() else { return false }
 
         let process = Process()
@@ -914,6 +921,10 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     private func generateWAVWithKokoroWorker(text: String, outputURL: URL) -> Bool {
+        guard SpeechRuntimeResourceManager.isInstalled(.kokoro) else {
+            stopKokoroWorker()
+            return false
+        }
         guard ensureKokoroWorker(),
               let inputPipe = kokoroWorkerInputPipe,
               let outputPipe = kokoroWorkerOutputPipe else {
@@ -963,6 +974,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     private func ensureKokoroWorker() -> Bool {
+        guard SpeechRuntimeResourceManager.isInstalled(.kokoro) else { return false }
         if kokoroWorkerProcess?.isRunning == true {
             return true
         }
@@ -1013,6 +1025,11 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         kokoroWorkerInputPipe = nil
         kokoroWorkerOutputPipe = nil
         kokoroWorkerErrorPipe = nil
+    }
+
+    private func stopRuntimeProcesses() {
+        stopKokoroWorker()
+        stopKittenServer()
     }
 
     private func readWorkerLine(from handle: FileHandle) -> String? {

@@ -44,7 +44,7 @@ https://leafreader.space/
 
 Leaf Reader can use [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) or [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs) for English text-to-speech. Small speech runtime executables are bundled in the installer; large model files are downloaded on demand. Open Settings -> AI Analysis -> Speech to download Kokoro or KittenTTS.
 
-Runtime priority is automatic: Kokoro first, then KittenTTS, then Apple system TTS. Short word or phrase selections use Apple TTS directly.
+Runtime priority is automatic: KittenTTS first, then Kokoro. Short word or phrase selections use Apple TTS directly.
 
 Download packages are served from:
 
@@ -56,6 +56,14 @@ Generate the website packages with:
 ```sh
 ./scripts/package_speech_runtimes.sh
 ```
+
+## What's New in 1.5.5
+
+- Fixed speech model deletion so removing Kokoro clears both current and legacy model caches and reports deletion errors instead of silently keeping stale files.
+- Prevented deleted or missing speech models from being restarted by TTS warmup or fallback logic.
+- Made the speech settings UI stable when both Kokoro and KittenTTS are removed, including disabled model selection and close behavior.
+- Put KittenTTS first in speech model selection and download rows, matching the smaller default model path.
+- Simplified speech runtime selection and cleanup code so download cancellation, model deletion, and read-aloud backend choice use one shared runtime state.
 
 ## What's New in 1.5.4
 

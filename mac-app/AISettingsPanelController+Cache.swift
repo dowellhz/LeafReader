@@ -50,6 +50,10 @@ extension AISettingsPanelController {
         cacheRefreshTimer?.invalidate()
         cacheRefreshTimer = nil
         removeAppActivationObserver()
+        if let sheet = panel.attachedSheet {
+            panel.endSheet(sheet)
+            sheet.orderOut(nil)
+        }
         ModalOverlayManager.shared.dismiss(panel, attachedTo: parentWindow)
         self.panel = nil
         isClosing = false

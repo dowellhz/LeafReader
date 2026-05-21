@@ -10,7 +10,7 @@ enum SpeechRuntimeResourceManager {
         case kokoro
         case kitten
 
-        static let defaultRuntime: Runtime = .kokoro
+        static let displayOrder: [Runtime] = [.kitten, .kokoro]
 
         var id: String {
             switch self {
@@ -40,7 +40,7 @@ enum SpeechRuntimeResourceManager {
         }
 
         static func runtime(for id: String) -> Runtime? {
-            allCases.first { $0.id == id }
+            displayOrder.first { $0.id == id }
         }
 
         static func isValidID(_ id: String) -> Bool {
@@ -104,14 +104,6 @@ enum SpeechRuntimeResourceManager {
             }
         }
 
-        var canDownloadInApp: Bool {
-            true
-        }
-
-        var isUsableForReadAloud: Bool {
-            true
-        }
-
         static var fluidAudioModelCacheRoot: URL {
             FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent(".cache/fluidaudio/Models", isDirectory: true)
@@ -138,12 +130,15 @@ enum SpeechRuntimeResourceManager {
 
     static func installedRuntime(preferredID: String) -> Runtime? {
         if let preferred = Runtime.runtime(for: preferredID),
-           preferred.isUsableForReadAloud,
            isInstalled(preferred) {
             return preferred
         }
-        return Runtime.allCases.first { runtime in
-            runtime.isUsableForReadAloud && isInstalled(runtime)
+        return installedReadAloudRuntimes().first
+    }
+
+    static func installedReadAloudRuntimes() -> [Runtime] {
+        Runtime.displayOrder.filter { runtime in
+            isInstalled(runtime)
         }
     }
 
@@ -195,6 +190,20 @@ enum SpeechRuntimeResourceManager {
             && FileManager.default.fileExists(atPath: vocab.path)
     }
 
+    private static func kokoroModelCacheDirectories() -> [URL] {
+        let cacheRoot = Runtime.fluidAudioModelCacheRoot
+        return [
+            cacheRoot.appendingPathComponent("kokoro", isDirectory: true),
+            cacheRoot.appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
+        ]
+    }
+
+    private static func removeItemIfExists(at url: URL) throws {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: url.path) else { return }
+        try fileManager.removeItem(at: url)
+    }
+
     static func statusText(for runtime: Runtime) -> String {
         let size = runtime.downloadSizeText
         if isDownloading(runtime) {
@@ -238,13 +247,7 @@ enum SpeechRuntimeResourceManager {
     }
 
     static func cancel(_ runtime: Runtime) {
-        let completions = stateQueue.sync {
-            let completions = activeDownloads[runtime] ?? []
-            let task = activeTasks[runtime]
-            clearActiveDownloadState(for: runtime)
-            task?.cancel()
-            return completions
-        }
+        let completions = stopActiveDownload(for: runtime)
         try? FileManager.default.removeItem(at: partialDownloadURL(for: runtime))
         let error = NSError(
             domain: NSCocoaErrorDomain,
@@ -269,11 +272,23 @@ enum SpeechRuntimeResourceManager {
     }
 
     static func delete(_ runtime: Runtime) throws {
-        let fileManager = FileManager.default
-        try? fileManager.removeItem(at: partialDownloadURL(for: runtime))
-        try? fileManager.removeItem(at: runtime.installDirectory)
+        _ = stopActiveDownload(for: runtime)
+        try removeItemIfExists(at: partialDownloadURL(for: runtime))
+        try removeItemIfExists(at: runtime.installDirectory)
         if runtime == .kokoro {
-            try? fileManager.removeItem(at: Runtime.fluidAudioModelCacheRoot.appendingPathComponent("kokoro", isDirectory: true))
+            for modelCacheDirectory in kokoroModelCacheDirectories() {
+                try removeItemIfExists(at: modelCacheDirectory)
+            }
+        }
+    }
+
+    private static func stopActiveDownload(for runtime: Runtime) -> [(Result<Void, Error>) -> Void] {
+        stateQueue.sync {
+            let completions = activeDownloads[runtime] ?? []
+            let task = activeTasks[runtime]
+            clearActiveDownloadState(for: runtime)
+            task?.cancel()
+            return completions
         }
     }
 
