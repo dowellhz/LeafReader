@@ -10,14 +10,14 @@
       <sparkle:version>1.5.2</sparkle:version>
       <sparkle:shortVersionString>1.5.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <pubDate>Thu, 21 May 2026 09:35:23 +0000</pubDate>
+      <pubDate>Thu, 21 May 2026 09:48:12 +0000</pubDate>
       <description><![CDATA[
         <ul><li>Leaf Reader 1.5.2 release.</li></ul>
       ]]></description>
       <enclosure
         url="https://github.com/dowellhz/LeafReader/releases/download/v1.5.2/LeafReader-1.5.2.pkg"
-        sparkle:edSignature="AJ+DomaJBKWLJ8FkIFFq6M53piP2m/SMsidollD6kPVHGo2ox3H7nue+qvQhULw/Sk+hOFERs+mRCK0gf9y/Bg=="
-        length="13807799"
+        sparkle:edSignature="0QmyrQ/4XXfIQ0L9adHPABpYVnN11Qd6Rn+zoPu5f0KzpXk2oQ7BX8CnK7GFCJZyELHWA6PXewprXKTLYJvlAQ=="
+        length="17352163"
         type="application/octet-stream" />
     </item>
   </channel>
