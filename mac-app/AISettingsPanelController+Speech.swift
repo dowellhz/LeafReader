@@ -210,6 +210,7 @@ extension AISettingsPanelController {
             guard let self else { return }
             switch result {
             case .success:
+                self.selectSpeechRuntimeAfterDownload(runtime)
                 self.refreshSpeechRuntimeStatus()
             case .failure(let error):
                 guard (error as NSError).code != NSUserCancelledError else {
@@ -227,6 +228,25 @@ extension AISettingsPanelController {
             }
         }
         refreshSpeechRuntimeStatus()
+    }
+
+    private func selectSpeechRuntimeAfterDownload(_ downloadedRuntime: SpeechRuntimeResourceManager.Runtime) {
+        let installedRuntimes = SpeechRuntimeResourceManager.Runtime.allCases.filter { runtime in
+            runtime.isUsableForReadAloud && SpeechRuntimeResourceManager.isInstalled(runtime)
+        }
+        guard installedRuntimes.contains(downloadedRuntime) else { return }
+
+        let selectedRuntime = SpeechRuntimeResourceManager.Runtime.runtime(for: AISettingsStore.selectedSpeechRuntimeID)
+        let selectedRuntimeIsInstalled = selectedRuntime.map { installedRuntimes.contains($0) } ?? false
+        guard installedRuntimes.count == 1 || !selectedRuntimeIsInstalled else { return }
+
+        let previousRuntimeID = AISettingsStore.selectedSpeechRuntimeID
+        AISettingsStore.saveSelectedSpeechRuntimeID(downloadedRuntime.id)
+        guard downloadedRuntime.id != previousRuntimeID else { return }
+        KittenTTSPlayer.shared.regenerateRemainingSegmentsForUpdatedParameters()
+        if !KittenTTSPlayer.shared.hasActiveReadAloudWork() {
+            KittenTTSPlayer.shared.shutdown()
+        }
     }
 
     private func deleteSpeechRuntime(_ runtime: SpeechRuntimeResourceManager.Runtime) {

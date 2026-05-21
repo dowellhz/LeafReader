@@ -22,7 +22,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 Download the latest macOS installer:
 
-[Leaf Reader 1.5.2 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.5.2/LeafReader-1.5.2.pkg)
+[Leaf Reader 1.5.3 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.5.3/LeafReader-1.5.3.pkg)
 
 Project website:
 
@@ -42,7 +42,7 @@ https://leafreader.space/
 
 ## Optional English Speech Runtimes
 
-Leaf Reader can use [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) or [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs) for English text-to-speech. Speech models and runtimes are not bundled in the installer. Open Settings -> AI Analysis -> Speech to download Kokoro or KittenTTS on demand.
+Leaf Reader can use [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) or [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs) for English text-to-speech. Small speech runtime executables are bundled in the installer; large model files are downloaded on demand. Open Settings -> AI Analysis -> Speech to download Kokoro or KittenTTS.
 
 Runtime priority is automatic: Kokoro first, then KittenTTS, then Apple system TTS. Short word or phrase selections use Apple TTS directly.
 
@@ -56,6 +56,13 @@ Generate the website packages with:
 ```sh
 ./scripts/package_speech_runtimes.sh
 ```
+
+## What's New in 1.5.3
+
+- Bundled KittenTTS' required `espeak-ng` runtime, dylibs, and data files so KittenTTS no longer depends on a Homebrew install.
+- Made KittenTTS prefer the signed server bundled inside the app while continuing to use downloaded model files.
+- Added a build fallback that extracts the bundled KittenTTS server from the speech runtime archive when the local runtime directory is missing.
+- Automatically switches speech settings to a newly downloaded runtime when it is the only usable model, or when the previous selection is no longer installed.
 
 ## What's New in 1.5.2
 

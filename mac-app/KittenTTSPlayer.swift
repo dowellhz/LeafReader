@@ -996,6 +996,13 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
             "--port",
             String(Self.serverPort())
         ]
+        var environment = ProcessInfo.processInfo.environment
+        if let espeakRuntime = Self.bundledESpeakRuntime() {
+            let existingPath = environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
+            environment["PATH"] = "\(espeakRuntime.binDirectoryURL.path):\(existingPath)"
+            environment["ESPEAK_DATA_PATH"] = espeakRuntime.dataDirectoryURL.path
+        }
+        process.environment = environment
         process.standardOutput = outputPipe
         process.standardError = errorPipe
         outputPipe.fileHandleForReading.readabilityHandler = { handle in
@@ -1103,6 +1110,27 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
         return min(max(value, 0.5), 2.0)
     }
 
+    private static func bundledESpeakRuntime() -> (binDirectoryURL: URL, dataDirectoryURL: URL)? {
+        guard let resourceURL = Bundle.main.resourceURL else {
+            return nil
+        }
+        let runtimeRoot = resourceURL
+            .appendingPathComponent("SpeechRuntimes", isDirectory: true)
+            .appendingPathComponent("espeak-ng", isDirectory: true)
+        let binDirectoryURL = runtimeRoot.appendingPathComponent("bin", isDirectory: true)
+        let executableURL = binDirectoryURL.appendingPathComponent("espeak-ng")
+        let dataDirectoryURL = runtimeRoot
+            .appendingPathComponent("share", isDirectory: true)
+            .appendingPathComponent("espeak-ng-data", isDirectory: true)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.isExecutableFile(atPath: executableURL.path),
+              FileManager.default.fileExists(atPath: dataDirectoryURL.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            return nil
+        }
+        return (binDirectoryURL, dataDirectoryURL)
+    }
+
     private static func kokoroTTSSpeed() -> Double {
         let value = ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLSpeedEnvironmentKey]
             .flatMap(Double.init) ?? AISettingsStore.kokoroSpeechSpeedMultiplier
@@ -1123,13 +1151,15 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
             return (URL(fileURLWithPath: serverPath), URL(fileURLWithPath: modelPath))
         }
 
-        let candidateRoots = SpeechRuntimeResourceManager.Runtime.kitten.installDirectories
-        for runtimeRoot in candidateRoots {
+        let runtime = SpeechRuntimeResourceManager.Runtime.kitten
+        let serverCandidateRoots = [runtime.bundledInstallDirectory, runtime.installDirectory].compactMap { $0 }
+        let modelCandidateRoots = [runtime.installDirectory, runtime.bundledInstallDirectory].compactMap { $0 }
+        for runtimeRoot in serverCandidateRoots {
             let serverURL = runtimeRoot.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server")
             guard fileManager.isExecutableFile(atPath: serverURL.path) else {
                 continue
             }
-            for modelRoot in candidateRoots {
+            for modelRoot in modelCandidateRoots {
                 let modelDirectoryURL = modelRoot.appendingPathComponent("kitten-tts-mini", isDirectory: true)
                 let modelURL = modelDirectoryURL.appendingPathComponent("kitten_tts_mini_v0_8.onnx")
                 let voicesURL = modelDirectoryURL.appendingPathComponent("voices.npz")
