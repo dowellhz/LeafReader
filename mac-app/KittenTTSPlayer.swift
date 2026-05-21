@@ -947,13 +947,13 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
         let environmentPath = ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLCLIEnvironmentKey]
         let candidatePaths = [
             environmentPath,
-            fileManager.homeDirectoryForCurrentUser
-                .appendingPathComponent(Runtime.defaultKokoroCoreMLCLIPath)
-                .path,
             Bundle.main.resourceURL?
                 .appendingPathComponent("SpeechRuntimes", isDirectory: true)
                 .appendingPathComponent("kokoro-coreml", isDirectory: true)
                 .appendingPathComponent("fluidaudiocli")
+                .path,
+            fileManager.homeDirectoryForCurrentUser
+                .appendingPathComponent(Runtime.defaultKokoroCoreMLCLIPath)
                 .path,
         ].compactMap { $0 }
 

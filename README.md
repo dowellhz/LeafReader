@@ -57,6 +57,12 @@ Generate the website packages with:
 ./scripts/package_speech_runtimes.sh
 ```
 
+## What's New in 1.5.2
+
+- Fixed Kokoro speech status so new installs no longer show Kokoro as installed unless the downloaded model files are complete.
+- Made Kokoro playback prefer the signed runtime bundled inside the app while using downloaded model files from the user cache.
+- Kept KittenTTS on the smaller bundled server runtime path with models downloaded separately.
+
 ## What's New in 1.5.1
 
 - Bundled the small KittenTTS server and Kokoro CLI runtimes inside the app so users only need to download speech models.

@@ -129,9 +129,7 @@ enum SpeechRuntimeResourceManager {
         if runtime == .kokoro {
             return runtime.installDirectories.contains { directory in
                 FileManager.default.isExecutableFile(atPath: directory.appendingPathComponent("fluidaudiocli").path)
-            } && FileManager.default.fileExists(
-                atPath: Runtime.fluidAudioModelCacheRoot.appendingPathComponent("kokoro", isDirectory: true).path
-            )
+            } && kokoroModelPathsExist()
         }
         return runtime.installDirectories.contains { directory in
             requiredPathsExist(runtime.requiredPaths(in: directory))
@@ -176,6 +174,25 @@ enum SpeechRuntimeResourceManager {
             && FileManager.default.fileExists(atPath: model.path)
             && FileManager.default.fileExists(atPath: voices.path)
             && FileManager.default.fileExists(atPath: config.path)
+    }
+
+    private static func kokoroModelPathsExist() -> Bool {
+        let modelDirectory = Runtime.fluidAudioModelCacheRoot.appendingPathComponent("kokoro", isDirectory: true)
+        let model = modelDirectory.appendingPathComponent("kokoro_21_15s.mlmodelc", isDirectory: true)
+        let voices = modelDirectory.appendingPathComponent("voices", isDirectory: true)
+        let config = modelDirectory.appendingPathComponent("config.json")
+        let vocab = modelDirectory.appendingPathComponent("vocab_index.json")
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: modelDirectory.path, isDirectory: &isDirectory),
+              isDirectory.boolValue,
+              FileManager.default.fileExists(atPath: model.path, isDirectory: &isDirectory),
+              isDirectory.boolValue,
+              FileManager.default.fileExists(atPath: voices.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            return false
+        }
+        return FileManager.default.fileExists(atPath: config.path)
+            && FileManager.default.fileExists(atPath: vocab.path)
     }
 
     static func statusText(for runtime: Runtime) -> String {
