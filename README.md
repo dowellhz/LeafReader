@@ -46,16 +46,23 @@ Leaf Reader can use [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInfe
 
 Runtime priority is automatic: KittenTTS first, then Kokoro. Short word or phrase selections use Apple TTS directly.
 
-Download packages are served from:
+Download packages are served from GitHub Releases:
 
-- `https://leafreader.space/tts/kokoro-coreml-macos-arm64.tar.gz` (Kokoro runtime plus model cache, about 372 MB)
-- `https://leafreader.space/tts/kitten-tts-rs-macos-arm64.tar.gz` (KittenTTS runtime plus mini model, about 74 MB)
+- `https://github.com/dowellhz/LeafReader/releases/download/v1.4.18/kokoro-coreml-macos-arm64.tar.gz` (Kokoro runtime plus model cache, about 372 MB)
+- `https://github.com/dowellhz/LeafReader/releases/download/v1.4.18/kitten-tts-rs-macos-arm64.tar.gz` (KittenTTS runtime plus mini model, about 74 MB)
 
 Generate the website packages with:
 
 ```sh
 ./scripts/package_speech_runtimes.sh
 ```
+
+## What's New in 1.5.6
+
+- Made speech model downloads write partial files as data arrives, so interrupted GitHub downloads can resume instead of restarting from zero.
+- Added automatic retry and HTTP status validation for Kokoro and KittenTTS downloads.
+- Added archive validation so server error pages are reported as download failures instead of being passed to `tar`.
+- Updated speech runtime download documentation to match the GitHub Release URLs used by the app.
 
 ## What's New in 1.5.5
 
