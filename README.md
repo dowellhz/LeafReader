@@ -57,6 +57,13 @@ Generate the website packages with:
 ./scripts/package_speech_runtimes.sh
 ```
 
+## What's New in 1.5.4
+
+- Switched generated TTS WAV playback from `NSSound` to `AVAudioPlayer` to improve reliability on Bluetooth/headphone output routes.
+- Added playback watchdogs so read-aloud advances instead of hanging when macOS never reports audio completion.
+- Started each KittenTTS server on a per-process random local port to avoid connecting to stale server processes from an older app instance.
+- Made app termination synchronously stop speech playback and terminate Kokoro/KittenTTS child processes.
+
 ## What's New in 1.5.3
 
 - Bundled KittenTTS' required `espeak-ng` runtime, dylibs, and data files so KittenTTS no longer depends on a Homebrew install.
