@@ -181,7 +181,7 @@ extension AISettingsPanelController {
 
     private func refreshSpeechRuntimePopup() {
         guard let popup = speechRuntimePopup else { return }
-        let installedRuntimes = installedSpeechRuntimes()
+        let installedRuntimes = SpeechRuntimeResourceManager.installedReadAloudRuntimes()
         let selectedRuntime = installedRuntimes.first { $0.id == AISettingsStore.selectedSpeechRuntimeID }
             ?? installedRuntimes.first
 
@@ -230,7 +230,7 @@ extension AISettingsPanelController {
     }
 
     private func selectSpeechRuntimeAfterDownload(_ downloadedRuntime: SpeechRuntimeResourceManager.Runtime) {
-        let installedRuntimes = installedSpeechRuntimes()
+        let installedRuntimes = SpeechRuntimeResourceManager.installedReadAloudRuntimes()
         guard installedRuntimes.contains(downloadedRuntime) else { return }
 
         let selectedRuntime = SpeechRuntimeResourceManager.Runtime.runtime(for: AISettingsStore.selectedSpeechRuntimeID)
@@ -259,12 +259,8 @@ extension AISettingsPanelController {
 
     private func selectInstalledSpeechRuntimeIfNeeded(deletedRuntime: SpeechRuntimeResourceManager.Runtime) {
         guard AISettingsStore.selectedSpeechRuntimeID == deletedRuntime.id else { return }
-        guard let replacement = installedSpeechRuntimes().first else { return }
+        guard let replacement = SpeechRuntimeResourceManager.installedReadAloudRuntimes().first else { return }
         AISettingsStore.saveSelectedSpeechRuntimeID(replacement.id)
-    }
-
-    private func installedSpeechRuntimes() -> [SpeechRuntimeResourceManager.Runtime] {
-        SpeechRuntimeResourceManager.installedReadAloudRuntimes()
     }
 
     private func showSpeechDownloadError(_ error: Error) {
