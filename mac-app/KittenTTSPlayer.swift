@@ -761,29 +761,34 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
             "--voice",
             ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLVoiceEnvironmentKey]
                 ?? Runtime.defaultKokoroCoreMLVoice,
-            "--speed",
-            String(kokoroTTSSpeed()),
             "--output",
             outputURL.path
         ]
         process.arguments = arguments
-        let outputPipe = Pipe()
-        process.standardOutput = outputPipe
-        let errorPipe = Pipe()
-        process.standardError = errorPipe
+        let diagnosticURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("leafreader-kokoro-\(UUID().uuidString).log")
+        FileManager.default.createFile(atPath: diagnosticURL.path, contents: nil)
+        let diagnosticHandle = FileHandle(forWritingAtPath: diagnosticURL.path)
+        process.standardOutput = diagnosticHandle
+        process.standardError = diagnosticHandle
         do {
             try process.run()
             process.waitUntilExit()
         } catch {
+            diagnosticHandle?.closeFile()
+            try? FileManager.default.removeItem(at: diagnosticURL)
             NSLog("LeafReader Kokoro CoreML: failed to run FluidAudio CLI (error=%@)", error.localizedDescription)
             return false
         }
+        diagnosticHandle?.closeFile()
         let outputExists = Self.isUsableWAV(at: outputURL)
         if process.terminationStatus == 0, outputExists {
+            try? FileManager.default.removeItem(at: diagnosticURL)
             return true
         }
 
         if outputExists {
+            try? FileManager.default.removeItem(at: diagnosticURL)
             NSLog(
                 "LeafReader Kokoro CoreML: FluidAudio CLI exited with status=%d after creating audio; continuing playback (output=%@)",
                 process.terminationStatus,
@@ -792,23 +797,17 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
             return true
         }
 
-        do {
-            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let outputMessage = Self.diagnosticTail(String(data: outputData, encoding: .utf8))
-            let errorMessage = Self.diagnosticTail(String(data: errorData, encoding: .utf8))
-            let message = [outputMessage, errorMessage]
-                .filter { !$0.isEmpty }
-                .joined(separator: "\n")
-            NSLog(
-                "LeafReader Kokoro CoreML: FluidAudio CLI failed (status=%d, outputExists=%@, output=%@, details=%@)",
-                process.terminationStatus,
-                outputExists ? "yes" : "no",
-                outputURL.path,
-                message
-            )
-            return false
-        }
+        let diagnosticData = (try? Data(contentsOf: diagnosticURL)) ?? Data()
+        let message = Self.diagnosticTail(String(data: diagnosticData, encoding: .utf8))
+        try? FileManager.default.removeItem(at: diagnosticURL)
+        NSLog(
+            "LeafReader Kokoro CoreML: FluidAudio CLI failed (status=%d, outputExists=%@, output=%@, details=%@)",
+            process.terminationStatus,
+            outputExists ? "yes" : "no",
+            outputURL.path,
+            message
+        )
+        return false
     }
 
     private static func diagnosticTail(_ value: String?) -> String {

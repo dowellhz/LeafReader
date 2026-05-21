@@ -9,6 +9,7 @@ MACOS_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET:-12.0}"
 ARCHS="${ARCHS:-arm64 x86_64}"
 KITTEN_RUNTIME_DIR="${KITTEN_RUNTIME_DIR:-$HOME/.local/share/leafreader/kittentts-rs-runtime}"
 KOKORO_RUNTIME="${KOKORO_RUNTIME:-$HOME/.local/share/leafreader/kokoro-coreml/fluidaudiocli}"
+KOKORO_RUNTIME_ARCHIVE="${KOKORO_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kokoro-coreml-macos-arm64.tar.gz}"
 export COPYFILE_DISABLE=1
 
 if [[ ! -d "$SPARKLE_HOME/Sparkle.framework" ]]; then
@@ -47,8 +48,16 @@ if [[ -x "$KOKORO_RUNTIME" ]]; then
   cp "$KOKORO_RUNTIME" "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
   chmod 755 "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
   strip -x "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli" || true
+elif [[ -f "$KOKORO_RUNTIME_ARCHIVE" ]]; then
+  KOKORO_EXTRACT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/leafreader-kokoro-runtime.XXXXXX")"
+  tar -xzf "$KOKORO_RUNTIME_ARCHIVE" -C "$KOKORO_EXTRACT_DIR" ./fluidaudiocli
+  mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml"
+  cp "$KOKORO_EXTRACT_DIR/fluidaudiocli" "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
+  rm -rf "$KOKORO_EXTRACT_DIR"
+  chmod 755 "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
+  strip -x "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli" || true
 else
-  echo "Warning: Kokoro runtime not bundled; missing $KOKORO_RUNTIME" >&2
+  echo "Warning: Kokoro runtime not bundled; missing $KOKORO_RUNTIME and $KOKORO_RUNTIME_ARCHIVE" >&2
 fi
 cp -R "$SPARKLE_HOME/Sparkle.framework" "$APP_PATH/Contents/Frameworks/"
 find "$APP_PATH" -name '._*' -type f -delete
