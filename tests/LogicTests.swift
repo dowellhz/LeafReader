@@ -324,6 +324,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Embedding defaults", AISettingsLogicTests.testEmbeddingDefaults),
     ("AI settings injected defaults model selection", AISettingsLogicTests.testAISettingsStoreInjectedDefaultsModelSelection),
     ("AI settings injected defaults embedding and toggles", AISettingsLogicTests.testAISettingsStoreInjectedDefaultsEmbeddingAndToggles),
+    ("AI settings speech selection validation", AISettingsLogicTests.testAISettingsStoreSpeechSelectionValidation),
     ("Embedding key isolation", AISettingsLogicTests.testEmbeddingKeyIsolation),
     ("Embedding legacy key migration", AISettingsLogicTests.testEmbeddingLegacyKeyMigration),
     ("Embedding warmup idle policy", testEmbeddingWarmupIdlePolicy),

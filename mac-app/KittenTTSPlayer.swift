@@ -54,10 +54,12 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
     struct ReadAloudSegment {
         let speechText: String
         let displayText: String
+        let pageIndex: Int?
 
-        init(speechText: String, displayText: String? = nil) {
+        init(speechText: String, displayText: String? = nil, pageIndex: Int? = nil) {
             self.speechText = speechText
             self.displayText = displayText ?? speechText
+            self.pageIndex = pageIndex
         }
     }
 
@@ -67,6 +69,7 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
         let text: String
         let index: Int
         let total: Int
+        let pageIndex: Int?
     }
 
     private struct KokoroWorkerRequest: Codable {
@@ -111,7 +114,11 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
             let speechText = Self.normalizedEnglishTTSInput(segment.speechText)
             guard !speechText.isEmpty else { return nil }
             let displayText = segment.displayText.trimmingCharacters(in: .whitespacesAndNewlines)
-            return ReadAloudSegment(speechText: speechText, displayText: displayText.isEmpty ? speechText : displayText)
+            return ReadAloudSegment(
+                speechText: speechText,
+                displayText: displayText.isEmpty ? speechText : displayText,
+                pageIndex: segment.pageIndex
+            )
         }
         let combinedText = segments.map(\.speechText).joined(separator: " ")
         guard Self.isEnglishCandidate(combinedText), !segments.isEmpty else {
@@ -153,7 +160,8 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
                         speechText: segment.speechText,
                         text: segment.displayText,
                         index: segmentIndex + 1,
-                        total: segments.count
+                        total: segments.count,
+                        pageIndex: segment.pageIndex
                     ))
                     if shouldReportSuccess {
                         completion(true)
@@ -308,7 +316,8 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
                         speechText: sourceSegment.speechText,
                         text: sourceSegment.displayText,
                         index: startIndex + offset + 1,
-                        total: totalSegments
+                        total: totalSegments,
+                        pageIndex: sourceSegment.pageIndex
                     )
                     DispatchQueue.main.async {
                         guard self.activeGenerationID == generationID else {
@@ -505,16 +514,24 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
     }
 
     private func postReadingSegment(_ segment: PlaybackSegment) {
+        var userInfo: [String: Any] = [
+            "active": true,
+            "index": segment.index,
+            "total": segment.total,
+            "text": segment.text
+        ]
+        if let pageIndex = segment.pageIndex {
+            userInfo["pageIndex"] = pageIndex
+        }
         NotificationCenter.default.post(
             name: Self.readingSegmentDidChangeNotification,
             object: self,
-            userInfo: [
-                "active": true,
-                "index": segment.index,
-                "total": segment.total,
-                "text": segment.text
-            ]
+            userInfo: userInfo
         )
+    }
+
+    static func readAloudSegments(for text: String) -> [String] {
+        ttsSegments(for: normalizedEnglishTTSInput(text))
     }
 
     private func postReadingEnded() {

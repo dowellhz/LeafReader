@@ -166,6 +166,28 @@ enum AISettingsLogicTests {
         }
     }
 
+    static func testAISettingsStoreSpeechSelectionValidation() throws {
+        try withIsolatedAISettingsDefaults { defaults in
+            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kokoro", "speech runtime should default to Kokoro")
+            try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "speech speed should default to normal")
+
+            AISettingsStore.saveSelectedSpeechRuntimeID("kitten")
+            AISettingsStore.saveSpeechSpeedID("slow")
+            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "valid speech runtime should save")
+            try expectEqual(AISettingsStore.selectedSpeechSpeedID, "slow", "valid speech speed should save")
+
+            AISettingsStore.saveSelectedSpeechRuntimeID("missing-runtime")
+            AISettingsStore.saveSpeechSpeedID("warp")
+            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "invalid speech runtime should be ignored")
+            try expectEqual(AISettingsStore.selectedSpeechSpeedID, "slow", "invalid speech speed should be ignored")
+
+            defaults.set(" missing-runtime ", forKey: AISettingsStore.selectedSpeechRuntimeKey)
+            defaults.set(" warp ", forKey: AISettingsStore.speechSpeedKey)
+            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kokoro", "invalid stored speech runtime should fall back")
+            try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "invalid stored speech speed should fall back")
+        }
+    }
+
     static func testEmbeddingKeyIsolation() throws {
         var store = EmbeddingKeyStore()
         store.saveEmbeddingKey("openai-key", optionID: "openai")

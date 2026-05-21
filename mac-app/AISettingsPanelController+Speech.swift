@@ -49,12 +49,18 @@ extension AISettingsPanelController {
     }
 
     @objc func speechRuntimeChanged(_ sender: NSPopUpButton) {
-        guard let id = sender.selectedItem?.representedObject as? String,
-              let runtime = SpeechRuntimeResourceManager.Runtime.runtime(for: id),
-              SpeechRuntimeResourceManager.isInstalled(runtime) else {
-            refreshSpeechRuntimeStatus()
-            return
-        }
+        saveSelectedSpeechSettings(
+            runtimeID: sender.selectedItem?.representedObject as? String,
+            speedID: speechSpeedPopup?.selectedItem?.representedObject as? String
+        )
+        refreshSpeechRuntimeStatus()
+    }
+
+    @objc func speechSpeedChanged(_ sender: NSPopUpButton) {
+        saveSelectedSpeechSettings(
+            runtimeID: speechRuntimePopup?.selectedItem?.representedObject as? String,
+            speedID: sender.selectedItem?.representedObject as? String
+        )
     }
 
     func refreshSpeechRuntimeStatus() {
@@ -144,6 +150,33 @@ extension AISettingsPanelController {
         } else {
             speechDownloadRefreshTimer?.invalidate()
             speechDownloadRefreshTimer = nil
+        }
+    }
+
+    func saveSelectedSpeechSettings(runtimeID: String?, speedID: String?) {
+        let previousRuntimeID = AISettingsStore.selectedSpeechRuntimeID
+        let previousSpeedID = AISettingsStore.selectedSpeechSpeedID
+
+        if let speedID {
+            AISettingsStore.saveSpeechSpeedID(speedID)
+        }
+
+        guard let runtimeID,
+              let runtime = SpeechRuntimeResourceManager.Runtime.runtime(for: runtimeID),
+              runtime.isUsableForReadAloud,
+              SpeechRuntimeResourceManager.isInstalled(runtime) else {
+            return
+        }
+
+        AISettingsStore.saveSelectedSpeechRuntimeID(runtimeID)
+
+        let runtimeChanged = runtimeID != previousRuntimeID
+        let speedChanged = speedID != nil && AISettingsStore.selectedSpeechSpeedID != previousSpeedID
+        if runtimeChanged || speedChanged {
+            KittenTTSPlayer.shared.regenerateRemainingSegmentsForUpdatedParameters()
+        }
+        if runtimeChanged, !KittenTTSPlayer.shared.hasActiveReadAloudWork() {
+            KittenTTSPlayer.shared.shutdown()
         }
     }
 

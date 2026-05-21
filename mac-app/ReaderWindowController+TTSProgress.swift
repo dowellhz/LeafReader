@@ -31,6 +31,9 @@ extension ReaderWindowController {
 
         let text = notification.userInfo?["text"] as? String ?? ""
         let index = notification.userInfo?["index"] as? Int
+        if let pageIndex = notification.userInfo?["pageIndex"] as? Int {
+            turnPDFReadAloudPageIfNeeded(to: pageIndex)
+        }
         let preview = Self.ttsTitlePreview(for: text)
         let originalTitle = ttsReadingOriginalTitle ?? titleLabel.stringValue
         titleLabel.stringValue = "\(originalTitle) · \(preview)"
@@ -87,6 +90,23 @@ extension ReaderWindowController {
             return
         }
         _ = underlinePDFSegment(text: query, in: candidatePages, usesCursor: false)
+    }
+
+    private func turnPDFReadAloudPageIfNeeded(to pageIndex: Int) {
+        guard currentDocumentKind == .pdf,
+              let document = pdfView.document,
+              pageIndex >= 0,
+              pageIndex < document.pageCount,
+              currentPageIndex() != pageIndex,
+              let page = document.page(at: pageIndex) else {
+            return
+        }
+        let bounds = page.bounds(for: pdfView.displayBox)
+        let destination = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY))
+        pdfView.go(to: destination)
+        lastPageIndex = pageIndex
+        updatePageLabel()
+        saveSession()
     }
 
     private func underlinePDFSegment(text query: String, in candidatePages: [PDFPage], usesCursor: Bool) -> Bool {

@@ -177,6 +177,8 @@ extension AISettingsPanelController {
             selected: AISettingsStore.selectedSpeechSpeedID,
             fontSize: settingsFontSize
         )
+        speechSpeedPopup.target = self
+        speechSpeedPopup.action = #selector(speechSpeedChanged(_:))
         let kokoroSpeechCard = settingsSpeechRowCard()
         let kittenSpeechCard = settingsSpeechRowCard()
         let kokoroSpeechLabel = label("Kokoro", size: settingsFontSize, weight: .semibold, color: primaryText)
