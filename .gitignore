@@ -2,6 +2,7 @@
 *.dmg
 *.zip
 *.pkg
+docs/tts/*.tar.gz
 
 # Generated app bundles and release folders stay out of git.
 *.app/

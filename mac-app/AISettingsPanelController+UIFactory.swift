@@ -3,12 +3,38 @@ import Cocoa
 extension AISettingsPanelController {
     func label(_ text: String, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor) -> NSTextField {
         let label = NSTextField(labelWithString: text)
-        label.font = AppFont.semibold(ofSize: size)
+        label.font = weight == .regular
+            ? NSFont.systemFont(ofSize: size, weight: .regular)
+            : AppFont.semibold(ofSize: size)
         label.textColor = color
         label.lineBreakMode = .byTruncatingTail
         label.maximumNumberOfLines = 1
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
+    }
+
+    func settingsTitleIcon(primaryText: NSColor) -> NSView {
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.backgroundColor = settingsIconBackgroundColor(for: ReaderTheme.selected).cgColor
+        container.layer?.cornerRadius = 18
+        container.layer?.masksToBounds = true
+        container.translatesAutoresizingMaskIntoConstraints = false
+
+        let imageView = NSImageView()
+        imageView.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
+        imageView.contentTintColor = primaryText
+        imageView.imageScaling = .scaleProportionallyDown
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(imageView)
+
+        NSLayoutConstraint.activate([
+            imageView.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            imageView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            imageView.widthAnchor.constraint(equalToConstant: 20),
+            imageView.heightAnchor.constraint(equalToConstant: 20)
+        ])
+        return container
     }
 
     func themedPage(backgroundColor: NSColor) -> NSView {
@@ -168,6 +194,19 @@ extension AISettingsPanelController {
         return button
     }
 
+    func speechDownloadProgressIndicator() -> NSProgressIndicator {
+        let indicator = NSProgressIndicator()
+        indicator.style = .bar
+        indicator.controlSize = .small
+        indicator.isIndeterminate = false
+        indicator.minValue = 0
+        indicator.maxValue = 1
+        indicator.doubleValue = 0
+        indicator.isHidden = true
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        return indicator
+    }
+
     func settingsCard() -> NSView {
         let view = NSView()
         view.wantsLayer = true
@@ -178,6 +217,15 @@ extension AISettingsPanelController {
         view.layer?.cornerRadius = 10
         view.layer?.masksToBounds = true
         view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }
+
+    func settingsSpeechRowCard() -> NSView {
+        let view = settingsCard()
+        let theme = ReaderTheme.selected
+        view.layer?.backgroundColor = settingsSpeechRowBackgroundColor(for: theme).cgColor
+        view.layer?.cornerRadius = 9
+        view.layer?.borderWidth = 1
         return view
     }
 
@@ -200,6 +248,39 @@ extension AISettingsPanelController {
             return NSColor(red: 0.86, green: 0.81, blue: 0.66, alpha: 1)
         case .dark:
             return NSColor(red: 0.08, green: 0.10, blue: 0.13, alpha: 1)
+        }
+    }
+
+    func settingsFormBackgroundColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.995, green: 0.992, blue: 0.985, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.90, green: 0.86, blue: 0.71, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.09, green: 0.11, blue: 0.14, alpha: 1)
+        }
+    }
+
+    func settingsSpeechRowBackgroundColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 1.0, green: 0.99, blue: 0.97, alpha: 0.92)
+        case .eyeCare:
+            return NSColor(red: 0.89, green: 0.84, blue: 0.68, alpha: 0.72)
+        case .dark:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 0.92)
+        }
+    }
+
+    func settingsIconBackgroundColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return NSColor(red: 0.95, green: 0.91, blue: 0.84, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.86, green: 0.80, blue: 0.63, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.14, green: 0.17, blue: 0.22, alpha: 1)
         }
     }
 

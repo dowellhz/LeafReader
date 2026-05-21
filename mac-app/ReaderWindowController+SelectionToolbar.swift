@@ -48,6 +48,7 @@ extension ReaderWindowController {
         }
         selectionActionToolbar.applyTheme(ReaderTheme.selected)
         selectionActionToolbar.setContextAction(selectionToolbarContextAction(for: text))
+        selectionActionToolbar.setSpeakVisible(shouldShowSelectionSpeakAction(for: text))
         let size = selectionActionToolbar.preferredSize
         let readerFrame = pdfContainer.frame
         let minimumX = readerFrame.minX + 12
@@ -107,6 +108,11 @@ extension ReaderWindowController {
 
     func selectionToolbarContextAction(for text: String) -> SelectionActionToolbar.ContextAction {
         vocabularySpeakerWord(text) == nil ? .summarize : .addWord
+    }
+
+    private func shouldShowSelectionSpeakAction(for text: String) -> Bool {
+        guard isReadAloudActive else { return true }
+        return VocabularyTextPolicy.shouldUseSystemTTSForShortSelection(text)
     }
 
     private func prepareAIForSelectionAction(text: String) {

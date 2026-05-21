@@ -190,6 +190,12 @@ extension AppDelegate {
             target: controller
         ))
         menu.addItem(menuItem(
+            AppText.localized("朗读", "Read Aloud"),
+            action: #selector(ReaderWindowController.openSpeechSettings),
+            key: "",
+            target: controller
+        ))
+        menu.addItem(menuItem(
             AppText.localized("缓存", "Cache"),
             action: #selector(ReaderWindowController.openCacheSettings),
             key: "",

@@ -33,6 +33,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        KittenTTSPlayer.shared.shutdown()
+    }
+
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {
         openFileURLWhenReady(URL(fileURLWithPath: filename))
         return true

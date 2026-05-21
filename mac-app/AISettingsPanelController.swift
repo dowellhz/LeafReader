@@ -5,7 +5,8 @@ final class AISettingsPanelController {
         case general = 0
         case model = 1
         case vector = 2
-        case cache = 3
+        case speech = 3
+        case cache = 4
     }
 
     enum Identifiers {
@@ -37,6 +38,7 @@ final class AISettingsPanelController {
     weak var basicPage: NSView?
     weak var modelPage: NSView?
     weak var embeddingPage: NSView?
+    weak var speechPage: NSView?
     weak var cachePage: NSView?
     weak var modelPopup: NSPopUpButton?
     weak var languagePopup: NSPopUpButton?
@@ -62,9 +64,24 @@ final class AISettingsPanelController {
     weak var speakSelectedWordCheckbox: NSButton?
     weak var saveAIConversationCheckbox: NSButton?
     weak var autoEmbeddingIndexCheckbox: NSButton?
+    weak var speechRuntimePopup: NSPopUpButton?
+    weak var speechSpeedPopup: NSPopUpButton?
+    weak var kokoroSpeechStatusLabel: NSTextField?
+    weak var kittenSpeechStatusLabel: NSTextField?
+    weak var kokoroSpeechProgressIndicator: NSProgressIndicator?
+    weak var kittenSpeechProgressIndicator: NSProgressIndicator?
+    weak var kokoroSpeechDownloadButton: NSButton?
+    weak var kittenSpeechDownloadButton: NSButton?
+    weak var kokoroSpeechPauseButton: NSButton?
+    weak var kittenSpeechPauseButton: NSButton?
+    weak var kokoroSpeechCancelButton: NSButton?
+    weak var kittenSpeechCancelButton: NSButton?
+    weak var kokoroSpeechDeleteButton: NSButton?
+    weak var kittenSpeechDeleteButton: NSButton?
     weak var cacheStatusLabel: NSTextField?
     weak var currentIndexStatusLabel: NSTextField?
     var cacheRefreshTimer: Timer?
+    var speechDownloadRefreshTimer: Timer?
     var keyTopWithCustomConstraint: NSLayoutConstraint?
     var keyTopWithoutCustomConstraint: NSLayoutConstraint?
     var embeddingModelTopWithCustomEndpointConstraint: NSLayoutConstraint?
@@ -79,6 +96,7 @@ final class AISettingsPanelController {
 
     deinit {
         cacheRefreshTimer?.invalidate()
+        speechDownloadRefreshTimer?.invalidate()
         removeAppActivationObserver()
     }
 

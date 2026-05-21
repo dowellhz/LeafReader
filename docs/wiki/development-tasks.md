@@ -88,6 +88,35 @@ Watch for:
 - Review queue order changing without updating SRS tests.
 - PDF and EPUB/DOCX records diverging.
 
+## Change Read Aloud Or TTS Models
+
+Start with:
+
+- `mac-app/KittenTTSPlayer.swift`
+- `mac-app/SpeechRuntimeResourceManager.swift`
+- `mac-app/AISettingsPanelController+Speech.swift`
+- `mac-app/AISettingsPanelController+Build.swift`
+- `mac-app/ReaderWindowController+ReadAloud.swift`
+- `mac-app/ReaderWindowController+TTSProgress.swift`
+
+Current model/runtime notes:
+
+- Kokoro and KittenTTS are usable local read-aloud runtimes.
+
+Run:
+
+```sh
+./tests/run.sh
+./scripts/build_app.sh
+```
+
+Watch for:
+
+- Letting users select a model that is downloaded but has no runnable backend.
+- Reintroducing Python/MLX dependencies into the app bundle.
+- Keeping more than one local TTS model loaded in memory.
+- Breaking EPUB/PDF temporary read-aloud highlighting.
+
 ## Change Bookshelf Or Recent Documents
 
 Start with:

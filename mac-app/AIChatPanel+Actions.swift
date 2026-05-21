@@ -155,7 +155,14 @@ extension AIChatPanel {
         if speechSynthesizer.isSpeaking {
             speechSynthesizer.stopSpeaking(at: .immediate)
         }
-        speechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
+        if VocabularyTextPolicy.shouldUseSystemTTSForShortSelection(text) {
+            speechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
+            return
+        }
+        KittenTTSPlayer.shared.speakEnglish(text) { [weak self] didUseKittenTTS in
+            guard !didUseKittenTTS else { return }
+            self?.speechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
+        }
     }
 
     func wordPrompt(for word: String, context: String) -> String {

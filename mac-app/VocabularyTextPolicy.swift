@@ -32,6 +32,14 @@ enum VocabularyTextPolicy {
         return value.range(of: vocabularySelectionPattern, options: .regularExpression) != nil
     }
 
+    static func shouldUseSystemTTSForShortSelection(_ text: String) -> Bool {
+        let words = text
+            .split { !$0.isLetter && !$0.isNumber }
+            .filter { !$0.isEmpty }
+        guard (1...4).contains(words.count) else { return false }
+        return text.range(of: #"[.!?]"#, options: .regularExpression) == nil
+    }
+
     static func boundedSearchPattern(for query: String) -> String? {
         let value = normalized(query)
         guard !value.isEmpty else { return nil }

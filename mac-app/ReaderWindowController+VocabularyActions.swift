@@ -125,12 +125,79 @@ extension ReaderWindowController {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         guard !playableTexts.isEmpty else { return }
+        ttsReadingPDFPages = pdfView.currentSelection?.pages ?? []
+        ttsReadingPDFPageIndex = 0
+        ttsReadingPDFSearchLocation = 0
+        shouldClearSelectionOnSpeechStart = true
         if vocabularySpeechSynthesizer.isSpeaking {
             vocabularySpeechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)
         }
-        for text in playableTexts {
-            vocabularySpeechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
+        if playableTexts.count == 1, let text = playableTexts.first {
+            if VocabularyTextPolicy.shouldUseSystemTTSForShortSelection(text) {
+                selectionSpeechCompletion = nil
+                vocabularySpeechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
+                return
+            }
+            let shouldResumeReadAloud = isReadAloudActive && !isReadAloudPaused
+            if shouldResumeReadAloud {
+                pauseReadAloudForSelectionSpeech()
+                KittenTTSPlayer.shared.speakEnglishInterruption(text) { [weak self] didUseKittenTTS in
+                    guard let self else { return }
+                    guard !didUseKittenTTS else {
+                        self.clearSelectionForSpeechStartIfNeeded()
+                        return
+                    }
+                    DispatchQueue.main.async {
+                        self.speakSelectionWithAppleTTS(text) {
+                            self.resumeReadAloudAfterSelectionSpeechIfNeeded(shouldResume: shouldResumeReadAloud)
+                        }
+                    }
+                } finished: { [weak self] in
+                    DispatchQueue.main.async {
+                        self?.resumeReadAloudAfterSelectionSpeechIfNeeded(shouldResume: shouldResumeReadAloud)
+                    }
+                }
+                return
+            }
+            KittenTTSPlayer.shared.speakEnglish(text) { [weak self] didUseKittenTTS in
+                guard let self else { return }
+                guard !didUseKittenTTS else {
+                    self.clearSelectionForSpeechStartIfNeeded()
+                    return
+                }
+                self.vocabularySpeechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
+            }
+        } else {
+            for text in playableTexts {
+                vocabularySpeechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
+            }
         }
+    }
+
+    private func pauseReadAloudForSelectionSpeech() {
+        guard isReadAloudActive, !isReadAloudPaused else { return }
+        isReadAloudPaused = true
+        KittenTTSPlayer.shared.pauseSpeaking()
+        updateReadAloudButton()
+    }
+
+    private func resumeReadAloudAfterSelectionSpeechIfNeeded(shouldResume: Bool) {
+        guard shouldResume, isReadAloudActive, isReadAloudPaused else { return }
+        isReadAloudPaused = false
+        KittenTTSPlayer.shared.resumeSpeaking()
+        updateReadAloudButton()
+    }
+
+    private func speakSelectionWithAppleTTS(_ text: String, finished: @escaping () -> Void) {
+        selectionSpeechCompletion = finished
+        vocabularySpeechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)
+        vocabularySpeechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
+    }
+
+    func clearSelectionForSpeechStartIfNeeded() {
+        guard shouldClearSelectionOnSpeechStart else { return }
+        shouldClearSelectionOnSpeechStart = false
+        clearReaderSelectionForBubbleSelection()
     }
 
     func vocabularyAnswerBody(_ answer: String, word: String) -> String {

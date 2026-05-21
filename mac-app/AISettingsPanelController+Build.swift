@@ -31,12 +31,14 @@ extension AISettingsPanelController {
             primaryText = NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
             secondaryText = NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
         }
+        let formBackground = settingsFormBackgroundColor(for: theme)
         let layout = AISettingsLayoutMetrics()
 
         let panel = makeSettingsPanel(isDark: isDark)
         let content = makeSettingsContentView(panel: panel, isDark: isDark, backgroundColor: panelBackground)
 
-        let titleLabel = label(AppText.settings, size: settingsFontSize, weight: .semibold, color: primaryText)
+        let titleIcon = settingsTitleIcon(primaryText: primaryText)
+        let titleLabel = label(AppText.settings, size: 22, weight: .semibold, color: primaryText)
         let closeButton = NSButton(title: "", target: self, action: #selector(cancel(_:)))
         closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: AppText.close)
         closeButton.isBordered = false
@@ -48,6 +50,7 @@ extension AISettingsPanelController {
             AppText.localized("基础", "General"),
             AppText.localized("模型", "Model"),
             AppText.localized("AI 分析", "AI Analysis"),
+            AppText.localized("朗读", "Read Aloud"),
             AppText.localized("缓存", "Cache")
             ],
             selectedIndex: initialTab.rawValue
@@ -65,28 +68,36 @@ extension AISettingsPanelController {
         scrollView.horizontalScrollElasticity = .none
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
+        scrollView.wantsLayer = true
+        scrollView.layer?.backgroundColor = formBackground.cgColor
+        scrollView.layer?.borderWidth = 1
+        scrollView.layer?.borderColor = settingsBorderColor(for: theme).cgColor
+        scrollView.layer?.cornerRadius = 12
+        scrollView.layer?.masksToBounds = true
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.contentView = VerticalOnlyClipView()
         scrollView.contentView.drawsBackground = true
-        scrollView.contentView.backgroundColor = panelBackground
+        scrollView.contentView.backgroundColor = formBackground
 
         let formContent = NSView()
         formContent.wantsLayer = true
-        formContent.layer?.backgroundColor = panelBackground.cgColor
+        formContent.layer?.backgroundColor = formBackground.cgColor
         formContent.translatesAutoresizingMaskIntoConstraints = false
         formContent.setContentHuggingPriority(.required, for: .horizontal)
         formContent.setContentCompressionResistancePriority(.required, for: .horizontal)
         scrollView.documentView = formContent
 
-        let basicPage = themedPage(backgroundColor: panelBackground)
-        let modelPage = themedPage(backgroundColor: panelBackground)
-        let embeddingPage = themedPage(backgroundColor: panelBackground)
-        let cachePage = themedPage(backgroundColor: panelBackground)
-        for page in [basicPage, modelPage, embeddingPage, cachePage] {
+        let basicPage = themedPage(backgroundColor: formBackground)
+        let modelPage = themedPage(backgroundColor: formBackground)
+        let embeddingPage = themedPage(backgroundColor: formBackground)
+        let speechPage = themedPage(backgroundColor: formBackground)
+        let cachePage = themedPage(backgroundColor: formBackground)
+        for page in [basicPage, modelPage, embeddingPage, speechPage, cachePage] {
             formContent.addSubview(page)
         }
         modelPage.isHidden = true
         embeddingPage.isHidden = true
+        speechPage.isHidden = true
         cachePage.isHidden = true
 
         let modelLabel = label(AppText.model, size: settingsFontSize, weight: .semibold, color: primaryText)
@@ -148,6 +159,84 @@ extension AISettingsPanelController {
             theme: theme,
             fontSize: settingsFontSize
         )
+        let speechLabel = label(AppText.localized("朗读", "Read Aloud"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let speechRuntimeLabel = label(AppText.localized("朗读模型", "TTS Model"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let speechRuntimePopup = popup(
+            items: [
+                ("Kokoro", "kokoro"),
+                ("KittenTTS", "kitten")
+            ],
+            selected: AISettingsStore.selectedSpeechRuntimeID,
+            fontSize: settingsFontSize
+        )
+        speechRuntimePopup.target = self
+        speechRuntimePopup.action = #selector(speechRuntimeChanged(_:))
+        let speechSpeedLabel = label(AppText.localized("语速", "Speed"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let speechSpeedPopup = popup(
+            items: AISettingsStore.speechSpeedOptions.map { ($0.title, $0.id) },
+            selected: AISettingsStore.selectedSpeechSpeedID,
+            fontSize: settingsFontSize
+        )
+        let kokoroSpeechCard = settingsSpeechRowCard()
+        let kittenSpeechCard = settingsSpeechRowCard()
+        let kokoroSpeechLabel = label("Kokoro", size: settingsFontSize, weight: .semibold, color: primaryText)
+        let kokoroSpeechStatusLabel = label(SpeechRuntimeResourceManager.statusText(for: .kokoro), size: settingsFontSize, color: secondaryText)
+        let kokoroSpeechProgressIndicator = speechDownloadProgressIndicator()
+        let kokoroSpeechDownloadButton = settingsActionButton(
+            title: AppText.localized("下载 Kokoro", "Download Kokoro"),
+            target: self,
+            action: #selector(downloadKokoroSpeechRuntime(_:))
+        )
+        let kokoroSpeechPauseButton = settingsActionButton(
+            title: AppText.localized("暂停", "Pause"),
+            target: self,
+            action: #selector(pauseKokoroSpeechRuntimeDownload(_:))
+        )
+        let kokoroSpeechCancelButton = settingsActionButton(
+            title: AppText.localized("取消", "Cancel"),
+            target: self,
+            action: #selector(cancelKokoroSpeechRuntimeDownload(_:))
+        )
+        let kokoroSpeechDeleteButton = settingsActionButton(
+            title: AppText.localized("删除", "Delete"),
+            target: self,
+            action: #selector(deleteKokoroSpeechRuntime(_:))
+        )
+        let kittenSpeechLabel = label("KittenTTS", size: settingsFontSize, weight: .semibold, color: primaryText)
+        let kittenSpeechStatusLabel = label(SpeechRuntimeResourceManager.statusText(for: .kitten), size: settingsFontSize, color: secondaryText)
+        let kittenSpeechProgressIndicator = speechDownloadProgressIndicator()
+        let kittenSpeechDownloadButton = settingsActionButton(
+            title: AppText.localized("下载 Kitten", "Download Kitten"),
+            target: self,
+            action: #selector(downloadKittenSpeechRuntime(_:))
+        )
+        let kittenSpeechPauseButton = settingsActionButton(
+            title: AppText.localized("暂停", "Pause"),
+            target: self,
+            action: #selector(pauseKittenSpeechRuntimeDownload(_:))
+        )
+        let kittenSpeechCancelButton = settingsActionButton(
+            title: AppText.localized("取消", "Cancel"),
+            target: self,
+            action: #selector(cancelKittenSpeechRuntimeDownload(_:))
+        )
+        let kittenSpeechDeleteButton = settingsActionButton(
+            title: AppText.localized("删除", "Delete"),
+            target: self,
+            action: #selector(deleteKittenSpeechRuntime(_:))
+        )
+        kokoroSpeechDeleteButton.isEnabled = SpeechRuntimeResourceManager.isInstalled(.kokoro)
+        kittenSpeechDeleteButton.isEnabled = SpeechRuntimeResourceManager.isInstalled(.kitten)
+        kokoroSpeechProgressIndicator.isHidden = !SpeechRuntimeResourceManager.isDownloading(.kokoro)
+        kittenSpeechProgressIndicator.isHidden = !SpeechRuntimeResourceManager.isDownloading(.kitten)
+        kokoroSpeechDownloadButton.isHidden = SpeechRuntimeResourceManager.isInstalled(.kokoro) || SpeechRuntimeResourceManager.isDownloading(.kokoro)
+        kittenSpeechDownloadButton.isHidden = SpeechRuntimeResourceManager.isInstalled(.kitten) || SpeechRuntimeResourceManager.isDownloading(.kitten)
+        kokoroSpeechPauseButton.isHidden = !SpeechRuntimeResourceManager.isDownloading(.kokoro)
+        kittenSpeechPauseButton.isHidden = !SpeechRuntimeResourceManager.isDownloading(.kitten)
+        kokoroSpeechCancelButton.isHidden = !SpeechRuntimeResourceManager.isDownloading(.kokoro)
+        kittenSpeechCancelButton.isHidden = !SpeechRuntimeResourceManager.isDownloading(.kitten)
+        kokoroSpeechDeleteButton.isHidden = !SpeechRuntimeResourceManager.isInstalled(.kokoro)
+        kittenSpeechDeleteButton.isHidden = !SpeechRuntimeResourceManager.isInstalled(.kitten)
 
         let testChatButton = settingsActionButton(title: AppText.localized("测试模型连接", "Test Chat"), target: self, action: #selector(testChatConnection(_:)))
         testChatButton.font = AppFont.semibold(ofSize: settingsFontSize)
@@ -210,7 +299,7 @@ extension AISettingsPanelController {
         embeddingModelField.identifier = Identifiers.embeddingModelField
         embeddingKeyField.identifier = Identifiers.embeddingKeyField
 
-        for view in [titleLabel, closeButton, tabControl, scrollView, cancelButton, saveButton] {
+        for view in [titleIcon, titleLabel, closeButton, tabControl, scrollView, cancelButton, saveButton] {
             content.addSubview(view)
         }
         for view in [customEndpointLabel, customEndpointField, customModelLabel, customModelField] {
@@ -233,6 +322,9 @@ extension AISettingsPanelController {
         }
         for view in [embeddingLabel, embeddingProviderPopup, embeddingEndpointContainer, embeddingModelNameLabel, embeddingModelField, embeddingKeyLabel, embeddingKeyField, embeddingHelpLabel, autoEmbeddingIndexCheckbox, testEmbeddingButton] {
             embeddingPage.addSubview(view)
+        }
+        for view in [speechLabel, speechRuntimeLabel, speechRuntimePopup, speechSpeedLabel, speechSpeedPopup, kokoroSpeechCard, kittenSpeechCard, kokoroSpeechLabel, kokoroSpeechStatusLabel, kokoroSpeechProgressIndicator, kokoroSpeechDownloadButton, kokoroSpeechPauseButton, kokoroSpeechCancelButton, kokoroSpeechDeleteButton, kittenSpeechLabel, kittenSpeechStatusLabel, kittenSpeechProgressIndicator, kittenSpeechDownloadButton, kittenSpeechPauseButton, kittenSpeechCancelButton, kittenSpeechDeleteButton] {
+            speechPage.addSubview(view)
         }
         for view in [currentIndexCard, vectorCacheCard] {
             cachePage.addSubview(view)
@@ -261,24 +353,28 @@ extension AISettingsPanelController {
         ]
 
         NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: content.topAnchor, constant: 34),
-            titleLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 44),
+            titleIcon.topAnchor.constraint(equalTo: content.topAnchor, constant: 32),
+            titleIcon.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 44),
+            titleIcon.widthAnchor.constraint(equalToConstant: 36),
+            titleIcon.heightAnchor.constraint(equalToConstant: 36),
+            titleLabel.centerYAnchor.constraint(equalTo: titleIcon.centerYAnchor),
+            titleLabel.leadingAnchor.constraint(equalTo: titleIcon.trailingAnchor, constant: 14),
             titleLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -54),
             closeButton.topAnchor.constraint(equalTo: content.topAnchor, constant: 30),
             closeButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -36),
             closeButton.widthAnchor.constraint(equalToConstant: 34),
             closeButton.heightAnchor.constraint(equalToConstant: 34),
 
-            tabControl.topAnchor.constraint(equalTo: content.topAnchor, constant: 82),
+            tabControl.topAnchor.constraint(equalTo: content.topAnchor, constant: 78),
             tabControl.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            tabControl.widthAnchor.constraint(equalToConstant: 440),
+            tabControl.widthAnchor.constraint(equalToConstant: 540),
             tabControl.heightAnchor.constraint(equalToConstant: 40),
 
-            scrollView.topAnchor.constraint(equalTo: content.topAnchor, constant: 154),
+            scrollView.topAnchor.constraint(equalTo: content.topAnchor, constant: 134),
             scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 44),
             scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -44),
             scrollView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -22),
-            formContent.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
+            formContent.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor, constant: 22),
             formContent.centerXAnchor.constraint(equalTo: scrollView.contentView.centerXAnchor),
             formContent.leadingAnchor.constraint(greaterThanOrEqualTo: scrollView.contentView.leadingAnchor),
             formContent.trailingAnchor.constraint(lessThanOrEqualTo: scrollView.contentView.trailingAnchor),
@@ -296,6 +392,10 @@ extension AISettingsPanelController {
             embeddingPage.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
             embeddingPage.trailingAnchor.constraint(equalTo: formContent.trailingAnchor),
             embeddingPage.bottomAnchor.constraint(equalTo: formContent.bottomAnchor),
+            speechPage.topAnchor.constraint(equalTo: formContent.topAnchor),
+            speechPage.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
+            speechPage.trailingAnchor.constraint(equalTo: formContent.trailingAnchor),
+            speechPage.bottomAnchor.constraint(equalTo: formContent.bottomAnchor),
             cachePage.topAnchor.constraint(equalTo: formContent.topAnchor),
             cachePage.leadingAnchor.constraint(equalTo: formContent.leadingAnchor),
             cachePage.trailingAnchor.constraint(equalTo: formContent.trailingAnchor),
@@ -436,6 +536,87 @@ extension AISettingsPanelController {
             testEmbeddingButton.heightAnchor.constraint(equalToConstant: controlHeight),
             testEmbeddingButton.bottomAnchor.constraint(lessThanOrEqualTo: embeddingPage.bottomAnchor, constant: -8),
 
+            speechLabel.topAnchor.constraint(equalTo: speechPage.topAnchor, constant: 4),
+            speechLabel.leadingAnchor.constraint(equalTo: speechPage.leadingAnchor),
+            speechLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            speechRuntimeLabel.topAnchor.constraint(equalTo: speechLabel.topAnchor),
+            speechRuntimeLabel.leadingAnchor.constraint(equalTo: speechPage.leadingAnchor),
+            speechRuntimeLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            speechRuntimePopup.centerYAnchor.constraint(equalTo: speechRuntimeLabel.centerYAnchor),
+            speechRuntimePopup.leadingAnchor.constraint(equalTo: speechPage.leadingAnchor, constant: labelColumnWidth),
+            speechRuntimePopup.widthAnchor.constraint(equalToConstant: fieldWidth),
+            speechRuntimePopup.heightAnchor.constraint(equalToConstant: controlHeight),
+            speechSpeedLabel.topAnchor.constraint(equalTo: speechRuntimePopup.bottomAnchor, constant: 16),
+            speechSpeedLabel.leadingAnchor.constraint(equalTo: speechRuntimeLabel.leadingAnchor),
+            speechSpeedLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            speechSpeedPopup.centerYAnchor.constraint(equalTo: speechSpeedLabel.centerYAnchor),
+            speechSpeedPopup.leadingAnchor.constraint(equalTo: speechRuntimePopup.leadingAnchor),
+            speechSpeedPopup.widthAnchor.constraint(equalToConstant: fieldWidth),
+            speechSpeedPopup.heightAnchor.constraint(equalToConstant: controlHeight),
+
+            kokoroSpeechCard.topAnchor.constraint(equalTo: speechSpeedPopup.bottomAnchor, constant: 28),
+            kokoroSpeechCard.leadingAnchor.constraint(equalTo: speechPage.leadingAnchor),
+            kokoroSpeechCard.trailingAnchor.constraint(equalTo: speechPage.trailingAnchor),
+            kokoroSpeechCard.heightAnchor.constraint(equalToConstant: 58),
+            kittenSpeechCard.topAnchor.constraint(equalTo: kokoroSpeechCard.bottomAnchor, constant: 10),
+            kittenSpeechCard.leadingAnchor.constraint(equalTo: kokoroSpeechCard.leadingAnchor),
+            kittenSpeechCard.trailingAnchor.constraint(equalTo: kokoroSpeechCard.trailingAnchor),
+            kittenSpeechCard.heightAnchor.constraint(equalToConstant: 58),
+
+            kokoroSpeechLabel.centerYAnchor.constraint(equalTo: kokoroSpeechCard.centerYAnchor),
+            kokoroSpeechLabel.leadingAnchor.constraint(equalTo: kokoroSpeechCard.leadingAnchor, constant: 16),
+            kokoroSpeechLabel.widthAnchor.constraint(equalToConstant: 92),
+            kokoroSpeechStatusLabel.centerYAnchor.constraint(equalTo: kokoroSpeechLabel.centerYAnchor),
+            kokoroSpeechStatusLabel.leadingAnchor.constraint(equalTo: kokoroSpeechLabel.trailingAnchor, constant: 16),
+            kokoroSpeechStatusLabel.widthAnchor.constraint(equalToConstant: 126),
+            kokoroSpeechProgressIndicator.centerYAnchor.constraint(equalTo: kokoroSpeechLabel.centerYAnchor),
+            kokoroSpeechProgressIndicator.leadingAnchor.constraint(equalTo: kokoroSpeechStatusLabel.trailingAnchor, constant: 12),
+            kokoroSpeechProgressIndicator.widthAnchor.constraint(equalToConstant: 110),
+            kokoroSpeechProgressIndicator.heightAnchor.constraint(equalToConstant: 8),
+            kokoroSpeechDownloadButton.centerYAnchor.constraint(equalTo: kokoroSpeechLabel.centerYAnchor),
+            kokoroSpeechDownloadButton.trailingAnchor.constraint(equalTo: kokoroSpeechCard.trailingAnchor, constant: -16),
+            kokoroSpeechDownloadButton.widthAnchor.constraint(equalToConstant: 124),
+            kokoroSpeechDownloadButton.heightAnchor.constraint(equalToConstant: controlHeight),
+            kokoroSpeechPauseButton.centerYAnchor.constraint(equalTo: kokoroSpeechLabel.centerYAnchor),
+            kokoroSpeechPauseButton.trailingAnchor.constraint(equalTo: kokoroSpeechCancelButton.leadingAnchor, constant: -8),
+            kokoroSpeechPauseButton.widthAnchor.constraint(equalToConstant: 76),
+            kokoroSpeechPauseButton.heightAnchor.constraint(equalToConstant: controlHeight),
+            kokoroSpeechCancelButton.centerYAnchor.constraint(equalTo: kokoroSpeechLabel.centerYAnchor),
+            kokoroSpeechCancelButton.trailingAnchor.constraint(equalTo: kokoroSpeechCard.trailingAnchor, constant: -16),
+            kokoroSpeechCancelButton.widthAnchor.constraint(equalToConstant: 76),
+            kokoroSpeechCancelButton.heightAnchor.constraint(equalToConstant: controlHeight),
+            kokoroSpeechDeleteButton.centerYAnchor.constraint(equalTo: kokoroSpeechLabel.centerYAnchor),
+            kokoroSpeechDeleteButton.trailingAnchor.constraint(equalTo: kokoroSpeechCard.trailingAnchor, constant: -16),
+            kokoroSpeechDeleteButton.widthAnchor.constraint(equalToConstant: 76),
+            kokoroSpeechDeleteButton.heightAnchor.constraint(equalToConstant: controlHeight),
+            kittenSpeechLabel.centerYAnchor.constraint(equalTo: kittenSpeechCard.centerYAnchor),
+            kittenSpeechLabel.leadingAnchor.constraint(equalTo: kokoroSpeechLabel.leadingAnchor),
+            kittenSpeechLabel.widthAnchor.constraint(equalToConstant: 92),
+            kittenSpeechStatusLabel.centerYAnchor.constraint(equalTo: kittenSpeechLabel.centerYAnchor),
+            kittenSpeechStatusLabel.leadingAnchor.constraint(equalTo: kittenSpeechLabel.trailingAnchor, constant: 16),
+            kittenSpeechStatusLabel.widthAnchor.constraint(equalToConstant: 126),
+            kittenSpeechProgressIndicator.centerYAnchor.constraint(equalTo: kittenSpeechLabel.centerYAnchor),
+            kittenSpeechProgressIndicator.leadingAnchor.constraint(equalTo: kittenSpeechStatusLabel.trailingAnchor, constant: 12),
+            kittenSpeechProgressIndicator.widthAnchor.constraint(equalToConstant: 110),
+            kittenSpeechProgressIndicator.heightAnchor.constraint(equalToConstant: 8),
+            kittenSpeechDownloadButton.centerYAnchor.constraint(equalTo: kittenSpeechLabel.centerYAnchor),
+            kittenSpeechDownloadButton.trailingAnchor.constraint(equalTo: kittenSpeechCard.trailingAnchor, constant: -16),
+            kittenSpeechDownloadButton.widthAnchor.constraint(equalToConstant: 124),
+            kittenSpeechDownloadButton.heightAnchor.constraint(equalToConstant: controlHeight),
+            kittenSpeechPauseButton.centerYAnchor.constraint(equalTo: kittenSpeechLabel.centerYAnchor),
+            kittenSpeechPauseButton.trailingAnchor.constraint(equalTo: kittenSpeechCancelButton.leadingAnchor, constant: -8),
+            kittenSpeechPauseButton.widthAnchor.constraint(equalToConstant: 76),
+            kittenSpeechPauseButton.heightAnchor.constraint(equalToConstant: controlHeight),
+            kittenSpeechCancelButton.centerYAnchor.constraint(equalTo: kittenSpeechLabel.centerYAnchor),
+            kittenSpeechCancelButton.trailingAnchor.constraint(equalTo: kittenSpeechCard.trailingAnchor, constant: -16),
+            kittenSpeechCancelButton.widthAnchor.constraint(equalToConstant: 76),
+            kittenSpeechCancelButton.heightAnchor.constraint(equalToConstant: controlHeight),
+            kittenSpeechDeleteButton.centerYAnchor.constraint(equalTo: kittenSpeechLabel.centerYAnchor),
+            kittenSpeechDeleteButton.trailingAnchor.constraint(equalTo: kittenSpeechCard.trailingAnchor, constant: -16),
+            kittenSpeechDeleteButton.widthAnchor.constraint(equalToConstant: 76),
+            kittenSpeechDeleteButton.heightAnchor.constraint(equalToConstant: controlHeight),
+            kittenSpeechCard.bottomAnchor.constraint(lessThanOrEqualTo: speechPage.bottomAnchor, constant: -8),
+
             currentIndexCard.topAnchor.constraint(equalTo: cachePage.topAnchor, constant: 4),
             currentIndexCard.leadingAnchor.constraint(equalTo: cachePage.leadingAnchor),
             currentIndexCard.widthAnchor.constraint(equalToConstant: formWidth),
@@ -501,6 +682,7 @@ extension AISettingsPanelController {
         self.basicPage = basicPage
         self.modelPage = modelPage
         self.embeddingPage = embeddingPage
+        self.speechPage = speechPage
         self.cachePage = cachePage
         self.modelPopup = modelPopup
         self.languagePopup = languagePopup
@@ -526,8 +708,23 @@ extension AISettingsPanelController {
         self.speakSelectedWordCheckbox = speakSelectedWordCheckbox
         self.saveAIConversationCheckbox = saveAIConversationCheckbox
         self.autoEmbeddingIndexCheckbox = autoEmbeddingIndexCheckbox
+        self.speechRuntimePopup = speechRuntimePopup
+        self.speechSpeedPopup = speechSpeedPopup
+        self.kokoroSpeechStatusLabel = kokoroSpeechStatusLabel
+        self.kittenSpeechStatusLabel = kittenSpeechStatusLabel
+        self.kokoroSpeechProgressIndicator = kokoroSpeechProgressIndicator
+        self.kittenSpeechProgressIndicator = kittenSpeechProgressIndicator
+        self.kokoroSpeechDownloadButton = kokoroSpeechDownloadButton
+        self.kittenSpeechDownloadButton = kittenSpeechDownloadButton
+        self.kokoroSpeechPauseButton = kokoroSpeechPauseButton
+        self.kittenSpeechPauseButton = kittenSpeechPauseButton
+        self.kokoroSpeechCancelButton = kokoroSpeechCancelButton
+        self.kittenSpeechCancelButton = kittenSpeechCancelButton
+        self.kokoroSpeechDeleteButton = kokoroSpeechDeleteButton
+        self.kittenSpeechDeleteButton = kittenSpeechDeleteButton
         self.cacheStatusLabel = cacheStatusLabel
         self.currentIndexStatusLabel = currentIndexStatusLabel
+        refreshSpeechRuntimeStatus()
         updateCustomModelFields(for: selectedModel.id)
         updateEmbeddingEndpointFields(for: selectedEmbeddingEndpoint.id, fillDefaults: false)
         updatePDFDimmingControlsVisibility()

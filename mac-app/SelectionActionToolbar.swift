@@ -15,6 +15,7 @@ final class SelectionActionToolbar: NSView {
     private let speakButton = SelectionActionButton(title: AppText.localized("朗读", "Speak"), target: nil, action: nil)
     private let copyButton = SelectionActionButton(title: AppText.localized("复制", "Copy"), target: nil, action: nil)
     private var contextAction: ContextAction = .summarize
+    private var showsSpeakButton = true
 
     enum ContextAction {
         case addWord
@@ -60,7 +61,11 @@ final class SelectionActionToolbar: NSView {
     }
 
     var preferredSize: CGSize {
-        CGSize(width: 410, height: 44)
+        let visibleButtonCount = showsSpeakButton ? 5 : 4
+        let horizontalInsets = stack.edgeInsets.left + stack.edgeInsets.right
+        let spacing = CGFloat(max(0, visibleButtonCount - 1)) * stack.spacing
+        let buttonWidth: CGFloat = 76
+        return CGSize(width: horizontalInsets + spacing + CGFloat(visibleButtonCount) * buttonWidth, height: 44)
     }
 
     func applyTheme(_ theme: ReaderTheme) {
@@ -97,6 +102,12 @@ final class SelectionActionToolbar: NSView {
     func setContextAction(_ action: ContextAction) {
         contextAction = action
         refreshLanguage()
+    }
+
+    func setSpeakVisible(_ visible: Bool) {
+        showsSpeakButton = visible
+        speakButton.isHidden = !visible
+        needsLayout = true
     }
 
     private func trigger(_ button: NSButton) {

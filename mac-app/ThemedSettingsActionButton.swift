@@ -79,6 +79,10 @@ final class ThemedSettingsActionButton: NSButton {
         displayTitle.draw(in: titleRect, withAttributes: attrs)
     }
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
     override func mouseDown(with event: NSEvent) {
         guard isEnabled else { return }
         isHighlighted = true

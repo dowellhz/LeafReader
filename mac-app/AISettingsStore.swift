@@ -41,6 +41,12 @@ enum AISettingsStore {
     static let autoEmbeddingIndexEnabledKey = "autoEmbeddingIndexEnabled"
     static let speakSelectedWordEnabledKey = "speakSelectedWordEnabled"
     static let saveAIConversationEnabledKey = "saveAIConversationEnabled"
+    static let selectedSpeechRuntimeKey = "selectedSpeechRuntime"
+    static let speechSpeedKey = "speechSpeed"
+    private static let defaultSpeechRuntimeID = "kokoro"
+    private static let defaultSpeechSpeedID = "normal"
+    private static let validSpeechRuntimeIDs = Set(["kokoro", "kitten"])
+    private static let validSpeechSpeedIDs = Set(["fast", "normal", "slow", "verySlow"])
     private static var defaults: UserDefaults = .standard
     private static let fallbackCustomEndpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private static let fallbackEmbeddingEndpoint = URL(string: "https://api.openai.com/v1/embeddings")!
@@ -291,6 +297,55 @@ enum AISettingsStore {
     static func saveAIConversationEnabled(_ enabled: Bool) {
         defaults.set(enabled, forKey: saveAIConversationEnabledKey)
         defaults.synchronize()
+    }
+
+    static var selectedSpeechRuntimeID: String {
+        let value = nonEmptyTrimmed(defaults.string(forKey: selectedSpeechRuntimeKey)) ?? defaultSpeechRuntimeID
+        return validSpeechRuntimeIDs.contains(value) ? value : defaultSpeechRuntimeID
+    }
+
+    static func saveSelectedSpeechRuntimeID(_ id: String) {
+        guard validSpeechRuntimeIDs.contains(id) else { return }
+        defaults.set(id, forKey: selectedSpeechRuntimeKey)
+        defaults.synchronize()
+    }
+
+    static var selectedSpeechSpeedID: String {
+        let value = nonEmptyTrimmed(defaults.string(forKey: speechSpeedKey)) ?? defaultSpeechSpeedID
+        return validSpeechSpeedIDs.contains(value) ? value : defaultSpeechSpeedID
+    }
+
+    static var speechSpeedOptions: [(title: String, id: String)] {
+        [
+            (AppText.localized("快", "Fast"), "fast"),
+            (AppText.localized("正常", "Normal"), "normal"),
+            (AppText.localized("慢", "Slow"), "slow"),
+            (AppText.localized("非常慢", "Very Slow"), "verySlow")
+        ]
+    }
+
+    static func saveSpeechSpeedID(_ id: String) {
+        guard validSpeechSpeedIDs.contains(id) else { return }
+        defaults.set(id, forKey: speechSpeedKey)
+        defaults.synchronize()
+    }
+
+    static var kittenSpeechSpeedMultiplier: Double {
+        switch selectedSpeechSpeedID {
+        case "fast": return 1.25
+        case "slow": return 0.82
+        case "verySlow": return 0.65
+        default: return 1.0
+        }
+    }
+
+    static var kokoroSpeechSpeedMultiplier: Double {
+        switch selectedSpeechSpeedID {
+        case "fast": return 1.25
+        case "slow": return 0.82
+        case "verySlow": return 0.7
+        default: return 1.0
+        }
     }
 
     static func saveEmbedding(endpoint: String, modelName: String, apiKey: String, optionID: String? = nil) {

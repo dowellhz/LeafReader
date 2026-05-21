@@ -211,6 +211,11 @@ extension WebDocumentLoader {
             case .epub:
                 return """
             .reader-section { display: block; }
+            .reader-section,
+            .reader-section * {
+              -webkit-user-select: text !important;
+              user-select: text !important;
+            }
             .reader-section + .reader-section { margin-top: 0; padding-top: max(34em, 58vh); }
             .reader-section, .reader-section * { box-sizing: border-box; max-width: 100%; }
             .reader-section section,
@@ -290,7 +295,7 @@ extension WebDocumentLoader {
           <style>
             html { background: #f6f8fb; }
             :root { --reader-zoom: 1; }
-            body { box-sizing: border-box; width: min(820px, calc(100vw - 144px)); min-height: 100vh; margin: 0 auto; padding: 56px 72px 96px; color: #191b20; background: white; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; font-size: calc(18px * var(--reader-zoom)); line-height: 1.72; overflow-wrap: break-word; }
+            body { box-sizing: border-box; width: min(820px, calc(100vw - 144px)); min-height: 100vh; margin: 0 auto; padding: 56px 72px 96px; color: #191b20; background: white; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; font-size: calc(18px * var(--reader-zoom)); line-height: 1.72; overflow-wrap: break-word; -webkit-user-select: text; user-select: text; }
             img, svg { max-width: 100%; height: auto; }
             ::selection { background: rgba(255, 221, 87, .62); }
             @media (max-width: 760px) { body { width: calc(100vw - 32px); padding: 36px 32px 72px; } }

@@ -36,8 +36,26 @@ https://leafreader.space/
 - Search documents with `Command+F`, next and previous result controls, and visible result positioning.
 - Switch between light and dark reader themes for the document area, search overlay, recent files panel, and AI chat panel.
 - Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
+- Read selected English text with optional downloadable Kokoro or KittenTTS output; otherwise Leaf Reader falls back to macOS system voices.
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
+
+## Optional English Speech Runtimes
+
+Leaf Reader can use [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) or [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs) for English text-to-speech. Speech models and runtimes are not bundled in the installer. Open Settings -> AI Analysis -> Speech to download Kokoro or KittenTTS on demand.
+
+Runtime priority is automatic: Kokoro first, then KittenTTS, then Apple system TTS. Short word or phrase selections use Apple TTS directly.
+
+Download packages are served from:
+
+- `https://leafreader.space/tts/kokoro-coreml-macos-arm64.tar.gz` (Kokoro runtime plus model cache, about 372 MB)
+- `https://leafreader.space/tts/kitten-tts-rs-macos-arm64.tar.gz` (KittenTTS runtime plus mini model, about 74 MB)
+
+Generate the website packages with:
+
+```sh
+./scripts/package_speech_runtimes.sh
+```
 
 ## What's New in 1.4.18
 

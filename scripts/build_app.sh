@@ -21,6 +21,8 @@ mkdir -p \
   "$APP_PATH/Contents/Frameworks"
 
 rm -rf "$APP_PATH/Contents/Frameworks/Sparkle.framework"
+rm -rf "$APP_PATH/Contents/Resources"
+mkdir -p "$APP_PATH/Contents/Resources"
 cp "$ROOT_DIR/mac-app/Info.plist" "$APP_PATH/Contents/Info.plist"
 cp "$ROOT_DIR/mac-app/AIPrompts.json" "$APP_PATH/Contents/Resources/AIPrompts.json"
 cp "$ROOT_DIR/mac-app/AppIcon.icns" "$APP_PATH/Contents/Resources/AppIcon.icns"

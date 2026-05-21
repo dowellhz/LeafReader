@@ -58,6 +58,8 @@ extension AISettingsPanelController {
 
     func saveCurrentSettings(in panel: NSWindow) -> Bool {
         guard let modelPopup, let keyField = secureKeyField else { return false }
+        let previousSpeechRuntimeID = AISettingsStore.selectedSpeechRuntimeID
+        let previousSpeechSpeedID = AISettingsStore.selectedSpeechSpeedID
         let modelID = modelPopup.selectedItem?.representedObject as? String ?? AISettingsStore.selectedModel.id
         let customEndpoint = customEndpointField?.stringValue ?? ""
         let customModelName = customModelField?.stringValue ?? ""
@@ -93,6 +95,24 @@ extension AISettingsPanelController {
         AISettingsStore.saveSpeakSelectedWordEnabled(speakSelectedWordCheckbox?.state == .on)
         AISettingsStore.saveAIConversationEnabled(saveAIConversationCheckbox?.state == .on)
         AISettingsStore.saveAutoEmbeddingIndexEnabled(autoEmbeddingIndexCheckbox?.state == .on)
+        let selectedSpeechSpeedID = speechSpeedPopup?.selectedItem?.representedObject as? String
+        if let speechSpeedID = selectedSpeechSpeedID {
+            AISettingsStore.saveSpeechSpeedID(speechSpeedID)
+        }
+        if let speechRuntimeID = speechRuntimePopup?.selectedItem?.representedObject as? String,
+           let speechRuntime = SpeechRuntimeResourceManager.Runtime.runtime(for: speechRuntimeID),
+           speechRuntime.isUsableForReadAloud,
+           SpeechRuntimeResourceManager.isInstalled(speechRuntime) {
+            AISettingsStore.saveSelectedSpeechRuntimeID(speechRuntimeID)
+            let speechRuntimeChanged = speechRuntimeID != previousSpeechRuntimeID
+            let speechSpeedChanged = selectedSpeechSpeedID != nil && AISettingsStore.selectedSpeechSpeedID != previousSpeechSpeedID
+            if speechRuntimeChanged || speechSpeedChanged {
+                KittenTTSPlayer.shared.regenerateRemainingSegmentsForUpdatedParameters()
+            }
+            if speechRuntimeChanged, !KittenTTSPlayer.shared.hasActiveReadAloudWork() {
+                KittenTTSPlayer.shared.shutdown()
+            }
+        }
         return true
     }
 
@@ -105,19 +125,22 @@ extension AISettingsPanelController {
     }
 
     func settingsTabChanged(index: Int) {
+        (settingsTabControl as? SettingsTabsView)?.selectIndex(index)
         basicPage?.isHidden = index != 0
         modelPage?.isHidden = index != 1
         embeddingPage?.isHidden = index != 2
-        cachePage?.isHidden = index != 3
+        speechPage?.isHidden = index != 3
+        cachePage?.isHidden = index != 4
         currentIndexStatusLabel?.stringValue = currentVectorIndexStatus?() ?? AppText.noPDF
-        if index == 3 {
+        if index == 4 {
             refreshVectorCacheStatus()
         }
         if let scrollView = settingsScrollView {
             scrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
             scrollView.reflectScrolledClipView(scrollView.contentView)
-            scrollView.verticalScrollElasticity = index == 3 ? .allowed : .none
-            scrollView.hasVerticalScroller = index == 3
+            let allowsScrolling = index == 4
+            scrollView.verticalScrollElasticity = allowsScrolling ? .allowed : .none
+            scrollView.hasVerticalScroller = allowsScrolling
         }
     }
 }

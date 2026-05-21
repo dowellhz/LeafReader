@@ -18,6 +18,10 @@ extension ReaderWindowController {
         openSettingsPanel(tab: .vector)
     }
 
+    @objc func openSpeechSettings() {
+        openSettingsPanel(tab: .speech)
+    }
+
     @objc func openCacheSettings() {
         openSettingsPanel(tab: .cache)
     }

@@ -94,6 +94,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var farthestPositionButton: NSButton!
     var prevButton: NSButton!
     var nextButton: NSButton!
+    var readAloudButton: NSButton!
+    var readAloudStopButton: NSButton!
     var pageLayoutButton: NSButton!
     var cropButton: NSButton!
     var searchButton: NSButton!
@@ -176,6 +178,17 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let vocabularyPanelReloadTask = DebouncedTask(delay: 0.04)
     var pendingAIPanelExpansionAction: (() -> Void)?
     var pendingAISourceClickWorkItem: DispatchWorkItem?
+    var ttsReadingOriginalTitle: String?
+    var ttsReadingOriginalToolTip: String?
+    var temporaryTTSUnderlineAnnotations: [(page: PDFPage, annotation: PDFAnnotation)] = []
+    var ttsReadingPDFPages: [PDFPage] = []
+    var ttsReadingPDFPageIndex = 0
+    var ttsReadingPDFSearchLocation = 0
+    var isReadAloudActive = false
+    var isReadAloudPaused = false
+    var isReadAloudLoading = false
+    var selectionSpeechCompletion: (() -> Void)?
+    var shouldClearSelectionOnSpeechStart = false
     var currentVocabularyExportRecords: [VocabularyExportRecord] = []
     var didRegisterSelectionObserver = false
     var isRestoringSession = false
@@ -233,6 +246,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         window.readerWindowController = self
         window.delegate = self
         buildUI()
+        installKittenTTSProgressObserver()
+        vocabularySpeechSynthesizer.delegate = self
     }
 
     deinit {

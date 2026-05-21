@@ -68,6 +68,12 @@ final class SettingsTabsView: NSView {
         updateAppearance()
     }
 
+    func selectIndex(_ index: Int) {
+        guard labels.indices.contains(index) else { return }
+        selectedIndex = index
+        updateAppearance()
+    }
+
     private func updateAppearance() {
         for (index, button) in buttons.enumerated() {
             let selected = index == selectedIndex

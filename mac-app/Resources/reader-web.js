@@ -9,15 +9,42 @@
     style.textContent = `
       ::highlight(leaf-reader-selection) { background: rgba(255, 221, 87, .62); color: inherit; }
       ::highlight(leaf-reader-ai-source) { text-decoration-line: underline; text-decoration-color: rgba(0, 122, 255, .72); text-decoration-thickness: 1.5px; text-underline-offset: .16em; }
+      ::highlight(leaf-reader-tts) { background: rgba(143, 199, 125, .32); color: inherit; }
       .leaf-reader-selection-highlight { background: rgba(255, 221, 87, .62); color: inherit; }
       .leaf-reader-ai-source-underline { text-decoration-line: underline; text-decoration-color: rgba(0, 122, 255, .72); text-decoration-thickness: 1.5px; text-underline-offset: .16em; }
+      .leaf-reader-tts-underline { background: rgba(143, 199, 125, .32); border-radius: 2px; -webkit-user-select: text; user-select: text; }
       .leaf-reader-linked-word { background: rgba(255, 221, 87, .62); border-radius: 3px; cursor: pointer; }
       ::highlight(leaf-reader-search) { background: rgba(255, 221, 87, .52); color: inherit; }
       ::highlight(leaf-reader-search-current) { background: rgba(255, 149, 0, .72); color: inherit; }
     `;
     document.head.appendChild(style);
   };
-  const normalizedText = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const canonicalTextParts = (char) => {
+    if (char === '\u00AD') return [];
+    if (char === '\u2018' || char === '\u2019') return ["'"];
+    if (char === '\u201C' || char === '\u201D') return ['"'];
+    if (/[\u2010-\u2015]/.test(char)) return ['-'];
+    if (char === '\u2026') return ['.', '.', '.'];
+    return [char.toLowerCase()];
+  };
+  const normalizedText = (value) => {
+    let output = '';
+    let previousWasSpace = true;
+    for (const char of String(value || '')) {
+      if (/\s/.test(char)) {
+        if (!previousWasSpace) {
+          output += ' ';
+          previousWasSpace = true;
+        }
+        continue;
+      }
+      for (const part of canonicalTextParts(char)) {
+        output += part;
+        previousWasSpace = false;
+      }
+    }
+    return output.trim();
+  };
   const occurrenceIndexInText = (source, selected, before) => {
     const normalizedSelected = normalizedText(selected);
     const normalizedBefore = normalizedText(before);
@@ -59,9 +86,11 @@
             previousWasSpace = true;
           }
         } else {
-          normalized += char.toLowerCase();
-          positions.push({ node, offset: i });
-          previousWasSpace = false;
+          for (const part of canonicalTextParts(char)) {
+            normalized += part;
+            positions.push({ node, offset: i });
+            previousWasSpace = false;
+          }
         }
       }
     }
@@ -112,6 +141,32 @@
     }
     return rangeFromNormalizedSpan(index, contextIndex + wordIndexInContext, normalizedWord.length);
   };
+  const leafReaderWordCount = (value) => String(value || '').split(/[^A-Za-z0-9]+/).filter(Boolean).length;
+  const leafReaderSentenceSegments = (value) => {
+    const source = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!source) return [];
+    const sentenceUnits = (source.match(/[^.!?]+[.!?]["'\u2019\u201D]?|[^.!?]+$/g) || [])
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const units = sentenceUnits.length ? sentenceUnits : [source];
+    const merged = [];
+    let pending = '';
+    let pendingWordCount = 0;
+    for (const unit of units) {
+      pending = pending ? `${pending} ${unit}` : unit;
+      pendingWordCount += leafReaderWordCount(unit);
+      if (pendingWordCount >= 4) {
+        merged.push(pending);
+        pending = '';
+        pendingWordCount = 0;
+      }
+    }
+    if (pending) {
+      if (merged.length) merged[merged.length - 1] = `${merged[merged.length - 1]} ${pending}`;
+      else merged.push(pending);
+    }
+    return merged;
+  };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
       normalizedText,
@@ -119,7 +174,8 @@
       leafReaderFindSearchSpans,
       normalizedIndexForRoot,
       rangeForNormalizedText,
-      rangeForWordInContext
+      rangeForWordInContext,
+      leafReaderSentenceSegments
     };
   }
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
@@ -278,6 +334,187 @@
       span.appendChild(middle);
     }
     return targets.length > 0;
+  };
+  window.leafReaderClearTTSUnderline = () => {
+    if (window.CSS && CSS.highlights) CSS.highlights.delete('leaf-reader-tts');
+    unwrapSpans('span.leaf-reader-tts-underline');
+  };
+  const leafReaderCandidateTTSBlocks = () => {
+    const primarySelector = 'p,li,blockquote,pre,td,th,h1,h2,h3,h4,h5,h6';
+    const fallbackSelector = 'div,section,article';
+    const primaryBlocks = Array.from(document.body.querySelectorAll(primarySelector));
+    const fallbackBlocks = Array.from(document.body.querySelectorAll(fallbackSelector)).filter((block) => {
+      return !block.querySelector(primarySelector);
+    });
+    const blocks = primaryBlocks.concat(fallbackBlocks).filter((block) => {
+      if (!normalizedText(block.innerText || block.textContent || '')) return false;
+      const rect = block.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    const visible = blocks.filter((block) => {
+      const rect = block.getBoundingClientRect();
+      return rect.bottom >= 0 && rect.top <= window.innerHeight;
+    });
+    return visible.concat(blocks.filter((block) => !visible.includes(block)));
+  };
+  const leafReaderBlocksFromVisibleTop = () => {
+    const blocks = leafReaderCandidateTTSBlocks().slice().sort((a, b) => {
+      if (a === b) return 0;
+      return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+    });
+    const visibleTop = Math.max(0, window.scrollY || 0);
+    const startIndex = blocks.findIndex((block) => {
+      const rect = block.getBoundingClientRect();
+      return rect.bottom + visibleTop >= visibleTop;
+    });
+    return startIndex >= 0 ? blocks.slice(startIndex) : blocks;
+  };
+  let leafReaderTTSAnchorRanges = [];
+  const leafReaderScrollRangeToCenter = (range) => {
+    const rect = Array.from(range.getClientRects()).find((item) => item.width > 0 && item.height > 0) || range.getBoundingClientRect();
+    if (rect && rect.height > 0) {
+      window.scrollBy({ top: rect.top - window.innerHeight * 0.42, behavior: 'smooth' });
+    }
+  };
+  const leafReaderContainedTTSRanges = (needle, blocks) => {
+    const ranges = [];
+    const seen = new Set();
+    for (const block of blocks) {
+      const source = normalizedText(block.innerText || block.textContent || '');
+      if (source.length < 8) continue;
+      if (!needle.includes(source.slice(0, Math.min(80, source.length)))) continue;
+      const range = rangeForNormalizedText(block, source, 0);
+      if (!range) continue;
+      const key = `${range.startContainer}_${range.startOffset}_${range.endContainer}_${range.endOffset}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ranges.push(range);
+    }
+    return ranges;
+  };
+  const leafReaderTTSRanges = (needle) => {
+    const blocks = leafReaderCandidateTTSBlocks();
+    for (const block of blocks) {
+      const source = normalizedText(block.innerText || block.textContent || '');
+      if (!source.includes(needle.slice(0, Math.min(80, needle.length)))) continue;
+      const range = rangeForNormalizedText(block, needle, 0);
+      if (range) return [range];
+    }
+    const bodyRange = rangeForNormalizedText(document.body, needle, 0);
+    if (bodyRange) return [bodyRange];
+    return leafReaderContainedTTSRanges(needle, blocks);
+  };
+  const leafReaderRangeKey = (range) => `${range.startContainer}_${range.startOffset}_${range.endContainer}_${range.endOffset}`;
+  const leafReaderSegmentRangesForBlock = (block) => {
+    const rawText = block.innerText || block.textContent || '';
+    const segments = leafReaderSentenceSegments(rawText);
+    if (!segments.length) return [];
+    const normalizedIndex = normalizedIndexForRoot(block);
+    let cursor = 0;
+    const ranges = [];
+    for (const segment of segments) {
+      const needle = normalizedText(segment);
+      if (!needle) continue;
+      let matchIndex = normalizedIndex.text.indexOf(needle, cursor);
+      if (matchIndex < 0) matchIndex = normalizedIndex.text.indexOf(needle);
+      if (matchIndex < 0) continue;
+      const range = rangeFromNormalizedSpan(normalizedIndex, matchIndex, needle.length);
+      if (!range) continue;
+      ranges.push({ range, text: segment });
+      cursor = matchIndex + Math.max(1, needle.length);
+    }
+    return ranges;
+  };
+  window.leafReaderPrepareReadAloudSegments = () => {
+    installSelectionHighlightStyle();
+    window.leafReaderClearTTSUnderline();
+    if (window.leafReaderClearSelectionVisualOnly) {
+      window.leafReaderClearSelectionVisualOnly();
+    } else {
+      const selection = window.getSelection && window.getSelection();
+      if (selection) selection.removeAllRanges();
+    }
+    const blocks = leafReaderBlocksFromVisibleTop();
+    const seen = new Set();
+    const rawSegments = [];
+    leafReaderTTSAnchorRanges = [];
+    for (const block of blocks) {
+      for (const item of leafReaderSegmentRangesForBlock(block)) {
+        const key = leafReaderRangeKey(item.range);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        rawSegments.push(item);
+      }
+    }
+    const segments = [];
+    let pendingText = '';
+    let pendingRanges = [];
+    let pendingWordCount = 0;
+    const flushPending = () => {
+      const text = pendingText.trim();
+      if (text && pendingRanges.length) {
+        segments.push({ text, speechText: text });
+        leafReaderTTSAnchorRanges.push(pendingRanges);
+      }
+      pendingText = '';
+      pendingRanges = [];
+      pendingWordCount = 0;
+    };
+    for (const item of rawSegments) {
+      const text = String(item.text || '').trim();
+      if (!text) continue;
+      pendingText = pendingText ? `${pendingText} ${text}` : text;
+      pendingRanges.push(item.range);
+      pendingWordCount += leafReaderWordCount(text);
+      if (pendingWordCount >= 4) flushPending();
+    }
+    if (pendingText) {
+      if (segments.length && leafReaderTTSAnchorRanges.length) {
+        const last = segments[segments.length - 1];
+        last.text = `${last.text} ${pendingText.trim()}`;
+        last.speechText = last.text;
+        leafReaderTTSAnchorRanges[leafReaderTTSAnchorRanges.length - 1] =
+          leafReaderTTSAnchorRanges[leafReaderTTSAnchorRanges.length - 1].concat(pendingRanges);
+      } else {
+        flushPending();
+      }
+    }
+    return segments;
+  };
+  window.leafReaderUnderlineTTSIndex = (segmentIndex, fallbackText) => {
+    installSelectionHighlightStyle();
+    window.leafReaderClearTTSUnderline();
+    const numericIndex = Number(segmentIndex || 0);
+    if (!numericIndex || numericIndex < 1) return window.leafReaderUnderlineTTS(fallbackText);
+    const index = numericIndex - 1;
+    const ranges = leafReaderTTSAnchorRanges[index] || [];
+    if (!ranges.length) return window.leafReaderUnderlineTTS(fallbackText);
+    if (window.CSS && CSS.highlights && window.Highlight) {
+      CSS.highlights.set('leaf-reader-tts', new Highlight(...ranges));
+    } else {
+      for (const range of ranges.slice().reverse()) {
+        wrapRangeTextNodes(range, 'leaf-reader-tts-underline');
+      }
+    }
+    leafReaderScrollRangeToCenter(ranges[0]);
+    return true;
+  };
+  window.leafReaderUnderlineTTS = (targetText) => {
+    installSelectionHighlightStyle();
+    window.leafReaderClearTTSUnderline();
+    const needle = normalizedText(targetText);
+    if (!needle) return false;
+    const ranges = leafReaderTTSRanges(needle);
+    if (!ranges.length) return false;
+    if (window.CSS && CSS.highlights && window.Highlight) {
+      CSS.highlights.set('leaf-reader-tts', new Highlight(...ranges));
+    } else {
+      for (const range of ranges.slice().reverse()) {
+        wrapRangeTextNodes(range, 'leaf-reader-tts-underline');
+      }
+    }
+    leafReaderScrollRangeToCenter(ranges[0]);
+    return true;
   };
   window.leafReaderClearAISourceUnderlines = () => {
     if (window.CSS && CSS.highlights) CSS.highlights.delete('leaf-reader-ai-source');

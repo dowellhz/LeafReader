@@ -34,8 +34,12 @@ enum ReaderUILayout {
     static let coverSize = CGSize(width: 28, height: 38)
     static let titleLeading: CGFloat = 10
     static let titleMaxWidth: CGFloat = 230
+    static let titleToReadAloudMinimum: CGFloat = 14
+    static let readAloudButtonWidth: CGFloat = 82
+    static let readAloudStopLeading: CGFloat = 6
+    static let readAloudStopButtonWidth: CGFloat = 82
+    static let readAloudTrailingToZoom: CGFloat = 14
 
-    static let zoomLeadingMinimum: CGFloat = 24
     static let zoomCenterOffset: CGFloat = -80
     static let zoomGroupSize = CGSize(width: 132, height: 32)
     static let zoomButtonWidth: CGFloat = 40
@@ -167,8 +171,18 @@ extension ReaderWindowController {
             titleLabel.leadingAnchor.constraint(equalTo: coverImageView.trailingAnchor, constant: ReaderUILayout.titleLeading),
             titleLabel.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
             titleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: ReaderUILayout.titleMaxWidth),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: readAloudButton.leadingAnchor, constant: -ReaderUILayout.titleToReadAloudMinimum),
 
-            zoomGroup.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: ReaderUILayout.zoomLeadingMinimum),
+            readAloudButton.trailingAnchor.constraint(equalTo: readAloudStopButton.leadingAnchor, constant: -ReaderUILayout.readAloudStopLeading),
+            readAloudButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
+            readAloudButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.readAloudButtonWidth),
+            readAloudButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.toolbarButtonHeight),
+
+            readAloudStopButton.trailingAnchor.constraint(equalTo: zoomGroup.leadingAnchor, constant: -ReaderUILayout.readAloudTrailingToZoom),
+            readAloudStopButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
+            readAloudStopButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.readAloudStopButtonWidth),
+            readAloudStopButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.toolbarButtonHeight),
+
             zoomGroup.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
             zoomGroup.centerXAnchor.constraint(equalTo: toolbar.centerXAnchor, constant: ReaderUILayout.zoomCenterOffset),
             zoomGroup.widthAnchor.constraint(equalToConstant: ReaderUILayout.zoomGroupSize.width),

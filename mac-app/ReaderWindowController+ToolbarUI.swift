@@ -11,11 +11,12 @@ extension ReaderWindowController {
 
         toolbarView = toolbar
         configureTitleControls()
+        configureReadAloudControl()
         configureZoomControls(zoomGroup: zoomGroup, zoomOut: zoomOut, zoomIn: zoomIn, leftDivider: leftDivider, rightDivider: rightDivider)
         configurePageAndSearchControls()
         configureTopRightControls()
 
-        for view in [titleLabel, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, pageLayoutButton!, cropButton!, fullScreenButton!] {
+        for view in [titleLabel, readAloudButton!, readAloudStopButton!, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, pageLayoutButton!, cropButton!, fullScreenButton!] {
             view.translatesAutoresizingMaskIntoConstraints = false
             toolbar.addSubview(view)
         }
@@ -113,6 +114,22 @@ extension ReaderWindowController {
             view.translatesAutoresizingMaskIntoConstraints = false
             zoomGroup.addSubview(view)
         }
+    }
+
+    func configureReadAloudControl() {
+        readAloudButton = capsuleButton(
+            title: AppText.localized("朗读", "Read"),
+            symbol: "speaker.wave.2",
+            action: #selector(toggleReadAloudFromToolbar)
+        )
+        readAloudButton.toolTip = AppText.localized("从当前屏幕顶部开始朗读", "Read from the top of the current screen")
+        readAloudStopButton = capsuleButton(
+            title: AppText.localized("停止", "Stop"),
+            symbol: "stop.fill",
+            action: #selector(stopReadAloudFromToolbarAction)
+        )
+        readAloudStopButton.toolTip = AppText.localized("停止朗读", "Stop reading")
+        readAloudStopButton.isHidden = true
     }
 
     func configurePageAndSearchControls() {
