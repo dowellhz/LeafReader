@@ -43,7 +43,7 @@ enum AISettingsStore {
     static let saveAIConversationEnabledKey = "saveAIConversationEnabled"
     static let selectedSpeechRuntimeKey = "selectedSpeechRuntime"
     static let speechSpeedKey = "speechSpeed"
-    private static let defaultSpeechRuntimeID = "kokoro"
+    private static let defaultSpeechRuntimeID = "kitten"
     private static let defaultSpeechSpeedID = "normal"
     private static let validSpeechRuntimeIDs = Set(["kokoro", "kitten"])
     private static let validSpeechSpeedIDs = Set(["fast", "normal", "slow", "verySlow"])

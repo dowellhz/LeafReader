@@ -7,6 +7,8 @@ SPARKLE_HOME="${SPARKLE_HOME:-/opt/homebrew/Caskroom/sparkle/2.9.2}"
 APP_SIGN_IDENTITY="${APP_SIGN_IDENTITY:--}"
 MACOS_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET:-12.0}"
 ARCHS="${ARCHS:-arm64 x86_64}"
+KITTEN_RUNTIME_DIR="${KITTEN_RUNTIME_DIR:-$HOME/.local/share/leafreader/kittentts-rs-runtime}"
+KOKORO_RUNTIME="${KOKORO_RUNTIME:-$HOME/.local/share/leafreader/kokoro-coreml/fluidaudiocli}"
 export COPYFILE_DISABLE=1
 
 if [[ ! -d "$SPARKLE_HOME/Sparkle.framework" ]]; then
@@ -28,6 +30,25 @@ cp "$ROOT_DIR/mac-app/AIPrompts.json" "$APP_PATH/Contents/Resources/AIPrompts.js
 cp "$ROOT_DIR/mac-app/AppIcon.icns" "$APP_PATH/Contents/Resources/AppIcon.icns"
 if [[ -d "$ROOT_DIR/mac-app/Resources" ]]; then
   cp -R "$ROOT_DIR/mac-app/Resources/." "$APP_PATH/Contents/Resources/"
+fi
+if [[ -d "$KITTEN_RUNTIME_DIR/kitten-tts-aarch64-macos" ]]; then
+  mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime"
+  mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos"
+  cp "$KITTEN_RUNTIME_DIR/kitten-tts-aarch64-macos/kitten-tts-server" \
+    "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
+  chmod 755 \
+    "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
+  strip -x "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server" || true
+else
+  echo "Warning: KittenTTS runtime not bundled; missing $KITTEN_RUNTIME_DIR" >&2
+fi
+if [[ -x "$KOKORO_RUNTIME" ]]; then
+  mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml"
+  cp "$KOKORO_RUNTIME" "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
+  chmod 755 "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
+  strip -x "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli" || true
+else
+  echo "Warning: Kokoro runtime not bundled; missing $KOKORO_RUNTIME" >&2
 fi
 cp -R "$SPARKLE_HOME/Sparkle.framework" "$APP_PATH/Contents/Frameworks/"
 find "$APP_PATH" -name '._*' -type f -delete

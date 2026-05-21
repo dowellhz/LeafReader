@@ -10,7 +10,6 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
         static let kokoroCoreMLCLIEnvironmentKey = "LEAFREADER_KOKORO_COREML_CLI"
         static let kokoroCoreMLVoiceEnvironmentKey = "LEAFREADER_KOKORO_COREML_VOICE"
         static let kokoroCoreMLSpeedEnvironmentKey = "LEAFREADER_KOKORO_COREML_SPEED"
-        static let binaryEnvironmentKey = "LEAFREADER_KITTENTTS_RS_BIN"
         static let modelEnvironmentKey = "LEAFREADER_KITTENTTS_RS_MODEL"
         static let voiceEnvironmentKey = "LEAFREADER_KITTENTTS_VOICE"
         static let speedEnvironmentKey = "LEAFREADER_KITTENTTS_SPEED"
@@ -20,7 +19,6 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
         static let defaultVoice = "Jasper"
         static let defaultSpeed = 1.0
         static let defaultPort = 18181
-        static let defaultBinaryPath = ".local/share/leafreader/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts"
         static let defaultServerPath = ".local/share/leafreader/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
         static let defaultModelPath = ".local/share/leafreader/kittentts-rs-runtime/kitten-tts-mini"
         static let maxSentenceLength = 520
@@ -709,11 +707,17 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
             return false
         case .kitten:
             stopKokoroWorker()
-            if ensureServer(),
-               Self.generateWAVWithServer(text: text, outputURL: outputURL) {
-                return true
+            if ensureServer() {
+                if Self.generateWAVWithServer(text: text, outputURL: outputURL) {
+                    return true
+                }
+                stopKittenServer()
+                if ensureServer(),
+                   Self.generateWAVWithServer(text: text, outputURL: outputURL) {
+                    return true
+                }
             }
-            return Self.generateWAVWithRustCLI(text: text, outputURL: outputURL)
+            return false
         }
     }
 
@@ -732,7 +736,7 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
         case "kokoro", "kokoro-coreml", "coreml":
             return .kokoroCoreML
         default:
-            switch SpeechRuntimeResourceManager.Runtime.runtime(for: AISettingsStore.selectedSpeechRuntimeID) {
+            switch SpeechRuntimeResourceManager.installedRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) {
             case .kitten:
                 return .kitten
             case .kokoro, .none:
@@ -946,6 +950,11 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
             fileManager.homeDirectoryForCurrentUser
                 .appendingPathComponent(Runtime.defaultKokoroCoreMLCLIPath)
                 .path,
+            Bundle.main.resourceURL?
+                .appendingPathComponent("SpeechRuntimes", isDirectory: true)
+                .appendingPathComponent("kokoro-coreml", isDirectory: true)
+                .appendingPathComponent("fluidaudiocli")
+                .path,
         ].compactMap { $0 }
 
         for path in candidatePaths where fileManager.isExecutableFile(atPath: path) {
@@ -1050,6 +1059,11 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
         guard result.statusCode == 200,
               let data = result.data,
               !data.isEmpty else {
+            NSLog(
+                "LeafReader KittenTTS: server synthesis failed (status=%d, bytes=%d)",
+                result.statusCode,
+                result.data?.count ?? 0
+            )
             return false
         }
         do {
@@ -1059,44 +1073,6 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
             NSLog("LeafReader KittenTTS: failed to write server audio (error=%@)", error.localizedDescription)
             return false
         }
-    }
-
-    private static func generateWAVWithRustCLI(text: String, outputURL: URL) -> Bool {
-        guard let runtime = rustRuntime() else { return false }
-
-        let process = Process()
-        process.executableURL = runtime.binaryURL
-        process.arguments = [
-            runtime.modelDirectoryURL.path,
-            text,
-            "--voice",
-            ProcessInfo.processInfo.environment[Runtime.voiceEnvironmentKey] ?? Runtime.defaultVoice,
-            "--speed",
-            String(ttsSpeed()),
-            "--output",
-            outputURL.path
-        ]
-        process.standardOutput = Pipe()
-        let errorPipe = Pipe()
-        process.standardError = errorPipe
-        do {
-            try process.run()
-            process.waitUntilExit()
-        } catch {
-            NSLog("LeafReader KittenTTS: failed to run rust runtime (error=%@)", error.localizedDescription)
-            return false
-        }
-        guard process.terminationStatus == 0,
-              FileManager.default.fileExists(atPath: outputURL.path) else {
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let message = String(data: errorData, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if !message.isEmpty {
-                NSLog("LeafReader KittenTTS: rust runtime failed (%@)", message)
-            }
-            return false
-        }
-        return true
     }
 
     private static func performRequest(_ request: URLRequest) -> (statusCode: Int, data: Data?) {
@@ -1134,23 +1110,39 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
         return min(max(value, 0.5), 2.0)
     }
 
-    private static func rustRuntime() -> (binaryURL: URL, serverURL: URL, modelDirectoryURL: URL)? {
+    private static func rustRuntime() -> (serverURL: URL, modelDirectoryURL: URL)? {
         let fileManager = FileManager.default
         let environment = ProcessInfo.processInfo.environment
-        let executablePath = environment[Runtime.binaryEnvironmentKey] ?? fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent(Runtime.defaultBinaryPath)
-            .path
-        let serverPath = fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent(Runtime.defaultServerPath)
-            .path
-        let modelPath = environment[Runtime.modelEnvironmentKey] ?? fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent(Runtime.defaultModelPath)
-            .path
-        guard fileManager.isExecutableFile(atPath: executablePath),
-              fileManager.isExecutableFile(atPath: serverPath),
-              fileManager.fileExists(atPath: modelPath) else {
-            return nil
+        if let modelPath = environment[Runtime.modelEnvironmentKey] {
+            let serverPath = fileManager.homeDirectoryForCurrentUser
+                .appendingPathComponent(Runtime.defaultServerPath)
+                .path
+            guard fileManager.isExecutableFile(atPath: serverPath),
+                  fileManager.fileExists(atPath: modelPath) else {
+                return nil
+            }
+            return (URL(fileURLWithPath: serverPath), URL(fileURLWithPath: modelPath))
         }
-        return (URL(fileURLWithPath: executablePath), URL(fileURLWithPath: serverPath), URL(fileURLWithPath: modelPath))
+
+        let candidateRoots = SpeechRuntimeResourceManager.Runtime.kitten.installDirectories
+        for runtimeRoot in candidateRoots {
+            let serverURL = runtimeRoot.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server")
+            guard fileManager.isExecutableFile(atPath: serverURL.path) else {
+                continue
+            }
+            for modelRoot in candidateRoots {
+                let modelDirectoryURL = modelRoot.appendingPathComponent("kitten-tts-mini", isDirectory: true)
+                let modelURL = modelDirectoryURL.appendingPathComponent("kitten_tts_mini_v0_8.onnx")
+                let voicesURL = modelDirectoryURL.appendingPathComponent("voices.npz")
+                let configURL = modelDirectoryURL.appendingPathComponent("config.json")
+                guard fileManager.fileExists(atPath: modelURL.path),
+                      fileManager.fileExists(atPath: voicesURL.path),
+                      fileManager.fileExists(atPath: configURL.path) else {
+                    continue
+                }
+                return (serverURL, modelDirectoryURL)
+            }
+        }
+        return nil
     }
 }

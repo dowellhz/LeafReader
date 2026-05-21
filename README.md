@@ -57,6 +57,14 @@ Generate the website packages with:
 ./scripts/package_speech_runtimes.sh
 ```
 
+## What's New in 1.5.1
+
+- Bundled the small KittenTTS server and Kokoro CLI runtimes inside the app so users only need to download speech models.
+- Kept large KittenTTS and Kokoro models outside the installer to reduce package size.
+- Made KittenTTS use the bundled server with downloaded user models, and removed the unused CLI fallback path.
+- Restarted the KittenTTS server automatically after failed synthesis to recover from stale local server processes.
+- Defaulted new speech settings to KittenTTS so the smallest downloadable model path is selected first.
+
 ## What's New in 1.5.0
 
 - Improved PDF read-aloud continuation so automatic page turns resume from the top of the next page instead of starting mid-page.

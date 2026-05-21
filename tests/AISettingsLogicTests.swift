@@ -168,7 +168,7 @@ enum AISettingsLogicTests {
 
     static func testAISettingsStoreSpeechSelectionValidation() throws {
         try withIsolatedAISettingsDefaults { defaults in
-            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kokoro", "speech runtime should default to Kokoro")
+            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "speech runtime should default to KittenTTS")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "speech speed should default to normal")
 
             AISettingsStore.saveSelectedSpeechRuntimeID("kitten")
@@ -183,7 +183,7 @@ enum AISettingsLogicTests {
 
             defaults.set(" missing-runtime ", forKey: AISettingsStore.selectedSpeechRuntimeKey)
             defaults.set(" warp ", forKey: AISettingsStore.speechSpeedKey)
-            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kokoro", "invalid stored speech runtime should fall back")
+            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "invalid stored speech runtime should fall back")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "invalid stored speech speed should fall back")
         }
     }

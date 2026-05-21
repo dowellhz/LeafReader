@@ -67,18 +67,39 @@ enum SpeechRuntimeResourceManager {
             }
         }
 
+        var bundledInstallDirectory: URL? {
+            guard let resourceURL = Bundle.main.resourceURL else {
+                return nil
+            }
+            let root = resourceURL.appendingPathComponent("SpeechRuntimes", isDirectory: true)
+            switch self {
+            case .kokoro:
+                return root.appendingPathComponent("kokoro-coreml", isDirectory: true)
+            case .kitten:
+                return root.appendingPathComponent("kittentts-rs-runtime", isDirectory: true)
+            }
+        }
+
+        var installDirectories: [URL] {
+            [installDirectory, bundledInstallDirectory].compactMap { $0 }
+        }
+
         var requiredPaths: [URL] {
+            requiredPaths(in: installDirectory)
+        }
+
+        func requiredPaths(in directory: URL) -> [URL] {
             switch self {
             case .kokoro:
                 return [
-                    installDirectory.appendingPathComponent("fluidaudiocli"),
+                    directory.appendingPathComponent("fluidaudiocli"),
                     Self.fluidAudioModelCacheRoot.appendingPathComponent("kokoro", isDirectory: true)
                 ]
             case .kitten:
                 return [
-                    installDirectory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts"),
-                    installDirectory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server"),
-                    installDirectory.appendingPathComponent("kitten-tts-mini", isDirectory: true)
+                    directory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts"),
+                    directory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server"),
+                    directory.appendingPathComponent("kitten-tts-mini", isDirectory: true)
                 ]
             }
         }
@@ -98,7 +119,38 @@ enum SpeechRuntimeResourceManager {
     }
 
     static func isInstalled(_ runtime: Runtime) -> Bool {
-        runtime.requiredPaths.allSatisfy { path in
+        if runtime == .kitten {
+            return runtime.installDirectories.contains { directory in
+                kittenRuntimePathsExist(in: directory)
+            } && runtime.installDirectories.contains { directory in
+                kittenModelPathsExist(in: directory)
+            }
+        }
+        if runtime == .kokoro {
+            return runtime.installDirectories.contains { directory in
+                FileManager.default.isExecutableFile(atPath: directory.appendingPathComponent("fluidaudiocli").path)
+            } && FileManager.default.fileExists(
+                atPath: Runtime.fluidAudioModelCacheRoot.appendingPathComponent("kokoro", isDirectory: true).path
+            )
+        }
+        return runtime.installDirectories.contains { directory in
+            requiredPathsExist(runtime.requiredPaths(in: directory))
+        }
+    }
+
+    static func installedRuntime(preferredID: String) -> Runtime? {
+        if let preferred = Runtime.runtime(for: preferredID),
+           preferred.isUsableForReadAloud,
+           isInstalled(preferred) {
+            return preferred
+        }
+        return Runtime.allCases.first { runtime in
+            runtime.isUsableForReadAloud && isInstalled(runtime)
+        }
+    }
+
+    private static func requiredPathsExist(_ paths: [URL]) -> Bool {
+        paths.allSatisfy { path in
             var isDirectory: ObjCBool = false
             let exists = FileManager.default.fileExists(atPath: path.path, isDirectory: &isDirectory)
             if path.hasDirectoryPath {
@@ -106,6 +158,24 @@ enum SpeechRuntimeResourceManager {
             }
             return FileManager.default.isExecutableFile(atPath: path.path)
         }
+    }
+
+    private static func kittenRuntimePathsExist(in directory: URL) -> Bool {
+        let server = directory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server")
+        return FileManager.default.isExecutableFile(atPath: server.path)
+    }
+
+    private static func kittenModelPathsExist(in directory: URL) -> Bool {
+        let modelDirectory = directory.appendingPathComponent("kitten-tts-mini", isDirectory: true)
+        let model = modelDirectory.appendingPathComponent("kitten_tts_mini_v0_8.onnx")
+        let voices = modelDirectory.appendingPathComponent("voices.npz")
+        let config = modelDirectory.appendingPathComponent("config.json")
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: modelDirectory.path, isDirectory: &isDirectory)
+            && isDirectory.boolValue
+            && FileManager.default.fileExists(atPath: model.path)
+            && FileManager.default.fileExists(atPath: voices.path)
+            && FileManager.default.fileExists(atPath: config.path)
     }
 
     static func statusText(for runtime: Runtime) -> String {
