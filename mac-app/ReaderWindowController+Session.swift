@@ -275,8 +275,9 @@ extension ReaderWindowController {
 
     func saveSession() {
         if isRestoringSession { return }
-        if let url = currentFileURL {
+        if let url = currentFileURL, lastSavedSessionBookmarkURL != url {
             sessionStore.saveLastDocumentURL(url)
+            lastSavedSessionBookmarkURL = url
         }
         sessionSaveTask.schedule { [weak self] in
             self?.performSessionSave()

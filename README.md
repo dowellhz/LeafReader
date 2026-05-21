@@ -57,6 +57,14 @@ Generate the website packages with:
 ./scripts/package_speech_runtimes.sh
 ```
 
+## What's New in 1.5.0
+
+- Improved PDF read-aloud continuation so automatic page turns resume from the top of the next page instead of starting mid-page.
+- Stopped active read-aloud immediately when switching or removing books, preventing stale TTS playback from the previous document.
+- Reduced PDF TTS highlight overhead by caching active page text during read-aloud progress updates.
+- Avoided hidden WebKit selection and highlight cleanup work while reading PDFs, reducing WebContent layer volatility noise.
+- Cleaned up PDF read-aloud state handling so pause, resume, stop, and page-change recovery share safer tracking logic.
+
 ## What's New in 1.4.18
 
 - Added a Copy button at the end of the floating text-selection toolbar for faster PDF and web text copying.

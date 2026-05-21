@@ -234,7 +234,9 @@ extension ReaderWindowController {
         lastPageIndex = newPageIndex
         updatePageLabel()
         saveSession()
-        scheduleDocumentEmbeddingWarmup(priorityPageIndex: newPageIndex)
+        if !isReadAloudActive {
+            scheduleDocumentEmbeddingWarmup(priorityPageIndex: newPageIndex)
+        }
     }
 
 }

@@ -183,7 +183,7 @@ extension ReaderWindowController {
     }
 
     func applyWebReaderTheme(theme: ReaderTheme = ReaderTheme.selected) {
-        guard webView != nil else { return }
+        guard webView != nil, currentDocumentKind != .pdf, webView.isHidden == false else { return }
         let themeCSS = """
         html.leaf-reader-dark { background: #111418 !important; color-scheme: dark; }
         html.leaf-reader-dark body {

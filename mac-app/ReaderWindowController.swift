@@ -60,6 +60,13 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let createdAt: Date
     }
 
+    enum PendingReadAloudPDFContinuation {
+        case currentScreen(startAtPageTop: Bool)
+        case afterCurrentScreen
+        case afterBatch(lastQueuedPage: PDFPage)
+        case waitForPage(expectedPageIndex: Int?, previousPageIndex: Int?, startAtPageTop: Bool)
+    }
+
     static let preferredAIWidthDefaultsKey = "preferredAIWidth"
     static let pdfTwoPageModeDefaultsKey = "pdfTwoPageMode"
     static let pdfMarginCropDefaultsKey = "pdfMarginCrop"
@@ -107,6 +114,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     weak var bottomBarView: NSView?
     weak var zoomGroupView: NSView?
     var currentFileURL: URL?
+    var lastSavedSessionBookmarkURL: URL?
     var currentFileMD5: String?
     var sessionStore = ReaderSessionStore(fileMD5: nil)
     var currentDocumentKind: ReaderDocumentKind = .pdf
@@ -182,8 +190,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var ttsReadingOriginalToolTip: String?
     var temporaryTTSUnderlineAnnotations: [(page: PDFPage, annotation: PDFAnnotation)] = []
     var ttsReadingPDFPages: [PDFPage] = []
-    var ttsReadingPDFPageIndex = 0
+    var ttsReadingPDFPageTextCache: [Int: String] = [:]
+    var ttsReadingPDFCandidatePageIndex = 0
     var ttsReadingPDFSearchLocation = 0
+    var ttsPageLockedAtTopIndex: Int?
+    var pendingReadAloudPDFContinuation: PendingReadAloudPDFContinuation?
     var isReadAloudActive = false
     var isReadAloudPaused = false
     var isReadAloudLoading = false

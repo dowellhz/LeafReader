@@ -125,9 +125,8 @@ extension ReaderWindowController {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         guard !playableTexts.isEmpty else { return }
+        resetTTSReadingPDFProgress()
         ttsReadingPDFPages = pdfView.currentSelection?.pages ?? []
-        ttsReadingPDFPageIndex = 0
-        ttsReadingPDFSearchLocation = 0
         shouldClearSelectionOnSpeechStart = true
         if vocabularySpeechSynthesizer.isSpeaking {
             vocabularySpeechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)

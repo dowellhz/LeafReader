@@ -24,7 +24,8 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
         static let defaultServerPath = ".local/share/leafreader/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
         static let defaultModelPath = ".local/share/leafreader/kittentts-rs-runtime/kitten-tts-mini"
         static let maxSentenceLength = 520
-        static let minSegmentWordCount = 4
+        static let maxMergedSegmentLength = 420
+        static let minSegmentWordCount = 18
     }
 
     private let queue = DispatchQueue(label: "LeafReader.KittenTTS", qos: .userInitiated)
@@ -571,8 +572,17 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
         for segment in segments {
             let trimmed = segment.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { continue }
-            current = current.isEmpty ? trimmed : "\(current) \(trimmed)"
-            currentWordCount += wordCount(in: trimmed)
+
+            let candidate = current.isEmpty ? trimmed : "\(current) \(trimmed)"
+            if !current.isEmpty, candidate.count > Runtime.maxMergedSegmentLength {
+                merged.append(current)
+                current = trimmed
+                currentWordCount = wordCount(in: trimmed)
+            } else {
+                current = candidate
+                currentWordCount += wordCount(in: trimmed)
+            }
+
             if currentWordCount >= Runtime.minSegmentWordCount {
                 merged.append(current)
                 current = ""
@@ -580,8 +590,9 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
             }
         }
         if !current.isEmpty {
-            if let last = merged.popLast() {
-                merged.append("\(last) \(current)")
+            if let last = merged.last,
+               "\(last) \(current)".count <= Runtime.maxMergedSegmentLength {
+                merged[merged.count - 1] = "\(last) \(current)"
             } else {
                 merged.append(current)
             }
@@ -1023,11 +1034,11 @@ final class KittenTTSPlayer: NSObject, NSSoundDelegate {
         request.httpMethod = "POST"
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let payload: [String: String] = [
+        let payload: [String: Any] = [
             "model": "kitten-tts",
             "input": text,
             "voice": ProcessInfo.processInfo.environment[Runtime.voiceEnvironmentKey] ?? Runtime.defaultVoice,
-            "speed": String(ttsSpeed()),
+            "speed": ttsSpeed(),
             "response_format": "wav"
         ]
         guard let body = try? JSONSerialization.data(withJSONObject: payload) else {

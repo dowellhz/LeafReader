@@ -17,6 +17,7 @@ extension ReaderWindowController {
 
     func loadDocument(_ url: URL) {
         guard let kind = ReaderDocumentKind.kind(for: url) else { return }
+        stopReadAloudImmediately()
         documentLoadGeneration += 1
         let generation = documentLoadGeneration
         showDocumentLoading(for: url)

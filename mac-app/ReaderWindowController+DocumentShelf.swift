@@ -110,6 +110,7 @@ extension ReaderWindowController {
 
     func unloadCurrentDocumentForShelfRemoval() {
         guard currentFileURL != nil else { return }
+        stopReadAloudImmediately()
         saveCurrentAIConversationBeforeDocumentChange()
         saveSession()
         resetEmbeddingStateForDocumentChange()

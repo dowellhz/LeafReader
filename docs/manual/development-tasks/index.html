@@ -551,6 +551,15 @@
 </li>
 
         <li class="md-nav__item">
+  <a href="#change-read-aloud-or-tts-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      Change Read Aloud Or TTS Models
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
   <a href="#change-bookshelf-or-recent-documents" class="md-nav__link">
     <span class="md-ellipsis">
       Change Bookshelf Or Recent Documents
@@ -972,6 +981,15 @@
 </li>
 
         <li class="md-nav__item">
+  <a href="#change-read-aloud-or-tts-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      Change Read Aloud Or TTS Models
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
   <a href="#change-bookshelf-or-recent-documents" class="md-nav__link">
     <span class="md-ellipsis">
       Change Bookshelf Or Recent Documents
@@ -1079,6 +1097,31 @@
 <li>Review queue order changing without updating SRS tests.</li>
 <li>PDF and EPUB/DOCX records diverging.</li>
 </ul>
+<h2 id="change-read-aloud-or-tts-models">Change Read Aloud Or TTS Models<a class="headerlink" href="#change-read-aloud-or-tts-models" title="Permanent link">&para;</a></h2>
+<p>Start with:</p>
+<ul>
+<li><code>mac-app/KittenTTSPlayer.swift</code></li>
+<li><code>mac-app/SpeechRuntimeResourceManager.swift</code></li>
+<li><code>mac-app/AISettingsPanelController+Speech.swift</code></li>
+<li><code>mac-app/AISettingsPanelController+Build.swift</code></li>
+<li><code>mac-app/ReaderWindowController+ReadAloud.swift</code></li>
+<li><code>mac-app/ReaderWindowController+TTSProgress.swift</code></li>
+</ul>
+<p>Current model/runtime notes:</p>
+<ul>
+<li>Kokoro and KittenTTS are usable local read-aloud runtimes.</li>
+</ul>
+<p>Run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>./tests/run.sh
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>./scripts/build_app.sh
+</code></pre></div>
+<p>Watch for:</p>
+<ul>
+<li>Letting users select a model that is downloaded but has no runnable backend.</li>
+<li>Reintroducing Python/MLX dependencies into the app bundle.</li>
+<li>Keeping more than one local TTS model loaded in memory.</li>
+<li>Breaking EPUB/PDF temporary read-aloud highlighting.</li>
+</ul>
 <h2 id="change-bookshelf-or-recent-documents">Change Bookshelf Or Recent Documents<a class="headerlink" href="#change-bookshelf-or-recent-documents" title="Permanent link">&para;</a></h2>
 <p>Start with:</p>
 <ul>
@@ -1089,7 +1132,7 @@
 <li><code>mac-app/ReaderWindowController+DocumentShelf.swift</code></li>
 </ul>
 <p>Run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>./scripts/check.sh<span class="w"> </span>--no-build
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./scripts/check.sh<span class="w"> </span>--no-build
 </code></pre></div>
 <p>Watch for:</p>
 <ul>
@@ -1108,8 +1151,8 @@
 <li><code>docs/index.html</code></li>
 </ul>
 <p>Run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./scripts/check.sh
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>./scripts/update_wiki.sh<span class="w"> </span>--push
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./scripts/check.sh
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>./scripts/update_wiki.sh<span class="w"> </span>--push
 </code></pre></div>
 <p>Watch for:</p>
 <ul>

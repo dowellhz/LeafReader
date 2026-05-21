@@ -20,6 +20,7 @@ extension ReaderWindowController {
     @objc private func handleKittenTTSProgress(_ notification: Notification) {
         let isActive = notification.userInfo?["active"] as? Bool ?? false
         guard isActive else {
+            guard !isReadAloudActive else { return }
             restoreTitleAfterKittenTTS()
             return
         }
@@ -31,27 +32,34 @@ extension ReaderWindowController {
 
         let text = notification.userInfo?["text"] as? String ?? ""
         let index = notification.userInfo?["index"] as? Int
-        if let pageIndex = notification.userInfo?["pageIndex"] as? Int {
+        let pageIndex = notification.userInfo?["pageIndex"] as? Int
+        if let pageIndex {
             turnPDFReadAloudPageIfNeeded(to: pageIndex)
         }
         let preview = Self.ttsTitlePreview(for: text)
         let originalTitle = ttsReadingOriginalTitle ?? titleLabel.stringValue
         titleLabel.stringValue = "\(originalTitle) · \(preview)"
         titleLabel.toolTip = text
-        updateTemporaryTTSUnderline(for: text, index: index)
+        updateTemporaryTTSUnderline(for: text, index: index, pageIndex: pageIndex)
     }
 
-    private func restoreTitleAfterKittenTTS() {
+    func restoreTitleAfterKittenTTS() {
         clearTemporaryTTSUnderline()
-        ttsReadingPDFPages.removeAll()
-        ttsReadingPDFPageIndex = 0
-        ttsReadingPDFSearchLocation = 0
+        resetTTSReadingPDFProgress()
         if let original = ttsReadingOriginalTitle {
             titleLabel.stringValue = original
             ttsReadingOriginalTitle = nil
         }
         titleLabel.toolTip = ttsReadingOriginalToolTip
         ttsReadingOriginalToolTip = nil
+    }
+
+    func resetTTSReadingPDFProgress() {
+        ttsReadingPDFPages.removeAll()
+        ttsReadingPDFPageTextCache.removeAll()
+        ttsReadingPDFCandidatePageIndex = 0
+        ttsReadingPDFSearchLocation = 0
+        ttsPageLockedAtTopIndex = nil
     }
 
     private static func ttsTitlePreview(for text: String) -> String {
@@ -63,10 +71,10 @@ extension ReaderWindowController {
         return String(normalized[..<endIndex]) + "..."
     }
 
-    private func updateTemporaryTTSUnderline(for text: String, index: Int?) {
+    private func updateTemporaryTTSUnderline(for text: String, index: Int?, pageIndex: Int?) {
         clearTemporaryTTSUnderline()
         if currentDocumentKind == .pdf {
-            underlinePDFSegment(text)
+            underlinePDFSegment(text, preferredDocumentPageIndex: pageIndex)
         } else {
             underlineWebSegment(text, index: index)
         }
@@ -77,12 +85,30 @@ extension ReaderWindowController {
             item.page.removeAnnotation(item.annotation)
         }
         temporaryTTSUnderlineAnnotations.removeAll()
+        guard currentDocumentKind != .pdf, webView?.isHidden == false else { return }
         webView?.evaluateJavaScript("window.leafReaderClearTTSUnderline && window.leafReaderClearTTSUnderline();")
     }
 
-    private func underlinePDFSegment(_ text: String) {
+    private func underlinePDFSegment(_ text: String, preferredDocumentPageIndex: Int?) {
         let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return }
+        if let preferredDocumentPageIndex,
+           let document = pdfView.document,
+           preferredDocumentPageIndex >= 0,
+           preferredDocumentPageIndex < document.pageCount,
+           let page = document.page(at: preferredDocumentPageIndex) {
+            let preferredCandidateIndex = ttsReadingPDFPages.enumerated()
+                .first { $0.element === page }?
+                .offset ?? ttsReadingPDFCandidatePageIndex
+            if underlinePDFSegment(
+                text: query,
+                page: page,
+                candidatePageIndex: preferredCandidateIndex,
+                usesCursor: true
+            ) {
+                return
+            }
+        }
         let candidatePages = !ttsReadingPDFPages.isEmpty
             ? ttsReadingPDFPages
             : [pdfView.currentPage].compactMap { $0 }
@@ -104,6 +130,7 @@ extension ReaderWindowController {
         let bounds = page.bounds(for: pdfView.displayBox)
         let destination = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY))
         pdfView.go(to: destination)
+        ttsPageLockedAtTopIndex = pageIndex
         lastPageIndex = pageIndex
         updatePageLabel()
         saveSession()
@@ -111,45 +138,66 @@ extension ReaderWindowController {
 
     private func underlinePDFSegment(text query: String, in candidatePages: [PDFPage], usesCursor: Bool) -> Bool {
         for (pageIndex, page) in candidatePages.enumerated() {
-            if usesCursor, pageIndex < ttsReadingPDFPageIndex {
-                continue
-            }
-            guard let pageText = page.string,
-                  let nsRange = Self.ttsRange(
-                    of: query,
-                    in: pageText,
-                    searchRange: usesCursor ? ttsSearchRange(for: pageText, pageIndex: pageIndex) : nil
-                  ) else {
-                continue
-            }
-            guard let selection = page.selection(for: nsRange) else { continue }
-            var segmentBounds = CGRect.null
-            for lineSelection in selection.selectionsByLine() {
-                let bounds = lineSelection.bounds(for: page)
-                guard bounds.width > 0, bounds.height > 0 else { continue }
-                segmentBounds = segmentBounds.union(bounds)
-                let annotation = PDFAnnotation(
-                    bounds: bounds.insetBy(dx: -1, dy: -1),
-                    forType: .highlight,
-                    withProperties: nil
-                )
-                annotation.color = Self.temporaryTTSHighlightColor
-                page.addAnnotation(annotation)
-                temporaryTTSUnderlineAnnotations.append((page, annotation))
-            }
-            if !temporaryTTSUnderlineAnnotations.isEmpty {
-                ttsReadingPDFPageIndex = pageIndex
-                ttsReadingPDFSearchLocation = NSMaxRange(nsRange)
-                scrollPDFSegmentToCenter(page: page, bounds: segmentBounds)
+            if underlinePDFSegment(text: query, page: page, candidatePageIndex: pageIndex, usesCursor: usesCursor) {
                 return true
             }
         }
         return false
     }
 
+    private func underlinePDFSegment(text query: String, page: PDFPage, candidatePageIndex: Int, usesCursor: Bool) -> Bool {
+        if usesCursor, candidatePageIndex < ttsReadingPDFCandidatePageIndex {
+            return false
+        }
+        let documentPageIndex = pdfView.document?.index(for: page)
+        guard let pageText = cachedPDFTextForTTS(page: page, documentPageIndex: documentPageIndex),
+              let nsRange = Self.ttsRange(
+                of: query,
+                in: pageText,
+                searchRange: usesCursor ? ttsSearchRange(for: pageText, pageIndex: candidatePageIndex) : nil
+              ) else {
+            return false
+        }
+        guard let selection = page.selection(for: nsRange) else { return false }
+        var segmentBounds = CGRect.null
+        for lineSelection in selection.selectionsByLine() {
+            let bounds = lineSelection.bounds(for: page)
+            guard bounds.width > 0, bounds.height > 0 else { continue }
+            segmentBounds = segmentBounds.union(bounds)
+            let annotation = PDFAnnotation(
+                bounds: bounds.insetBy(dx: -1, dy: -1),
+                forType: .highlight,
+                withProperties: nil
+            )
+            annotation.color = Self.temporaryTTSHighlightColor
+            page.addAnnotation(annotation)
+            temporaryTTSUnderlineAnnotations.append((page, annotation))
+        }
+        if !temporaryTTSUnderlineAnnotations.isEmpty {
+            ttsReadingPDFCandidatePageIndex = candidatePageIndex
+            ttsReadingPDFSearchLocation = NSMaxRange(nsRange)
+            if documentPageIndex == ttsPageLockedAtTopIndex {
+                ttsPageLockedAtTopIndex = nil
+            } else {
+                scrollPDFSegmentToCenter(page: page, bounds: segmentBounds)
+            }
+            return true
+        }
+        return false
+    }
+
+    private func cachedPDFTextForTTS(page: PDFPage, documentPageIndex: Int?) -> String? {
+        if let documentPageIndex,
+           documentPageIndex != NSNotFound,
+           let cached = ttsReadingPDFPageTextCache[documentPageIndex] {
+            return cached.isEmpty ? page.string : cached
+        }
+        return page.string
+    }
+
     private func ttsSearchRange(for pageText: String, pageIndex: Int) -> NSRange {
         let fullRange = NSRange(pageText.startIndex..<pageText.endIndex, in: pageText)
-        let start = pageIndex == ttsReadingPDFPageIndex ? ttsReadingPDFSearchLocation : 0
+        let start = pageIndex == ttsReadingPDFCandidatePageIndex ? ttsReadingPDFSearchLocation : 0
         let location = min(max(0, start), fullRange.length)
         return NSRange(location: location, length: fullRange.length - location)
     }

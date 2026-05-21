@@ -27,6 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         loadPendingOpenFilesIfNeeded()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            KittenTTSPlayer.shared.warmUp()
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
