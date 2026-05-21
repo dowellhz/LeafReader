@@ -86,6 +86,21 @@ fi
 xattr -cr "$APP_PATH"
 xattr -crs "$APP_PATH"
 
+RUNTIME_EXECUTABLES=(
+  "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
+  "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
+)
+for RUNTIME_EXECUTABLE in "${RUNTIME_EXECUTABLES[@]}"; do
+  if [[ ! -x "$RUNTIME_EXECUTABLE" ]]; then
+    continue
+  fi
+  if [[ "$APP_SIGN_IDENTITY" == "-" ]]; then
+    codesign --force --sign - "$RUNTIME_EXECUTABLE"
+  else
+    codesign --force --options runtime --timestamp --sign "$APP_SIGN_IDENTITY" "$RUNTIME_EXECUTABLE"
+  fi
+done
+
 if [[ "$APP_SIGN_IDENTITY" == "-" ]]; then
   codesign --force --deep --sign - "$APP_PATH"
 else
