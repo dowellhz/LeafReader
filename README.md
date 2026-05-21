@@ -22,7 +22,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 Download the latest macOS installer:
 
-[Leaf Reader 1.5.1 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.5.1/LeafReader-1.5.1.pkg)
+[Leaf Reader 1.5.2 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.5.2/LeafReader-1.5.2.pkg)
 
 Project website:
 
@@ -295,18 +295,18 @@ Preview and sync the GitHub Wiki copy:
 
 ## Release
 
-Current version: `1.5.1`
+Current version: `1.5.2`
 
-Git tag: `v1.5.1`
+Git tag: `v1.5.2`
 
 Latest installer:
 
-[Leaf Reader-1.5.1.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.5.1/LeafReader-1.5.1.pkg)
+[Leaf Reader-1.5.2.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.5.2/LeafReader-1.5.2.pkg)
 
 Local release artifacts are expected under:
 
 ```text
-release/1.5.1/
+release/1.5.2/
 ```
 
 Sparkle updates use:
@@ -320,7 +320,7 @@ The appcast entry points to the signed and notarized pkg uploaded to GitHub Rele
 Build, sign, notarize, staple, and update the Sparkle appcast for a release:
 
 ```sh
-SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.5.1
+SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.5.2
 ```
 
 Run the full publish flow from a clean working tree:
