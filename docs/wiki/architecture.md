@@ -20,6 +20,7 @@ AppDelegate
 - `AppDelegate*.swift`: app lifecycle, menu, help, update UI.
 - `ReaderWindowController*.swift`: reader shell, document opening, navigation, search, AI integration, vocabulary, sessions.
 - `DocumentLoading*.swift`: EPUB/DOCX archive handling, HTML generation, shared document helpers.
+- `ProcessRunner.swift`: bounded external process execution for archive helpers and other command-line runtimes.
 - `AIChatPanel*.swift`: AI chat UI, request lifecycle, bubble layout, selection handling.
 - `AISettingsPanelController*.swift`: settings window, model configuration, AI analysis cache controls, and TTS runtime download controls.
 - `KittenTTSPlayer.swift`, `SpeechRuntimeResourceManager.swift`, and `RuntimeDownload.swift`: local TTS playback, runtime selection, compatibility, and model downloads.
@@ -36,6 +37,7 @@ Large controllers are split by behavior into extensions or focused helper views.
 - `mac-app/ReaderWindowController.swift`
 - `mac-app/ReaderWindowController+UI.swift`
 - `mac-app/DocumentLoading.swift`
+- `mac-app/ProcessRunner.swift`
 - `mac-app/AIChatPanel.swift`
 - `mac-app/KittenTTSPlayer.swift`
 - `mac-app/SpeechRuntimeResourceManager.swift`

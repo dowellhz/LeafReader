@@ -136,6 +136,40 @@ private func testAIRequestStateLifecycle() throws {
     try expect(state.shouldHandleCompletion(for: secondID), "cancelled request completion should be consumed once")
     try expect(state.consumeCancellation(for: secondID), "cancelled request should report cancellation")
     try expect(!state.shouldHandleCompletion(for: secondID), "cancelled completion should not be handled twice")
+
+    state.begin(id: firstID)
+    _ = state.cancelActive()
+    try expect(state.shouldHandleCompletion(for: firstID), "latest cancelled request should still be consumable")
+    state.finish()
+    try expect(!state.shouldHandleCompletion(for: firstID), "finish should clear pending cancellation state")
+
+    state.begin(id: firstID)
+    _ = state.cancelActive()
+    try expect(state.shouldHandleCompletion(for: firstID), "cancelled request should be restored for replacement test")
+    state.begin(id: secondID)
+    try expect(!state.shouldHandleCompletion(for: firstID), "new requests should clear stale cancellation state")
+}
+
+private func testProcessRunnerCapturesOutputAndTimeout() throws {
+    let echo = try ProcessRunner.run(
+        executableURL: URL(fileURLWithPath: "/bin/echo"),
+        arguments: ["hello"],
+        timeout: 2
+    )
+    try expectEqual(echo.terminationStatus, 0, "successful process should return status zero")
+    try expectEqual(
+        String(data: echo.stdout, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+        "hello",
+        "process runner should capture stdout"
+    )
+    try expect(!echo.timedOut, "successful process should not report timeout")
+
+    let sleep = try ProcessRunner.run(
+        executableURL: URL(fileURLWithPath: "/bin/sleep"),
+        arguments: ["2"],
+        timeout: 0.1
+    )
+    try expect(sleep.timedOut, "long-running process should time out")
 }
 
 @main
@@ -154,6 +188,8 @@ struct RegressionTestRunner {
             print("PASS AI conversation merge trim")
             try testAIRequestStateLifecycle()
             print("PASS AI request state lifecycle")
+            try testProcessRunnerCapturesOutputAndTimeout()
+            print("PASS process runner output and timeout")
             print("RegressionTests passed")
         } catch {
             fputs("RegressionTests failed: \(error)\n", stderr)

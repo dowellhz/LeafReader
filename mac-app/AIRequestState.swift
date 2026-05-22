@@ -4,10 +4,11 @@ final class AIRequestState {
     private(set) var activeID: UUID?
     var currentStreamTask: Task<Void, Never>?
     var currentDataTask: URLSessionDataTask?
-    private var cancelledIDs = Set<UUID>()
+    private var cancelledID: UUID?
     weak var assistantBody: NSTextField?
 
     func begin(id: UUID, assistantBody: NSTextField? = nil) {
+        cancelledID = nil
         activeID = id
         currentStreamTask = nil
         currentDataTask = nil
@@ -19,15 +20,20 @@ final class AIRequestState {
     }
 
     func shouldHandleCompletion(for id: UUID) -> Bool {
-        activeID == id || cancelledIDs.contains(id)
+        activeID == id || cancelledID == id
     }
 
     func consumeCancellation(for id: UUID) -> Bool {
-        cancelledIDs.remove(id) != nil
+        guard cancelledID == id else { return false }
+        cancelledID = nil
+        return true
     }
 
     func finish(id: UUID? = nil) {
         guard id == nil || activeID == id else { return }
+        if id == nil || cancelledID == id {
+            cancelledID = nil
+        }
         activeID = nil
         currentStreamTask = nil
         currentDataTask = nil
@@ -35,9 +41,7 @@ final class AIRequestState {
     }
 
     func cancelActive() -> NSTextField? {
-        if let activeID {
-            cancelledIDs.insert(activeID)
-        }
+        cancelledID = activeID
         let body = assistantBody
         activeID = nil
         currentStreamTask?.cancel()

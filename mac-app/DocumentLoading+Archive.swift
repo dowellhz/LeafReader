@@ -4,6 +4,8 @@ import Foundation
 extension WebDocumentLoader {
     // MARK: - Archive and Text Decoding
 
+    private static var archiveProcessTimeout: TimeInterval { 60 }
+
     static func unzipEPUBToCache(url: URL) throws -> URL {
         let fileURL = url.standardizedFileURL
         let values = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
@@ -104,30 +106,43 @@ extension WebDocumentLoader {
     }
 
     static func unzip(url: URL, to destination: URL) throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
-        process.arguments = ["-qq", "-o", url.path, "-d", destination.path]
-        try process.run()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            throw NSError(domain: "LeafReader", code: Int(process.terminationStatus), userInfo: [
-                NSLocalizedDescriptionKey: "Unable to unpack \(url.lastPathComponent)"
+        let result = try ProcessRunner.run(
+            executableURL: URL(fileURLWithPath: "/usr/bin/unzip"),
+            arguments: ["-qq", "-o", url.path, "-d", destination.path],
+            timeout: archiveProcessTimeout
+        )
+        guard !result.timedOut else {
+            throw NSError(domain: "LeafReader", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "Unable to unpack \(url.lastPathComponent): unzip timed out."
+            ])
+        }
+        guard result.terminationStatus == 0 else {
+            throw NSError(domain: "LeafReader", code: Int(result.terminationStatus), userInfo: [
+                NSLocalizedDescriptionKey: archiveProcessErrorMessage(
+                    prefix: "Unable to unpack \(url.lastPathComponent)",
+                    stderr: result.stderr
+                )
             ])
         }
     }
 
     static func zipEntryData(in url: URL, entryPath: String) throws -> Data? {
         guard let entryPath = EPUBPathResolver.safeArchivePath(entryPath) else { return nil }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
-        process.arguments = ["-p", url.path, entryPath]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-        try process.run()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return process.terminationStatus == 0 && !data.isEmpty ? data : nil
+        let result = try ProcessRunner.run(
+            executableURL: URL(fileURLWithPath: "/usr/bin/unzip"),
+            arguments: ["-p", url.path, entryPath],
+            timeout: archiveProcessTimeout
+        )
+        return result.terminationStatus == 0 && !result.timedOut && !result.stdout.isEmpty ? result.stdout : nil
+    }
+
+    private static func archiveProcessErrorMessage(prefix: String, stderr: Data) -> String {
+        guard let message = String(data: stderr, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !message.isEmpty else {
+            return prefix
+        }
+        return "\(prefix): \(message)"
     }
 
 }
