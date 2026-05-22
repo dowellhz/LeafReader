@@ -70,6 +70,13 @@ Generate the website packages with:
 ./scripts/package_speech_runtimes.sh
 ```
 
+## What's New in 1.5.8
+
+- Rebuilt the bundled KittenTTS `espeak-ng` helper runtime with a macOS 12.0 deployment target, so KittenTTS local speech matches the app's macOS 12 baseline.
+- Added a reusable script for rebuilding the macOS 12-compatible `espeak-ng` and `pcaudiolib` runtime dependencies before release packaging.
+- Kept Kokoro downloads available on older macOS versions while showing a compatibility warning when the system is below Kokoro's macOS 14.0 runtime requirement.
+- Updated README and the release website to clarify the app, KittenTTS, and Kokoro operating system requirements.
+
 ## What's New in 1.5.7
 
 - Updated Kokoro playback to use FluidAudio's `kokoro-ane` English variant with the selected speech speed.
