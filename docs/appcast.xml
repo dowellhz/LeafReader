@@ -6,18 +6,23 @@
     <description>Leaf Reader macOS app updates.</description>
     <language>zh-CN</language>
     <item>
-      <title>Leaf Reader 1.5.7</title>
-      <sparkle:version>1.5.7</sparkle:version>
-      <sparkle:shortVersionString>1.5.7</sparkle:shortVersionString>
+      <title>Leaf Reader 1.5.8</title>
+      <sparkle:version>1.5.8</sparkle:version>
+      <sparkle:shortVersionString>1.5.8</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <pubDate>Fri, 22 May 2026 00:24:50 +0000</pubDate>
+      <pubDate>Fri, 22 May 2026 02:11:34 +0000</pubDate>
       <description><![CDATA[
-        <ul><li>Leaf Reader 1.5.7 release.</li></ul>
+        <ul>
+  <li>Rebuilt the bundled KittenTTS espeak-ng helper runtime for macOS 12.0 compatibility.</li>
+  <li>Added a reusable script for rebuilding the macOS 12-compatible espeak-ng and pcaudiolib runtime dependencies.</li>
+  <li>Kept Kokoro downloads available on older macOS versions while showing a compatibility warning below macOS 14.0.</li>
+  <li>Updated README and the release website to clarify app, KittenTTS, and Kokoro operating system requirements.</li>
+</ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dowellhz/LeafReader/releases/download/v1.5.7/LeafReader-1.5.7.pkg"
-        sparkle:edSignature="IQ1q9Rn4OphMuUmAXbrtywOxDL75ydyKu1+1OBPfy5Sqru8GH81cE40Pjd4iLOodlorVLUszDJiiKJ33lDkBAw=="
-        length="28915132"
+        url="https://github.com/dowellhz/LeafReader/releases/download/v1.5.8/LeafReader-1.5.8.pkg"
+        sparkle:edSignature="ri8DZGqqVFK025FwXtUqal+pn/Ic/jX5otcy4uGzQhEBzjv9QnM0nNRiaSvIOh7XGxo2mGf1nPtsj1TL+MfbDw=="
+        length="28944095"
         type="application/octet-stream" />
     </item>
   </channel>
