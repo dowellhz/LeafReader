@@ -68,14 +68,4 @@ extension ReaderWindowController {
         webView.evaluateJavaScript("window.leafReaderRemoveWordHighlight && window.leafReaderRemoveWordHighlight(\(jsStringLiteral(id)));")
     }
 
-    func refreshStoredWebWordHighlightsClearingTransientSelection() {
-        guard currentDocumentKind != .pdf else { return }
-        webView.evaluateJavaScript("window.leafReaderClearSelectionVisualOnly && window.leafReaderClearSelectionVisualOnly();") { [weak self] _, _ in
-            guard let self else { return }
-            self.restoreStoredWebWordHighlights { [weak self] in
-                guard let self else { return }
-                self.restoreWebAISourceUnderlines(for: self.aiPanel.activeConversationSources())
-            }
-        }
-    }
 }

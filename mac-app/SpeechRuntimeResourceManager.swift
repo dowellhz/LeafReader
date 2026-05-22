@@ -70,10 +70,6 @@ enum SpeechRuntimeResourceManager {
             displayOrder.first { $0.id == id }
         }
 
-        static func isValidID(_ id: String) -> Bool {
-            runtime(for: id) != nil
-        }
-
         var downloadURL: URL {
             switch self {
             case .kokoro:

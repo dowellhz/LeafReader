@@ -54,18 +54,6 @@ extension ReaderWindowController {
         }
     }
 
-    func capsuleAttributedTitle(_ title: String, isDark: Bool) -> NSAttributedString {
-        NSAttributedString(
-            string: title,
-            attributes: [
-                .font: AppFont.semibold(ofSize: 13),
-                .foregroundColor: isDark
-                    ? NSColor(red: 0.86, green: 0.89, blue: 0.94, alpha: 1)
-                    : NSColor(red: 0.12, green: 0.14, blue: 0.18, alpha: 1)
-            ]
-        )
-    }
-
     func divider() -> NSView {
         let view = NSView()
         view.wantsLayer = true

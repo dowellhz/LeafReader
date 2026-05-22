@@ -306,10 +306,6 @@ final class PDFEmbeddingStore {
             .appendingPathComponent("LeafReader", isDirectory: true)
     }
 
-    private static func cacheDatabaseURL() -> URL? {
-        cacheDirectory()?.appendingPathComponent("pdf-embeddings.sqlite3")
-    }
-
     static func cacheSizeBytes(forDatabaseURL url: URL) -> Int64 {
         sqliteCacheFileURLs(forDatabaseURL: url).reduce(Int64(0)) { total, fileURL in
             let bytes = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? NSNumber)?.int64Value ?? 0
