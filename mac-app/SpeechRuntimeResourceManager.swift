@@ -11,10 +11,16 @@ enum SpeechRuntimeResourceManager {
     private static let maxDownloadAttempts = 4
     private static let releaseDownloadsBaseURL = "https://github.com/dowellhz/LeafReader/releases"
     private static let installManifestFileName = ".leafreader-install-manifest.json"
+    private static let lastFailureDefaultsPrefix = "speechRuntime.lastFailure."
 
     fileprivate struct InstallManifest: Codable {
         let runtimeID: String
         let cacheDirectoryPaths: [String]
+    }
+
+    private struct LastDownloadFailure: Codable {
+        let message: String
+        let timestamp: TimeInterval
     }
 
     enum Runtime: CaseIterable {
@@ -284,6 +290,12 @@ enum SpeechRuntimeResourceManager {
         if isRunnable(runtime) {
             return AppText.localized("已安装 · \(size)", "Installed · \(size)")
         }
+        if let failure = lastDownloadFailure(for: runtime) {
+            return AppText.localized(
+                "未安装 · \(size) · 上次失败：\(failure.message)",
+                "Not installed · \(size) · Last failed: \(failure.message)"
+            )
+        }
         return AppText.localized("未安装 · \(size)", "Not installed · \(size)")
     }
 
@@ -318,6 +330,7 @@ enum SpeechRuntimeResourceManager {
     static func cancel(_ runtime: Runtime) {
         let completions = stopActiveDownload(for: runtime)
         try? FileManager.default.removeItem(at: partialDownloadURL(for: runtime))
+        clearLastDownloadFailure(for: runtime)
         let error = NSError(
             domain: NSCocoaErrorDomain,
             code: NSUserCancelledError,
@@ -345,6 +358,7 @@ enum SpeechRuntimeResourceManager {
         let manifest = installManifest(for: runtime)
         try removeItemIfExists(at: partialDownloadURL(for: runtime))
         try removeItemIfExists(at: runtime.installDirectory)
+        clearLastDownloadFailure(for: runtime)
         if runtime == .kokoro {
             let modelCacheDirectories = manifest?.cacheDirectories ?? kokoroModelCacheDirectories()
             for modelCacheDirectory in modelCacheDirectories {
@@ -375,6 +389,14 @@ enum SpeechRuntimeResourceManager {
         }
         guard shouldStart else { return }
         download(runtime, retryingWithoutResume: false) { result in
+            switch result {
+            case .success:
+                clearLastDownloadFailure(for: runtime)
+            case .failure(let error):
+                if (error as NSError).code != NSUserCancelledError {
+                    recordLastDownloadFailure(error, for: runtime)
+                }
+            }
             finishDownload(runtime, result: result)
         }
     }
@@ -648,6 +670,40 @@ enum SpeechRuntimeResourceManager {
             return nil
         }
         return manifest
+    }
+
+    private static func lastFailureDefaultsKey(for runtime: Runtime) -> String {
+        "\(lastFailureDefaultsPrefix)\(runtime.id)"
+    }
+
+    private static func lastDownloadFailure(for runtime: Runtime) -> LastDownloadFailure? {
+        guard let data = UserDefaults.standard.data(forKey: lastFailureDefaultsKey(for: runtime)) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(LastDownloadFailure.self, from: data)
+    }
+
+    private static func recordLastDownloadFailure(_ error: Error, for runtime: Runtime) {
+        let failure = LastDownloadFailure(
+            message: sanitizedFailureMessage(from: error),
+            timestamp: Date().timeIntervalSince1970
+        )
+        guard let data = try? JSONEncoder().encode(failure) else { return }
+        UserDefaults.standard.set(data, forKey: lastFailureDefaultsKey(for: runtime))
+    }
+
+    private static func clearLastDownloadFailure(for runtime: Runtime) {
+        UserDefaults.standard.removeObject(forKey: lastFailureDefaultsKey(for: runtime))
+    }
+
+    private static func sanitizedFailureMessage(from error: Error) -> String {
+        let raw = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = AppText.localized("未知错误", "Unknown error")
+        let message = NetworkErrorFormatter.sanitizedBody(raw.isEmpty ? fallback : raw)
+        if message.count > 160 {
+            return "\(message.prefix(160))..."
+        }
+        return message
     }
 }
 

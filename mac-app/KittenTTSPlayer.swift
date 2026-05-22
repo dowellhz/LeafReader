@@ -91,20 +91,6 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         let error: String?
     }
 
-    func warmUp() {
-        cancelScheduledIdleShutdown()
-        queue.async {
-            switch Self.preferredBackend() {
-            case .kokoroCoreML:
-                _ = self.ensureKokoroWorker()
-            case .kitten:
-                _ = self.ensureServer()
-            case .none:
-                self.stopRuntimeProcesses()
-            }
-        }
-    }
-
     func speakEnglish(_ text: String, completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
         let value = Self.normalizedEnglishTTSInput(text)
         let segments = Self.ttsSegments(for: value).map {
