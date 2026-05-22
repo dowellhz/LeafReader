@@ -216,6 +216,86 @@ enum AISettingsLogicTests {
         try expect(sanitized.hasSuffix("..."), "truncated HTTP bodies should end with ellipsis")
     }
 
+    static func testAIResponseParserParsesNonStreamingResponses() throws {
+        let responsesJSON: [String: Any] = [
+            "output": [
+                [
+                    "content": [
+                        ["type": "output_text", "text": "Responses answer"]
+                    ]
+                ]
+            ]
+        ]
+        try expectEqual(
+            AIResponseParser.responseText(from: responsesJSON, provider: "openai"),
+            "Responses answer",
+            "Responses API output content should parse"
+        )
+
+        let chatJSON: [String: Any] = [
+            "choices": [
+                ["message": ["content": "Chat answer"]]
+            ]
+        ]
+        try expectEqual(
+            AIResponseParser.responseText(from: chatJSON, provider: "openai"),
+            "Chat answer",
+            "Chat completions message content should parse"
+        )
+
+        let claudeJSON: [String: Any] = [
+            "content": [
+                ["type": "text", "text": "Claude "],
+                ["type": "text", "text": "answer"]
+            ]
+        ]
+        try expectEqual(
+            AIResponseParser.responseText(from: claudeJSON, provider: "claude"),
+            "Claude answer",
+            "Claude text blocks should join"
+        )
+    }
+
+    static func testAIResponseParserParsesStreamingDeltas() throws {
+        try expectEqual(
+            AIResponseParser.deltaText(
+                fromStreamLine: #"data: {"type":"response.output_text.delta","delta":"Hi"}"#,
+                provider: "openai"
+            ),
+            "Hi",
+            "Responses stream delta should parse"
+        )
+        try expectEqual(
+            AIResponseParser.deltaText(
+                fromStreamLine: #"data: {"choices":[{"delta":{"content":" there"}}]}"#,
+                provider: "openai"
+            ),
+            " there",
+            "chat completion stream delta should parse"
+        )
+        try expectEqual(
+            AIResponseParser.deltaText(
+                fromStreamLine: #"{"delta":{"text":"Claude delta"}}"#,
+                provider: "claude"
+            ),
+            "Claude delta",
+            "Claude stream delta should parse"
+        )
+        try expectEqual(
+            AIResponseParser.deltaText(
+                fromStreamLine: #"data: {"choices":[{"delta":{"reasoning_content":"hidden"}}]}"#,
+                provider: "openai"
+            ),
+            nil,
+            "reasoning-only deltas should be ignored"
+        )
+        try expectEqual(
+            AIResponseParser.deltaText(fromStreamLine: "data: [DONE]", provider: "openai"),
+            nil,
+            "done sentinel should not emit visible text"
+        )
+    }
+
     static func testEmbeddingKeyIsolation() throws {
         var store = EmbeddingKeyStore()
         store.saveEmbeddingKey("openai-key", optionID: "openai")

@@ -45,6 +45,7 @@ swiftc \
   mac-app/ReaderProgressFormatter.swift \
   mac-app/VocabularyTextPolicy.swift \
   mac-app/ReaderAIContextPolicy.swift \
+  mac-app/AIResponseParser.swift \
   mac-app/AIResponseTextFormatter.swift \
   mac-app/EmbeddingActionPolicy.swift \
   mac-app/AppText.swift \
