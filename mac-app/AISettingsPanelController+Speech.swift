@@ -310,7 +310,7 @@ extension AISettingsPanelController {
         guard let panel else { return }
         let alert = NSAlert()
         alert.messageText = AppText.localized("朗读模型下载失败", "Read Aloud Model Download Failed")
-        alert.informativeText = error.localizedDescription
+        alert.informativeText = speechRuntimeErrorDescription(error)
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppText.confirm)
         alert.beginSheetModal(for: panel)
@@ -320,9 +320,15 @@ extension AISettingsPanelController {
         guard let panel else { return }
         let alert = NSAlert()
         alert.messageText = AppText.localized("朗读模型删除失败", "Delete Read Aloud Model Failed")
-        alert.informativeText = error.localizedDescription
+        alert.informativeText = speechRuntimeErrorDescription(error)
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppText.confirm)
         alert.beginSheetModal(for: panel)
+    }
+
+    private func speechRuntimeErrorDescription(_ error: Error) -> String {
+        let raw = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = AppText.localized("未知错误", "Unknown error")
+        return NetworkErrorFormatter.sanitizedBody(raw.isEmpty ? fallback : raw)
     }
 }

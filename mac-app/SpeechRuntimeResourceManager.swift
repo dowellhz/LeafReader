@@ -652,7 +652,7 @@ enum SpeechRuntimeResourceManager {
         let fileManager = FileManager.default
         let cacheRoot = Runtime.fluidAudioModelCacheRoot
         try fileManager.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
-        var installedDirectories: [URL] = []
+        var transaction = KokoroCacheInstallTransaction(fileManager: fileManager)
         for name in ["kokoro", "kokoro-82m-coreml"] {
             let source = installDirectory.appendingPathComponent("Models/\(name)", isDirectory: true)
             var isDirectory: ObjCBool = false
@@ -660,25 +660,12 @@ enum SpeechRuntimeResourceManager {
                 continue
             }
             let destination = cacheRoot.appendingPathComponent(name, isDirectory: true)
-            let backup = cacheRoot.appendingPathComponent(".\(name)-backup-\(UUID().uuidString)", isDirectory: true)
-            defer {
-                try? fileManager.removeItem(at: backup)
-            }
-            if fileManager.fileExists(atPath: destination.path) {
-                try fileManager.moveItem(at: destination, to: backup)
-            }
-            do {
-                try fileManager.moveItem(at: source, to: destination)
-                installedDirectories.append(destination)
-            } catch {
-                if fileManager.fileExists(atPath: backup.path),
-                   !fileManager.fileExists(atPath: destination.path) {
-                    try? fileManager.moveItem(at: backup, to: destination)
-                }
-                throw error
-            }
+            let backup = cacheRoot
+                .appendingPathComponent(".\(name)-backup-\(UUID().uuidString)", isDirectory: true)
+            try transaction.replace(source: source, destination: destination, backup: backup)
         }
-        return installedDirectories
+        transaction.commit()
+        return transaction.installedDirectories
     }
 
     private static func restoreRuntimeInstall(_ runtime: Runtime, from backupDirectory: URL) {
@@ -750,6 +737,78 @@ private extension SpeechRuntimeResourceManager.InstallManifest {
         cacheDirectoryPaths.compactMap { path in
             let url = URL(fileURLWithPath: path, isDirectory: true)
             return url.isInsideFluidAudioModelCache ? url : nil
+        }
+    }
+}
+
+private struct KokoroCacheInstallTransaction {
+    private struct Replacement {
+        let destination: URL
+        let backup: URL
+        let hadExistingDestination: Bool
+    }
+
+    private let fileManager: FileManager
+    private var replacements: [Replacement] = []
+    private(set) var installedDirectories: [URL] = []
+    private var isCommitted = false
+
+    init(fileManager: FileManager) {
+        self.fileManager = fileManager
+    }
+
+    mutating func replace(source: URL, destination: URL, backup: URL) throws {
+        let hadExistingDestination = fileManager.fileExists(atPath: destination.path)
+        do {
+            if hadExistingDestination {
+                try fileManager.moveItem(at: destination, to: backup)
+            }
+            try fileManager.moveItem(at: source, to: destination)
+            replacements.append(Replacement(
+                destination: destination,
+                backup: backup,
+                hadExistingDestination: hadExistingDestination
+            ))
+            installedDirectories.append(destination)
+        } catch {
+            restoreCurrentReplacement(destination: destination, backup: backup, hadExistingDestination: hadExistingDestination)
+            rollback()
+            throw error
+        }
+    }
+
+    mutating func commit() {
+        isCommitted = true
+        for replacement in replacements {
+            try? fileManager.removeItem(at: replacement.backup)
+        }
+        replacements.removeAll()
+    }
+
+    mutating func rollback() {
+        guard !isCommitted else { return }
+        for replacement in replacements.reversed() {
+            try? fileManager.removeItem(at: replacement.destination)
+            if replacement.hadExistingDestination,
+               fileManager.fileExists(atPath: replacement.backup.path),
+               !fileManager.fileExists(atPath: replacement.destination.path) {
+                try? fileManager.moveItem(at: replacement.backup, to: replacement.destination)
+            } else {
+                try? fileManager.removeItem(at: replacement.backup)
+            }
+        }
+        replacements.removeAll()
+        installedDirectories.removeAll()
+    }
+
+    private func restoreCurrentReplacement(destination: URL, backup: URL, hadExistingDestination: Bool) {
+        try? fileManager.removeItem(at: destination)
+        if hadExistingDestination,
+           fileManager.fileExists(atPath: backup.path),
+           !fileManager.fileExists(atPath: destination.path) {
+            try? fileManager.moveItem(at: backup, to: destination)
+        } else {
+            try? fileManager.removeItem(at: backup)
         }
     }
 }
