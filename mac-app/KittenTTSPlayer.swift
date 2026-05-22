@@ -35,6 +35,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     private var kokoroWorkerInputPipe: Pipe?
     private var kokoroWorkerOutputPipe: Pipe?
     private var kokoroWorkerErrorPipe: Pipe?
+    private var kokoroWorkerVariant: String?
     private var currentPlayer: AVAudioPlayer?
     private var currentSegment: PlaybackSegment?
     private var pendingSegments: [PlaybackSegment] = []
@@ -109,7 +110,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     func speakEnglish(segments inputSegments: [ReadAloudSegment], completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
         cancelScheduledIdleShutdown()
         let segments = inputSegments.compactMap { segment -> ReadAloudSegment? in
-            let speechText = SpeechTextPolicy.normalizedEnglishInput(segment.speechText)
+            let speechText = SpeechTextPolicy.normalizedReadAloudInput(segment.speechText)
             guard !speechText.isEmpty else { return nil }
             let displayText = segment.displayText.trimmingCharacters(in: .whitespacesAndNewlines)
             return ReadAloudSegment(
@@ -119,7 +120,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             )
         }
         let combinedText = segments.map(\.speechText).joined(separator: " ")
-        guard SpeechTextPolicy.isEnglishCandidate(combinedText), !segments.isEmpty else {
+        guard SpeechTextPolicy.isLocalTTSCandidate(combinedText), !segments.isEmpty else {
             completion(false)
             finished?()
             return
@@ -219,8 +220,8 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
 
     func speakEnglishInterruption(_ text: String, completion: @escaping (Bool) -> Void, finished: @escaping () -> Void) {
         cancelScheduledIdleShutdown()
-        let value = SpeechTextPolicy.normalizedEnglishInput(text)
-        guard SpeechTextPolicy.isEnglishCandidate(value) else {
+        let value = SpeechTextPolicy.normalizedReadAloudInput(text)
+        guard SpeechTextPolicy.isLocalTTSCandidate(value) else {
             completion(false)
             return
         }
@@ -679,7 +680,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     private func generateWAV(text: String, outputURL: URL) -> Bool {
-        let backend = Self.preferredBackend()
+        let backend = Self.preferredBackend(for: text)
         prepareForBackend(backend)
         switch backend {
         case .kokoroCoreML:
@@ -736,6 +737,13 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     private static func preferredBackend() -> PreferredBackend {
+        preferredBackend(for: "")
+    }
+
+    private static func preferredBackend(for text: String) -> PreferredBackend {
+        if SpeechTextPolicy.isChineseCandidate(text) {
+            return SpeechRuntimeResourceManager.isRunnable(.kokoro) ? .kokoroCoreML : .none
+        }
         let value = ProcessInfo.processInfo.environment[Runtime.backendEnvironmentKey]?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
@@ -759,6 +767,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     private static func generateWAVWithKokoroCoreML(text: String, outputURL: URL) -> Bool {
         guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
         guard let cliURL = kokoroCoreMLRuntime() else { return false }
+        let variant = kokoroVariant(for: text)
 
         let arguments = [
             "tts",
@@ -766,7 +775,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             "--backend",
             "kokoro-ane",
             "--variant",
-            "en",
+            variant,
             "--voice",
             ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLVoiceEnvironmentKey]
                 ?? Runtime.defaultKokoroCoreMLVoice,
@@ -845,7 +854,8 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             stopKokoroWorker()
             return false
         }
-        guard ensureKokoroWorker(),
+        let variant = Self.kokoroVariant(for: text)
+        guard ensureKokoroWorker(variant: variant),
               let inputPipe = kokoroWorkerInputPipe,
               let outputPipe = kokoroWorkerOutputPipe else {
             return false
@@ -891,9 +901,9 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         return false
     }
 
-    private func ensureKokoroWorker() -> Bool {
+    private func ensureKokoroWorker(variant: String) -> Bool {
         guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
-        if kokoroWorkerProcess?.isRunning == true {
+        if kokoroWorkerProcess?.isRunning == true, kokoroWorkerVariant == variant {
             return true
         }
         stopKokoroWorker()
@@ -908,7 +918,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         process.arguments = [
             "tts-worker",
             "--variant",
-            "en",
+            variant,
             "--voice",
             ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLVoiceEnvironmentKey]
                 ?? Runtime.defaultKokoroCoreMLVoice
@@ -927,6 +937,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             return false
         }
         kokoroWorkerProcess = process
+        kokoroWorkerVariant = variant
         kokoroWorkerInputPipe = inputPipe
         kokoroWorkerOutputPipe = outputPipe
         kokoroWorkerErrorPipe = errorPipe
@@ -943,6 +954,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         kokoroWorkerInputPipe = nil
         kokoroWorkerOutputPipe = nil
         kokoroWorkerErrorPipe = nil
+        kokoroWorkerVariant = nil
     }
 
     private func stopRuntimeProcesses() {
@@ -1241,6 +1253,10 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         let value = ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLSpeedEnvironmentKey]
             .flatMap(Double.init) ?? AISettingsStore.kokoroSpeechSpeedMultiplier
         return min(max(value, 0.5), 2.0)
+    }
+
+    private static func kokoroVariant(for text: String) -> String {
+        SpeechTextPolicy.isChineseCandidate(text) ? "zh" : "en"
     }
 
     private static func rustRuntime() -> (serverURL: URL, modelDirectoryURL: URL)? {

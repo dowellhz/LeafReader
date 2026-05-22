@@ -327,6 +327,8 @@ private func testSpeechTextPolicyNormalization() throws {
 private func testSpeechTextPolicyEnglishCandidate() throws {
     try expect(SpeechTextPolicy.isEnglishCandidate("A short English sentence."), "English text should be accepted")
     try expect(!SpeechTextPolicy.isEnglishCandidate("中文 mixed English"), "Chinese mixed text should be rejected for local English TTS")
+    try expect(SpeechTextPolicy.isChineseCandidate("这是一段中文。"), "Chinese text should be accepted for Kokoro read aloud")
+    try expect(SpeechTextPolicy.isLocalTTSCandidate("这是一段中文。"), "Chinese text should be accepted for local read aloud")
     try expect(!SpeechTextPolicy.isEnglishCandidate("12345"), "text without letters should be rejected")
 }
 
@@ -342,6 +344,9 @@ private func testSpeechTextPolicySegments() throws {
     let segments = SpeechTextPolicy.readAloudSegments(for: longText)
     try expect(segments.count > 1, "long text should split into multiple TTS segments")
     try expect(segments.allSatisfy { $0.count <= 520 }, "split TTS segments should stay within the max sentence length")
+
+    let chineseSegments = SpeechTextPolicy.readAloudSegments(for: "第一句。第二句！第三句？")
+    try expectEqual(chineseSegments, ["第一句。 第二句！ 第三句？"], "Chinese punctuation should split and merge into a stable read-aloud segment")
 }
 
 private func testKokoroWorkerResponseReader() throws {

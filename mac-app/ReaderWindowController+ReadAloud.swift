@@ -473,6 +473,11 @@ extension ReaderWindowController {
                     self.finishReadAloudFromToolbar()
                     return
                 }
+                guard self.canReadAloudSegmentsWithAvailableRuntime(segments) else {
+                    self.finishReadAloudFromToolbar()
+                    self.openSpeechSettingsForMissingKokoro()
+                    return
+                }
                 KittenTTSPlayer.shared.speakEnglish(segments: segments) { [weak self] didUseKittenTTS in
                     guard let self else { return }
                     DispatchQueue.main.async {
@@ -498,12 +503,37 @@ extension ReaderWindowController {
     }
 
     private func canStartReadAloudWithLocalTTS() -> Bool {
+        if let probeText = currentReadAloudProbeText(),
+           SpeechTextPolicy.isChineseCandidate(probeText) {
+            guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else {
+                openSpeechSettingsForMissingKokoro()
+                return false
+            }
+            return true
+        }
         guard let runtime = SpeechRuntimeResourceManager.runnableRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) else {
             showMissingSpeechRuntimeAlert()
             return false
         }
         AISettingsStore.saveSelectedSpeechRuntimeID(runtime.id)
         return true
+    }
+
+    private func currentReadAloudProbeText() -> String? {
+        if currentDocumentKind == .pdf {
+            return pdfView.currentPage?.string
+        }
+        return currentWebSelectedText.isEmpty ? currentWebPlainText : currentWebSelectedText
+    }
+
+    private func canReadAloudSegmentsWithAvailableRuntime(_ segments: [KittenTTSPlayer.ReadAloudSegment]) -> Bool {
+        let text = segments.map(\.speechText).joined(separator: " ")
+        guard SpeechTextPolicy.isChineseCandidate(text) else { return true }
+        return SpeechRuntimeResourceManager.isRunnable(.kokoro)
+    }
+
+    private func openSpeechSettingsForMissingKokoro() {
+        openSettingsPanel(tab: .speech)
     }
 
     private func showMissingSpeechRuntimeAlert() {

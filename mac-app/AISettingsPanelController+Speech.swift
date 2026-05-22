@@ -231,7 +231,7 @@ extension AISettingsPanelController {
               !KittenTTSPlayer.shared.hasActiveReadAloudWork() else {
             return
         }
-        let text = "Welcome to Leaf Reader. I'm \(voiceID), and I'll be reading this book to you."
+        let text = "Welcome to Leaf Reader. I'm \(voiceID), and I'll be reading this book for you. Enjoy!"
         KittenTTSPlayer.shared.speakEnglishInterruption(text) { _ in
         } finished: {
         }
