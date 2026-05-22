@@ -169,21 +169,28 @@ enum AISettingsLogicTests {
     static func testAISettingsStoreSpeechSelectionValidation() throws {
         try withIsolatedAISettingsDefaults { defaults in
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "speech runtime should default to KittenTTS")
+            try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Jasper", "KittenTTS voice should default to Jasper")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "speech speed should default to normal")
 
             AISettingsStore.saveSelectedSpeechRuntimeID("kitten")
+            AISettingsStore.saveKittenSpeechVoiceID("Bella")
             AISettingsStore.saveSpeechSpeedID("slow")
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "valid speech runtime should save")
+            try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Bella", "valid KittenTTS voice should save")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "slow", "valid speech speed should save")
 
             AISettingsStore.saveSelectedSpeechRuntimeID("missing-runtime")
+            AISettingsStore.saveKittenSpeechVoiceID("Dragon")
             AISettingsStore.saveSpeechSpeedID("warp")
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "invalid speech runtime should be ignored")
+            try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Bella", "invalid KittenTTS voice should be ignored")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "slow", "invalid speech speed should be ignored")
 
             defaults.set(" missing-runtime ", forKey: AISettingsStore.selectedSpeechRuntimeKey)
+            defaults.set(" Dragon ", forKey: AISettingsStore.kittenSpeechVoiceKey)
             defaults.set(" warp ", forKey: AISettingsStore.speechSpeedKey)
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "invalid stored speech runtime should fall back")
+            try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Jasper", "invalid stored KittenTTS voice should fall back")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "invalid stored speech speed should fall back")
         }
     }

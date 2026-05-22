@@ -73,6 +73,7 @@ extension AISettingsPanelController {
         AISettingsStore.saveAutoEmbeddingIndexEnabled(autoEmbeddingIndexCheckbox?.state == .on)
         saveSelectedSpeechSettings(
             runtimeID: speechRuntimePopup?.selectedItem?.representedObject as? String,
+            voiceID: speechVoicePopup?.selectedItem?.representedObject as? String,
             speedID: speechSpeedPopup?.selectedItem?.representedObject as? String
         )
         return true

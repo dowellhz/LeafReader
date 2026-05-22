@@ -20,7 +20,6 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         static let portEnvironmentKey = "LEAFREADER_KITTENTTS_RS_PORT"
         static let defaultKokoroCoreMLVoice = "af_heart"
         static let defaultKokoroCoreMLCLIPath = ".local/share/leafreader/kokoro-coreml/fluidaudiocli"
-        static let defaultVoice = "Jasper"
         static let defaultSpeed = 1.0
         static let defaultPort = 18181
         static let defaultServerPath = ".local/share/leafreader/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
@@ -1138,7 +1137,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         let payload: [String: Any] = [
             "model": "kitten-tts",
             "input": text,
-            "voice": ProcessInfo.processInfo.environment[Runtime.voiceEnvironmentKey] ?? Runtime.defaultVoice,
+            "voice": ProcessInfo.processInfo.environment[Runtime.voiceEnvironmentKey] ?? AISettingsStore.selectedKittenSpeechVoiceID,
             "speed": ttsSpeed(),
             "response_format": "wav"
         ]

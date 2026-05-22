@@ -51,14 +51,26 @@ extension AISettingsPanelController {
     @objc func speechRuntimeChanged(_ sender: NSPopUpButton) {
         saveSelectedSpeechSettings(
             runtimeID: sender.selectedItem?.representedObject as? String,
+            voiceID: speechVoicePopup?.selectedItem?.representedObject as? String,
             speedID: speechSpeedPopup?.selectedItem?.representedObject as? String
         )
         refreshSpeechRuntimeStatus()
     }
 
+    @objc func speechVoiceChanged(_ sender: NSPopUpButton) {
+        let voiceID = sender.selectedItem?.representedObject as? String
+        saveSelectedSpeechSettings(
+            runtimeID: speechRuntimePopup?.selectedItem?.representedObject as? String,
+            voiceID: voiceID,
+            speedID: speechSpeedPopup?.selectedItem?.representedObject as? String
+        )
+        previewSelectedKittenVoice(voiceID)
+    }
+
     @objc func speechSpeedChanged(_ sender: NSPopUpButton) {
         saveSelectedSpeechSettings(
             runtimeID: speechRuntimePopup?.selectedItem?.representedObject as? String,
+            voiceID: speechVoicePopup?.selectedItem?.representedObject as? String,
             speedID: sender.selectedItem?.representedObject as? String
         )
     }
@@ -153,10 +165,14 @@ extension AISettingsPanelController {
         }
     }
 
-    func saveSelectedSpeechSettings(runtimeID: String?, speedID: String?) {
+    func saveSelectedSpeechSettings(runtimeID: String?, voiceID: String?, speedID: String?) {
         let previousRuntimeID = AISettingsStore.selectedSpeechRuntimeID
+        let previousVoiceID = AISettingsStore.selectedKittenSpeechVoiceID
         let previousSpeedID = AISettingsStore.selectedSpeechSpeedID
 
+        if let voiceID {
+            AISettingsStore.saveKittenSpeechVoiceID(voiceID)
+        }
         if let speedID {
             AISettingsStore.saveSpeechSpeedID(speedID)
         }
@@ -170,8 +186,9 @@ extension AISettingsPanelController {
         AISettingsStore.saveSelectedSpeechRuntimeID(runtimeID)
 
         let runtimeChanged = runtimeID != previousRuntimeID
+        let voiceChanged = voiceID != nil && AISettingsStore.selectedKittenSpeechVoiceID != previousVoiceID
         let speedChanged = speedID != nil && AISettingsStore.selectedSpeechSpeedID != previousSpeedID
-        if runtimeChanged || speedChanged {
+        if runtimeChanged || voiceChanged || speedChanged {
             KittenTTSPlayer.shared.regenerateRemainingSegmentsForUpdatedParameters()
         }
         if runtimeChanged, !KittenTTSPlayer.shared.hasActiveReadAloudWork() {
@@ -204,6 +221,19 @@ extension AISettingsPanelController {
             popup.select(selectedItem)
         } else if let fallbackItem = popup.itemArray.first {
             popup.select(fallbackItem)
+        }
+    }
+
+    private func previewSelectedKittenVoice(_ voiceID: String?) {
+        guard let voiceID,
+              AISettingsStore.selectedSpeechRuntimeID == SpeechRuntimeResourceManager.Runtime.kitten.id,
+              SpeechRuntimeResourceManager.isRunnable(.kitten),
+              !KittenTTSPlayer.shared.hasActiveReadAloudWork() else {
+            return
+        }
+        let text = "Welcome to Leaf Reader. I'm \(voiceID), and I'll be reading this book to you."
+        KittenTTSPlayer.shared.speakEnglishInterruption(text) { _ in
+        } finished: {
         }
     }
 

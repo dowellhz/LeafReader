@@ -168,6 +168,14 @@ extension AISettingsPanelController {
         )
         speechRuntimePopup.target = self
         speechRuntimePopup.action = #selector(speechRuntimeChanged(_:))
+        let speechVoiceLabel = label(AppText.localized("Kitten 声音", "Kitten Voice"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let speechVoicePopup = popup(
+            items: AISettingsStore.kittenSpeechVoiceOptions.map { ($0.title, $0.id) },
+            selected: AISettingsStore.selectedKittenSpeechVoiceID,
+            fontSize: settingsFontSize
+        )
+        speechVoicePopup.target = self
+        speechVoicePopup.action = #selector(speechVoiceChanged(_:))
         let speechSpeedLabel = label(AppText.localized("语速", "Speed"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let speechSpeedPopup = popup(
             items: AISettingsStore.speechSpeedOptions.map { ($0.title, $0.id) },
@@ -322,7 +330,7 @@ extension AISettingsPanelController {
         for view in [embeddingLabel, embeddingProviderPopup, embeddingEndpointContainer, embeddingModelNameLabel, embeddingModelField, embeddingKeyLabel, embeddingKeyField, embeddingHelpLabel, autoEmbeddingIndexCheckbox, testEmbeddingButton] {
             embeddingPage.addSubview(view)
         }
-        for view in [speechLabel, speechRuntimeLabel, speechRuntimePopup, speechSpeedLabel, speechSpeedPopup, kokoroSpeechCard, kittenSpeechCard, kokoroSpeechLabel, kokoroSpeechStatusLabel, kokoroSpeechProgressIndicator, kokoroSpeechDownloadButton, kokoroSpeechPauseButton, kokoroSpeechCancelButton, kokoroSpeechDeleteButton, kittenSpeechLabel, kittenSpeechStatusLabel, kittenSpeechProgressIndicator, kittenSpeechDownloadButton, kittenSpeechPauseButton, kittenSpeechCancelButton, kittenSpeechDeleteButton] {
+        for view in [speechLabel, speechRuntimeLabel, speechRuntimePopup, speechVoiceLabel, speechVoicePopup, speechSpeedLabel, speechSpeedPopup, kokoroSpeechCard, kittenSpeechCard, kokoroSpeechLabel, kokoroSpeechStatusLabel, kokoroSpeechProgressIndicator, kokoroSpeechDownloadButton, kokoroSpeechPauseButton, kokoroSpeechCancelButton, kokoroSpeechDeleteButton, kittenSpeechLabel, kittenSpeechStatusLabel, kittenSpeechProgressIndicator, kittenSpeechDownloadButton, kittenSpeechPauseButton, kittenSpeechCancelButton, kittenSpeechDeleteButton] {
             speechPage.addSubview(view)
         }
         for view in [currentIndexCard, vectorCacheCard] {
@@ -545,7 +553,14 @@ extension AISettingsPanelController {
             speechRuntimePopup.leadingAnchor.constraint(equalTo: speechPage.leadingAnchor, constant: labelColumnWidth),
             speechRuntimePopup.widthAnchor.constraint(equalToConstant: fieldWidth),
             speechRuntimePopup.heightAnchor.constraint(equalToConstant: controlHeight),
-            speechSpeedLabel.topAnchor.constraint(equalTo: speechRuntimePopup.bottomAnchor, constant: 16),
+            speechVoiceLabel.topAnchor.constraint(equalTo: speechRuntimePopup.bottomAnchor, constant: 16),
+            speechVoiceLabel.leadingAnchor.constraint(equalTo: speechRuntimeLabel.leadingAnchor),
+            speechVoiceLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            speechVoicePopup.centerYAnchor.constraint(equalTo: speechVoiceLabel.centerYAnchor),
+            speechVoicePopup.leadingAnchor.constraint(equalTo: speechRuntimePopup.leadingAnchor),
+            speechVoicePopup.widthAnchor.constraint(equalToConstant: fieldWidth),
+            speechVoicePopup.heightAnchor.constraint(equalToConstant: controlHeight),
+            speechSpeedLabel.topAnchor.constraint(equalTo: speechVoicePopup.bottomAnchor, constant: 16),
             speechSpeedLabel.leadingAnchor.constraint(equalTo: speechRuntimeLabel.leadingAnchor),
             speechSpeedLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
             speechSpeedPopup.centerYAnchor.constraint(equalTo: speechSpeedLabel.centerYAnchor),
@@ -708,6 +723,7 @@ extension AISettingsPanelController {
         self.saveAIConversationCheckbox = saveAIConversationCheckbox
         self.autoEmbeddingIndexCheckbox = autoEmbeddingIndexCheckbox
         self.speechRuntimePopup = speechRuntimePopup
+        self.speechVoicePopup = speechVoicePopup
         self.speechSpeedPopup = speechSpeedPopup
         self.kokoroSpeechStatusLabel = kokoroSpeechStatusLabel
         self.kittenSpeechStatusLabel = kittenSpeechStatusLabel

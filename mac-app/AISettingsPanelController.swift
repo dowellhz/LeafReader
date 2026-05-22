@@ -65,6 +65,7 @@ final class AISettingsPanelController {
     weak var saveAIConversationCheckbox: NSButton?
     weak var autoEmbeddingIndexCheckbox: NSButton?
     weak var speechRuntimePopup: NSPopUpButton?
+    weak var speechVoicePopup: NSPopUpButton?
     weak var speechSpeedPopup: NSPopUpButton?
     weak var kokoroSpeechStatusLabel: NSTextField?
     weak var kittenSpeechStatusLabel: NSTextField?

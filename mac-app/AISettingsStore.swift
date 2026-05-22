@@ -43,10 +43,13 @@ enum AISettingsStore {
     static let saveAIConversationEnabledKey = "saveAIConversationEnabled"
     static let selectedSpeechRuntimeKey = "selectedSpeechRuntime"
     static let speechSpeedKey = "speechSpeed"
+    static let kittenSpeechVoiceKey = "kittenSpeechVoice"
     private static let defaultSpeechRuntimeID = "kitten"
     private static let defaultSpeechSpeedID = "normal"
+    static let defaultKittenSpeechVoiceID = "Jasper"
     private static let validSpeechRuntimeIDs = Set(["kokoro", "kitten"])
     private static let validSpeechSpeedIDs = Set(["fast", "normal", "slow", "verySlow"])
+    private static let validKittenSpeechVoiceIDs = Set(["Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo"])
     private static var defaults: UserDefaults = .standard
     private static let fallbackCustomEndpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private static let fallbackEmbeddingEndpoint = URL(string: "https://api.openai.com/v1/embeddings")!
@@ -322,6 +325,21 @@ enum AISettingsStore {
             (AppText.localized("慢", "Slow"), "slow"),
             (AppText.localized("非常慢", "Very Slow"), "verySlow")
         ]
+    }
+
+    static var kittenSpeechVoiceOptions: [(title: String, id: String)] {
+        ["Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo"].map { ($0, $0) }
+    }
+
+    static var selectedKittenSpeechVoiceID: String {
+        let value = nonEmptyTrimmed(defaults.string(forKey: kittenSpeechVoiceKey)) ?? defaultKittenSpeechVoiceID
+        return validKittenSpeechVoiceIDs.contains(value) ? value : defaultKittenSpeechVoiceID
+    }
+
+    static func saveKittenSpeechVoiceID(_ id: String) {
+        guard validKittenSpeechVoiceIDs.contains(id) else { return }
+        defaults.set(id, forKey: kittenSpeechVoiceKey)
+        defaults.synchronize()
     }
 
     static func saveSpeechSpeedID(_ id: String) {
