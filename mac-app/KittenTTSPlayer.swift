@@ -6,6 +6,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     static let readingSegmentDidChangeNotification = Notification.Name("LeafReader.KittenTTS.readingSegmentDidChange")
     private static let idleShutdownDelay: TimeInterval = 180
     private static let processServerPort = Int.random(in: 20000...49151)
+    private static let kokoroWorkerResponseTimeout: TimeInterval = 45
 
     private enum Runtime {
         static let backendEnvironmentKey = "LEAFREADER_TTS_BACKEND"
@@ -955,23 +956,21 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             return false
         }
 
-        let decoder = JSONDecoder()
-        while let line = readWorkerLine(from: outputPipe.fileHandleForReading) {
-            guard let data = line.data(using: .utf8),
-                  let response = try? decoder.decode(KokoroWorkerResponse.self, from: data) else {
-                continue
-            }
-            guard response.id == request.id else { continue }
-            if response.ok, Self.isUsableWAV(at: outputURL) {
-                return true
-            }
-            if let error = response.error, !error.isEmpty {
-                NSLog("LeafReader Kokoro CoreML: worker synthesis failed (%@)", error)
-            }
+        guard let response = readKokoroWorkerResponse(
+            requestID: request.id,
+            from: outputPipe.fileHandleForReading,
+            timeout: Self.kokoroWorkerResponseTimeout
+        ) else {
+            NSLog("LeafReader Kokoro CoreML: worker synthesis timed out")
+            stopKokoroWorker()
             return false
         }
-
-        stopKokoroWorker()
+        if response.ok, Self.isUsableWAV(at: outputURL) {
+            return true
+        }
+        if let error = response.error, !error.isEmpty {
+            NSLog("LeafReader Kokoro CoreML: worker synthesis failed (%@)", error)
+        }
         return false
     }
 
@@ -1034,19 +1033,53 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         stopKittenServer()
     }
 
-    private func readWorkerLine(from handle: FileHandle) -> String? {
-        var data = Data()
-        while true {
-            let byte = handle.readData(ofLength: 1)
-            if byte.isEmpty {
-                return data.isEmpty ? nil : String(data: data, encoding: .utf8)
+    private func readKokoroWorkerResponse(
+        requestID: String,
+        from handle: FileHandle,
+        timeout: TimeInterval
+    ) -> KokoroWorkerResponse? {
+        let semaphore = DispatchSemaphore(value: 0)
+        let lock = NSLock()
+        let decoder = JSONDecoder()
+        var buffer = Data()
+        var matchedResponse: KokoroWorkerResponse?
+        var didComplete = false
+
+        handle.readabilityHandler = { readableHandle in
+            let data = readableHandle.availableData
+            lock.lock()
+            defer { lock.unlock() }
+            guard !didComplete else { return }
+            guard !data.isEmpty else {
+                didComplete = true
+                semaphore.signal()
+                return
             }
-            if byte[0] == 0x0A {
-                return String(data: data, encoding: .utf8)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            buffer.append(data)
+            while let newlineIndex = buffer.firstIndex(of: 0x0A) {
+                let lineData = buffer[..<newlineIndex]
+                buffer.removeSubrange(...newlineIndex)
+                guard let response = try? decoder.decode(KokoroWorkerResponse.self, from: Data(lineData)),
+                      response.id == requestID else {
+                    continue
+                }
+                matchedResponse = response
+                didComplete = true
+                semaphore.signal()
+                return
             }
-            data.append(byte)
         }
+
+        let waitResult = semaphore.wait(timeout: .now() + timeout)
+        handle.readabilityHandler = nil
+
+        lock.lock()
+        defer { lock.unlock() }
+        if waitResult == .timedOut {
+            didComplete = true
+        }
+        return matchedResponse
     }
 
     private static func kokoroCoreMLRuntime() -> URL? {
@@ -1149,7 +1182,29 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         var request = URLRequest(url: serverURL(path: "/v1/models"))
         request.timeoutInterval = 0.5
         let result = performRequest(request)
-        return result.statusCode == 200
+        return result.statusCode == 200 && isKittenServerModelsResponse(result.data)
+    }
+
+    private static func isKittenServerModelsResponse(_ data: Data?) -> Bool {
+        guard let data,
+              let json = try? JSONSerialization.jsonObject(with: data) else {
+            return false
+        }
+        return jsonContainsKittenTTSModel(json)
+    }
+
+    private static func jsonContainsKittenTTSModel(_ value: Any) -> Bool {
+        if let string = value as? String {
+            let normalized = string.lowercased()
+            return normalized.contains("kitten") && normalized.contains("tts")
+        }
+        if let array = value as? [Any] {
+            return array.contains { jsonContainsKittenTTSModel($0) }
+        }
+        if let dictionary = value as? [String: Any] {
+            return dictionary.values.contains { jsonContainsKittenTTSModel($0) }
+        }
+        return false
     }
 
     private static func generateWAVWithServer(text: String, outputURL: URL) -> Bool {

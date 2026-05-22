@@ -214,7 +214,10 @@ enum SpeechRuntimeResourceManager {
     }
 
     private static func kokoroAneModelCacheExists() -> Bool {
-        let cacheRoot = Runtime.fluidAudioModelCacheRoot
+        kokoroAneModelCacheExists(in: Runtime.fluidAudioModelCacheRoot)
+    }
+
+    private static func kokoroAneModelCacheExists(in cacheRoot: URL) -> Bool {
         let aneDirectory = cacheRoot
             .appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
             .appendingPathComponent("ANE", isDirectory: true)
@@ -498,12 +501,18 @@ enum SpeechRuntimeResourceManager {
         let fileManager = FileManager.default
         let parent = runtime.installDirectory.deletingLastPathComponent()
         try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
-        try? fileManager.removeItem(at: runtime.installDirectory)
-        try fileManager.createDirectory(at: runtime.installDirectory, withIntermediateDirectories: true)
+
+        let stagingDirectory = parent.appendingPathComponent(".\(runtime.id)-install-\(UUID().uuidString)", isDirectory: true)
+        let backupDirectory = parent.appendingPathComponent(".\(runtime.id)-backup-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? fileManager.removeItem(at: stagingDirectory)
+            try? fileManager.removeItem(at: backupDirectory)
+        }
+        try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
-        process.arguments = ["-xzf", archiveURL.path, "-C", runtime.installDirectory.path]
+        process.arguments = ["-xzf", archiveURL.path, "-C", stagingDirectory.path]
         let errorPipe = Pipe()
         process.standardError = errorPipe
         try process.run()
@@ -517,11 +526,54 @@ enum SpeechRuntimeResourceManager {
             )
         }
 
-        for path in runtime.requiredPaths where !path.hasDirectoryPath {
+        try validateExtractedRuntime(runtime, in: stagingDirectory)
+        for path in runtime.requiredPaths(in: stagingDirectory) where !path.hasDirectoryPath {
             try? fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path.path)
         }
-        if runtime == .kokoro {
-            try installBundledKokoroModelCache(from: runtime.installDirectory)
+
+        if fileManager.fileExists(atPath: runtime.installDirectory.path) {
+            try fileManager.moveItem(at: runtime.installDirectory, to: backupDirectory)
+        }
+        do {
+            try fileManager.moveItem(at: stagingDirectory, to: runtime.installDirectory)
+        } catch {
+            if fileManager.fileExists(atPath: backupDirectory.path),
+               !fileManager.fileExists(atPath: runtime.installDirectory.path) {
+                try? fileManager.moveItem(at: backupDirectory, to: runtime.installDirectory)
+            }
+            throw error
+        }
+        do {
+            if runtime == .kokoro {
+                try installBundledKokoroModelCache(from: runtime.installDirectory)
+            }
+        } catch {
+            restoreRuntimeInstall(runtime, from: backupDirectory)
+            throw error
+        }
+    }
+
+    private static func validateExtractedRuntime(_ runtime: Runtime, in directory: URL) throws {
+        let isValid: Bool
+        switch runtime {
+        case .kitten:
+            isValid = kittenRuntimePathsExist(in: directory) && kittenModelPathsExist(in: directory)
+        case .kokoro:
+            let modelCacheRoot = directory.appendingPathComponent("Models", isDirectory: true)
+            isValid = requiredPathsExist(runtime.requiredPaths(in: directory))
+                && kokoroAneModelCacheExists(in: modelCacheRoot)
+        }
+        guard isValid else {
+            throw NSError(
+                domain: "LeafReader.SpeechRuntime",
+                code: -4,
+                userInfo: [
+                    NSLocalizedDescriptionKey: AppText.localized(
+                        "模型压缩包缺少必要文件，已保留原有模型。",
+                        "The model archive is missing required files; the existing model was preserved."
+                    )
+                ]
+            )
         }
     }
 
@@ -536,8 +588,29 @@ enum SpeechRuntimeResourceManager {
                 continue
             }
             let destination = cacheRoot.appendingPathComponent(name, isDirectory: true)
-            try? fileManager.removeItem(at: destination)
-            try fileManager.moveItem(at: source, to: destination)
+            let backup = cacheRoot.appendingPathComponent(".\(name)-backup-\(UUID().uuidString)", isDirectory: true)
+            defer {
+                try? fileManager.removeItem(at: backup)
+            }
+            if fileManager.fileExists(atPath: destination.path) {
+                try fileManager.moveItem(at: destination, to: backup)
+            }
+            do {
+                try fileManager.moveItem(at: source, to: destination)
+            } catch {
+                if fileManager.fileExists(atPath: backup.path),
+                   !fileManager.fileExists(atPath: destination.path) {
+                    try? fileManager.moveItem(at: backup, to: destination)
+                }
+                throw error
+            }
         }
+    }
+
+    private static func restoreRuntimeInstall(_ runtime: Runtime, from backupDirectory: URL) {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: backupDirectory.path) else { return }
+        try? fileManager.removeItem(at: runtime.installDirectory)
+        try? fileManager.moveItem(at: backupDirectory, to: runtime.installDirectory)
     }
 }
