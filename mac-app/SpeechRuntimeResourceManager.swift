@@ -7,12 +7,14 @@ enum SpeechRuntimeResourceManager {
     private static var activeTasks: [Runtime: URLSessionTask] = [:]
     private static var activeDownloaders: [Runtime: RuntimeDownload] = [:]
     private static var activeProgress: [Runtime: Double] = [:]
+    private static var activeInstalls = Set<Runtime>()
     private static var pausedDownloads = Set<Runtime>()
     private static let downloadErrorDomain = "LeafReader.SpeechRuntime.Download"
     private static let maxDownloadAttempts = 4
     private static let releaseDownloadsBaseURL = "https://github.com/dowellhz/LeafReader/releases"
     private static let installManifestFileName = ".leafreader-install-manifest.json"
     private static let lastFailureDefaultsPrefix = "speechRuntime.lastFailure."
+    private static let installArchiveTimeout: TimeInterval = 180
 
     fileprivate struct InstallManifest: Codable {
         let runtimeID: String
@@ -384,6 +386,7 @@ enum SpeechRuntimeResourceManager {
 
     static func delete(_ runtime: Runtime) throws {
         _ = stopActiveDownload(for: runtime)
+        try ensureNotInstalling(runtime)
         let manifest = installManifest(for: runtime)
         try removeItemIfExists(at: partialDownloadURL(for: runtime))
         try removeItemIfExists(at: runtime.installDirectory)
@@ -493,7 +496,7 @@ enum SpeechRuntimeResourceManager {
                 case .success:
                     try validateArchive(at: partialURL)
                     guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
-                    try installArchive(partialURL, for: runtime)
+                    try installArchiveIfIdle(partialURL, for: runtime)
                     try? fileManager.removeItem(at: partialURL)
                     DispatchQueue.main.async { completion(.success(())) }
                 case .failure(let error):
@@ -600,18 +603,24 @@ enum SpeechRuntimeResourceManager {
         }
         try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
-        process.arguments = ["-xzf", archiveURL.path, "-C", stagingDirectory.path]
-        let errorPipe = Pipe()
-        process.standardError = errorPipe
-        try process.run()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            let message = String(data: errorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let result = try ProcessRunner.run(
+            executableURL: URL(fileURLWithPath: "/usr/bin/tar"),
+            arguments: ["-xzf", archiveURL.path, "-C", stagingDirectory.path],
+            timeout: installArchiveTimeout
+        )
+        guard !result.timedOut else {
             throw NSError(
                 domain: "LeafReader.SpeechRuntime",
-                code: Int(process.terminationStatus),
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: AppText.localized("模型安装超时，请重试。", "Speech runtime installation timed out. Please try again.")]
+            )
+        }
+        guard result.terminationStatus == 0 else {
+            let message = String(data: result.stderr, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            throw NSError(
+                domain: "LeafReader.SpeechRuntime",
+                code: Int(result.terminationStatus),
                 userInfo: [NSLocalizedDescriptionKey: message.isEmpty ? "Failed to extract speech runtime." : message]
             )
         }
@@ -644,6 +653,46 @@ enum SpeechRuntimeResourceManager {
             restoreRuntimeInstall(runtime, from: backupDirectory)
             throw error
         }
+    }
+
+    private static func installArchiveIfIdle(_ archiveURL: URL, for runtime: Runtime) throws {
+        try beginInstall(runtime)
+        defer { finishInstall(runtime) }
+        try installArchive(archiveURL, for: runtime)
+    }
+
+    private static func ensureNotInstalling(_ runtime: Runtime) throws {
+        let isInstalling = stateQueue.sync {
+            activeInstalls.contains(runtime)
+        }
+        guard !isInstalling else {
+            throw installInProgressError()
+        }
+    }
+
+    private static func beginInstall(_ runtime: Runtime) throws {
+        let didStart = stateQueue.sync {
+            guard !activeInstalls.contains(runtime) else { return false }
+            activeInstalls.insert(runtime)
+            return true
+        }
+        guard didStart else {
+            throw installInProgressError()
+        }
+    }
+
+    private static func finishInstall(_ runtime: Runtime) {
+        stateQueue.sync {
+            _ = activeInstalls.remove(runtime)
+        }
+    }
+
+    private static func installInProgressError() -> NSError {
+        NSError(
+            domain: "LeafReader.SpeechRuntime",
+            code: -5,
+            userInfo: [NSLocalizedDescriptionKey: AppText.localized("模型正在安装中，请稍后。", "Speech runtime installation is already in progress.")]
+        )
     }
 
     private static func validateExtractedRuntime(_ runtime: Runtime, in directory: URL) throws {

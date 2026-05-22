@@ -55,6 +55,7 @@ swiftc \
   mac-app/AISettingsStore.swift \
   mac-app/NetworkErrorFormatter.swift \
   mac-app/KokoroWorkerResponseReader.swift \
+  mac-app/ProcessRunner.swift \
   mac-app/SpeechTextPolicy.swift \
   mac-app/SpeechRuntimeResourceManager.swift \
   mac-app/RuntimeDownload.swift \

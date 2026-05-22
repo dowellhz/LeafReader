@@ -761,9 +761,6 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
         guard let cliURL = kokoroCoreMLRuntime() else { return false }
 
-        let process = Process()
-        process.executableURL = cliURL
-        process.currentDirectoryURL = FileManager.default.temporaryDirectory
         let arguments = [
             "tts",
             text,
@@ -779,55 +776,55 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             "--output",
             outputURL.path
         ]
-        process.arguments = arguments
-        let diagnosticURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("leafreader-kokoro-\(UUID().uuidString).log")
-        FileManager.default.createFile(atPath: diagnosticURL.path, contents: nil)
-        let diagnosticHandle = FileHandle(forWritingAtPath: diagnosticURL.path)
-        process.standardOutput = diagnosticHandle
-        process.standardError = diagnosticHandle
+
+        let result: ProcessRunResult
         do {
-            try process.run()
-            guard waitForProcess(process, timeout: kokoroFallbackTimeout) else {
-                diagnosticHandle?.closeFile()
-                try? FileManager.default.removeItem(at: diagnosticURL)
-                NSLog("LeafReader Kokoro CoreML: FluidAudio CLI timed out after %.0fs", kokoroFallbackTimeout)
-                return false
-            }
+            result = try ProcessRunner.run(
+                executableURL: cliURL,
+                arguments: arguments,
+                timeout: kokoroFallbackTimeout,
+                currentDirectoryURL: FileManager.default.temporaryDirectory
+            )
         } catch {
-            diagnosticHandle?.closeFile()
-            try? FileManager.default.removeItem(at: diagnosticURL)
             NSLog("LeafReader Kokoro CoreML: failed to run FluidAudio CLI (error=%@)", error.localizedDescription)
             return false
         }
-        diagnosticHandle?.closeFile()
+        if result.timedOut {
+            NSLog("LeafReader Kokoro CoreML: FluidAudio CLI timed out after %.0fs", kokoroFallbackTimeout)
+            return false
+        }
         let outputExists = Self.isUsableWAV(at: outputURL)
-        if process.terminationStatus == 0, outputExists {
-            try? FileManager.default.removeItem(at: diagnosticURL)
+        if result.terminationStatus == 0, outputExists {
             return true
         }
 
         if outputExists {
-            try? FileManager.default.removeItem(at: diagnosticURL)
             NSLog(
                 "LeafReader Kokoro CoreML: FluidAudio CLI exited with status=%d after creating audio; continuing playback (output=%@)",
-                process.terminationStatus,
+                result.terminationStatus,
                 outputURL.path
             )
             return true
         }
 
-        let diagnosticData = (try? Data(contentsOf: diagnosticURL)) ?? Data()
-        let message = Self.diagnosticTail(String(data: diagnosticData, encoding: .utf8))
-        try? FileManager.default.removeItem(at: diagnosticURL)
+        let message = Self.diagnosticTail(processOutputText(stdout: result.stdout, stderr: result.stderr))
         NSLog(
             "LeafReader Kokoro CoreML: FluidAudio CLI failed (status=%d, outputExists=%@, output=%@, details=%@)",
-            process.terminationStatus,
+            result.terminationStatus,
             outputExists ? "yes" : "no",
             outputURL.path,
             message
         )
         return false
+    }
+
+    private static func processOutputText(stdout: Data, stderr: Data) -> String {
+        let stdoutText = String(data: stdout, encoding: .utf8) ?? ""
+        let stderrText = String(data: stderr, encoding: .utf8) ?? ""
+        return [stdoutText, stderrText]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
     }
 
     private static func diagnosticTail(_ value: String?) -> String {
@@ -842,18 +839,6 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             return false
         }
         return size.intValue > 44
-    }
-
-    private static func waitForProcess(_ process: Process, timeout: TimeInterval) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while process.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.05)
-        }
-        guard !process.isRunning else {
-            process.terminate()
-            return false
-        }
-        return true
     }
 
     private func generateWAVWithKokoroWorker(text: String, outputURL: URL) -> Bool {
@@ -1037,11 +1022,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             return waitForServer()
         }
 
-        let process = Process()
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.executableURL = runtime.serverURL
-        process.arguments = [
+        let arguments = [
             runtime.modelDirectoryURL.path,
             "--host",
             "127.0.0.1",
@@ -1054,6 +1035,30 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             environment["PATH"] = "\(espeakRuntime.binDirectoryURL.path):\(existingPath)"
             environment["ESPEAK_DATA_PATH"] = espeakRuntime.dataDirectoryURL.path
         }
+        guard let started = startDrainedProcess(
+            executableURL: runtime.serverURL,
+            arguments: arguments,
+            environment: environment
+        ) else {
+            return false
+        }
+
+        serverProcess = started.process
+        serverOutputPipe = started.outputPipe
+        serverErrorPipe = started.errorPipe
+        return waitForServer()
+    }
+
+    private func startDrainedProcess(
+        executableURL: URL,
+        arguments: [String],
+        environment: [String: String]
+    ) -> (process: Process, outputPipe: Pipe, errorPipe: Pipe)? {
+        let process = Process()
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.executableURL = executableURL
+        process.arguments = arguments
         process.environment = environment
         process.standardOutput = outputPipe
         process.standardError = errorPipe
@@ -1063,20 +1068,15 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         errorPipe.fileHandleForReading.readabilityHandler = { handle in
             _ = handle.availableData
         }
-
         do {
             try process.run()
+            return (process, outputPipe, errorPipe)
         } catch {
-            NSLog("LeafReader KittenTTS: failed to start rust server (error=%@)", error.localizedDescription)
             outputPipe.fileHandleForReading.readabilityHandler = nil
             errorPipe.fileHandleForReading.readabilityHandler = nil
-            return false
+            NSLog("LeafReader KittenTTS: failed to start process %@ (error=%@)", executableURL.path, error.localizedDescription)
+            return nil
         }
-
-        serverProcess = process
-        serverOutputPipe = outputPipe
-        serverErrorPipe = errorPipe
-        return waitForServer()
     }
 
     private func waitForServer() -> Bool {

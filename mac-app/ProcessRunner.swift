@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 struct ProcessRunResult {
@@ -56,7 +57,10 @@ enum ProcessRunner {
         let timedOut = finished.wait(timeout: deadline) == .timedOut
         if timedOut && process.isRunning {
             process.terminate()
-            _ = finished.wait(timeout: .now() + 2)
+            if finished.wait(timeout: .now() + 2) == .timedOut, process.isRunning {
+                kill(process.processIdentifier, SIGKILL)
+                _ = finished.wait(timeout: .now() + 1)
+            }
         }
 
         stdoutPipe.fileHandleForReading.readabilityHandler = nil

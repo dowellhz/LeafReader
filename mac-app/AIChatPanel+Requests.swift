@@ -174,6 +174,7 @@ extension AIChatPanel {
                     guard let self, let assistantBody else { return }
                     guard self.requestState.shouldHandleCompletion(for: requestID) else { return }
                     if self.requestState.consumeCancellation(for: requestID) {
+                        self.finishTranslationRequest(requestID: requestID, busyText: "")
                         return
                     }
                     self.requestState.currentDataTask = nil
@@ -189,9 +190,8 @@ extension AIChatPanel {
                         )
                         translateChunk(index + 1)
                     case .failure(let error):
-                        self.requestState.finish(id: requestID)
+                        self.finishTranslationRequest(requestID: requestID, busyText: "")
                         self.updateBubble(assistantBody, role: AppText.errorRole, text: self.userFacingAIError(error), notify: false)
-                        self.setBusy(false, text: "")
                     }
                 }
             }
@@ -210,6 +210,12 @@ extension AIChatPanel {
 
     func indentedTranslationText(_ text: String) -> String {
         AIResponseTextFormatter.indentedTranslationText(text)
+    }
+
+    func finishTranslationRequest(requestID: UUID, busyText: String) {
+        requestState.currentDataTask = nil
+        requestState.finish(id: requestID)
+        setBusy(false, text: busyText)
     }
 
     func userFacingAIError(_ error: Error) -> String {
