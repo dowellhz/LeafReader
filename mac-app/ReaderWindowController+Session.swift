@@ -119,13 +119,11 @@ extension ReaderWindowController {
             updatePageLabel()
             return
         }
-        let beforePageIndex = currentPageIndex()
         let bounds = page.bounds(for: pdfView.displayBox)
         pdfView.go(to: PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY)))
         lastPageIndex = index
         updatePageLabel()
         saveSession()
-        recordPageJump(source: "document-source", before: beforePageIndex, after: currentPageIndex(), detail: "target=\(index + 1)")
     }
 
     func jumpToWebDocumentSection(index: Int) {
@@ -246,16 +244,13 @@ extension ReaderWindowController {
         }
 
         let pageIndex = progress.pageIndex
-        let beforePageIndex = currentPageIndex()
         var restoredPage: PDFPage?
         if pageIndex >= 0, pageIndex < document.pageCount, let page = document.page(at: pageIndex) {
             restoredPage = page
             pdfView.go(to: page)
-            recordPageJump(source: "session-restore", before: beforePageIndex, after: currentPageIndex(), detail: "target=\(pageIndex + 1)")
         } else if let firstPage = document.page(at: 0) {
             restoredPage = firstPage
             pdfView.go(to: firstPage)
-            recordPageJump(source: "home", before: beforePageIndex, after: currentPageIndex())
         }
 
         let scale = progress.scale

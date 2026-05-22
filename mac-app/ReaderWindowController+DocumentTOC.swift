@@ -54,13 +54,11 @@ extension ReaderWindowController {
         }
 
         clearAISelectionForNavigation()
-        let beforePageIndex = currentPageIndex()
         let destination = PDFDestination(page: page, at: tocDestination.point)
         pdfView.go(to: destination)
         lastPageIndex = tocDestination.pageIndex
         updatePageLabel()
         saveSession()
-        recordPageJump(source: "toc", before: beforePageIndex, after: currentPageIndex(), detail: item.title)
     }
 
     func jumpToWebTOCItem(_ item: ReaderTOCItem) {

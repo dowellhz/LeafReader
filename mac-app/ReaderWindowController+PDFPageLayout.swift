@@ -41,9 +41,7 @@ extension ReaderWindowController {
             if let currentPage,
                let currentPageIndex,
                self.pdfView.document?.index(for: self.pdfView.currentPage ?? PDFPage()) != currentPageIndex {
-                let beforeRestoreIndex = self.currentPageIndex()
                 self.pdfView.go(to: currentPage)
-                self.recordPageJump(source: "layout-switch-restore", before: beforeRestoreIndex, after: self.currentPageIndex())
             }
             if let currentDestination {
                 self.pdfView.go(to: currentDestination)

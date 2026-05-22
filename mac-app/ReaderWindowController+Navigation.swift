@@ -30,14 +30,12 @@ extension ReaderWindowController {
             return
         }
 
-        let beforePageIndex = currentPageIndex()
         clearAISelectionForNavigation()
         pdfView.go(to: page)
         lastPageIndex = targetIndex
         scrollPageToTop(page)
         updatePageLabel()
         saveSession()
-        recordPageJump(source: "page-field", before: beforePageIndex, after: currentPageIndex(), detail: "requested=\(requestedPage)")
         window?.makeFirstResponder(pdfView)
     }
 
@@ -48,12 +46,10 @@ extension ReaderWindowController {
             scrollWebPage(direction: -1)
             return
         }
-        let beforePageIndex = currentPageIndex()
         pdfView.goToPreviousPage(nil)
         scrollCurrentPageToTop()
         updatePageLabel()
         saveSession()
-        recordPageJump(source: "toolbar-prev", before: beforePageIndex, after: currentPageIndex())
     }
 
     @objc func nextPage() {
@@ -63,12 +59,10 @@ extension ReaderWindowController {
             scrollWebPage(direction: 1)
             return
         }
-        let beforePageIndex = currentPageIndex()
         pdfView.goToNextPage(nil)
         scrollCurrentPageToTop()
         updatePageLabel()
         saveSession()
-        recordPageJump(source: "toolbar-next", before: beforePageIndex, after: currentPageIndex())
     }
 
     func scrollWebPage(direction: Int) {
@@ -92,12 +86,10 @@ extension ReaderWindowController {
             return
         }
         guard let firstPage = pdfView.document?.page(at: 0) else { return }
-        let beforePageIndex = currentPageIndex()
         pdfView.go(to: firstPage)
         scrollPageToTop(firstPage)
         updatePageLabel()
         saveSession()
-        recordPageJump(source: "cover", before: beforePageIndex, after: currentPageIndex())
     }
 
     @objc func goToFarthestReadingPosition() {
@@ -117,7 +109,6 @@ extension ReaderWindowController {
         let storedProgress = sessionStore.loadFarthestPDFProgress()
         let targetIndex = min(max(storedProgress?.pageIndex ?? currentPageIndex() ?? 0, 0), document.pageCount - 1)
         guard let page = document.page(at: targetIndex) else { return }
-        let beforePageIndex = currentPageIndex()
         pdfView.go(to: page)
         lastPageIndex = targetIndex
         if let storedProgress, ReaderSessionPolicy.isRestorablePDFScale(storedProgress.scale) {
@@ -130,7 +121,6 @@ extension ReaderWindowController {
         }
         updatePageLabel()
         saveSession()
-        recordPageJump(source: "farthest-position", before: beforePageIndex, after: currentPageIndex(), detail: "target=\(targetIndex + 1)")
         window?.makeFirstResponder(pdfView)
     }
 
@@ -166,7 +156,6 @@ extension ReaderWindowController {
     func turnPageFromScroll(_ direction: EdgePagingPDFView.ScrollPageDirection) {
         guard currentDocumentKind == .pdf else { return }
         clearAISelectionForNavigation()
-        let beforePageIndex = currentPageIndex()
         switch direction {
         case .previous:
             pdfView.goToPreviousPage(nil)
@@ -177,7 +166,6 @@ extension ReaderWindowController {
         }
         updatePageLabel()
         saveSession()
-        recordPageJump(source: direction == .previous ? "scroll-previous" : "scroll-next", before: beforePageIndex, after: currentPageIndex())
     }
 
     func scrollCurrentPageToTop() {

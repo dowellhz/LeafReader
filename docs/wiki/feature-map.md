@@ -15,7 +15,6 @@ Use this page when the task starts from a product feature instead of a file name
 - `mac-app/PDFReaderView.swift`: PDFKit view subclass and edge paging events.
 - `mac-app/PDFPagingPolicy.swift`: page turn thresholds and duplicate-turn guard.
 - `mac-app/ReaderWindowController+Navigation.swift`: page navigation commands.
-- `mac-app/ReaderWindowController+PageDiagnostics.swift`: page jump diagnostics.
 
 ## EPUB And DOCX Reading
 

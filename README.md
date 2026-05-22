@@ -229,7 +229,7 @@ Generate the website packages with:
 - Reworked the book vocabulary panel with separate Learn, Review, New Words, and All tabs, paginated word lists, exports, and lower-case review cards.
 - Moved word records to SQLite with incremental upsert/delete persistence and production SQLite regression tests.
 - Improved drag-and-drop import behavior for one-book and multi-book drops, duplicate handling, bookshelf focus, and recent-reading sorting.
-- Added AI conversation trimming, debounced saves, preserved linked word bubbles, and page-jump diagnostics for navigation troubleshooting.
+- Added AI conversation trimming, debounced saves, and preserved linked word bubbles.
 - Fixed embedding provider defaults, SiliconFlow settings, provider-specific API keys, and faster vector scoring with cached embedding norms.
 - Split large AI, settings, vocabulary, and storage files into focused modules with broader regression coverage.
 

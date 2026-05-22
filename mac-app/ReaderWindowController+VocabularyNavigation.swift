@@ -30,7 +30,6 @@ extension ReaderWindowController {
             return
         }
         setAIPanelCollapsed(false, animated: true)
-        let beforePageIndex = currentPageIndex()
         let bounds = displayBounds(for: record, page: page)
         let destination = PDFDestination(
             page: page,
@@ -40,7 +39,6 @@ extension ReaderWindowController {
         lastPageIndex = record.pageIndex
         updatePageLabel()
         saveSession()
-        recordPageJump(source: "word-link", before: beforePageIndex, after: currentPageIndex(), detail: record.word)
     }
 
     func jumpToStoredWebWord(linkID: String) {
