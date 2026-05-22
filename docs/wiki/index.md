@@ -4,12 +4,12 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 
 ## 文档状态
 
-- 当前版本：`1.5.7`
+- 当前版本：`1.5.8`
 
 <div class="hero-actions" markdown>
 
 [返回官网](https://leafreader.space/){ .button .primary }
-[下载 Leaf Reader](https://github.com/dowellhz/LeafReader/releases/download/v1.5.7/LeafReader-1.5.7.pkg){ .button }
+[下载 Leaf Reader](https://github.com/dowellhz/LeafReader/releases/download/v1.5.8/LeafReader-1.5.8.pkg){ .button }
 [GitHub](https://github.com/dowellhz/LeafReader){ .button }
 
 </div>
@@ -21,6 +21,8 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 [**安装与入门** - 下载、首次打开、AI 配置、翻译和背单词。](getting-started.md){ .card }
 
 [**AI 使用** - 选中文本、翻译、解释、总结和追问。](ai-chat.md){ .card }
+
+[**TTS 与朗读** - 本地朗读模型、下载状态、兼容性和播放入口。](tts.md){ .card }
 
 [**故障排查** - 更新失败、证书、翻页、AI 分析和 Wiki 同步。](troubleshooting.md){ .card }
 
@@ -59,6 +61,8 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 [**AI Analysis Cache** - Embedding cache and retrieval workflow.](ai-analysis-cache.md){ .card }
 
 [**Word Highlights** - Vocabulary storage, review, and highlights.](word-highlights.md){ .card }
+
+[**TTS And Read Aloud** - Speech runtime download, compatibility, and playback code.](tts.md){ .card }
 
 [**Security** - Secret handling and generated artifacts.](security.md){ .card }
 

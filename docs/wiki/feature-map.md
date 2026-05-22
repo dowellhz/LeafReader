@@ -50,6 +50,17 @@ Use this page when the task starts from a product feature instead of a file name
 - `mac-app/PDFWordRecordStore.swift` and `mac-app/WebWordRecordStore.swift`: document-specific word records.
 - `mac-app/VocabularyExporter.swift`: Markdown and Anki CSV export.
 
+## TTS And Read Aloud
+
+- `mac-app/KittenTTSPlayer.swift`: runtime selection, text segmentation, audio generation, playback, and progress notifications.
+- `mac-app/SpeechRuntimeResourceManager.swift`: KittenTTS/Kokoro install state, download URLs, model sizes, compatibility, and cleanup.
+- `mac-app/RuntimeDownload.swift`: runtime download progress, resume data, cancellation, and HTTP error handling.
+- `mac-app/AISettingsPanelController+Speech.swift`: settings actions for model selection, download, pause/resume, delete, and compatibility warnings.
+- `mac-app/AISettingsPanelController+Build.swift`: read-aloud settings controls and runtime status rows.
+- `mac-app/ReaderWindowController+ReadAloud.swift`: PDF and EPUB/DOCX read-aloud entry points.
+- `mac-app/ReaderWindowController+TTSProgress.swift`: read-aloud segment underline/highlight updates.
+- `docs/wiki/tts.md`: detailed TTS code map and runtime rules.
+
 ## Bookshelf And Session Restore
 
 - `mac-app/RecentDocumentsPanelController*.swift`: bookshelf UI and actions.

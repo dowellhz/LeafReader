@@ -33,6 +33,8 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 
 [**AI 使用** - 选中文本、翻译、解释、总结和追问。](ai-chat.md){ .card }
 
+[**TTS 与朗读** - 本地朗读模型、下载状态、兼容性和播放入口。](tts.md){ .card }
+
 [**故障排查** - 更新失败、证书、翻页、AI 分析和 Wiki 同步。](troubleshooting.md){ .card }
 
 </div>
@@ -70,6 +72,8 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 [**AI Analysis Cache** - Embedding cache and retrieval workflow.](ai-analysis-cache.md){ .card }
 
 [**Word Highlights** - Vocabulary storage, review, and highlights.](word-highlights.md){ .card }
+
+[**TTS And Read Aloud** - Speech runtime download, compatibility, and playback code.](tts.md){ .card }
 
 [**Security** - Secret handling and generated artifacts.](security.md){ .card }
 

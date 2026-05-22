@@ -16,6 +16,7 @@ WIKI_PAGES=(
   AI-Chat.md
   AI-Analysis-Cache.md
   Word-Highlights.md
+  TTS-And-Read-Aloud.md
   Release-Process.md
   Release-Checklist.md
   Release-Runbook.md
@@ -117,6 +118,7 @@ copy_page "document-loading.md" "Document-Loading.md"
 copy_page "ai-chat.md" "AI-Chat.md"
 copy_page "ai-analysis-cache.md" "AI-Analysis-Cache.md"
 copy_page "word-highlights.md" "Word-Highlights.md"
+copy_page "tts.md" "TTS-And-Read-Aloud.md"
 copy_page "release-process.md" "Release-Process.md"
 copy_page "release-checklist.md" "Release-Checklist.md"
 copy_page "release-runbook.md" "Release-Runbook.md"
@@ -159,6 +161,7 @@ This wiki explains the codebase structure and stable engineering workflows for L
 - [AI Chat](AI-Chat)
 - [AI Analysis Cache](AI-Analysis-Cache)
 - [Word Highlights](Word-Highlights)
+- [TTS And Read Aloud](TTS-And-Read-Aloud)
 - [Release Process](Release-Process)
 - [Release Checklist](Release-Checklist)
 - [Release Runbook](Release-Runbook)
@@ -191,6 +194,7 @@ cat > "$WIKI_WORKTREE/_Sidebar.md" <<'EOF'
 - [AI Chat](AI-Chat)
 - [AI Analysis Cache](AI-Analysis-Cache)
 - [Word Highlights](Word-Highlights)
+- [TTS And Read Aloud](TTS-And-Read-Aloud)
 - [Release Process](Release-Process)
 - [Release Checklist](Release-Checklist)
 - [Release Runbook](Release-Runbook)

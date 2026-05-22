@@ -68,6 +68,7 @@ nav:
       - AI 聊天: ai-chat.md
       - AI 分析缓存: ai-analysis-cache.md
       - 单词高亮: word-highlights.md
+      - TTS 与朗读: tts.md
   - 发布:
       - 发布流程: release-process.md
       - 发布检查清单: release-checklist.md
