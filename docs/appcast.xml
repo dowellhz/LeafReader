@@ -6,23 +6,23 @@
     <description>Leaf Reader macOS app updates.</description>
     <language>zh-CN</language>
     <item>
-      <title>Leaf Reader 1.5.8</title>
-      <sparkle:version>1.5.8</sparkle:version>
-      <sparkle:shortVersionString>1.5.8</sparkle:shortVersionString>
+      <title>Leaf Reader 1.5.9</title>
+      <sparkle:version>1.5.9</sparkle:version>
+      <sparkle:shortVersionString>1.5.9</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <pubDate>Fri, 22 May 2026 02:11:34 +0000</pubDate>
+      <pubDate>Fri, 22 May 2026 06:25:14 +0000</pubDate>
       <description><![CDATA[
         <ul>
-  <li>Rebuilt the bundled KittenTTS espeak-ng helper runtime for macOS 12.0 compatibility.</li>
-  <li>Added a reusable script for rebuilding the macOS 12-compatible espeak-ng and pcaudiolib runtime dependencies.</li>
-  <li>Kept Kokoro downloads available on older macOS versions while showing a compatibility warning below macOS 14.0.</li>
-  <li>Updated README and the release website to clarify app, KittenTTS, and Kokoro operating system requirements.</li>
+  <li>Linked read-aloud progress with saved AI source anchors, so the expanded AI panel scrolls to related analysis while playback advances.</li>
+  <li>Synced read-aloud progress with AI translation and linked word bubbles across PDF, EPUB, DOCX, and web-backed reading views.</li>
+  <li>Improved source matching for repeated or partial passages by combining source keys, word IDs, page bounds, and reading progress.</li>
+  <li>Split the read-aloud AI tracking logic into a focused module for easier TTS and AI panel maintenance.</li>
 </ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dowellhz/LeafReader/releases/download/v1.5.8/LeafReader-1.5.8.pkg"
-        sparkle:edSignature="ri8DZGqqVFK025FwXtUqal+pn/Ic/jX5otcy4uGzQhEBzjv9QnM0nNRiaSvIOh7XGxo2mGf1nPtsj1TL+MfbDw=="
-        length="28944095"
+        url="https://github.com/dowellhz/LeafReader/releases/download/v1.5.9/LeafReader-1.5.9.pkg"
+        sparkle:edSignature="zMb8QXEOHobLqEuFxVGJKO7aa+LFhI4t7LcrPq3sAXOKP92cCjglAyf962vBATlSKsZdymh2agcDZOpKqy75Dw=="
+        length="29042235"
         type="application/octet-stream" />
     </item>
   </channel>
