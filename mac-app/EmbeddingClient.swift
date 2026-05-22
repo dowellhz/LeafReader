@@ -64,7 +64,11 @@ final class EmbeddingClient {
             if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
                 let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
                 completion(.failure(NSError(domain: config.provider, code: http.statusCode, userInfo: [
-                    NSLocalizedDescriptionKey: "Embedding HTTP \(http.statusCode): \(body)"
+                    NSLocalizedDescriptionKey: NetworkErrorFormatter.httpErrorDescription(
+                        prefix: "Embedding",
+                        statusCode: http.statusCode,
+                        body: body
+                    )
                 ])))
                 return
             }

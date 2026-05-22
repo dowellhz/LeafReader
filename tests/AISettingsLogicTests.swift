@@ -197,6 +197,25 @@ enum AISettingsLogicTests {
         try expect(!kittenURL.contains("/v1.4.18/"), "KittenTTS download URL should not be pinned to the old 1.4.18 release")
     }
 
+    static func testNetworkErrorFormattingSanitizesSensitiveBody() throws {
+        let body = #"{"error":"bad key","api_key":"sk-test","Authorization":"Bearer abc.def","token":"secret"}"#
+        let message = NetworkErrorFormatter.httpErrorDescription(prefix: "Model", statusCode: 401, body: body)
+
+        try expect(message.hasPrefix("Model HTTP 401:"), "HTTP error should include prefix and status")
+        try expect(!message.contains("sk-test"), "API keys should be redacted")
+        try expect(!message.contains("abc.def"), "Bearer tokens should be redacted")
+        try expect(!message.contains(#""token":"secret""#), "token fields should be redacted")
+        try expect(message.contains("[redacted]"), "redacted marker should be visible")
+    }
+
+    static func testNetworkErrorFormattingTruncatesLongBody() throws {
+        let longBody = String(repeating: "x", count: 5000)
+        let sanitized = NetworkErrorFormatter.sanitizedBody(longBody)
+
+        try expectEqual(sanitized.count, 4099, "long HTTP bodies should be truncated with ellipsis")
+        try expect(sanitized.hasSuffix("..."), "truncated HTTP bodies should end with ellipsis")
+    }
+
     static func testEmbeddingKeyIsolation() throws {
         var store = EmbeddingKeyStore()
         store.saveEmbeddingKey("openai-key", optionID: "openai")

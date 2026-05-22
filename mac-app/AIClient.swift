@@ -33,7 +33,11 @@ final class AIClient {
             if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
                 let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
                 completion(.failure(NSError(domain: config.provider, code: http.statusCode, userInfo: [
-                    NSLocalizedDescriptionKey: "\(config.displayName) HTTP \(http.statusCode): \(body)"
+                    NSLocalizedDescriptionKey: NetworkErrorFormatter.httpErrorDescription(
+                        prefix: config.displayName,
+                        statusCode: http.statusCode,
+                        body: body
+                    )
                 ])))
                 return
             }
@@ -101,9 +105,16 @@ final class AIClient {
                     var body = ""
                     for try await line in bytes.lines {
                         body += line
+                        if body.count > 8192 {
+                            break
+                        }
                     }
                     throw NSError(domain: config.provider, code: http.statusCode, userInfo: [
-                        NSLocalizedDescriptionKey: "\(config.displayName) HTTP \(http.statusCode): \(body)"
+                        NSLocalizedDescriptionKey: NetworkErrorFormatter.httpErrorDescription(
+                            prefix: config.displayName,
+                            statusCode: http.statusCode,
+                            body: body
+                        )
                     ])
                 }
 

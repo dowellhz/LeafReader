@@ -213,7 +213,10 @@ extension AppDelegate: SPUUpdaterDelegate {
     func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
         guard manualUpdateProbeInProgress, !manualUpdateProbeFoundUpdate else { return }
         manualUpdateProbeHandledResult = true
-        showUpToDateUpdateStatus()
+        showWhiteUpdateStatus(
+            title: AppText.localized("检查更新失败", "Update Check Failed"),
+            message: updateFailureMessage(from: error)
+        )
     }
 
     func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
