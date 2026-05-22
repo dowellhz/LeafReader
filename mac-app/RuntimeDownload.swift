@@ -4,6 +4,7 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
     private static let errorDomain = "LeafReader.SpeechRuntime.Download"
 
     private let runtime: SpeechRuntimeResourceManager.Runtime
+    private let downloadID: UUID
     private let partialURL: URL
     private let existingSize: Int64
     private let retryingWithoutResume: Bool
@@ -19,12 +20,14 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
 
     init(
         runtime: SpeechRuntimeResourceManager.Runtime,
+        downloadID: UUID,
         partialURL: URL,
         existingSize: Int64,
         retryingWithoutResume: Bool,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         self.runtime = runtime
+        self.downloadID = downloadID
         self.partialURL = partialURL
         self.existingSize = existingSize
         self.retryingWithoutResume = retryingWithoutResume
@@ -53,6 +56,7 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
             completedBytes += Int64(data.count)
             SpeechRuntimeResourceManager.updateDownloadProgress(
                 runtime,
+                downloadID: downloadID,
                 completedBytes: completedBytes,
                 expectedBytes: expectedBytes
             )

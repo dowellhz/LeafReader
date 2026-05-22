@@ -3,6 +3,7 @@ import Foundation
 enum SpeechRuntimeResourceManager {
     private static let stateQueue = DispatchQueue(label: "LeafReader.SpeechRuntimeResourceManager")
     private static var activeDownloads: [Runtime: [(Result<Void, Error>) -> Void]] = [:]
+    private static var activeDownloadIDs: [Runtime: UUID] = [:]
     private static var activeTasks: [Runtime: URLSessionTask] = [:]
     private static var activeDownloaders: [Runtime: RuntimeDownload] = [:]
     private static var activeProgress: [Runtime: Double] = [:]
@@ -282,6 +283,12 @@ enum SpeechRuntimeResourceManager {
                     "Downloaded · Requires \(runtime.minimumSystemVersionText) or later"
                 )
             }
+            if let failure = lastDownloadFailure(for: runtime) {
+                return AppText.localized(
+                    "未下载 · 需要 \(runtime.minimumSystemVersionText) 或更高 · \(size) · 上次失败：\(failure.message)",
+                    "Not downloaded · Requires \(runtime.minimumSystemVersionText) or later · \(size) · Last failed: \(failure.message)"
+                )
+            }
             return AppText.localized(
                 "未下载 · 需要 \(runtime.minimumSystemVersionText) 或更高 · \(size)",
                 "Not downloaded · Requires \(runtime.minimumSystemVersionText) or later · \(size)"
@@ -292,11 +299,11 @@ enum SpeechRuntimeResourceManager {
         }
         if let failure = lastDownloadFailure(for: runtime) {
             return AppText.localized(
-                "未安装 · \(size) · 上次失败：\(failure.message)",
-                "Not installed · \(size) · Last failed: \(failure.message)"
+                "未下载 · \(size) · 上次失败：\(failure.message)",
+                "Not downloaded · \(size) · Last failed: \(failure.message)"
             )
         }
-        return AppText.localized("未安装 · \(size)", "Not installed · \(size)")
+        return AppText.localized("未下载 · \(size)", "Not downloaded · \(size)")
     }
 
     static func isDownloading(_ runtime: Runtime) -> Bool {
@@ -379,33 +386,39 @@ enum SpeechRuntimeResourceManager {
 
     static func download(_ runtime: Runtime, completion: @escaping (Result<Void, Error>) -> Void) {
         var shouldStart = false
+        let downloadID = UUID()
         stateQueue.sync {
             if activeDownloads[runtime] != nil {
                 activeDownloads[runtime]?.append(completion)
             } else {
                 activeDownloads[runtime] = [completion]
+                activeDownloadIDs[runtime] = downloadID
                 shouldStart = true
             }
         }
         guard shouldStart else { return }
-        download(runtime, retryingWithoutResume: false) { result in
-            switch result {
-            case .success:
-                clearLastDownloadFailure(for: runtime)
-            case .failure(let error):
-                if (error as NSError).code != NSUserCancelledError {
-                    recordLastDownloadFailure(error, for: runtime)
-                }
-            }
-            finishDownload(runtime, result: result)
+        download(runtime, downloadID: downloadID, retryingWithoutResume: false) { result in
+            finishDownload(runtime, downloadID: downloadID, result: result)
         }
     }
 
-    private static func finishDownload(_ runtime: Runtime, result: Result<Void, Error>) {
+    private static func finishDownload(_ runtime: Runtime, downloadID: UUID, result: Result<Void, Error>) {
         let completions = stateQueue.sync {
+            guard activeDownloadIDs[runtime] == downloadID else {
+                return [] as [(Result<Void, Error>) -> Void]
+            }
             let completions = activeDownloads[runtime] ?? []
             clearActiveDownloadState(for: runtime)
             return completions
+        }
+        guard !completions.isEmpty else { return }
+        switch result {
+        case .success:
+            clearLastDownloadFailure(for: runtime)
+        case .failure(let error):
+            if (error as NSError).code != NSUserCancelledError {
+                recordLastDownloadFailure(error, for: runtime)
+            }
         }
         DispatchQueue.main.async {
             completions.forEach { $0(result) }
@@ -414,18 +427,25 @@ enum SpeechRuntimeResourceManager {
 
     private static func clearActiveDownloadState(for runtime: Runtime) {
         activeDownloads[runtime] = nil
+        activeDownloadIDs[runtime] = nil
         activeTasks[runtime] = nil
         activeDownloaders[runtime] = nil
         activeProgress[runtime] = nil
         pausedDownloads.remove(runtime)
     }
 
-    private static func download(_ runtime: Runtime, retryingWithoutResume: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
-        download(runtime, retryingWithoutResume: retryingWithoutResume, attempt: 1, completion: completion)
+    private static func download(
+        _ runtime: Runtime,
+        downloadID: UUID,
+        retryingWithoutResume: Bool,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        download(runtime, downloadID: downloadID, retryingWithoutResume: retryingWithoutResume, attempt: 1, completion: completion)
     }
 
     private static func download(
         _ runtime: Runtime,
+        downloadID: UUID,
         retryingWithoutResume: Bool,
         attempt: Int,
         completion: @escaping (Result<Void, Error>) -> Void
@@ -440,14 +460,17 @@ enum SpeechRuntimeResourceManager {
 
         let downloader = RuntimeDownload(
             runtime: runtime,
+            downloadID: downloadID,
             partialURL: partialURL,
             existingSize: existingSize,
             retryingWithoutResume: retryingWithoutResume
         ) { result in
+            guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
             do {
                 switch result {
                 case .success:
                     try validateArchive(at: partialURL)
+                    guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
                     try installArchive(partialURL, for: runtime)
                     try? fileManager.removeItem(at: partialURL)
                     DispatchQueue.main.async { completion(.success(())) }
@@ -456,9 +479,9 @@ enum SpeechRuntimeResourceManager {
                     if shouldRetryDownload(error: nsError, attempt: attempt) {
                         if nsError.domain == downloadErrorDomain, nsError.code == 416 {
                             try? fileManager.removeItem(at: partialURL)
-                            download(runtime, retryingWithoutResume: true, attempt: attempt + 1, completion: completion)
+                            download(runtime, downloadID: downloadID, retryingWithoutResume: true, attempt: attempt + 1, completion: completion)
                         } else {
-                            download(runtime, retryingWithoutResume: false, attempt: attempt + 1, completion: completion)
+                            download(runtime, downloadID: downloadID, retryingWithoutResume: false, attempt: attempt + 1, completion: completion)
                         }
                     } else {
                         DispatchQueue.main.async { completion(.failure(error)) }
@@ -474,12 +497,26 @@ enum SpeechRuntimeResourceManager {
         downloader.session = session
         let task = session.dataTask(with: request)
         downloader.task = task
-        stateQueue.sync {
+        let shouldResume = stateQueue.sync {
+            guard activeDownloadIDs[runtime] == downloadID else {
+                return false
+            }
             activeTasks[runtime] = task
             activeDownloaders[runtime] = downloader
             activeProgress[runtime] = existingSize > 0 ? nil : 0
+            return true
+        }
+        guard shouldResume else {
+            session.invalidateAndCancel()
+            return
         }
         task.resume()
+    }
+
+    private static func isCurrentDownload(_ runtime: Runtime, downloadID: UUID) -> Bool {
+        stateQueue.sync {
+            activeDownloadIDs[runtime] == downloadID
+        }
     }
 
     private static func shouldRetryDownload(error: NSError, attempt: Int) -> Bool {
@@ -493,9 +530,10 @@ enum SpeechRuntimeResourceManager {
         return false
     }
 
-    static func updateDownloadProgress(_ runtime: Runtime, completedBytes: Int64, expectedBytes: Int64?) {
+    static func updateDownloadProgress(_ runtime: Runtime, downloadID: UUID, completedBytes: Int64, expectedBytes: Int64?) {
         guard let expectedBytes, expectedBytes > 0 else { return }
         stateQueue.sync {
+            guard activeDownloadIDs[runtime] == downloadID else { return }
             activeProgress[runtime] = min(1, max(0, Double(completedBytes) / Double(expectedBytes)))
         }
     }
