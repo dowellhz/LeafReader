@@ -70,6 +70,13 @@ Generate the website packages with:
 ./scripts/package_speech_runtimes.sh
 ```
 
+## What's New in 1.5.9
+
+- Linked read-aloud progress with saved AI source anchors, so the expanded AI panel scrolls to related analysis while the spoken passage advances.
+- Synced read-aloud progress with AI translation and linked word bubbles for PDF, EPUB, DOCX, and web-backed reading views.
+- Improved source matching for repeated or partial passages by combining source keys, word IDs, page bounds, and reading progress.
+- Split the read-aloud AI tracking logic into a focused module to make future TTS and AI panel behavior easier to maintain.
+
 ## What's New in 1.5.8
 
 - Rebuilt the bundled KittenTTS `espeak-ng` helper runtime with a macOS 12.0 deployment target, so KittenTTS local speech matches the app's macOS 12 baseline.
