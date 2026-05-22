@@ -10,11 +10,10 @@ extension ReaderWindowController {
     }
 
     func autoScrollAIPanelToReadAloudWebSource(key: String?, text: String, progress: Double?) {
-        guard !isAIPanelCollapsed else { return }
         if let key,
            let source = webAISourceLocationsByKey[key],
            source != lastReadAloudAISource {
-            scrollAIPanelToReadAloudSource(source)
+            handleReadAloudAISource(source)
             return
         }
         autoScrollAIPanelToReadAloudSource(text: text, pageIndex: nil, pdfBounds: nil, webProgress: progress)
@@ -22,10 +21,36 @@ extension ReaderWindowController {
 
     @discardableResult
     func autoScrollAIPanelToReadAloudLinkedWords(ids: [String], text: String, pageIndex: Int?, pdfBounds: CGRect?) -> Bool {
-        guard !isAIPanelCollapsed else { return false }
         let linkedIDs = readAloudLinkedWordIDs(ids: ids, text: text, pageIndex: pageIndex, pdfBounds: pdfBounds)
         guard !linkedIDs.isEmpty else { return false }
 
+        if isAIPanelCollapsed {
+            showReadAloudSoftHint(
+                key: readAloudLinkedWordsHintKey(ids: linkedIDs),
+                title: readAloudLinkedWordsHintTitle(count: linkedIDs.count)
+            ) { [weak self] in
+                _ = self?.focusReadAloudLinkedWords(linkedIDs)
+            }
+            return true
+        }
+        return focusReadAloudLinkedWords(linkedIDs)
+    }
+
+    func autoScrollAIPanelToReadAloudSource(text: String, pageIndex: Int?, pdfBounds: CGRect?, webProgress: Double?) {
+        let segmentText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !segmentText.isEmpty else { return }
+        guard let source = readAloudAISource(
+            matching: segmentText,
+            pageIndex: pageIndex,
+            pdfBounds: pdfBounds,
+            webProgress: webProgress
+        ) else {
+            return
+        }
+        handleReadAloudAISource(source)
+    }
+
+    private func focusReadAloudLinkedWords(_ linkedIDs: [String]) -> Bool {
         var didLoadAny = false
         var scrollTarget: String?
         for id in linkedIDs {
@@ -42,16 +67,17 @@ extension ReaderWindowController {
         return didLoadAny
     }
 
-    func autoScrollAIPanelToReadAloudSource(text: String, pageIndex: Int?, pdfBounds: CGRect?, webProgress: Double?) {
-        guard !isAIPanelCollapsed else { return }
-        let segmentText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !segmentText.isEmpty else { return }
-        guard let source = readAloudAISource(
-            matching: segmentText,
-            pageIndex: pageIndex,
-            pdfBounds: pdfBounds,
-            webProgress: webProgress
-        ) else {
+    private func handleReadAloudAISource(_ source: AIConversationSourceLocation) {
+        guard source != lastReadAloudAISource else {
+            return
+        }
+        if isAIPanelCollapsed {
+            showReadAloudSoftHint(
+                key: readAloudAISourceHintKey(source),
+                title: AppText.localized("当前朗读内容有关联 AI 笔记", "This passage has linked AI notes")
+            ) { [weak self] in
+                self?.scrollAIPanelToReadAloudSource(source)
+            }
             return
         }
         scrollAIPanelToReadAloudSource(source)
@@ -90,6 +116,25 @@ extension ReaderWindowController {
         lastReadAloudAISource = source
         ensureAIConversationSourceBubbleLoaded(source)
         aiPanel.scrollToConversationSource(source)
+    }
+
+    private func readAloudLinkedWordsHintKey(ids: [String]) -> String {
+        "linkedWords:" + ids.sorted().joined(separator: ",")
+    }
+
+    private func readAloudLinkedWordsHintTitle(count: Int) -> String {
+        count > 1
+            ? AppText.localized("读到 \(count) 个关联单词", "\(count) linked words in this passage")
+            : AppText.localized("当前朗读内容有关联单词", "This passage has a linked word")
+    }
+
+    private func readAloudAISourceHintKey(_ source: AIConversationSourceLocation) -> String {
+        let text = (source.selectedText ?? "")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .prefix(80)
+        let progress = source.progress.map { String(format: "%.4f", $0) } ?? "-"
+        let boundsCount = source.pdfBounds?.count ?? 0
+        return "aiSource:\(source.kind.rawValue):\(source.index):\(progress):\(boundsCount):\(text)"
     }
 
     private func readAloudAISource(

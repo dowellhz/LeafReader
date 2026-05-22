@@ -196,6 +196,9 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var ttsPageLockedAtTopIndex: Int?
     var lastReadAloudAISource: AIConversationSourceLocation?
     var lastReadAloudLinkedWordID: String?
+    var readAloudSoftHintView: ReadAloudSoftHintView?
+    var readAloudSoftHintDismissWorkItem: DispatchWorkItem?
+    var lastReadAloudSoftHintKey: String?
     var pendingReadAloudPDFContinuation: PendingReadAloudPDFContinuation?
     var isReadAloudActive = false
     var isReadAloudPaused = false

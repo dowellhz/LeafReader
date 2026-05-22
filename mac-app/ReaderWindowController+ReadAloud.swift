@@ -165,6 +165,8 @@ extension ReaderWindowController {
         resetTTSReadingPDFProgress()
         lastReadAloudAISource = nil
         lastReadAloudLinkedWordID = nil
+        lastReadAloudSoftHintKey = nil
+        dismissReadAloudSoftHint()
         pendingReadAloudPDFContinuation = nil
     }
 

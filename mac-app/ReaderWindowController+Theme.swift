@@ -28,6 +28,7 @@ extension ReaderWindowController {
         updatePageLabelTextColor()
         updateEmbeddingStatusTextColor()
         aiPanel.setTheme(theme)
+        updateReadAloudSoftHintTheme()
         searchOverlay.setTheme(theme)
         selectionActionToolbar.applyTheme(theme)
         pdfView.backgroundColor = chromeBackground
