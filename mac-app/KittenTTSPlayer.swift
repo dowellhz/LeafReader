@@ -851,12 +851,14 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             "tts",
             text,
             "--backend",
-            "kokoro",
+            "kokoro-ane",
             "--variant",
-            "15s",
+            "en",
             "--voice",
             ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLVoiceEnvironmentKey]
                 ?? Runtime.defaultKokoroCoreMLVoice,
+            "--speed",
+            String(Self.kokoroTTSSpeed()),
             "--output",
             outputURL.path
         ]
@@ -990,7 +992,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         process.arguments = [
             "tts-worker",
             "--variant",
-            "15s",
+            "en",
             "--voice",
             ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLVoiceEnvironmentKey]
                 ?? Runtime.defaultKokoroCoreMLVoice

@@ -48,7 +48,7 @@ Runtime priority is automatic: KittenTTS first, then Kokoro. Short word or phras
 
 Download packages are served from GitHub Releases:
 
-- `https://github.com/dowellhz/LeafReader/releases/download/v1.4.18/kokoro-coreml-macos-arm64.tar.gz` (Kokoro runtime plus model cache, about 372 MB)
+- `https://github.com/dowellhz/LeafReader/releases/download/v1.5.7/kokoro-coreml-macos-arm64.tar.gz` (Kokoro runtime plus ANE/G2P model cache, about 518 MB)
 - `https://github.com/dowellhz/LeafReader/releases/download/v1.4.18/kitten-tts-rs-macos-arm64.tar.gz` (KittenTTS runtime plus mini model, about 74 MB)
 
 Generate the website packages with:
@@ -56,6 +56,12 @@ Generate the website packages with:
 ```sh
 ./scripts/package_speech_runtimes.sh
 ```
+
+## What's New in 1.5.7
+
+- Updated Kokoro playback to use FluidAudio's `kokoro-ane` English variant with the selected speech speed.
+- Made Kokoro match KittenTTS settings behavior: if the required model cache is missing, the Speech settings page shows it as not installed and offers a download button.
+- Packaged Kokoro's ANE and G2P model caches together with the runtime download so installing Kokoro fully enables the local model.
 
 ## What's New in 1.5.6
 

@@ -37,7 +37,7 @@ enum SpeechRuntimeResourceManager {
         var downloadSizeText: String {
             switch self {
             case .kokoro:
-                return "372 MB"
+                return "518 MB"
             case .kitten:
                 return "74 MB"
             }
@@ -54,7 +54,7 @@ enum SpeechRuntimeResourceManager {
         var downloadURL: URL {
             switch self {
             case .kokoro:
-                return URL(string: "https://github.com/dowellhz/LeafReader/releases/download/v1.4.18/kokoro-coreml-macos-arm64.tar.gz")!
+                return URL(string: "https://github.com/dowellhz/LeafReader/releases/download/v1.5.7/kokoro-coreml-macos-arm64.tar.gz")!
             case .kitten:
                 return URL(string: "https://github.com/dowellhz/LeafReader/releases/download/v1.4.18/kitten-tts-rs-macos-arm64.tar.gz")!
             }
@@ -96,8 +96,7 @@ enum SpeechRuntimeResourceManager {
             switch self {
             case .kokoro:
                 return [
-                    directory.appendingPathComponent("fluidaudiocli"),
-                    Self.fluidAudioModelCacheRoot.appendingPathComponent("kokoro", isDirectory: true)
+                    directory.appendingPathComponent("fluidaudiocli")
                 ]
             case .kitten:
                 return [
@@ -125,7 +124,7 @@ enum SpeechRuntimeResourceManager {
         if runtime == .kokoro {
             return runtime.installDirectories.contains { directory in
                 FileManager.default.isExecutableFile(atPath: directory.appendingPathComponent("fluidaudiocli").path)
-            } && kokoroModelPathsExist()
+            } && kokoroAneModelCacheExists()
         }
         return runtime.installDirectories.contains { directory in
             requiredPathsExist(runtime.requiredPaths(in: directory))
@@ -175,31 +174,45 @@ enum SpeechRuntimeResourceManager {
             && FileManager.default.fileExists(atPath: config.path)
     }
 
-    private static func kokoroModelPathsExist() -> Bool {
-        let modelDirectory = Runtime.fluidAudioModelCacheRoot.appendingPathComponent("kokoro", isDirectory: true)
-        let model = modelDirectory.appendingPathComponent("kokoro_21_15s.mlmodelc", isDirectory: true)
-        let voices = modelDirectory.appendingPathComponent("voices", isDirectory: true)
-        let config = modelDirectory.appendingPathComponent("config.json")
-        let vocab = modelDirectory.appendingPathComponent("vocab_index.json")
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: modelDirectory.path, isDirectory: &isDirectory),
-              isDirectory.boolValue,
-              FileManager.default.fileExists(atPath: model.path, isDirectory: &isDirectory),
-              isDirectory.boolValue,
-              FileManager.default.fileExists(atPath: voices.path, isDirectory: &isDirectory),
-              isDirectory.boolValue else {
-            return false
-        }
-        return FileManager.default.fileExists(atPath: config.path)
-            && FileManager.default.fileExists(atPath: vocab.path)
-    }
-
     private static func kokoroModelCacheDirectories() -> [URL] {
         let cacheRoot = Runtime.fluidAudioModelCacheRoot
         return [
             cacheRoot.appendingPathComponent("kokoro", isDirectory: true),
             cacheRoot.appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
         ]
+    }
+
+    private static func kokoroAneModelCacheExists() -> Bool {
+        let cacheRoot = Runtime.fluidAudioModelCacheRoot
+        let aneDirectory = cacheRoot
+            .appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
+            .appendingPathComponent("ANE", isDirectory: true)
+        let requiredAneFiles = [
+            "KokoroAlbert.mlmodelc",
+            "KokoroPostAlbert.mlmodelc",
+            "KokoroAlignment.mlmodelc",
+            "KokoroProsody.mlmodelc",
+            "KokoroNoise.mlmodelc",
+            "KokoroVocoder.mlmodelc",
+            "KokoroTail.mlmodelc",
+            "vocab.json",
+            "af_heart.bin"
+        ]
+        guard requiredAneFiles.allSatisfy({
+            FileManager.default.fileExists(atPath: aneDirectory.appendingPathComponent($0).path)
+        }) else {
+            return false
+        }
+
+        let g2pDirectory = cacheRoot.appendingPathComponent("kokoro", isDirectory: true)
+        let requiredG2PFiles = [
+            "G2PEncoder.mlmodelc",
+            "G2PDecoder.mlmodelc",
+            "g2p_vocab.json"
+        ]
+        return requiredG2PFiles.allSatisfy {
+            FileManager.default.fileExists(atPath: g2pDirectory.appendingPathComponent($0).path)
+        }
     }
 
     private static func removeItemIfExists(at url: URL) throws {
@@ -471,15 +484,17 @@ enum SpeechRuntimeResourceManager {
 
     private static func installBundledKokoroModelCache(from installDirectory: URL) throws {
         let fileManager = FileManager.default
-        let source = installDirectory.appendingPathComponent("Models/kokoro", isDirectory: true)
-        var isDirectory: ObjCBool = false
-        guard fileManager.fileExists(atPath: source.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-            return
-        }
         let cacheRoot = Runtime.fluidAudioModelCacheRoot
-        let destination = cacheRoot.appendingPathComponent("kokoro", isDirectory: true)
         try fileManager.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
-        try? fileManager.removeItem(at: destination)
-        try fileManager.moveItem(at: source, to: destination)
+        for name in ["kokoro", "kokoro-82m-coreml"] {
+            let source = installDirectory.appendingPathComponent("Models/\(name)", isDirectory: true)
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: source.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+                continue
+            }
+            let destination = cacheRoot.appendingPathComponent(name, isDirectory: true)
+            try? fileManager.removeItem(at: destination)
+            try fileManager.moveItem(at: source, to: destination)
+        }
     }
 }
