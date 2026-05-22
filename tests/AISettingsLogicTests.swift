@@ -170,27 +170,42 @@ enum AISettingsLogicTests {
         try withIsolatedAISettingsDefaults { defaults in
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "speech runtime should default to KittenTTS")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Jasper", "KittenTTS voice should default to Jasper")
+            try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "af_heart", "Kokoro voice should default to Heart")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "speech speed should default to normal")
+            try expect(AISettingsStore.speechVoiceOptions(runtimeID: "kitten").contains { $0.id == "Jasper" }, "KittenTTS voice options should include Jasper")
+            try expect(AISettingsStore.speechVoiceOptions(runtimeID: "kokoro").contains { $0.id == "af_heart" }, "Kokoro voice options should include Heart")
 
             AISettingsStore.saveSelectedSpeechRuntimeID("kitten")
             AISettingsStore.saveKittenSpeechVoiceID("Bella")
+            AISettingsStore.saveKokoroSpeechVoiceID("zf_001")
             AISettingsStore.saveSpeechSpeedID("slow")
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "valid speech runtime should save")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Bella", "valid KittenTTS voice should save")
+            try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "zf_001", "valid Kokoro voice should save")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "slow", "valid speech speed should save")
 
             AISettingsStore.saveSelectedSpeechRuntimeID("missing-runtime")
             AISettingsStore.saveKittenSpeechVoiceID("Dragon")
+            AISettingsStore.saveKokoroSpeechVoiceID("Dragon")
             AISettingsStore.saveSpeechSpeedID("warp")
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "invalid speech runtime should be ignored")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Bella", "invalid KittenTTS voice should be ignored")
+            try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "zf_001", "invalid Kokoro voice should be ignored")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "slow", "invalid speech speed should be ignored")
+
+            AISettingsStore.saveSpeechVoiceID("Luna", runtimeID: "kitten")
+            AISettingsStore.saveSpeechVoiceID("zf_002", runtimeID: "kokoro")
+            try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "kitten"), "Luna", "generic KittenTTS voice save should use the KittenTTS list")
+            try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "kokoro"), "zf_002", "generic Kokoro voice save should use the Kokoro list")
+            try expectEqual(AISettingsStore.speechVoiceTitle(for: "zf_002", runtimeID: "kokoro"), AppText.localized("中文女声 2", "Chinese Female 2"), "Kokoro preview should use the display voice title")
 
             defaults.set(" missing-runtime ", forKey: AISettingsStore.selectedSpeechRuntimeKey)
             defaults.set(" Dragon ", forKey: AISettingsStore.kittenSpeechVoiceKey)
+            defaults.set(" Dragon ", forKey: AISettingsStore.kokoroSpeechVoiceKey)
             defaults.set(" warp ", forKey: AISettingsStore.speechSpeedKey)
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "invalid stored speech runtime should fall back")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Jasper", "invalid stored KittenTTS voice should fall back")
+            try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "af_heart", "invalid stored Kokoro voice should fall back")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "invalid stored speech speed should fall back")
         }
     }

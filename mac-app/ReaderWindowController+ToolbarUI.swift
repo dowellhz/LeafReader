@@ -53,6 +53,8 @@ extension ReaderWindowController {
         embeddingStatusLabel.font = AppFont.semibold(ofSize: 12)
         embeddingStatusLabel.alignment = .right
         embeddingStatusLabel.lineBreakMode = .byTruncatingMiddle
+        embeddingStatusLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        embeddingStatusLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         updateEmbeddingStatusTextColor()
         embeddingStatusLabel.isHidden = true
         embeddingPauseButton.isHidden = true
@@ -80,6 +82,8 @@ extension ReaderWindowController {
         titleLabel.textColor = NSColor(red: 0.1, green: 0.11, blue: 0.14, alpha: 1)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.isSelectable = false
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         coverImageView.imageScaling = .scaleProportionallyUpOrDown
         coverImageView.wantsLayer = true

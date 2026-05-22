@@ -29,6 +29,7 @@ final class AISettingsPanelController {
     var onCancelVectorIndex: (() -> Void)?
     var onClearCurrentVectorIndex: (() -> Void)?
     var onClearCurrentWordRecords: (() -> Void)?
+    var currentSpeechLanguageHint: (() -> AISettingsStore.SpeechLanguageHint?)?
 
     let vectorCacheQueue = DispatchQueue(label: "com.linlu.leafreader.settings-vector-cache", qos: .utility)
     weak var parentWindow: NSWindow?
@@ -83,6 +84,7 @@ final class AISettingsPanelController {
     weak var currentIndexStatusLabel: NSTextField?
     var cacheRefreshTimer: Timer?
     var speechDownloadRefreshTimer: Timer?
+    var speechVoicePreviewWorkItem: DispatchWorkItem?
     var keyTopWithCustomConstraint: NSLayoutConstraint?
     var keyTopWithoutCustomConstraint: NSLayoutConstraint?
     var embeddingModelTopWithCustomEndpointConstraint: NSLayoutConstraint?
@@ -98,6 +100,7 @@ final class AISettingsPanelController {
     deinit {
         cacheRefreshTimer?.invalidate()
         speechDownloadRefreshTimer?.invalidate()
+        speechVoicePreviewWorkItem?.cancel()
         removeAppActivationObserver()
     }
 

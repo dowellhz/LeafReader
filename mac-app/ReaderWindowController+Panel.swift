@@ -53,8 +53,52 @@ extension ReaderWindowController {
         controller.onClearCurrentWordRecords = { [weak self] in
             self?.clearCurrentBookWordRecords()
         }
+        controller.currentSpeechLanguageHint = { [weak self] in
+            self?.currentSpeechLanguageHintForSettings()
+        }
         aiSettingsPanelController = controller
         controller.show(attachedTo: window, initialTab: tab)
+    }
+
+    func currentSpeechLanguageHintForSettings() -> AISettingsStore.SpeechLanguageHint? {
+        let text = currentSpeechLanguageProbeTextForSettings()
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return SpeechTextPolicy.prefersChineseTTS(trimmed) ? .chinese : .english
+    }
+
+    private func currentSpeechLanguageProbeTextForSettings() -> String {
+        if currentDocumentKind == .pdf {
+            var samples: [String] = []
+            if let currentPage = pdfView.currentPage,
+               let document = pdfView.document {
+                let currentIndex = document.index(for: currentPage)
+                for pageIndex in [currentIndex, currentIndex - 1, currentIndex + 1]
+                    where pageIndex >= 0 && pageIndex < document.pageCount {
+                    if let text = document.page(at: pageIndex)?.string?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       !text.isEmpty {
+                        samples.append(text)
+                    }
+                }
+            }
+            if samples.isEmpty, let document = pdfView.document {
+                let limit = min(document.pageCount, 5)
+                for pageIndex in 0..<limit {
+                    if let text = document.page(at: pageIndex)?.string?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       !text.isEmpty {
+                        samples.append(text)
+                    }
+                }
+            }
+            samples.append(titleLabel.stringValue)
+            return samples.joined(separator: "\n")
+        }
+
+        let webText = currentWebSelectedText.isEmpty ? currentWebPlainText : currentWebSelectedText
+        if !webText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return webText
+        }
+        return titleLabel.stringValue
     }
 
     func applySettingsChangesToReader() {

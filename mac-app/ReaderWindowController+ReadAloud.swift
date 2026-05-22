@@ -412,10 +412,13 @@ extension ReaderWindowController {
         for pageText in pageTexts {
             let text = pageText.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { continue }
-            for segment in KittenTTSPlayer.readAloudSegments(for: text) {
+            for sourceSegment in SpeechTextPolicy.segments(for: text) {
+                let speechText = SpeechTextPolicy.normalizedReadAloudInput(sourceSegment)
+                guard !speechText.isEmpty else { continue }
                 segments.append(KittenTTSPlayer.ReadAloudSegment(
-                    speechText: segment,
-                    displayText: segment,
+                    speechText: speechText,
+                    displayText: speechText,
+                    matchText: sourceSegment,
                     pageIndex: pageText.pageIndex
                 ))
             }
@@ -504,11 +507,12 @@ extension ReaderWindowController {
 
     private func canStartReadAloudWithLocalTTS() -> Bool {
         if let probeText = currentReadAloudProbeText(),
-           SpeechTextPolicy.isChineseCandidate(probeText) {
+           SpeechTextPolicy.prefersChineseTTS(probeText) {
             guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else {
                 openSpeechSettingsForMissingKokoro()
                 return false
             }
+            AISettingsStore.saveSelectedSpeechRuntimeID(SpeechRuntimeResourceManager.Runtime.kokoro.id)
             return true
         }
         guard let runtime = SpeechRuntimeResourceManager.runnableRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) else {
@@ -519,7 +523,7 @@ extension ReaderWindowController {
         return true
     }
 
-    private func currentReadAloudProbeText() -> String? {
+    func currentReadAloudProbeText() -> String? {
         if currentDocumentKind == .pdf {
             return pdfView.currentPage?.string
         }
@@ -528,8 +532,10 @@ extension ReaderWindowController {
 
     private func canReadAloudSegmentsWithAvailableRuntime(_ segments: [KittenTTSPlayer.ReadAloudSegment]) -> Bool {
         let text = segments.map(\.speechText).joined(separator: " ")
-        guard SpeechTextPolicy.isChineseCandidate(text) else { return true }
-        return SpeechRuntimeResourceManager.isRunnable(.kokoro)
+        guard SpeechTextPolicy.prefersChineseTTS(text) else { return true }
+        guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
+        AISettingsStore.saveSelectedSpeechRuntimeID(SpeechRuntimeResourceManager.Runtime.kokoro.id)
+        return true
     }
 
     private func openSpeechSettingsForMissingKokoro() {

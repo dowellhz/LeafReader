@@ -142,9 +142,59 @@
     return rangeFromNormalizedSpan(index, contextIndex + wordIndexInContext, normalizedWord.length);
   };
   const leafReaderWordCount = (value) => String(value || '').split(/[^A-Za-z0-9]+/).filter(Boolean).length;
+  const leafReaderHasCJK = (value) => /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/.test(String(value || ''));
+  const leafReaderMaxChineseTTSSegmentLength = 120;
+  const leafReaderSplitByCharacterLimit = (value, limit) => {
+    const chunks = [];
+    let pending = '';
+    for (const char of String(value || '')) {
+      if (pending.length >= limit) {
+        chunks.push(pending);
+        pending = '';
+      }
+      pending += char;
+    }
+    if (pending) chunks.push(pending);
+    return chunks;
+  };
+  const leafReaderSplitLongChineseSentence = (value) => {
+    const source = String(value || '').trim();
+    if (source.length <= leafReaderMaxChineseTTSSegmentLength) return [source];
+    const chunks = [];
+    let pending = '';
+    for (const char of source) {
+      pending += char;
+      if ('，、：:,'.includes(char)) {
+        if (pending.trim()) chunks.push(pending.trim());
+        pending = '';
+      }
+    }
+    if (pending.trim()) chunks.push(pending.trim());
+    return chunks.flatMap((chunk) => (
+      chunk.length > leafReaderMaxChineseTTSSegmentLength
+        ? leafReaderSplitByCharacterLimit(chunk, leafReaderMaxChineseTTSSegmentLength)
+        : [chunk]
+    ));
+  };
+  const leafReaderChineseSentenceSegments = (value) => {
+    const source = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!source) return [];
+    const units = [];
+    let pending = '';
+    for (const char of source) {
+      pending += char;
+      if ('。！？；.!?;'.includes(char)) {
+        if (pending.trim()) units.push(...leafReaderSplitLongChineseSentence(pending.trim()));
+        pending = '';
+      }
+    }
+    if (pending.trim()) units.push(...leafReaderSplitLongChineseSentence(pending.trim()));
+    return units.filter(Boolean);
+  };
   const leafReaderSentenceSegments = (value) => {
     const source = String(value || '').replace(/\s+/g, ' ').trim();
     if (!source) return [];
+    if (leafReaderHasCJK(source)) return leafReaderChineseSentenceSegments(source);
     const sentenceUnits = (source.match(/[^.!?]+[.!?]["'\u2019\u201D]?|[^.!?]+$/g) || [])
       .map((item) => item.trim())
       .filter(Boolean);
@@ -175,6 +225,7 @@
       normalizedIndexForRoot,
       rangeForNormalizedText,
       rangeForWordInContext,
+      leafReaderHasCJK,
       leafReaderSentenceSegments
     };
   }
@@ -415,6 +466,21 @@
     return leafReaderContainedTTSRanges(needle, blocks);
   };
   const leafReaderRangeKey = (range) => `${range.startContainer}_${range.startOffset}_${range.endContainer}_${range.endOffset}`;
+  const leafReaderRangesText = (ranges) => ranges
+    .map((range) => String(range.toString ? range.toString() : ''))
+    .join(' ')
+    .trim();
+  const leafReaderRangesMatchText = (ranges, text) => {
+    const rangeText = normalizedText(leafReaderRangesText(ranges));
+    const targetText = normalizedText(text);
+    if (!rangeText || !targetText) return false;
+    return rangeText.includes(targetText) || targetText.includes(rangeText);
+  };
+  const leafReaderApplyTTSRanges = (ranges) => {
+    for (const range of ranges.slice().reverse()) {
+      wrapRangeTextNodes(range, 'leaf-reader-tts-underline');
+    }
+  };
   const leafReaderSegmentRangesForBlock = (block) => {
     const rawText = block.innerText || block.textContent || '';
     const segments = leafReaderSentenceSegments(rawText);
@@ -476,7 +542,9 @@
       pendingText = pendingText ? `${pendingText} ${text}` : text;
       pendingRanges.push(item.range);
       pendingWordCount += leafReaderWordCount(text);
-      if (pendingWordCount >= 4) flushPending();
+      if (leafReaderHasCJK(pendingText) || pendingText.length >= leafReaderMaxChineseTTSSegmentLength || pendingWordCount >= 4) {
+        flushPending();
+      }
     }
     if (pendingText) {
       if (segments.length && leafReaderTTSAnchorRanges.length) {
@@ -498,17 +566,13 @@
     if (!numericIndex || numericIndex < 1) return window.leafReaderUnderlineTTS(fallbackText);
     const index = numericIndex - 1;
     const ranges = leafReaderTTSAnchorRanges[index] || [];
-    if (!ranges.length) return window.leafReaderUnderlineTTS(fallbackText);
+    if (!ranges.length || !leafReaderRangesMatchText(ranges, fallbackText)) {
+      return window.leafReaderUnderlineTTS(fallbackText);
+    }
     const sourceKey = leafReaderAISourceKeyForRanges(ranges);
     const wordIDs = leafReaderLinkedWordIDsForRanges(ranges);
     const progress = leafReaderProgressForRange(ranges[0]);
-    if (window.CSS && CSS.highlights && window.Highlight) {
-      CSS.highlights.set('leaf-reader-tts', new Highlight(...ranges));
-    } else {
-      for (const range of ranges.slice().reverse()) {
-        wrapRangeTextNodes(range, 'leaf-reader-tts-underline');
-      }
-    }
+    leafReaderApplyTTSRanges(ranges);
     leafReaderScrollRangeToCenter(ranges[0]);
     return { ok: true, sourceKey, wordID: wordIDs[0] || '', wordIDs, progress };
   };
@@ -522,13 +586,7 @@
     const sourceKey = leafReaderAISourceKeyForRanges(ranges);
     const wordIDs = leafReaderLinkedWordIDsForRanges(ranges);
     const progress = leafReaderProgressForRange(ranges[0]);
-    if (window.CSS && CSS.highlights && window.Highlight) {
-      CSS.highlights.set('leaf-reader-tts', new Highlight(...ranges));
-    } else {
-      for (const range of ranges.slice().reverse()) {
-        wrapRangeTextNodes(range, 'leaf-reader-tts-underline');
-      }
-    }
+    leafReaderApplyTTSRanges(ranges);
     leafReaderScrollRangeToCenter(ranges[0]);
     return { ok: true, sourceKey, wordID: wordIDs[0] || '', wordIDs, progress };
   };

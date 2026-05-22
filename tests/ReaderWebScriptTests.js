@@ -73,4 +73,11 @@ assert.deepStrictEqual(
   ]
 );
 
+const chineseSegments = web.leafReaderSentenceSegments('第一句。第二句！第三句？');
+assert.deepStrictEqual(chineseSegments, ['第一句。', '第二句！', '第三句？']);
+
+const longChineseSegments = web.leafReaderSentenceSegments('这是一段很长的中文，'.repeat(20));
+assert(longChineseSegments.length > 1);
+assert(longChineseSegments.every((segment) => segment.length <= 120));
+
 console.log('ReaderWebScriptTests passed');

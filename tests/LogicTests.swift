@@ -328,6 +328,11 @@ private func testSpeechTextPolicyEnglishCandidate() throws {
     try expect(SpeechTextPolicy.isEnglishCandidate("A short English sentence."), "English text should be accepted")
     try expect(!SpeechTextPolicy.isEnglishCandidate("中文 mixed English"), "Chinese mixed text should be rejected for local English TTS")
     try expect(SpeechTextPolicy.isChineseCandidate("这是一段中文。"), "Chinese text should be accepted for Kokoro read aloud")
+    try expect(SpeechTextPolicy.prefersChineseTTS("这是一段中文。"), "Chinese text should prefer Chinese TTS")
+    try expect(
+        !SpeechTextPolicy.prefersChineseTTS("A long English paragraph can contain a cached 中文 label without switching to Chinese TTS."),
+        "mostly English text with a small Chinese label should still use English TTS"
+    )
     try expect(SpeechTextPolicy.isLocalTTSCandidate("这是一段中文。"), "Chinese text should be accepted for local read aloud")
     try expect(!SpeechTextPolicy.isEnglishCandidate("12345"), "text without letters should be rejected")
 }
@@ -347,6 +352,11 @@ private func testSpeechTextPolicySegments() throws {
 
     let chineseSegments = SpeechTextPolicy.readAloudSegments(for: "第一句。第二句！第三句？")
     try expectEqual(chineseSegments, ["第一句。 第二句！ 第三句？"], "Chinese punctuation should split and merge into a stable read-aloud segment")
+
+    let longChineseText = String(repeating: "这是一段没有空格的中文长句，需要按长度切分避免一次生成过久，", count: 12)
+    let longChineseSegments = SpeechTextPolicy.readAloudSegments(for: longChineseText)
+    try expect(longChineseSegments.count > 1, "long Chinese text should split into multiple TTS segments")
+    try expect(longChineseSegments.allSatisfy { $0.count <= 120 }, "Chinese TTS segments should stay short for responsive Kokoro synthesis")
 }
 
 private func testKokoroWorkerResponseReader() throws {

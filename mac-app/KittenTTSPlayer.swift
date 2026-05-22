@@ -1,5 +1,6 @@
 import Cocoa
 import AVFoundation
+import CryptoKit
 
 final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     static let shared = KittenTTSPlayer()
@@ -8,6 +9,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     private static let processServerPort = Int.random(in: 20000...49151)
     private static let kokoroWorkerResponseTimeout: TimeInterval = 45
     private static let kokoroFallbackTimeout: TimeInterval = 45
+    private static let maxPendingReadAloudSegments = 2
 
     private enum Runtime {
         static let backendEnvironmentKey = "LEAFREADER_TTS_BACKEND"
@@ -36,6 +38,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     private var kokoroWorkerOutputPipe: Pipe?
     private var kokoroWorkerErrorPipe: Pipe?
     private var kokoroWorkerVariant: String?
+    private var kokoroWorkerVoiceID: String?
     private var currentPlayer: AVAudioPlayer?
     private var currentSegment: PlaybackSegment?
     private var pendingSegments: [PlaybackSegment] = []
@@ -47,7 +50,9 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     private var playbackFinishHandler: (() -> Void)?
     private var interruptionPlayer: AVAudioPlayer?
     private var interruptionOutputURL: URL?
+    private var interruptionOutputShouldRemove = true
     private var interruptionFinishHandler: (() -> Void)?
+    private var activeInterruptionGenerationID = UUID()
     private var idleShutdownWorkItem: DispatchWorkItem?
     private var playbackWatchdogWorkItem: DispatchWorkItem?
     private var interruptionWatchdogWorkItem: DispatchWorkItem?
@@ -57,11 +62,13 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     struct ReadAloudSegment {
         let speechText: String
         let displayText: String
+        let matchText: String
         let pageIndex: Int?
 
-        init(speechText: String, displayText: String? = nil, pageIndex: Int? = nil) {
+        init(speechText: String, displayText: String? = nil, matchText: String? = nil, pageIndex: Int? = nil) {
             self.speechText = speechText
             self.displayText = displayText ?? speechText
+            self.matchText = matchText ?? displayText ?? speechText
             self.pageIndex = pageIndex
         }
     }
@@ -70,6 +77,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         let outputURL: URL
         let speechText: String
         let text: String
+        let matchText: String
         let index: Int
         let total: Int
         let pageIndex: Int?
@@ -109,15 +117,20 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
 
     func speakEnglish(segments inputSegments: [ReadAloudSegment], completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
         cancelScheduledIdleShutdown()
-        let segments = inputSegments.compactMap { segment -> ReadAloudSegment? in
+        let segments = inputSegments.flatMap { segment -> [ReadAloudSegment] in
             let speechText = SpeechTextPolicy.normalizedReadAloudInput(segment.speechText)
-            guard !speechText.isEmpty else { return nil }
+            guard !speechText.isEmpty else { return [] }
             let displayText = segment.displayText.trimmingCharacters(in: .whitespacesAndNewlines)
-            return ReadAloudSegment(
-                speechText: speechText,
-                displayText: displayText.isEmpty ? speechText : displayText,
-                pageIndex: segment.pageIndex
-            )
+            let matchText = segment.matchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let speechSegments = SpeechTextPolicy.segments(for: speechText)
+            return speechSegments.map {
+                ReadAloudSegment(
+                    speechText: $0,
+                    displayText: speechSegments.count == 1 && !displayText.isEmpty ? displayText : $0,
+                    matchText: speechSegments.count == 1 && !matchText.isEmpty ? matchText : $0,
+                    pageIndex: segment.pageIndex
+                )
+            }
         }
         let combinedText = segments.map(\.speechText).joined(separator: " ")
         guard SpeechTextPolicy.isLocalTTSCandidate(combinedText), !segments.isEmpty else {
@@ -134,6 +147,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             var didGenerateAnySegment = false
             for (segmentIndex, segment) in segments.enumerated() {
                 guard self.isActiveGeneration(generationID) else { return }
+                guard self.waitForReadAloudBufferCapacity(generationID: generationID) else { return }
                 let outputURL = FileManager.default.temporaryDirectory
                     .appendingPathComponent("LeafReader-KittenTTS-\(UUID().uuidString).wav")
                 guard self.generateWAV(text: segment.speechText, outputURL: outputURL) else {
@@ -158,6 +172,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
                         outputURL: outputURL,
                         speechText: segment.speechText,
                         text: segment.displayText,
+                        matchText: segment.matchText,
                         index: segmentIndex + 1,
                         total: segments.count,
                         pageIndex: segment.pageIndex
@@ -229,18 +244,110 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         let segment = SpeechTextPolicy.segments(for: value).joined(separator: " ")
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("LeafReader-KittenTTS-Interrupt-\(UUID().uuidString).wav")
+        let generationID = UUID()
+        beginInterruptionGeneration(generationID)
         queue.async { [weak self] in
             guard let self else { return }
+            guard self.isActiveInterruptionGeneration(generationID) else {
+                try? FileManager.default.removeItem(at: outputURL)
+                return
+            }
             guard self.generateWAV(text: segment, outputURL: outputURL) else {
                 try? FileManager.default.removeItem(at: outputURL)
                 DispatchQueue.main.async {
+                    guard self.activeInterruptionGenerationID == generationID else { return }
                     completion(false)
                 }
                 return
             }
             DispatchQueue.main.async {
+                guard self.activeInterruptionGenerationID == generationID else {
+                    try? FileManager.default.removeItem(at: outputURL)
+                    return
+                }
                 completion(true)
                 self.playInterruptionOutput(outputURL, finished: finished)
+            }
+        }
+    }
+
+    func speakCachedPreviewInterruption(
+        _ text: String,
+        runtimeID: String,
+        voiceID: String,
+        speedID: String,
+        completion: @escaping (Bool) -> Void,
+        finished: @escaping () -> Void
+    ) {
+        cancelScheduledIdleShutdown()
+        let value = SpeechTextPolicy.normalizedReadAloudInput(text)
+        guard SpeechTextPolicy.isLocalTTSCandidate(value) else {
+            completion(false)
+            return
+        }
+
+        let segment = SpeechTextPolicy.segments(for: value).joined(separator: " ")
+        let cacheURL = Self.previewCacheURL(text: segment, runtimeID: runtimeID, voiceID: voiceID, speedID: speedID)
+        let generationID = UUID()
+        beginInterruptionGeneration(generationID)
+        queue.async { [weak self] in
+            guard let self else { return }
+            guard self.isActiveInterruptionGeneration(generationID) else { return }
+            if Self.isUsableWAV(at: cacheURL) {
+                NSLog("LeafReader TTS preview: cache hit runtime=%@ voice=%@ speed=%@ output=%@", runtimeID, voiceID, speedID, cacheURL.path)
+                DispatchQueue.main.async {
+                    guard self.activeInterruptionGenerationID == generationID else { return }
+                    completion(true)
+                    self.playInterruptionOutput(cacheURL, removeAfterPlayback: false, finished: finished)
+                }
+                return
+            }
+
+            try? FileManager.default.createDirectory(
+                at: cacheURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let tempURL = cacheURL.deletingLastPathComponent()
+                .appendingPathComponent("pending-\(UUID().uuidString).wav")
+            guard self.generateWAV(text: segment, outputURL: tempURL, voiceID: voiceID),
+                  Self.isUsableWAV(at: tempURL) else {
+                NSLog("LeafReader TTS preview: generation failed runtime=%@ voice=%@ speed=%@ output=%@", runtimeID, voiceID, speedID, tempURL.path)
+                try? FileManager.default.removeItem(at: tempURL)
+                DispatchQueue.main.async {
+                    guard self.activeInterruptionGenerationID == generationID else { return }
+                    completion(false)
+                }
+                return
+            }
+            try? FileManager.default.removeItem(at: cacheURL)
+            do {
+                try FileManager.default.moveItem(at: tempURL, to: cacheURL)
+            } catch {
+                try? FileManager.default.removeItem(at: tempURL)
+                DispatchQueue.main.async {
+                    guard self.activeInterruptionGenerationID == generationID else { return }
+                    completion(false)
+                }
+                return
+            }
+            NSLog("LeafReader TTS preview: generated runtime=%@ voice=%@ speed=%@ output=%@", runtimeID, voiceID, speedID, cacheURL.path)
+            DispatchQueue.main.async {
+                guard self.activeInterruptionGenerationID == generationID else { return }
+                completion(true)
+                self.playInterruptionOutput(cacheURL, removeAfterPlayback: false, finished: finished)
+            }
+        }
+    }
+
+    func cancelCurrentSpeechPreview(terminateKokoroWorker: Bool = false) {
+        beginInterruptionGeneration(UUID())
+        guard terminateKokoroWorker else { return }
+        kokoroWorkerProcess?.terminate()
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.stopKokoroWorker()
+            if self.activeBackend == .kokoroCoreML {
+                self.activeBackend = nil
             }
         }
     }
@@ -266,79 +373,6 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
                 _ = currentPlayer.play()
             } else {
                 self.playNextOutputIfNeeded()
-            }
-        }
-        if Thread.isMainThread {
-            work()
-        } else {
-            DispatchQueue.main.async(execute: work)
-        }
-    }
-
-    func regenerateRemainingSegmentsForUpdatedParameters() {
-        let work = {
-            guard let segment = self.currentSegment,
-                  self.currentPlayer != nil else { return }
-            let generationID = UUID()
-            let oldPendingSegments = self.pendingSegments
-            let startIndex = max(0, segment.index)
-            let sourceSegments = startIndex < self.activeSpeechSegments.count
-                ? Array(self.activeSpeechSegments[startIndex...])
-                : []
-            let totalSegments = self.activeSpeechSegments.count
-
-            self.activeGenerationID = generationID
-            self.pendingSegments.removeAll()
-            for pending in oldPendingSegments {
-                try? FileManager.default.removeItem(at: pending.outputURL)
-            }
-            guard !sourceSegments.isEmpty else {
-                self.isGeneratingSegments = false
-                return
-            }
-            self.isGeneratingSegments = true
-
-            self.queue.async { [weak self] in
-                guard let self else { return }
-                var generatedAny = false
-                for (offset, sourceSegment) in sourceSegments.enumerated() {
-                    guard self.isActiveGeneration(generationID) else { return }
-                    let outputURL = FileManager.default.temporaryDirectory
-                        .appendingPathComponent("LeafReader-KittenTTS-Refresh-\(UUID().uuidString).wav")
-                    guard self.generateWAV(text: sourceSegment.speechText, outputURL: outputURL) else {
-                        try? FileManager.default.removeItem(at: outputURL)
-                        continue
-                    }
-                    guard self.isActiveGeneration(generationID) else {
-                        try? FileManager.default.removeItem(at: outputURL)
-                        return
-                    }
-                    generatedAny = true
-                    let playbackSegment = PlaybackSegment(
-                        outputURL: outputURL,
-                        speechText: sourceSegment.speechText,
-                        text: sourceSegment.displayText,
-                        index: startIndex + offset + 1,
-                        total: totalSegments,
-                        pageIndex: sourceSegment.pageIndex
-                    )
-                    DispatchQueue.main.async {
-                        guard self.activeGenerationID == generationID else {
-                            try? FileManager.default.removeItem(at: outputURL)
-                            return
-                        }
-                        self.enqueueSegment(playbackSegment)
-                    }
-                }
-                DispatchQueue.main.async {
-                    guard self.activeGenerationID == generationID else { return }
-                    self.isGeneratingSegments = false
-                    if generatedAny {
-                        self.playNextOutputIfNeeded()
-                    } else {
-                        self.finishPlaybackIfIdle()
-                    }
-                }
             }
         }
         if Thread.isMainThread {
@@ -384,6 +418,20 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             active = self.activeGenerationID == generationID
         }
         return active
+    }
+
+    private func waitForReadAloudBufferCapacity(generationID: UUID) -> Bool {
+        while isActiveGeneration(generationID) {
+            var pendingCount = 0
+            DispatchQueue.main.sync {
+                pendingCount = self.pendingSegments.count
+            }
+            if pendingCount < Self.maxPendingReadAloudSegments {
+                return true
+            }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        return false
     }
 
     private func enqueueSegment(_ segment: PlaybackSegment) {
@@ -490,7 +538,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         postReadingEnded()
     }
 
-    private func playInterruptionOutput(_ outputURL: URL, finished: @escaping () -> Void) {
+    private func playInterruptionOutput(_ outputURL: URL, removeAfterPlayback: Bool = true, finished: @escaping () -> Void) {
         stopInterruptionPlayback()
         let player: AVAudioPlayer
         do {
@@ -503,6 +551,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         }
         interruptionPlayer = player
         interruptionOutputURL = outputURL
+        interruptionOutputShouldRemove = removeAfterPlayback
         interruptionFinishHandler = finished
         player.delegate = self
         player.prepareToPlay()
@@ -510,6 +559,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             NSLog("LeafReader KittenTTS: interruption AVAudioPlayer playback failed (output=%@)", outputURL.path)
             finishInterruptionPlayback()
         } else {
+            NSLog("LeafReader TTS preview: playback started duration=%.3f output=%@", player.duration, outputURL.path)
             scheduleInterruptionWatchdog(for: player, outputURL: outputURL)
         }
     }
@@ -552,10 +602,31 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     private func clearInterruptionPlayback() {
         interruptionPlayer?.delegate = nil
         interruptionPlayer = nil
-        if let interruptionOutputURL {
+        if interruptionOutputShouldRemove, let interruptionOutputURL {
             try? FileManager.default.removeItem(at: interruptionOutputURL)
         }
+        interruptionOutputShouldRemove = true
         interruptionOutputURL = nil
+    }
+
+    private func beginInterruptionGeneration(_ generationID: UUID) {
+        let work = {
+            self.activeInterruptionGenerationID = generationID
+            self.stopInterruptionPlayback()
+        }
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.sync(execute: work)
+        }
+    }
+
+    private func isActiveInterruptionGeneration(_ generationID: UUID) -> Bool {
+        var active = false
+        DispatchQueue.main.sync {
+            active = self.activeInterruptionGenerationID == generationID
+        }
+        return active
     }
 
     private func forceTerminateRuntimeProcesses() {
@@ -596,7 +667,8 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             "active": true,
             "index": segment.index,
             "total": segment.total,
-            "text": segment.text
+            "text": segment.text,
+            "matchText": segment.matchText
         ]
         if let pageIndex = segment.pageIndex {
             userInfo["pageIndex"] = pageIndex
@@ -653,6 +725,20 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         }
     }
 
+    func stopKokoroWorkerIfLanguageDiffers(from text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let expectedVariant = Self.kokoroVariant(for: trimmed)
+        queue.async {
+            guard self.kokoroWorkerProcess?.isRunning == true,
+                  let currentVariant = self.kokoroWorkerVariant,
+                  currentVariant != expectedVariant else {
+                return
+            }
+            self.stopKokoroWorker()
+        }
+    }
+
     func shutdownForTermination() {
         idleShutdownWorkItem?.cancel()
         idleShutdownWorkItem = nil
@@ -679,26 +765,26 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.idleShutdownDelay, execute: workItem)
     }
 
-    private func generateWAV(text: String, outputURL: URL) -> Bool {
+    private func generateWAV(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
         let backend = Self.preferredBackend(for: text)
         prepareForBackend(backend)
         switch backend {
         case .kokoroCoreML:
-            if generateWAVWithKokoroWorker(text: text, outputURL: outputURL) {
+            if generateWAVWithKokoroWorker(text: text, outputURL: outputURL, voiceID: voiceID) {
                 return true
             }
-            if Self.generateWAVWithKokoroCoreML(text: text, outputURL: outputURL) {
+            if Self.generateWAVWithKokoroCoreML(text: text, outputURL: outputURL, voiceID: voiceID) {
                 return true
             }
             return false
         case .kitten:
             if ensureServer() {
-                if Self.generateWAVWithServer(text: text, outputURL: outputURL) {
+                if Self.generateWAVWithServer(text: text, outputURL: outputURL, voiceID: voiceID) {
                     return true
                 }
                 stopKittenServer()
                 if ensureServer(),
-                   Self.generateWAVWithServer(text: text, outputURL: outputURL) {
+                   Self.generateWAVWithServer(text: text, outputURL: outputURL, voiceID: voiceID) {
                     return true
                 }
             }
@@ -741,7 +827,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     private static func preferredBackend(for text: String) -> PreferredBackend {
-        if SpeechTextPolicy.isChineseCandidate(text) {
+        if SpeechTextPolicy.prefersChineseTTS(text) {
             return SpeechRuntimeResourceManager.isRunnable(.kokoro) ? .kokoroCoreML : .none
         }
         let value = ProcessInfo.processInfo.environment[Runtime.backendEnvironmentKey]?
@@ -764,10 +850,14 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         }
     }
 
-    private static func generateWAVWithKokoroCoreML(text: String, outputURL: URL) -> Bool {
+    private static func generateWAVWithKokoroCoreML(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
         guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
         guard let cliURL = kokoroCoreMLRuntime() else { return false }
         let variant = kokoroVariant(for: text)
+        let voice = voiceID ?? selectedKokoroVoiceID(forVariant: variant)
+        guard KokoroVoiceResourceManager.ensureInstalled(voiceID: voice, variant: variant) else {
+            return false
+        }
 
         let arguments = [
             "tts",
@@ -777,8 +867,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             "--variant",
             variant,
             "--voice",
-            ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLVoiceEnvironmentKey]
-                ?? Runtime.defaultKokoroCoreMLVoice,
+            voice,
             "--speed",
             String(Self.kokoroTTSSpeed()),
             "--output",
@@ -849,13 +938,15 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         return size.intValue > 44
     }
 
-    private func generateWAVWithKokoroWorker(text: String, outputURL: URL) -> Bool {
+    private func generateWAVWithKokoroWorker(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
         guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else {
             stopKokoroWorker()
             return false
         }
         let variant = Self.kokoroVariant(for: text)
-        guard ensureKokoroWorker(variant: variant),
+        let voice = voiceID ?? Self.selectedKokoroVoiceID(forVariant: variant)
+        guard KokoroVoiceResourceManager.ensureInstalled(voiceID: voice, variant: variant),
+              ensureKokoroWorker(variant: variant, voiceID: voice),
               let inputPipe = kokoroWorkerInputPipe,
               let outputPipe = kokoroWorkerOutputPipe else {
             return false
@@ -865,8 +956,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             id: UUID().uuidString,
             text: text,
             output: outputURL.path,
-            voice: ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLVoiceEnvironmentKey]
-                ?? Runtime.defaultKokoroCoreMLVoice,
+            voice: voice,
             speed: Self.kokoroTTSSpeed()
         )
         guard let requestData = try? JSONEncoder().encode(request) else {
@@ -901,13 +991,18 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         return false
     }
 
-    private func ensureKokoroWorker(variant: String) -> Bool {
+    private func ensureKokoroWorker(variant: String, voiceID: String) -> Bool {
         guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
-        if kokoroWorkerProcess?.isRunning == true, kokoroWorkerVariant == variant {
+        if kokoroWorkerProcess?.isRunning == true,
+           kokoroWorkerVariant == variant,
+           kokoroWorkerVoiceID == voiceID {
             return true
         }
         stopKokoroWorker()
         guard let cliURL = Self.kokoroCoreMLRuntime() else { return false }
+        guard KokoroVoiceResourceManager.ensureInstalled(voiceID: voiceID, variant: variant) else {
+            return false
+        }
 
         let process = Process()
         let inputPipe = Pipe()
@@ -920,8 +1015,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             "--variant",
             variant,
             "--voice",
-            ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLVoiceEnvironmentKey]
-                ?? Runtime.defaultKokoroCoreMLVoice
+            voiceID
         ]
         process.standardInput = inputPipe
         process.standardOutput = outputPipe
@@ -938,6 +1032,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         }
         kokoroWorkerProcess = process
         kokoroWorkerVariant = variant
+        kokoroWorkerVoiceID = voiceID
         kokoroWorkerInputPipe = inputPipe
         kokoroWorkerOutputPipe = outputPipe
         kokoroWorkerErrorPipe = errorPipe
@@ -955,6 +1050,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         kokoroWorkerOutputPipe = nil
         kokoroWorkerErrorPipe = nil
         kokoroWorkerVariant = nil
+        kokoroWorkerVoiceID = nil
     }
 
     private func stopRuntimeProcesses() {
@@ -1141,7 +1237,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         return false
     }
 
-    private static func generateWAVWithServer(text: String, outputURL: URL) -> Bool {
+    private static func generateWAVWithServer(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
         var request = URLRequest(url: serverURL(path: "/v1/audio/speech"))
         request.httpMethod = "POST"
         request.timeoutInterval = 30
@@ -1149,7 +1245,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         let payload: [String: Any] = [
             "model": "kitten-tts",
             "input": text,
-            "voice": ProcessInfo.processInfo.environment[Runtime.voiceEnvironmentKey] ?? AISettingsStore.selectedKittenSpeechVoiceID,
+            "voice": voiceID ?? ProcessInfo.processInfo.environment[Runtime.voiceEnvironmentKey] ?? AISettingsStore.selectedKittenSpeechVoiceID,
             "speed": ttsSpeed(),
             "response_format": "wav"
         ]
@@ -1255,8 +1351,30 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         return min(max(value, 0.5), 2.0)
     }
 
+    private static func selectedKokoroVoiceID(forVariant variant: String) -> String {
+        if let environmentVoice = ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLVoiceEnvironmentKey] {
+            return environmentVoice
+        }
+        let hint: AISettingsStore.SpeechLanguageHint = variant == "zh" ? .chinese : .english
+        return AISettingsStore.selectedKokoroSpeechVoiceID(languageHint: hint)
+    }
+
     private static func kokoroVariant(for text: String) -> String {
-        SpeechTextPolicy.isChineseCandidate(text) ? "zh" : "en"
+        SpeechTextPolicy.prefersChineseTTS(text) ? "zh" : "en"
+    }
+
+    private static func previewCacheURL(text: String, runtimeID: String, voiceID: String, speedID: String) -> URL {
+        let digestInput = "preview-v4|\(runtimeID)|\(voiceID)|\(speedID)|\(text)"
+        let digest = SHA256.hash(data: Data(digestInput.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+        let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.linlu.leafreader"
+        return root
+            .appendingPathComponent(bundleID, isDirectory: true)
+            .appendingPathComponent("TTSPreviews", isDirectory: true)
+            .appendingPathComponent("\(digest).wav")
     }
 
     private static func rustRuntime() -> (serverURL: URL, modelDirectoryURL: URL)? {

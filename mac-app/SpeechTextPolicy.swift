@@ -3,6 +3,7 @@ import Foundation
 enum SpeechTextPolicy {
     private static let maxSentenceLength = 520
     private static let maxMergedSegmentLength = 420
+    private static let maxChineseSegmentLength = 120
     private static let minSegmentWordCount = 18
 
     static func readAloudSegments(for text: String) -> [String] {
@@ -28,12 +29,22 @@ enum SpeechTextPolicy {
         text.unicodeScalars.contains(where: Self.isCJK)
     }
 
+    static func prefersChineseTTS(_ text: String) -> Bool {
+        let counts = languageSignalCounts(in: text)
+        guard counts.cjk > 0 else { return false }
+        guard counts.latin > 0 else { return true }
+        if counts.cjk >= counts.latin {
+            return true
+        }
+        return counts.cjk >= 8 && counts.cjk * 4 >= counts.latin
+    }
+
     static func isLocalTTSCandidate(_ text: String) -> Bool {
         isEnglishCandidate(text) || isChineseCandidate(text)
     }
 
     static func normalizedReadAloudInput(_ text: String) -> String {
-        if isChineseCandidate(text) {
+        if prefersChineseTTS(text) {
             return normalizedCommonInput(text)
         }
         return normalizedEnglishInput(text)
@@ -92,6 +103,10 @@ enum SpeechTextPolicy {
     }
 
     static func segments(for text: String) -> [String] {
+        if prefersChineseTTS(text) {
+            return chineseSegments(for: text)
+        }
+
         var sentenceUnits: [String] = []
         var current = ""
         func flushCurrent() {
@@ -111,6 +126,99 @@ enum SpeechTextPolicy {
         flushCurrent()
 
         return mergedShortSegments(sentenceUnits.isEmpty ? [text] : sentenceUnits)
+    }
+
+    private static func chineseSegments(for text: String) -> [String] {
+        var sentenceUnits: [String] = []
+        var current = ""
+        func flushCurrent() {
+            let value = current.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !value.isEmpty {
+                sentenceUnits.append(contentsOf: splitLongChineseSentence(value))
+            }
+            current = ""
+        }
+
+        for character in text {
+            current.append(character)
+            if "。！？；.!?;".contains(character) {
+                flushCurrent()
+            }
+        }
+        flushCurrent()
+
+        return mergedChineseSegments(sentenceUnits.isEmpty ? [text] : sentenceUnits)
+    }
+
+    private static func mergedChineseSegments(_ segments: [String]) -> [String] {
+        var merged: [String] = []
+        var current = ""
+        for segment in segments {
+            let trimmed = segment.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+
+            let candidate = current.isEmpty ? trimmed : "\(current) \(trimmed)"
+            if !current.isEmpty, candidate.count > maxChineseSegmentLength {
+                merged.append(current)
+                current = trimmed
+            } else {
+                current = candidate
+            }
+        }
+        if !current.isEmpty {
+            merged.append(current)
+        }
+        return merged
+    }
+
+    private static func splitLongChineseSentence(_ sentence: String) -> [String] {
+        guard sentence.count > maxChineseSegmentLength else {
+            return [sentence]
+        }
+
+        let softSplit = splitChineseSentence(sentence, delimiters: "，、：:,")
+        let chunks = softSplit.flatMap { chunk in
+            chunk.count > maxChineseSegmentLength
+                ? splitByCharacterLimit(chunk, limit: maxChineseSegmentLength)
+                : [chunk]
+        }
+        return chunks.isEmpty ? [sentence] : chunks
+    }
+
+    private static func splitChineseSentence(_ sentence: String, delimiters: String) -> [String] {
+        var chunks: [String] = []
+        var current = ""
+        for character in sentence {
+            current.append(character)
+            if delimiters.contains(character) {
+                let value = current.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !value.isEmpty {
+                    chunks.append(value)
+                }
+                current = ""
+            }
+        }
+        let value = current.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !value.isEmpty {
+            chunks.append(value)
+        }
+        return chunks
+    }
+
+    private static func splitByCharacterLimit(_ text: String, limit: Int) -> [String] {
+        var chunks: [String] = []
+        var current = ""
+        for character in text {
+            if current.count >= limit {
+                chunks.append(current)
+                current = ""
+            }
+            current.append(character)
+        }
+        if !current.isEmpty {
+            chunks.append(current)
+        }
+        return chunks
     }
 
     private static func mergedShortSegments(_ segments: [String]) -> [String] {
@@ -172,6 +280,28 @@ enum SpeechTextPolicy {
 
     private static func wordCount(in text: String) -> Int {
         text.split { !$0.isLetter && !$0.isNumber }.count
+    }
+
+    private static func languageSignalCounts(in text: String) -> (cjk: Int, latin: Int) {
+        var cjk = 0
+        var latin = 0
+        for scalar in text.unicodeScalars {
+            if isCJK(scalar) {
+                cjk += 1
+            } else if isLatinLetter(scalar) {
+                latin += 1
+            }
+        }
+        return (cjk, latin)
+    }
+
+    private static func isLatinLetter(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0x41...0x5A, 0x61...0x7A:
+            return true
+        default:
+            return false
+        }
     }
 
     private static func isCJK(_ scalar: Unicode.Scalar) -> Bool {

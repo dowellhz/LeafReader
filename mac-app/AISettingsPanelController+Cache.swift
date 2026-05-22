@@ -49,6 +49,8 @@ extension AISettingsPanelController {
         shouldNotifySavedAfterClose = notifySaved
         cacheRefreshTimer?.invalidate()
         cacheRefreshTimer = nil
+        speechVoicePreviewWorkItem?.cancel()
+        speechVoicePreviewWorkItem = nil
         removeAppActivationObserver()
         if let sheet = panel.attachedSheet {
             panel.endSheet(sheet)

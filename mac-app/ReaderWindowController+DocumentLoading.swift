@@ -57,6 +57,7 @@ extension ReaderWindowController {
         RecentDocumentsStore.record(url: url, kind: .pdf)
         saveSession()
         scheduleDocumentEmbeddingWarmup(priorityPageIndex: currentEmbeddingPriorityIndex())
+        KittenTTSPlayer.shared.stopKokoroWorkerIfLanguageDiffers(from: currentReadAloudProbeText() ?? "")
         if let generation {
             finishDocumentLoadingAfterAIBubbles(generation: generation)
         }
@@ -123,6 +124,7 @@ extension ReaderWindowController {
             webView.loadHTMLString(document.html, baseURL: document.baseURL)
         }
         applyReaderTheme()
+        KittenTTSPlayer.shared.stopKokoroWorkerIfLanguageDiffers(from: currentReadAloudProbeText() ?? "")
         applyWebZoomToPage()
         restoreWebProgressAfterLoad()
         RecentDocumentsStore.record(url: url, kind: kind)

@@ -2,7 +2,6 @@ import Cocoa
 import PDFKit
 
 extension ReaderWindowController {
-    private static let ttsTitlePreviewLimit = 72
     private static let ttsPartialTokenWindowSizes = [12, 10, 8, 6, 4]
     private static let ttsMinimumPartialQueryTokens = 6
     private static let ttsMinimumPartialPageTokens = 4
@@ -31,16 +30,14 @@ extension ReaderWindowController {
         }
 
         let text = notification.userInfo?["text"] as? String ?? ""
+        let matchText = notification.userInfo?["matchText"] as? String ?? text
         let index = notification.userInfo?["index"] as? Int
         let pageIndex = notification.userInfo?["pageIndex"] as? Int
         if let pageIndex {
             turnPDFReadAloudPageIfNeeded(to: pageIndex)
         }
-        let preview = Self.ttsTitlePreview(for: text)
-        let originalTitle = ttsReadingOriginalTitle ?? titleLabel.stringValue
-        titleLabel.stringValue = "\(originalTitle) · \(preview)"
         titleLabel.toolTip = text
-        updateTemporaryTTSUnderline(for: text, index: index, pageIndex: pageIndex)
+        updateTemporaryTTSUnderline(for: matchText, index: index, pageIndex: pageIndex)
     }
 
     func restoreTitleAfterKittenTTS() {
@@ -60,15 +57,6 @@ extension ReaderWindowController {
         ttsReadingPDFCandidatePageIndex = 0
         ttsReadingPDFSearchLocation = 0
         ttsPageLockedAtTopIndex = nil
-    }
-
-    private static func ttsTitlePreview(for text: String) -> String {
-        let normalized = text
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard normalized.count > ttsTitlePreviewLimit else { return normalized }
-        let endIndex = normalized.index(normalized.startIndex, offsetBy: ttsTitlePreviewLimit)
-        return String(normalized[..<endIndex]) + "..."
     }
 
     private func updateTemporaryTTSUnderline(for text: String, index: Int?, pageIndex: Int?) {
@@ -158,7 +146,9 @@ extension ReaderWindowController {
               ) else {
             return false
         }
-        guard let selection = page.selection(for: nsRange) else { return false }
+        guard let selection = page.selection(for: nsRange) else {
+            return false
+        }
         var segmentBounds = CGRect.null
         for lineSelection in selection.selectionsByLine() {
             let bounds = lineSelection.bounds(for: page)
@@ -170,10 +160,14 @@ extension ReaderWindowController {
                 withProperties: nil
             )
             annotation.color = Self.temporaryTTSHighlightColor
+            annotation.shouldDisplay = true
+            annotation.shouldPrint = false
             page.addAnnotation(annotation)
             temporaryTTSUnderlineAnnotations.append((page, annotation))
         }
         if !temporaryTTSUnderlineAnnotations.isEmpty {
+            pdfView.setNeedsDisplay(pdfView.bounds)
+            pdfView.documentView?.setNeedsDisplay(pdfView.documentView?.bounds ?? .zero)
             ttsReadingPDFCandidatePageIndex = candidatePageIndex
             ttsReadingPDFSearchLocation = NSMaxRange(nsRange)
             let didScrollLinkedWord = autoScrollAIPanelToReadAloudLinkedWords(
@@ -225,10 +219,11 @@ extension ReaderWindowController {
         let segmentIndex = index ?? 0
         let script = """
         (() => {
-          if (window.leafReaderUnderlineTTSIndex) {
-            return window.leafReaderUnderlineTTSIndex(\(segmentIndex), \(jsStringLiteral(text)));
+          if (window.leafReaderUnderlineTTS) {
+            const result = window.leafReaderUnderlineTTS(\(jsStringLiteral(text)));
+            if (result && result.ok) return result;
           }
-          return window.leafReaderUnderlineTTS && window.leafReaderUnderlineTTS(\(jsStringLiteral(text)));
+          return window.leafReaderUnderlineTTSIndex && window.leafReaderUnderlineTTSIndex(\(segmentIndex), \(jsStringLiteral(text)));
         })();
         """
         webView?.evaluateJavaScript(script) { [weak self] value, _ in
@@ -282,10 +277,51 @@ extension ReaderWindowController {
         if let match = regex.firstMatch(in: pageText, range: targetRange)?.range {
             return match
         }
+        if let looseRange = ttsWhitespaceInsensitiveRange(of: query, in: pageText, searchRange: targetRange) {
+            return looseRange
+        }
         if let tokenRange = ttsTokenRange(of: query, in: pageText, searchRange: targetRange) {
             return tokenRange
         }
         return ttsPartialTokenRange(of: query, in: pageText, searchRange: targetRange)
+    }
+
+    private static func ttsWhitespaceInsensitiveRange(of query: String, in pageText: String, searchRange: NSRange) -> NSRange? {
+        let queryUnits = query
+            .filter { !$0.isWhitespace }
+            .map { String($0).folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current) }
+        guard queryUnits.count >= 2,
+              let swiftSearchRange = Range(searchRange, in: pageText) else {
+            return nil
+        }
+
+        var pageUnits: [(value: String, range: NSRange)] = []
+        var index = swiftSearchRange.lowerBound
+        while index < swiftSearchRange.upperBound {
+            let next = pageText.index(after: index)
+            let character = pageText[index]
+            if !character.isWhitespace {
+                let characterRange = index..<next
+                pageUnits.append((
+                    value: String(character).folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current),
+                    range: NSRange(characterRange, in: pageText)
+                ))
+            }
+            index = next
+        }
+        guard queryUnits.count <= pageUnits.count else { return nil }
+
+        let lastStart = pageUnits.count - queryUnits.count
+        for start in 0...lastStart {
+            var matches = true
+            for offset in 0..<queryUnits.count where pageUnits[start + offset].value != queryUnits[offset] {
+                matches = false
+                break
+            }
+            guard matches else { continue }
+            return ttsRange(from: pageUnits[start].range, through: pageUnits[start + queryUnits.count - 1].range)
+        }
+        return nil
     }
 
     private struct TTSToken {

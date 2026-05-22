@@ -161,17 +161,20 @@ extension AISettingsPanelController {
         )
         let speechLabel = label(AppText.localized("朗读", "Read Aloud"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let speechRuntimeLabel = label(AppText.localized("朗读模型", "TTS Model"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let selectedSpeechLanguageHint = currentSpeechLanguageHint?()
+        syncSpeechRuntimeForLanguageIfNeeded(languageHint: selectedSpeechLanguageHint)
+        let selectedSpeechRuntimeID = effectiveSelectedSpeechRuntimeID(languageHint: selectedSpeechLanguageHint)
         let speechRuntimePopup = popup(
             items: SpeechRuntimeResourceManager.Runtime.displayOrder.map { ($0.title, $0.id) },
-            selected: AISettingsStore.selectedSpeechRuntimeID,
+            selected: selectedSpeechRuntimeID,
             fontSize: settingsFontSize
         )
         speechRuntimePopup.target = self
         speechRuntimePopup.action = #selector(speechRuntimeChanged(_:))
-        let speechVoiceLabel = label(AppText.localized("Kitten 声音", "Kitten Voice"), size: settingsFontSize, weight: .semibold, color: primaryText)
+        let speechVoiceLabel = label(AppText.localized("声音", "Voice"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let speechVoicePopup = popup(
-            items: AISettingsStore.kittenSpeechVoiceOptions.map { ($0.title, $0.id) },
-            selected: AISettingsStore.selectedKittenSpeechVoiceID,
+            items: AISettingsStore.speechVoiceOptions(runtimeID: selectedSpeechRuntimeID, languageHint: selectedSpeechLanguageHint).map { ($0.title, $0.id) },
+            selected: AISettingsStore.selectedSpeechVoiceID(runtimeID: selectedSpeechRuntimeID),
             fontSize: settingsFontSize
         )
         speechVoicePopup.target = self
