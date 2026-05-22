@@ -4,6 +4,8 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>Leaf Reader</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -27,6 +29,11 @@
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.linlu.leafreader</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh_CN</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>Leaf Reader</string>
 	<key>CFBundlePackageType</key>

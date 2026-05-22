@@ -97,7 +97,7 @@ extension AppDelegate {
         progressIndicator.isHidden = !showsProgress
         content.addSubview(progressIndicator)
 
-        let okButton = NSButton(title: "OK", target: self, action: #selector(closeUpdateStatusWindow(_:)))
+        let okButton = NSButton(title: AppText.confirm, target: self, action: #selector(closeUpdateStatusWindow(_:)))
         okButton.translatesAutoresizingMaskIntoConstraints = false
         okButton.bezelStyle = .rounded
         okButton.font = .systemFont(ofSize: 14, weight: .semibold)

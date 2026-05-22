@@ -4,12 +4,12 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 
 ## 文档状态
 
-- 当前版本：`1.5.8`
+- 当前版本：`1.5.9`
 
 <div class="hero-actions" markdown>
 
 [返回官网](https://leafreader.space/){ .button .primary }
-[下载 Leaf Reader](https://github.com/dowellhz/LeafReader/releases/download/v1.5.8/LeafReader-1.5.8.pkg){ .button }
+[下载 Leaf Reader](https://github.com/dowellhz/LeafReader/releases/download/v1.5.9/LeafReader-1.5.9.pkg){ .button }
 [GitHub](https://github.com/dowellhz/LeafReader){ .button }
 
 </div>
