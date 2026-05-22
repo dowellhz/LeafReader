@@ -223,8 +223,12 @@ extension ReaderWindowController {
           return window.leafReaderUnderlineTTS && window.leafReaderUnderlineTTS(\(jsStringLiteral(text)));
         })();
         """
-        webView?.evaluateJavaScript(script)
-        autoScrollAIPanelToReadAloudSource(text: text, pageIndex: nil, pdfBounds: nil)
+        webView?.evaluateJavaScript(script) { [weak self] value, _ in
+            DispatchQueue.main.async {
+                let sourceKey = (value as? [String: Any])?["sourceKey"] as? String
+                self?.autoScrollAIPanelToReadAloudWebSource(key: sourceKey, text: text)
+            }
+        }
     }
 
     private static func ttsRange(of query: String, in pageText: String, searchRange: NSRange? = nil) -> NSRange? {

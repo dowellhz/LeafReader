@@ -174,6 +174,19 @@ extension ReaderWindowController {
         aiPanel.scrollToConversationSource(source)
     }
 
+    func autoScrollAIPanelToReadAloudWebSource(key: String?, text: String) {
+        guard !isAIPanelCollapsed else { return }
+        if let key,
+           let source = webAISourceLocationsByKey[key],
+           source != lastReadAloudAISource {
+            lastReadAloudAISource = source
+            ensureAIConversationSourceBubbleLoaded(source)
+            aiPanel.scrollToConversationSource(source)
+            return
+        }
+        autoScrollAIPanelToReadAloudSource(text: text, pageIndex: nil, pdfBounds: nil)
+    }
+
     private func readAloudAISource(matching text: String, pageIndex: Int?, pdfBounds: CGRect?) -> AIConversationSourceLocation? {
         let sources = readAloudAISourceCandidates()
         if currentDocumentKind == .pdf, let pageIndex {
@@ -182,7 +195,13 @@ extension ReaderWindowController {
                let source = pdfSources.first(where: { readAloudPDFBounds(pdfBounds, intersects: $0.pdfBounds) }) {
                 return source
             }
-            return pdfSources.first { Self.aiSourceText($0, overlapsReadAloudText: text) }
+            if let source = pdfSources.first(where: { Self.aiSourceText($0, overlapsReadAloudText: text) }) {
+                return source
+            }
+            if pdfSources.count == 1 {
+                return pdfSources.first
+            }
+            return pdfSources.first(where: { Self.isPageLevelAISource($0) })
         }
         return sources.first {
             $0.kind == .webProgress && Self.aiSourceText($0, overlapsReadAloudText: text)
@@ -232,6 +251,11 @@ extension ReaderWindowController {
         guard !selectedTokens.isEmpty, !spokenTokens.isEmpty else { return false }
         let overlap = selectedTokens.intersection(spokenTokens)
         return overlap.count >= min(aiSourceMinimumTextOverlapTokens, selectedTokens.count, spokenTokens.count)
+    }
+
+    private static func isPageLevelAISource(_ source: AIConversationSourceLocation) -> Bool {
+        let selectedText = source.selectedText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return selectedText.isEmpty && (source.pdfBounds?.isEmpty ?? true)
     }
 
     private static func normalizedAISourceMatchText(_ text: String) -> String {

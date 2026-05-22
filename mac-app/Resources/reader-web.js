@@ -489,6 +489,7 @@
     const index = numericIndex - 1;
     const ranges = leafReaderTTSAnchorRanges[index] || [];
     if (!ranges.length) return window.leafReaderUnderlineTTS(fallbackText);
+    const sourceKey = leafReaderAISourceKeyForRanges(ranges);
     if (window.CSS && CSS.highlights && window.Highlight) {
       CSS.highlights.set('leaf-reader-tts', new Highlight(...ranges));
     } else {
@@ -497,7 +498,7 @@
       }
     }
     leafReaderScrollRangeToCenter(ranges[0]);
-    return true;
+    return { ok: true, sourceKey };
   };
   window.leafReaderUnderlineTTS = (targetText) => {
     installSelectionHighlightStyle();
@@ -506,6 +507,7 @@
     if (!needle) return false;
     const ranges = leafReaderTTSRanges(needle);
     if (!ranges.length) return false;
+    const sourceKey = leafReaderAISourceKeyForRanges(ranges);
     if (window.CSS && CSS.highlights && window.Highlight) {
       CSS.highlights.set('leaf-reader-tts', new Highlight(...ranges));
     } else {
@@ -514,7 +516,29 @@
       }
     }
     leafReaderScrollRangeToCenter(ranges[0]);
-    return true;
+    return { ok: true, sourceKey };
+  };
+  const leafReaderRangesIntersect = (left, right) => {
+    try {
+      return left.compareBoundaryPoints(Range.START_TO_END, right) < 0
+        && left.compareBoundaryPoints(Range.END_TO_START, right) > 0;
+    } catch (_) {
+      return false;
+    }
+  };
+  const leafReaderAISourceKeyForRanges = (ranges) => {
+    const spans = Array.from(document.querySelectorAll('span.leaf-reader-ai-source-underline[data-leaf-ai-source-key]'));
+    if (!spans.length) return '';
+    for (const range of ranges || []) {
+      for (const span of spans) {
+        const sourceRange = document.createRange();
+        sourceRange.selectNodeContents(span);
+        const intersects = leafReaderRangesIntersect(range, sourceRange);
+        sourceRange.detach && sourceRange.detach();
+        if (intersects) return span.dataset.leafAiSourceKey || '';
+      }
+    }
+    return '';
   };
   window.leafReaderClearAISourceUnderlines = () => {
     if (window.CSS && CSS.highlights) CSS.highlights.delete('leaf-reader-ai-source');
