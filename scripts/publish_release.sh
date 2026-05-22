@@ -13,6 +13,10 @@ TAG="v$VERSION"
 PKG_PATH="$ROOT_DIR/release/$VERSION/LeafReader-$VERSION.pkg"
 RELEASE_URL="https://github.com/dowellhz/LeafReader/releases/tag/$TAG"
 CHECK_SCRIPT="$ROOT_DIR/scripts/check.sh"
+SPEECH_RUNTIME_ASSETS=(
+  "$ROOT_DIR/docs/tts/kokoro-coreml-macos-arm64.tar.gz"
+  "$ROOT_DIR/docs/tts/kitten-tts-rs-macos-arm64.tar.gz"
+)
 
 cd "$ROOT_DIR"
 
@@ -80,6 +84,15 @@ SHA256: $SHA256"
 gh release create "$TAG" "$PKG_PATH" --title "Leaf Reader $VERSION" --notes "$RELEASE_NOTES"
 
 curl -I -L "https://github.com/dowellhz/LeafReader/releases/download/$TAG/LeafReader-$VERSION.pkg" >/dev/null
+
+for asset in "${SPEECH_RUNTIME_ASSETS[@]}"; do
+  if [[ ! -f "$asset" ]]; then
+    echo "Skipping missing speech runtime asset: $asset"
+    continue
+  fi
+  gh release upload "$TAG" "$asset" --clobber
+  curl -I -L "https://github.com/dowellhz/LeafReader/releases/download/$TAG/$(basename "$asset")" >/dev/null
+done
 
 echo "Published $VERSION"
 echo "Release: $RELEASE_URL"
