@@ -7,6 +7,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     private static let idleShutdownDelay: TimeInterval = 180
     private static let processServerPort = Int.random(in: 20000...49151)
     private static let kokoroWorkerResponseTimeout: TimeInterval = 45
+    private static let kokoroFallbackTimeout: TimeInterval = 45
 
     private enum Runtime {
         static let backendEnvironmentKey = "LEAFREADER_TTS_BACKEND"
@@ -74,18 +75,29 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         let pageIndex: Int?
     }
 
+    private struct ServerHealthCheck {
+        let isHealthy: Bool
+        let statusCode: Int
+        let timedOut: Bool
+        let hasModelResponse: Bool
+
+        var failureDescription: String {
+            if timedOut {
+                return "timeout"
+            }
+            if statusCode != 200 {
+                return "status=\(statusCode)"
+            }
+            return hasModelResponse ? "unknown" : "invalid model response"
+        }
+    }
+
     private struct KokoroWorkerRequest: Codable {
         let id: String
         let text: String
         let output: String
         let voice: String?
         let speed: Double?
-    }
-
-    private struct KokoroWorkerResponse: Codable {
-        let id: String
-        let ok: Bool
-        let error: String?
     }
 
     func speakEnglish(_ text: String, completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
@@ -621,6 +633,26 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         }
     }
 
+    func shutdownRuntime(_ runtime: SpeechRuntimeResourceManager.Runtime) {
+        let targetBackend = PreferredBackend(runtime: runtime)
+        queue.async {
+            guard self.activeBackend != targetBackend else {
+                DispatchQueue.main.async {
+                    self.shutdown()
+                }
+                return
+            }
+            switch targetBackend {
+            case .kokoroCoreML:
+                self.stopKokoroWorker()
+            case .kitten:
+                self.stopKittenServer()
+            case .none:
+                break
+            }
+        }
+    }
+
     func shutdownForTermination() {
         idleShutdownWorkItem?.cancel()
         idleShutdownWorkItem = nil
@@ -693,6 +725,15 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         case kokoroCoreML
         case kitten
         case none
+
+        init(runtime: SpeechRuntimeResourceManager.Runtime) {
+            switch runtime {
+            case .kokoro:
+                self = .kokoroCoreML
+            case .kitten:
+                self = .kitten
+            }
+        }
     }
 
     private static func preferredBackend() -> PreferredBackend {
@@ -747,7 +788,12 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         process.standardError = diagnosticHandle
         do {
             try process.run()
-            process.waitUntilExit()
+            guard waitForProcess(process, timeout: kokoroFallbackTimeout) else {
+                diagnosticHandle?.closeFile()
+                try? FileManager.default.removeItem(at: diagnosticURL)
+                NSLog("LeafReader Kokoro CoreML: FluidAudio CLI timed out after %.0fs", kokoroFallbackTimeout)
+                return false
+            }
         } catch {
             diagnosticHandle?.closeFile()
             try? FileManager.default.removeItem(at: diagnosticURL)
@@ -796,6 +842,18 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             return false
         }
         return size.intValue > 44
+    }
+
+    private static func waitForProcess(_ process: Process, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        guard !process.isRunning else {
+            process.terminate()
+            return false
+        }
+        return true
     }
 
     private func generateWAVWithKokoroWorker(text: String, outputURL: URL) -> Bool {
@@ -916,8 +974,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     ) -> KokoroWorkerResponse? {
         let semaphore = DispatchSemaphore(value: 0)
         let lock = NSLock()
-        let decoder = JSONDecoder()
-        var buffer = Data()
+        var reader = KokoroWorkerResponseReader(requestID: requestID)
         var matchedResponse: KokoroWorkerResponse?
         var didComplete = false
 
@@ -932,18 +989,10 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
                 return
             }
 
-            buffer.append(data)
-            while let newlineIndex = buffer.firstIndex(of: 0x0A) {
-                let lineData = buffer[..<newlineIndex]
-                buffer.removeSubrange(...newlineIndex)
-                guard let response = try? decoder.decode(KokoroWorkerResponse.self, from: Data(lineData)),
-                      response.id == requestID else {
-                    continue
-                }
+            if let response = reader.append(data) {
                 matchedResponse = response
                 didComplete = true
                 semaphore.signal()
-                return
             }
         }
 
@@ -981,7 +1030,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
 
     private func ensureServer() -> Bool {
         guard let runtime = Self.rustRuntime() else { return false }
-        if Self.isServerHealthy() {
+        if Self.serverHealthCheck().isHealthy {
             return true
         }
         if serverProcess?.isRunning == true {
@@ -1031,22 +1080,32 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     private func waitForServer() -> Bool {
+        var lastCheck = Self.serverHealthCheck()
+        if lastCheck.isHealthy {
+            return true
+        }
         for _ in 0..<40 {
-            if Self.isServerHealthy() {
+            Thread.sleep(forTimeInterval: 0.2)
+            lastCheck = Self.serverHealthCheck()
+            if lastCheck.isHealthy {
                 return true
             }
-            Thread.sleep(forTimeInterval: 0.2)
         }
+        NSLog("LeafReader KittenTTS: server did not become healthy (%@, port=%d)", lastCheck.failureDescription, Self.serverPort())
         return false
     }
 
-    private static func isServerHealthy() -> Bool {
+    private static func serverHealthCheck() -> ServerHealthCheck {
         var request = URLRequest(url: serverURL(path: "/v1/models"))
         request.timeoutInterval = 0.5
         let result = performRequest(request)
-        return !result.timedOut
-            && result.statusCode == 200
-            && isKittenServerModelsResponse(result.data)
+        let hasModelResponse = isKittenServerModelsResponse(result.data)
+        return ServerHealthCheck(
+            isHealthy: !result.timedOut && result.statusCode == 200 && hasModelResponse,
+            statusCode: result.statusCode,
+            timedOut: result.timedOut,
+            hasModelResponse: hasModelResponse
+        )
     }
 
     private static func isKittenServerModelsResponse(_ data: Data?) -> Bool {

@@ -344,6 +344,29 @@ private func testSpeechTextPolicySegments() throws {
     try expect(segments.allSatisfy { $0.count <= 520 }, "split TTS segments should stay within the max sentence length")
 }
 
+private func testKokoroWorkerResponseReader() throws {
+    var reader = KokoroWorkerResponseReader(requestID: "target")
+    let payload = """
+    not json
+    {"id":"other","ok":true}
+    {"id":"target","ok":false,"error":"bad input"}
+
+    """
+    let response = reader.append(Data(payload.utf8))
+
+    try expectEqual(response, KokoroWorkerResponse(id: "target", ok: false, error: "bad input"), "reader should ignore bad JSON and wrong ids")
+}
+
+private func testKokoroWorkerResponseReaderBuffersPartialLines() throws {
+    var reader = KokoroWorkerResponseReader(requestID: "target")
+    try expect(reader.append(Data(#"{"id":"target","#.utf8)) == nil, "partial worker responses should wait for a newline")
+    var tail = Data(#""ok":true,"error":null}"#.utf8)
+    tail.append(0x0A)
+    let response = reader.append(tail)
+
+    try expectEqual(response, KokoroWorkerResponse(id: "target", ok: true, error: nil), "reader should decode buffered partial JSON lines")
+}
+
 private let tests: [(String, () throws -> Void)] = [
     ("Vocabulary SRS", VocabularyLogicTests.testVocabularySRS),
     ("Recent document sorting/import", ReaderShelfLogicTests.testRecentDocumentSortingAndImport),
@@ -353,6 +376,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("AI settings injected defaults embedding and toggles", AISettingsLogicTests.testAISettingsStoreInjectedDefaultsEmbeddingAndToggles),
     ("AI settings speech selection validation", AISettingsLogicTests.testAISettingsStoreSpeechSelectionValidation),
     ("Speech runtime release asset URLs", AISettingsLogicTests.testSpeechRuntimeDownloadURLsUseReleaseAssets),
+    ("Speech runtime availability text", AISettingsLogicTests.testSpeechRuntimeAvailabilityText),
     ("Network error sensitive body formatting", AISettingsLogicTests.testNetworkErrorFormattingSanitizesSensitiveBody),
     ("Network error long body formatting", AISettingsLogicTests.testNetworkErrorFormattingTruncatesLongBody),
     ("AI response parser non-streaming", AISettingsLogicTests.testAIResponseParserParsesNonStreamingResponses),
@@ -389,7 +413,9 @@ private let tests: [(String, () throws -> Void)] = [
     ("Debounced task", testDebouncedTask),
     ("Speech text normalization", testSpeechTextPolicyNormalization),
     ("Speech text English candidate", testSpeechTextPolicyEnglishCandidate),
-    ("Speech text segments", testSpeechTextPolicySegments)
+    ("Speech text segments", testSpeechTextPolicySegments),
+    ("Kokoro worker response reader", testKokoroWorkerResponseReader),
+    ("Kokoro worker response partial lines", testKokoroWorkerResponseReaderBuffersPartialLines)
 ]
 
 @main

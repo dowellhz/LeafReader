@@ -197,6 +197,24 @@ enum AISettingsLogicTests {
         try expect(!kittenURL.contains("/v1.4.18/"), "KittenTTS download URL should not be pinned to the old 1.4.18 release")
     }
 
+    static func testSpeechRuntimeAvailabilityText() throws {
+        try expectEqual(
+            SpeechRuntimeResourceManager.availabilityText(isSupported: true, downloaded: true, minimumSystemVersionText: "macOS 14.0"),
+            nil,
+            "available runtimes should not show an unavailable reason"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.availabilityText(isSupported: false, downloaded: true, minimumSystemVersionText: "macOS 14.0"),
+            AppText.localized("需要 macOS 14.0", "Requires macOS 14.0"),
+            "unsupported downloaded runtimes should show the macOS requirement"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.availabilityText(isSupported: true, downloaded: false, minimumSystemVersionText: "macOS 12.0"),
+            AppText.localized("未下载", "Not downloaded"),
+            "missing runtimes should show that the model is not downloaded"
+        )
+    }
+
     static func testNetworkErrorFormattingSanitizesSensitiveBody() throws {
         let body = #"{"error":"bad key","api_key":"sk-test","Authorization":"Bearer abc.def","token":"secret"}"#
         let message = NetworkErrorFormatter.httpErrorDescription(prefix: "Model", statusCode: 401, body: body)

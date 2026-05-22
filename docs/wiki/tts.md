@@ -19,6 +19,7 @@ Short vocabulary and AI-panel speech can fall back to `NSSpeechSynthesizer` thro
 ## Main Files
 
 - `mac-app/KittenTTSPlayer.swift`: central speech coordinator. It chooses the installed runtime, segments text, manages generated WAV files, controls playback, and posts progress notifications.
+- `mac-app/KokoroWorkerResponseReader.swift`: parses Kokoro worker JSON-line responses and ignores unrelated request IDs.
 - `mac-app/SpeechTextPolicy.swift`: TTS text normalization, English candidate detection, and read-aloud segment splitting.
 - `mac-app/SpeechRuntimeResourceManager.swift`: install detection, download URLs, model sizes, runtime compatibility, pause/resume/cancel state, and cleanup.
 - `mac-app/RuntimeDownload.swift`: URLSession download implementation, progress reporting, resume data, and HTTP error handling.
@@ -44,6 +45,8 @@ Short vocabulary and AI-panel speech can fall back to `NSSpeechSynthesizer` thro
 - Download and delete error alerts use the shared network/error sanitizer before showing details to the user.
 - Download status text is user-facing; keep it aligned with the actual install and compatibility checks.
 - KittenTTS server requests cancel their URLSession task after timeout so stale responses do not mutate completed request state.
+- Kokoro fallback CLI calls have a timeout, and deleting a non-active runtime should not stop playback for the active runtime.
+- KittenTTS server startup logs whether the final health check timed out, returned a non-200 status, or returned an unexpected model response.
 
 ## Packaging And Release
 

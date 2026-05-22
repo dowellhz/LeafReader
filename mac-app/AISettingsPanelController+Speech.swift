@@ -290,7 +290,7 @@ extension AISettingsPanelController {
     }
 
     private func deleteSpeechRuntime(_ runtime: SpeechRuntimeResourceManager.Runtime) {
-        KittenTTSPlayer.shared.shutdown()
+        KittenTTSPlayer.shared.shutdownRuntime(runtime)
         do {
             try SpeechRuntimeResourceManager.delete(runtime)
             selectRunnableSpeechRuntimeIfNeeded(deletedRuntime: runtime)

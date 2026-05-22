@@ -176,14 +176,22 @@ enum SpeechRuntimeResourceManager {
     }
 
     static func availabilityText(for runtime: Runtime) -> String? {
-        guard !isRunnable(runtime) else { return nil }
-        if !runtime.isSupportedOnCurrentSystem {
+        availabilityText(
+            isSupported: runtime.isSupportedOnCurrentSystem,
+            downloaded: isDownloaded(runtime),
+            minimumSystemVersionText: runtime.minimumSystemVersionText
+        )
+    }
+
+    static func availabilityText(isSupported: Bool, downloaded: Bool, minimumSystemVersionText: String) -> String? {
+        guard !(isSupported && downloaded) else { return nil }
+        if !isSupported {
             return AppText.localized(
-                "需要 \(runtime.minimumSystemVersionText)",
-                "Requires \(runtime.minimumSystemVersionText)"
+                "需要 \(minimumSystemVersionText)",
+                "Requires \(minimumSystemVersionText)"
             )
         }
-        if isDownloaded(runtime) {
+        if downloaded {
             return AppText.localized("文件不完整", "Incomplete files")
         }
         return AppText.localized("未下载", "Not downloaded")
