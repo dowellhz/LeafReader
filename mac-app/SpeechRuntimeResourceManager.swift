@@ -9,6 +9,7 @@ enum SpeechRuntimeResourceManager {
     private static var pausedDownloads = Set<Runtime>()
     private static let downloadErrorDomain = "LeafReader.SpeechRuntime.Download"
     private static let maxDownloadAttempts = 4
+    private static let releaseDownloadsBaseURL = "https://github.com/dowellhz/LeafReader/releases"
 
     enum Runtime: CaseIterable {
         case kokoro
@@ -54,7 +55,7 @@ enum SpeechRuntimeResourceManager {
         var downloadURL: URL {
             switch self {
             case .kokoro:
-                return URL(string: "https://github.com/dowellhz/LeafReader/releases/download/v1.5.7/kokoro-coreml-macos-arm64.tar.gz")!
+                return Self.releaseAssetURL(fileName: "kokoro-coreml-macos-arm64.tar.gz")
             case .kitten:
                 return URL(string: "https://github.com/dowellhz/LeafReader/releases/download/v1.4.18/kitten-tts-rs-macos-arm64.tar.gz")!
             }
@@ -110,6 +111,14 @@ enum SpeechRuntimeResourceManager {
         static var fluidAudioModelCacheRoot: URL {
             FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent(".cache/fluidaudio/Models", isDirectory: true)
+        }
+
+        private static func releaseAssetURL(fileName: String) -> URL {
+            if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+               !version.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return URL(string: "\(SpeechRuntimeResourceManager.releaseDownloadsBaseURL)/download/v\(version)/\(fileName)")!
+            }
+            return URL(string: "\(SpeechRuntimeResourceManager.releaseDownloadsBaseURL)/latest/download/\(fileName)")!
         }
     }
 
