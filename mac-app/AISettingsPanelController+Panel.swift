@@ -28,28 +28,6 @@ extension AISettingsPanelController {
         ModalOverlayManager.shared.reactivate(panel)
     }
 
-    func centerPanel(_ panel: NSWindow, attachedTo parent: NSWindow) {
-        let parentFrame = parent.frame
-        let visibleFrame = parent.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
-        let origin = NSPoint(
-            x: parentFrame.midX - panel.frame.width / 2,
-            y: parentFrame.midY - panel.frame.height / 2
-        )
-        panel.setFrameOrigin(clampedPanelOrigin(origin, panelSize: panel.frame.size, visibleFrame: visibleFrame))
-    }
-
-    func clampedPanelOrigin(_ origin: NSPoint, panelSize: NSSize, visibleFrame: NSRect?) -> NSPoint {
-        guard let visibleFrame else { return origin }
-        let minX = visibleFrame.minX + 12
-        let maxX = visibleFrame.maxX - panelSize.width - 12
-        let minY = visibleFrame.minY + 12
-        let maxY = visibleFrame.maxY - panelSize.height - 12
-        return NSPoint(
-            x: min(max(origin.x, minX), maxX),
-            y: min(max(origin.y, minY), maxY)
-        )
-    }
-
     @objc func save(_ sender: NSButton) {
         guard let panel else { return }
         guard saveCurrentSettings(in: panel) else { return }

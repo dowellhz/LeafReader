@@ -216,16 +216,6 @@ extension RecentDocumentsPanelController {
             .appendingPathComponent("\(cacheKey).png")
     }
 
-    func highResolutionPDFCover(page: PDFPage) -> NSImage {
-        let scale = NSScreen.main?.backingScaleFactor ?? 2
-        let renderScale = max(2, min(3, scale))
-        let targetSize = NSSize(width: coverSize.width * renderScale, height: coverSize.height * renderScale)
-        let image = page.thumbnail(of: targetSize, for: .cropBox)
-        image.size = coverSize
-        image.cacheMode = .always
-        return image
-    }
-
     func placeholderCover(title: String, kind: String, isDark: Bool) -> NSImage {
         let scale = NSScreen.main?.backingScaleFactor ?? 2
         let renderScale = max(2, min(3, scale))

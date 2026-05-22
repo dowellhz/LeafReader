@@ -60,26 +60,6 @@ extension AISettingsPanelController {
         return field
     }
 
-    func comboField(items: [String], selected: String, placeholder: String, fontSize: CGFloat, textColor: NSColor, backgroundColor: NSColor) -> NSComboBox {
-        let comboBox = NSComboBox()
-        comboBox.addItems(withObjectValues: items)
-        comboBox.stringValue = selected.isEmpty ? placeholder : selected
-        comboBox.placeholderString = placeholder
-        comboBox.completes = true
-        comboBox.usesDataSource = false
-        comboBox.numberOfVisibleItems = min(8, max(1, items.count))
-        comboBox.controlSize = .regular
-        comboBox.font = AppFont.semibold(ofSize: fontSize)
-        comboBox.isBordered = true
-        comboBox.drawsBackground = true
-        comboBox.isEditable = true
-        comboBox.isSelectable = true
-        comboBox.textColor = textColor
-        comboBox.backgroundColor = backgroundColor
-        comboBox.translatesAutoresizingMaskIntoConstraints = false
-        return comboBox
-    }
-
     func configureKeyField(_ field: NSTextField, placeholder: String, fontSize: CGFloat, textColor: NSColor, backgroundColor: NSColor) {
         field.placeholderString = placeholder
         field.controlSize = .regular
