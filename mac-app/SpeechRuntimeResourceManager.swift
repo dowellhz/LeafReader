@@ -345,23 +345,6 @@ enum SpeechRuntimeResourceManager {
     }
 
     static func download(_ runtime: Runtime, completion: @escaping (Result<Void, Error>) -> Void) {
-        guard runtime.isSupportedOnCurrentSystem else {
-            let error = NSError(
-                domain: "LeafReader.SpeechRuntime",
-                code: -10,
-                userInfo: [
-                    NSLocalizedDescriptionKey: AppText.localized(
-                        "\(runtime.title) 需要 \(runtime.minimumSystemVersionText) 或更高版本。",
-                        "\(runtime.title) requires \(runtime.minimumSystemVersionText) or later."
-                    )
-                ]
-            )
-            DispatchQueue.main.async {
-                completion(.failure(error))
-            }
-            return
-        }
-
         var shouldStart = false
         stateQueue.sync {
             if activeDownloads[runtime] != nil {

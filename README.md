@@ -57,7 +57,7 @@ Runtime OS requirements:
 
 - Kokoro local speech requires macOS 14.0 or later.
 - KittenTTS local speech supports macOS 12.0 Monterey or later.
-- The main reader app still supports macOS 12.0 Monterey or later; unsupported local speech runtimes are skipped.
+- The main reader app still supports macOS 12.0 Monterey or later. On older systems, Kokoro downloads show a compatibility warning before continuing.
 
 Download packages are served from GitHub Releases:
 

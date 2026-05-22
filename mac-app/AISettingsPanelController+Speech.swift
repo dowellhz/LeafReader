@@ -204,6 +204,22 @@ extension AISettingsPanelController {
     }
 
     private func downloadSpeechRuntime(_ runtime: SpeechRuntimeResourceManager.Runtime, button: NSButton) {
+        if !runtime.isSupportedOnCurrentSystem {
+            showUnsupportedRuntimeDownloadWarning(runtime) { [weak self, weak button] shouldContinue in
+                guard let self, let button else { return }
+                if shouldContinue {
+                    self.startSpeechRuntimeDownload(runtime, button: button)
+                } else {
+                    self.refreshSpeechRuntimeStatus()
+                }
+            }
+            return
+        }
+
+        startSpeechRuntimeDownload(runtime, button: button)
+    }
+
+    private func startSpeechRuntimeDownload(_ runtime: SpeechRuntimeResourceManager.Runtime, button: NSButton) {
         button.isEnabled = false
         SpeechRuntimeResourceManager.download(runtime) { [weak self, weak button] result in
             guard let self else { return }
@@ -227,6 +243,29 @@ extension AISettingsPanelController {
             }
         }
         refreshSpeechRuntimeStatus()
+    }
+
+    private func showUnsupportedRuntimeDownloadWarning(
+        _ runtime: SpeechRuntimeResourceManager.Runtime,
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard let panel else {
+            completion(true)
+            return
+        }
+
+        let alert = NSAlert()
+        alert.messageText = AppText.localized("系统版本低于朗读模型要求", "System Version Below Runtime Requirement")
+        alert.informativeText = AppText.localized(
+            "\(runtime.title) 需要 \(runtime.minimumSystemVersionText) 或更高版本才能运行。你仍然可以下载模型，但当前系统可能无法使用它。",
+            "\(runtime.title) requires \(runtime.minimumSystemVersionText) or later to run. You can still download the model, but this system may not be able to use it."
+        )
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: AppText.localized("继续下载", "Download Anyway"))
+        alert.addButton(withTitle: AppText.cancel)
+        alert.beginSheetModal(for: panel) { response in
+            completion(response == .alertFirstButtonReturn)
+        }
     }
 
     private func selectSpeechRuntimeAfterDownload(_ downloadedRuntime: SpeechRuntimeResourceManager.Runtime) {
