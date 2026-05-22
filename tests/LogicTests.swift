@@ -317,6 +317,33 @@ private func testDebouncedTask() throws {
     try expectEqual(value, 2, "cancel should clear pending action")
 }
 
+private func testSpeechTextPolicyNormalization() throws {
+    let text = "well-\nknown  isn \u{2019} t rare\u{2026}"
+    let normalized = SpeechTextPolicy.normalizedEnglishInput(text)
+
+    try expectEqual(normalized, "wellknown isn't rare...", "TTS normalization should repair PDF line breaks and punctuation")
+}
+
+private func testSpeechTextPolicyEnglishCandidate() throws {
+    try expect(SpeechTextPolicy.isEnglishCandidate("A short English sentence."), "English text should be accepted")
+    try expect(!SpeechTextPolicy.isEnglishCandidate("中文 mixed English"), "Chinese mixed text should be rejected for local English TTS")
+    try expect(!SpeechTextPolicy.isEnglishCandidate("12345"), "text without letters should be rejected")
+}
+
+private func testSpeechTextPolicySegments() throws {
+    let shortText = "One short sentence. Another short sentence."
+    try expectEqual(
+        SpeechTextPolicy.readAloudSegments(for: shortText),
+        ["One short sentence. Another short sentence."],
+        "short adjacent sentences should merge into a stable read-aloud segment"
+    )
+
+    let longText = Array(repeating: "word", count: 140).joined(separator: " ")
+    let segments = SpeechTextPolicy.readAloudSegments(for: longText)
+    try expect(segments.count > 1, "long text should split into multiple TTS segments")
+    try expect(segments.allSatisfy { $0.count <= 520 }, "split TTS segments should stay within the max sentence length")
+}
+
 private let tests: [(String, () throws -> Void)] = [
     ("Vocabulary SRS", VocabularyLogicTests.testVocabularySRS),
     ("Recent document sorting/import", ReaderShelfLogicTests.testRecentDocumentSortingAndImport),
@@ -359,7 +386,10 @@ private let tests: [(String, () throws -> Void)] = [
     ("Reading context snapshot", testReadingContextSnapshot),
     ("Captured page scroll guard", testCapturedPageScrollGuard),
     ("PDF brightness policy", testPDFBrightnessPolicy),
-    ("Debounced task", testDebouncedTask)
+    ("Debounced task", testDebouncedTask),
+    ("Speech text normalization", testSpeechTextPolicyNormalization),
+    ("Speech text English candidate", testSpeechTextPolicyEnglishCandidate),
+    ("Speech text segments", testSpeechTextPolicySegments)
 ]
 
 @main

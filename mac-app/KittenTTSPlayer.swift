@@ -24,9 +24,6 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         static let defaultPort = 18181
         static let defaultServerPath = ".local/share/leafreader/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
         static let defaultModelPath = ".local/share/leafreader/kittentts-rs-runtime/kitten-tts-mini"
-        static let maxSentenceLength = 520
-        static let maxMergedSegmentLength = 420
-        static let minSegmentWordCount = 18
     }
 
     private let queue = DispatchQueue(label: "LeafReader.KittenTTS", qos: .userInitiated)
@@ -92,8 +89,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     func speakEnglish(_ text: String, completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
-        let value = Self.normalizedEnglishTTSInput(text)
-        let segments = Self.ttsSegments(for: value).map {
+        let segments = SpeechTextPolicy.readAloudSegments(for: text).map {
             ReadAloudSegment(speechText: $0)
         }
         speakEnglish(segments: segments, completion: completion, finished: finished)
@@ -102,7 +98,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     func speakEnglish(segments inputSegments: [ReadAloudSegment], completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
         cancelScheduledIdleShutdown()
         let segments = inputSegments.compactMap { segment -> ReadAloudSegment? in
-            let speechText = Self.normalizedEnglishTTSInput(segment.speechText)
+            let speechText = SpeechTextPolicy.normalizedEnglishInput(segment.speechText)
             guard !speechText.isEmpty else { return nil }
             let displayText = segment.displayText.trimmingCharacters(in: .whitespacesAndNewlines)
             return ReadAloudSegment(
@@ -112,7 +108,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             )
         }
         let combinedText = segments.map(\.speechText).joined(separator: " ")
-        guard Self.isEnglishCandidate(combinedText), !segments.isEmpty else {
+        guard SpeechTextPolicy.isEnglishCandidate(combinedText), !segments.isEmpty else {
             completion(false)
             finished?()
             return
@@ -212,13 +208,13 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
 
     func speakEnglishInterruption(_ text: String, completion: @escaping (Bool) -> Void, finished: @escaping () -> Void) {
         cancelScheduledIdleShutdown()
-        let value = Self.normalizedEnglishTTSInput(text)
-        guard Self.isEnglishCandidate(value) else {
+        let value = SpeechTextPolicy.normalizedEnglishInput(text)
+        guard SpeechTextPolicy.isEnglishCandidate(value) else {
             completion(false)
             return
         }
 
-        let segment = Self.ttsSegments(for: value).joined(separator: " ")
+        let segment = SpeechTextPolicy.segments(for: value).joined(separator: " ")
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("LeafReader-KittenTTS-Interrupt-\(UUID().uuidString).wav")
         queue.async { [weak self] in
@@ -601,7 +597,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     static func readAloudSegments(for text: String) -> [String] {
-        ttsSegments(for: normalizedEnglishTTSInput(text))
+        SpeechTextPolicy.readAloudSegments(for: text)
     }
 
     private func postReadingEnded() {
@@ -610,127 +606,6 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             object: self,
             userInfo: ["active": false]
         )
-    }
-
-    private static func ttsSegments(for text: String) -> [String] {
-        var sentenceUnits: [String] = []
-        var current = ""
-        func flushCurrent() {
-            let value = current.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !value.isEmpty {
-                sentenceUnits.append(contentsOf: splitLongSentence(value))
-            }
-            current = ""
-        }
-
-        for character in text {
-            current.append(character)
-            if ".!?".contains(character) {
-                flushCurrent()
-            }
-        }
-        flushCurrent()
-
-        return mergedShortSegments(sentenceUnits.isEmpty ? [text] : sentenceUnits)
-    }
-
-    private static func mergedShortSegments(_ segments: [String]) -> [String] {
-        var merged: [String] = []
-        var current = ""
-        var currentWordCount = 0
-        for segment in segments {
-            let trimmed = segment.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-
-            let candidate = current.isEmpty ? trimmed : "\(current) \(trimmed)"
-            if !current.isEmpty, candidate.count > Runtime.maxMergedSegmentLength {
-                merged.append(current)
-                current = trimmed
-                currentWordCount = wordCount(in: trimmed)
-            } else {
-                current = candidate
-                currentWordCount += wordCount(in: trimmed)
-            }
-
-            if currentWordCount >= Runtime.minSegmentWordCount {
-                merged.append(current)
-                current = ""
-                currentWordCount = 0
-            }
-        }
-        if !current.isEmpty {
-            if let last = merged.last,
-               "\(last) \(current)".count <= Runtime.maxMergedSegmentLength {
-                merged[merged.count - 1] = "\(last) \(current)"
-            } else {
-                merged.append(current)
-            }
-        }
-        return merged
-    }
-
-    private static func wordCount(in text: String) -> Int {
-        text.split { !$0.isLetter && !$0.isNumber }.count
-    }
-
-    private static func normalizedEnglishTTSInput(_ text: String) -> String {
-        var value = text
-            .replacingOccurrences(of: "\u{00AD}", with: "")
-            .replacingOccurrences(of: "\u{2018}", with: "'")
-            .replacingOccurrences(of: "\u{2019}", with: "'")
-            .replacingOccurrences(of: "\u{201C}", with: "\"")
-            .replacingOccurrences(of: "\u{201D}", with: "\"")
-            .replacingOccurrences(of: "\u{2013}", with: "-")
-            .replacingOccurrences(of: "\u{2014}", with: "-")
-            .replacingOccurrences(of: "\u{2026}", with: "...")
-        value = value.replacingOccurrences(
-            of: #"(?i)([A-Za-z])-\s*[\r\n]+\s*([A-Za-z])"#,
-            with: "$1$2",
-            options: .regularExpression
-        )
-        value = value.replacingOccurrences(
-            of: #"([A-Za-z])\s*'\s*([A-Za-z])"#,
-            with: "$1'$2",
-            options: .regularExpression
-        )
-        value = value.replacingOccurrences(
-            of: #"(^|[\r\n]+|[.!?]\s+|["']\s*)([B-HJ-Zb-hj-z])\s+([a-z]{2,})"#,
-            with: "$1$2$3",
-            options: .regularExpression
-        )
-        value = value.replacingOccurrences(
-            of: #"[\r\n\t]+"#,
-            with: " ",
-            options: .regularExpression
-        )
-        value = value.replacingOccurrences(
-            of: #"\s{2,}"#,
-            with: " ",
-            options: .regularExpression
-        )
-        return value.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private static func splitLongSentence(_ sentence: String) -> [String] {
-        guard sentence.count > Runtime.maxSentenceLength else {
-            return [sentence]
-        }
-
-        var segments: [String] = []
-        var current = ""
-        for word in sentence.split(separator: " ") {
-            let next = current.isEmpty ? String(word) : "\(current) \(word)"
-            if next.count > Runtime.maxSentenceLength, !current.isEmpty {
-                segments.append(current)
-                current = String(word)
-            } else {
-                current = next
-            }
-        }
-        if !current.isEmpty {
-            segments.append(current)
-        }
-        return segments.isEmpty ? [sentence] : segments
     }
 
     func shutdown() {
@@ -1104,20 +979,6 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         return nil
     }
 
-    private static func isEnglishCandidate(_ text: String) -> Bool {
-        guard !text.isEmpty,
-              text.range(of: #"[A-Za-z]"#, options: .regularExpression) != nil else {
-            return false
-        }
-        return !text.unicodeScalars.contains { scalar in
-            switch scalar.value {
-            case 0x3400...0x4DBF, 0x4E00...0x9FFF, 0xF900...0xFAFF, 0x20000...0x2A6DF:
-                return true
-            default:
-                return false
-            }
-        }
-    }
     private func ensureServer() -> Bool {
         guard let runtime = Self.rustRuntime() else { return false }
         if Self.isServerHealthy() {
@@ -1183,7 +1044,9 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         var request = URLRequest(url: serverURL(path: "/v1/models"))
         request.timeoutInterval = 0.5
         let result = performRequest(request)
-        return result.statusCode == 200 && isKittenServerModelsResponse(result.data)
+        return !result.timedOut
+            && result.statusCode == 200
+            && isKittenServerModelsResponse(result.data)
     }
 
     private static func isKittenServerModelsResponse(_ data: Data?) -> Bool {
@@ -1229,12 +1092,16 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         guard result.statusCode == 200,
               let data = result.data,
               !data.isEmpty else {
-            NSLog(
-                "LeafReader KittenTTS: server synthesis failed (status=%d, bytes=%d, port=%d)",
-                result.statusCode,
-                result.data?.count ?? 0,
-                serverPort()
-            )
+            if result.timedOut {
+                NSLog("LeafReader KittenTTS: server synthesis timed out (port=%d)", serverPort())
+            } else {
+                NSLog(
+                    "LeafReader KittenTTS: server synthesis failed (status=%d, bytes=%d, port=%d)",
+                    result.statusCode,
+                    result.data?.count ?? 0,
+                    serverPort()
+                )
+            }
             return false
         }
         do {
@@ -1246,17 +1113,31 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         }
     }
 
-    private static func performRequest(_ request: URLRequest) -> (statusCode: Int, data: Data?) {
+    private static func performRequest(_ request: URLRequest) -> (statusCode: Int, data: Data?, timedOut: Bool) {
         let semaphore = DispatchSemaphore(value: 0)
+        let lock = NSLock()
         var statusCode = 0
         var responseData: Data?
-        URLSession.shared.dataTask(with: request) { data, response, _ in
+        var didFinish = false
+        let task = URLSession.shared.dataTask(with: request) { data, response, _ in
+            lock.lock()
+            defer { lock.unlock() }
+            guard !didFinish else { return }
+            didFinish = true
             statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
             responseData = data
             semaphore.signal()
-        }.resume()
-        _ = semaphore.wait(timeout: .now() + request.timeoutInterval + 1)
-        return (statusCode, responseData)
+        }
+        task.resume()
+        let waitResult = semaphore.wait(timeout: .now() + request.timeoutInterval + 1)
+        if waitResult == .timedOut {
+            lock.lock()
+            didFinish = true
+            lock.unlock()
+            task.cancel()
+            return (statusCode, responseData, true)
+        }
+        return (statusCode, responseData, false)
     }
 
     private static func serverURL(path: String) -> URL {

@@ -19,6 +19,7 @@ Short vocabulary and AI-panel speech can fall back to `NSSpeechSynthesizer` thro
 ## Main Files
 
 - `mac-app/KittenTTSPlayer.swift`: central speech coordinator. It chooses the installed runtime, segments text, manages generated WAV files, controls playback, and posts progress notifications.
+- `mac-app/SpeechTextPolicy.swift`: TTS text normalization, English candidate detection, and read-aloud segment splitting.
 - `mac-app/SpeechRuntimeResourceManager.swift`: install detection, download URLs, model sizes, runtime compatibility, pause/resume/cancel state, and cleanup.
 - `mac-app/RuntimeDownload.swift`: URLSession download implementation, progress reporting, resume data, and HTTP error handling.
 - `mac-app/AISettingsPanelController+Speech.swift`: settings actions for selecting, downloading, pausing, canceling, deleting, and warning about incompatible runtimes.
@@ -41,6 +42,7 @@ Short vocabulary and AI-panel speech can fall back to `NSSpeechSynthesizer` thro
 - Download failures are stored per runtime and shown in the settings status, including unsupported macOS states, until the next successful download, cancellation, or delete.
 - Download and delete error alerts use the shared network/error sanitizer before showing details to the user.
 - Download status text is user-facing; keep it aligned with the actual install and compatibility checks.
+- KittenTTS server requests cancel their URLSession task after timeout so stale responses do not mutate completed request state.
 
 ## Packaging And Release
 

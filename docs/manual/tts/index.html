@@ -1025,6 +1025,7 @@
 <h2 id="main-files">Main Files<a class="headerlink" href="#main-files" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>mac-app/KittenTTSPlayer.swift</code>: central speech coordinator. It chooses the installed runtime, segments text, manages generated WAV files, controls playback, and posts progress notifications.</li>
+<li><code>mac-app/SpeechTextPolicy.swift</code>: TTS text normalization, English candidate detection, and read-aloud segment splitting.</li>
 <li><code>mac-app/SpeechRuntimeResourceManager.swift</code>: install detection, download URLs, model sizes, runtime compatibility, pause/resume/cancel state, and cleanup.</li>
 <li><code>mac-app/RuntimeDownload.swift</code>: URLSession download implementation, progress reporting, resume data, and HTTP error handling.</li>
 <li><code>mac-app/AISettingsPanelController+Speech.swift</code>: settings actions for selecting, downloading, pausing, canceling, deleting, and warning about incompatible runtimes.</li>
@@ -1047,6 +1048,7 @@
 <li>Download failures are stored per runtime and shown in the settings status, including unsupported macOS states, until the next successful download, cancellation, or delete.</li>
 <li>Download and delete error alerts use the shared network/error sanitizer before showing details to the user.</li>
 <li>Download status text is user-facing; keep it aligned with the actual install and compatibility checks.</li>
+<li>KittenTTS server requests cancel their URLSession task after timeout so stale responses do not mutate completed request state.</li>
 </ul>
 <h2 id="packaging-and-release">Packaging And Release<a class="headerlink" href="#packaging-and-release" title="Permanent link">&para;</a></h2>
 <ul>
