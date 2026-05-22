@@ -187,6 +187,36 @@ extension ReaderWindowController {
         autoScrollAIPanelToReadAloudSource(text: text, pageIndex: nil, pdfBounds: nil)
     }
 
+    @discardableResult
+    func autoScrollAIPanelToReadAloudLinkedWord(id: String?, text: String, pageIndex: Int?, pdfBounds: CGRect?) -> Bool {
+        guard !isAIPanelCollapsed else { return false }
+        if let id,
+           autoScrollAIPanelToLinkedWord(id: id) {
+            return true
+        }
+        if currentDocumentKind == .pdf,
+           let pageIndex,
+           let pdfBounds,
+           let page = pdfView.document?.page(at: pageIndex),
+           let record = storedWordRecords.first(where: {
+               $0.pageIndex == pageIndex && pdfBounds.insetBy(dx: -4, dy: -4).intersects(displayBounds(for: $0, page: page).insetBy(dx: -4, dy: -4))
+           }) {
+            return autoScrollAIPanelToLinkedWord(id: record.id)
+        }
+        if let record = storedWebWordRecords.first(where: { Self.linkedWordText($0.word, overlapsReadAloudText: text) }) {
+            return autoScrollAIPanelToLinkedWord(id: record.id)
+        }
+        return false
+    }
+
+    private func autoScrollAIPanelToLinkedWord(id: String) -> Bool {
+        guard id != lastReadAloudLinkedWordID else { return true }
+        guard ensureLinkedWordBubbleLoaded(linkID: id) else { return false }
+        lastReadAloudLinkedWordID = id
+        aiPanel.scrollToLinkedBubble(id: id)
+        return true
+    }
+
     private func readAloudAISource(matching text: String, pageIndex: Int?, pdfBounds: CGRect?) -> AIConversationSourceLocation? {
         let sources = readAloudAISourceCandidates()
         if currentDocumentKind == .pdf, let pageIndex {
@@ -251,6 +281,13 @@ extension ReaderWindowController {
         guard !selectedTokens.isEmpty, !spokenTokens.isEmpty else { return false }
         let overlap = selectedTokens.intersection(spokenTokens)
         return overlap.count >= min(aiSourceMinimumTextOverlapTokens, selectedTokens.count, spokenTokens.count)
+    }
+
+    private static func linkedWordText(_ word: String, overlapsReadAloudText text: String) -> Bool {
+        let wordText = normalizedAISourceMatchText(word)
+        let spoken = normalizedAISourceMatchText(text)
+        guard !wordText.isEmpty, !spoken.isEmpty else { return false }
+        return spoken.contains(wordText) || wordText.contains(spoken)
     }
 
     private static func isPageLevelAISource(_ source: AIConversationSourceLocation) -> Bool {

@@ -164,6 +164,7 @@ extension ReaderWindowController {
     private func resetReadAloudPDFTracking() {
         resetTTSReadingPDFProgress()
         lastReadAloudAISource = nil
+        lastReadAloudLinkedWordID = nil
         pendingReadAloudPDFContinuation = nil
     }
 

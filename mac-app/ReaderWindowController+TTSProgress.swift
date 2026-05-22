@@ -176,7 +176,15 @@ extension ReaderWindowController {
         if !temporaryTTSUnderlineAnnotations.isEmpty {
             ttsReadingPDFCandidatePageIndex = candidatePageIndex
             ttsReadingPDFSearchLocation = NSMaxRange(nsRange)
-            autoScrollAIPanelToReadAloudSource(text: query, pageIndex: documentPageIndex, pdfBounds: segmentBounds)
+            let didScrollLinkedWord = autoScrollAIPanelToReadAloudLinkedWord(
+                id: nil,
+                text: query,
+                pageIndex: documentPageIndex,
+                pdfBounds: segmentBounds
+            )
+            if !didScrollLinkedWord {
+                autoScrollAIPanelToReadAloudSource(text: query, pageIndex: documentPageIndex, pdfBounds: segmentBounds)
+            }
             if documentPageIndex == ttsPageLockedAtTopIndex {
                 ttsPageLockedAtTopIndex = nil
             } else {
@@ -225,7 +233,16 @@ extension ReaderWindowController {
         """
         webView?.evaluateJavaScript(script) { [weak self] value, _ in
             DispatchQueue.main.async {
-                let sourceKey = (value as? [String: Any])?["sourceKey"] as? String
+                let result = value as? [String: Any]
+                let wordID = result?["wordID"] as? String
+                let didScrollLinkedWord = self?.autoScrollAIPanelToReadAloudLinkedWord(
+                    id: wordID,
+                    text: text,
+                    pageIndex: nil,
+                    pdfBounds: nil
+                ) ?? false
+                guard !didScrollLinkedWord else { return }
+                let sourceKey = result?["sourceKey"] as? String
                 self?.autoScrollAIPanelToReadAloudWebSource(key: sourceKey, text: text)
             }
         }

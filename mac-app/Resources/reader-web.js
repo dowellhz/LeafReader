@@ -490,6 +490,7 @@
     const ranges = leafReaderTTSAnchorRanges[index] || [];
     if (!ranges.length) return window.leafReaderUnderlineTTS(fallbackText);
     const sourceKey = leafReaderAISourceKeyForRanges(ranges);
+    const wordID = leafReaderLinkedWordIDForRanges(ranges);
     if (window.CSS && CSS.highlights && window.Highlight) {
       CSS.highlights.set('leaf-reader-tts', new Highlight(...ranges));
     } else {
@@ -498,7 +499,7 @@
       }
     }
     leafReaderScrollRangeToCenter(ranges[0]);
-    return { ok: true, sourceKey };
+    return { ok: true, sourceKey, wordID };
   };
   window.leafReaderUnderlineTTS = (targetText) => {
     installSelectionHighlightStyle();
@@ -508,6 +509,7 @@
     const ranges = leafReaderTTSRanges(needle);
     if (!ranges.length) return false;
     const sourceKey = leafReaderAISourceKeyForRanges(ranges);
+    const wordID = leafReaderLinkedWordIDForRanges(ranges);
     if (window.CSS && CSS.highlights && window.Highlight) {
       CSS.highlights.set('leaf-reader-tts', new Highlight(...ranges));
     } else {
@@ -516,7 +518,7 @@
       }
     }
     leafReaderScrollRangeToCenter(ranges[0]);
-    return { ok: true, sourceKey };
+    return { ok: true, sourceKey, wordID };
   };
   const leafReaderRangesIntersect = (left, right) => {
     try {
@@ -536,6 +538,20 @@
         const intersects = leafReaderRangesIntersect(range, sourceRange);
         sourceRange.detach && sourceRange.detach();
         if (intersects) return span.dataset.leafAiSourceKey || '';
+      }
+    }
+    return '';
+  };
+  const leafReaderLinkedWordIDForRanges = (ranges) => {
+    const spans = Array.from(document.querySelectorAll('span.leaf-reader-linked-word[data-leaf-word-id]'));
+    if (!spans.length) return '';
+    for (const range of ranges || []) {
+      for (const span of spans) {
+        const wordRange = document.createRange();
+        wordRange.selectNodeContents(span);
+        const intersects = leafReaderRangesIntersect(range, wordRange);
+        wordRange.detach && wordRange.detach();
+        if (intersects) return span.dataset.leafWordId || '';
       }
     }
     return '';
