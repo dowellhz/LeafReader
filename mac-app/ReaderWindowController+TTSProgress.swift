@@ -176,6 +176,7 @@ extension ReaderWindowController {
         if !temporaryTTSUnderlineAnnotations.isEmpty {
             ttsReadingPDFCandidatePageIndex = candidatePageIndex
             ttsReadingPDFSearchLocation = NSMaxRange(nsRange)
+            autoScrollAIPanelToReadAloudSource(text: query, pageIndex: documentPageIndex, pdfBounds: segmentBounds)
             if documentPageIndex == ttsPageLockedAtTopIndex {
                 ttsPageLockedAtTopIndex = nil
             } else {
@@ -223,6 +224,7 @@ extension ReaderWindowController {
         })();
         """
         webView?.evaluateJavaScript(script)
+        autoScrollAIPanelToReadAloudSource(text: text, pageIndex: nil, pdfBounds: nil)
     }
 
     private static func ttsRange(of query: String, in pageText: String, searchRange: NSRange? = nil) -> NSRange? {

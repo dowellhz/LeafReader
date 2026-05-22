@@ -4,6 +4,7 @@ import PDFKit
 extension ReaderWindowController {
     private static let aiSourceUnderlinePrefix = "ai-source"
     private static let maxAISourceUnderlineLines = 12
+    private static let aiSourceMinimumTextOverlapTokens = 4
 
     func addAISourceUnderline(for source: AIConversationSourceLocation) {
         if source.kind == .webProgress {
@@ -154,6 +155,96 @@ extension ReaderWindowController {
             self?.aiPanel.scrollToConversationSource(source)
         }
         setAIPanelCollapsed(false, animated: true)
+    }
+
+    func autoScrollAIPanelToReadAloudSource(text: String, pageIndex: Int?, pdfBounds: CGRect?) {
+        guard !isAIPanelCollapsed else { return }
+        let segmentText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !segmentText.isEmpty else { return }
+        guard let source = readAloudAISource(
+            matching: segmentText,
+            pageIndex: pageIndex,
+            pdfBounds: pdfBounds
+        ) else {
+            return
+        }
+        guard source != lastReadAloudAISource else { return }
+        lastReadAloudAISource = source
+        ensureAIConversationSourceBubbleLoaded(source)
+        aiPanel.scrollToConversationSource(source)
+    }
+
+    private func readAloudAISource(matching text: String, pageIndex: Int?, pdfBounds: CGRect?) -> AIConversationSourceLocation? {
+        let sources = readAloudAISourceCandidates()
+        if currentDocumentKind == .pdf, let pageIndex {
+            let pdfSources = sources.filter { $0.kind == .pdfPage && $0.index == pageIndex }
+            if let pdfBounds,
+               let source = pdfSources.first(where: { readAloudPDFBounds(pdfBounds, intersects: $0.pdfBounds) }) {
+                return source
+            }
+            return pdfSources.first { Self.aiSourceText($0, overlapsReadAloudText: text) }
+        }
+        return sources.first {
+            $0.kind == .webProgress && Self.aiSourceText($0, overlapsReadAloudText: text)
+        }
+    }
+
+    private func readAloudAISourceCandidates() -> [AIConversationSourceLocation] {
+        var sources: [AIConversationSourceLocation] = []
+        func append(_ source: AIConversationSourceLocation) {
+            guard !sources.contains(source) else { return }
+            sources.append(source)
+        }
+        activeAISourceUnderlines.forEach(append)
+        aiSourceLocationsByUnderlineKey.values.forEach(append)
+        webAISourceLocationsByKey.values.forEach(append)
+        if let conversation = loadedAIConversation ?? aiConversationStore?.load() {
+            conversation.bubbles.compactMap(\.sourceLocation).forEach(append)
+        }
+        return sources
+    }
+
+    private func readAloudPDFBounds(_ segmentBounds: CGRect, intersects sourceBounds: [StoredPDFWordRect]?) -> Bool {
+        guard !segmentBounds.isNull,
+              let sourceBounds,
+              !sourceBounds.isEmpty else {
+            return false
+        }
+        let paddedSegment = segmentBounds.insetBy(dx: -4, dy: -4)
+        return sourceBounds.contains { rect in
+            paddedSegment.intersects(rect.cgRect.insetBy(dx: -4, dy: -4))
+        }
+    }
+
+    private static func aiSourceText(_ source: AIConversationSourceLocation, overlapsReadAloudText text: String) -> Bool {
+        guard let selectedText = source.selectedText?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !selectedText.isEmpty else {
+            return false
+        }
+        let selected = normalizedAISourceMatchText(selectedText)
+        let spoken = normalizedAISourceMatchText(text)
+        guard !selected.isEmpty, !spoken.isEmpty else { return false }
+        if spoken.contains(selected) || selected.contains(spoken) {
+            return true
+        }
+        let selectedTokens = Set(aiSourceMatchTokens(in: selected))
+        let spokenTokens = Set(aiSourceMatchTokens(in: spoken))
+        guard !selectedTokens.isEmpty, !spokenTokens.isEmpty else { return false }
+        let overlap = selectedTokens.intersection(spokenTokens)
+        return overlap.count >= min(aiSourceMinimumTextOverlapTokens, selectedTokens.count, spokenTokens.count)
+    }
+
+    private static func normalizedAISourceMatchText(_ text: String) -> String {
+        text
+            .lowercased()
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func aiSourceMatchTokens(in text: String) -> [String] {
+        text.split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+            .filter { $0.count > 1 }
     }
 
     func currentPDFSelectionSourceLocation(pageIndex: Int) -> AIConversationSourceLocation {
