@@ -5,6 +5,7 @@ extension ReaderWindowController {
     private static let aiSourceUnderlinePrefix = "ai-source"
     private static let maxAISourceUnderlineLines = 12
     private static let aiSourceMinimumTextOverlapTokens = 4
+    private static let aiSourceWebProgressMatchTolerance = 0.08
 
     func addAISourceUnderline(for source: AIConversationSourceLocation) {
         if source.kind == .webProgress {
@@ -158,23 +159,10 @@ extension ReaderWindowController {
     }
 
     func autoScrollAIPanelToReadAloudSource(text: String, pageIndex: Int?, pdfBounds: CGRect?) {
-        guard !isAIPanelCollapsed else { return }
-        let segmentText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !segmentText.isEmpty else { return }
-        guard let source = readAloudAISource(
-            matching: segmentText,
-            pageIndex: pageIndex,
-            pdfBounds: pdfBounds
-        ) else {
-            return
-        }
-        guard source != lastReadAloudAISource else { return }
-        lastReadAloudAISource = source
-        ensureAIConversationSourceBubbleLoaded(source)
-        aiPanel.scrollToConversationSource(source)
+        autoScrollAIPanelToReadAloudSource(text: text, pageIndex: pageIndex, pdfBounds: pdfBounds, webProgress: nil)
     }
 
-    func autoScrollAIPanelToReadAloudWebSource(key: String?, text: String) {
+    func autoScrollAIPanelToReadAloudWebSource(key: String?, text: String, progress: Double?) {
         guard !isAIPanelCollapsed else { return }
         if let key,
            let source = webAISourceLocationsByKey[key],
@@ -184,40 +172,75 @@ extension ReaderWindowController {
             aiPanel.scrollToConversationSource(source)
             return
         }
-        autoScrollAIPanelToReadAloudSource(text: text, pageIndex: nil, pdfBounds: nil)
+        autoScrollAIPanelToReadAloudSource(text: text, pageIndex: nil, pdfBounds: nil, webProgress: progress)
     }
 
     @discardableResult
-    func autoScrollAIPanelToReadAloudLinkedWord(id: String?, text: String, pageIndex: Int?, pdfBounds: CGRect?) -> Bool {
+    func autoScrollAIPanelToReadAloudLinkedWords(ids: [String], text: String, pageIndex: Int?, pdfBounds: CGRect?) -> Bool {
         guard !isAIPanelCollapsed else { return false }
-        if let id,
-           autoScrollAIPanelToLinkedWord(id: id) {
-            return true
+        var linkedIDs = ids
+        func append(_ id: String) {
+            guard !id.isEmpty, !linkedIDs.contains(id) else { return }
+            linkedIDs.append(id)
         }
+
         if currentDocumentKind == .pdf,
            let pageIndex,
            let pdfBounds,
-           let page = pdfView.document?.page(at: pageIndex),
-           let record = storedWordRecords.first(where: {
-               $0.pageIndex == pageIndex && pdfBounds.insetBy(dx: -4, dy: -4).intersects(displayBounds(for: $0, page: page).insetBy(dx: -4, dy: -4))
-           }) {
-            return autoScrollAIPanelToLinkedWord(id: record.id)
+           let page = pdfView.document?.page(at: pageIndex) {
+            storedWordRecords
+                .filter {
+                    $0.pageIndex == pageIndex
+                        && pdfBounds.insetBy(dx: -4, dy: -4).intersects(displayBounds(for: $0, page: page).insetBy(dx: -4, dy: -4))
+                }
+                .map(\.id)
+                .forEach(append)
         }
-        if let record = storedWebWordRecords.first(where: { Self.linkedWordText($0.word, overlapsReadAloudText: text) }) {
-            return autoScrollAIPanelToLinkedWord(id: record.id)
+
+        storedWebWordRecords
+            .filter { Self.linkedWordText($0.word, overlapsReadAloudText: text) }
+            .map(\.id)
+            .forEach(append)
+
+        guard !linkedIDs.isEmpty else { return false }
+        var didLoadAny = false
+        var scrollTarget: String?
+        for id in linkedIDs {
+            guard ensureLinkedWordBubbleLoaded(linkID: id) else { continue }
+            didLoadAny = true
+            if scrollTarget == nil, id != lastReadAloudLinkedWordID {
+                scrollTarget = id
+            }
         }
-        return false
+        if let scrollTarget {
+            lastReadAloudLinkedWordID = scrollTarget
+            aiPanel.scrollToLinkedBubble(id: scrollTarget)
+        }
+        return didLoadAny
     }
 
-    private func autoScrollAIPanelToLinkedWord(id: String) -> Bool {
-        guard id != lastReadAloudLinkedWordID else { return true }
-        guard ensureLinkedWordBubbleLoaded(linkID: id) else { return false }
-        lastReadAloudLinkedWordID = id
-        aiPanel.scrollToLinkedBubble(id: id)
-        return true
+    func autoScrollAIPanelToReadAloudSource(text: String, pageIndex: Int?, pdfBounds: CGRect?, webProgress: Double?) {
+        guard !isAIPanelCollapsed else { return }
+        let segmentText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !segmentText.isEmpty else { return }
+        let source = readAloudAISource(
+            matching: segmentText,
+            pageIndex: pageIndex,
+            pdfBounds: pdfBounds,
+            webProgress: webProgress
+        )
+        guard let source, source != lastReadAloudAISource else { return }
+        lastReadAloudAISource = source
+        ensureAIConversationSourceBubbleLoaded(source)
+        aiPanel.scrollToConversationSource(source)
     }
 
-    private func readAloudAISource(matching text: String, pageIndex: Int?, pdfBounds: CGRect?) -> AIConversationSourceLocation? {
+    private func readAloudAISource(
+        matching text: String,
+        pageIndex: Int?,
+        pdfBounds: CGRect?,
+        webProgress: Double?
+    ) -> AIConversationSourceLocation? {
         let sources = readAloudAISourceCandidates()
         if currentDocumentKind == .pdf, let pageIndex {
             let pdfSources = sources.filter { $0.kind == .pdfPage && $0.index == pageIndex }
@@ -233,9 +256,24 @@ extension ReaderWindowController {
             }
             return pdfSources.first(where: { Self.isPageLevelAISource($0) })
         }
-        return sources.first {
-            $0.kind == .webProgress && Self.aiSourceText($0, overlapsReadAloudText: text)
+        let webSources = sources.filter { $0.kind == .webProgress }
+        if let source = webSources.first(where: { Self.aiSourceText($0, overlapsReadAloudText: text) }) {
+            return source
         }
+        return readAloudWebProgressSource(in: webSources, progress: webProgress)
+    }
+
+    private func readAloudWebProgressSource(in sources: [AIConversationSourceLocation], progress: Double?) -> AIConversationSourceLocation? {
+        let target = progress ?? webScrollProgress
+        let candidates = sources.compactMap { source -> (source: AIConversationSourceLocation, distance: Double)? in
+            guard let sourceProgress = source.progress else { return nil }
+            return (source, abs(sourceProgress - target))
+        }
+        guard let closest = candidates.min(by: { $0.distance < $1.distance }),
+              closest.distance <= Self.aiSourceWebProgressMatchTolerance else {
+            return nil
+        }
+        return closest.source
     }
 
     private func readAloudAISourceCandidates() -> [AIConversationSourceLocation] {

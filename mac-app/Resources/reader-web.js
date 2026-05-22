@@ -370,6 +370,16 @@
     return startIndex >= 0 ? blocks.slice(startIndex) : blocks;
   };
   let leafReaderTTSAnchorRanges = [];
+  const leafReaderScrollProgress = () => {
+    const height = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    return Math.max(0, Math.min(1, window.scrollY / height));
+  };
+  const leafReaderProgressForRange = (range) => {
+    const rect = Array.from(range.getClientRects()).find((item) => item.width > 0 && item.height > 0) || range.getBoundingClientRect();
+    const height = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    const top = Math.max(0, (window.scrollY || 0) + (rect?.top || 0));
+    return Math.max(0, Math.min(1, top / height));
+  };
   const leafReaderScrollRangeToCenter = (range) => {
     const rect = Array.from(range.getClientRects()).find((item) => item.width > 0 && item.height > 0) || range.getBoundingClientRect();
     if (rect && rect.height > 0) {
@@ -490,7 +500,8 @@
     const ranges = leafReaderTTSAnchorRanges[index] || [];
     if (!ranges.length) return window.leafReaderUnderlineTTS(fallbackText);
     const sourceKey = leafReaderAISourceKeyForRanges(ranges);
-    const wordID = leafReaderLinkedWordIDForRanges(ranges);
+    const wordIDs = leafReaderLinkedWordIDsForRanges(ranges);
+    const progress = leafReaderProgressForRange(ranges[0]);
     if (window.CSS && CSS.highlights && window.Highlight) {
       CSS.highlights.set('leaf-reader-tts', new Highlight(...ranges));
     } else {
@@ -499,7 +510,7 @@
       }
     }
     leafReaderScrollRangeToCenter(ranges[0]);
-    return { ok: true, sourceKey, wordID };
+    return { ok: true, sourceKey, wordID: wordIDs[0] || '', wordIDs, progress };
   };
   window.leafReaderUnderlineTTS = (targetText) => {
     installSelectionHighlightStyle();
@@ -509,7 +520,8 @@
     const ranges = leafReaderTTSRanges(needle);
     if (!ranges.length) return false;
     const sourceKey = leafReaderAISourceKeyForRanges(ranges);
-    const wordID = leafReaderLinkedWordIDForRanges(ranges);
+    const wordIDs = leafReaderLinkedWordIDsForRanges(ranges);
+    const progress = leafReaderProgressForRange(ranges[0]);
     if (window.CSS && CSS.highlights && window.Highlight) {
       CSS.highlights.set('leaf-reader-tts', new Highlight(...ranges));
     } else {
@@ -518,7 +530,7 @@
       }
     }
     leafReaderScrollRangeToCenter(ranges[0]);
-    return { ok: true, sourceKey, wordID };
+    return { ok: true, sourceKey, wordID: wordIDs[0] || '', wordIDs, progress };
   };
   const leafReaderRangesIntersect = (left, right) => {
     try {
@@ -542,19 +554,21 @@
     }
     return '';
   };
-  const leafReaderLinkedWordIDForRanges = (ranges) => {
+  const leafReaderLinkedWordIDsForRanges = (ranges) => {
     const spans = Array.from(document.querySelectorAll('span.leaf-reader-linked-word[data-leaf-word-id]'));
-    if (!spans.length) return '';
+    if (!spans.length) return [];
+    const ids = [];
     for (const range of ranges || []) {
       for (const span of spans) {
         const wordRange = document.createRange();
         wordRange.selectNodeContents(span);
         const intersects = leafReaderRangesIntersect(range, wordRange);
         wordRange.detach && wordRange.detach();
-        if (intersects) return span.dataset.leafWordId || '';
+        const id = span.dataset.leafWordId || '';
+        if (intersects && id && !ids.includes(id)) ids.push(id);
       }
     }
-    return '';
+    return ids;
   };
   window.leafReaderClearAISourceUnderlines = () => {
     if (window.CSS && CSS.highlights) CSS.highlights.delete('leaf-reader-ai-source');
@@ -725,9 +739,7 @@
     const now = Date.now();
     if (!force && now - lastScrollSent < 200) return;
     lastScrollSent = now;
-    const height = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-    const progress = Math.max(0, Math.min(1, window.scrollY / height));
-    window.webkit.messageHandlers.scrollChanged.postMessage(progress);
+    window.webkit.messageHandlers.scrollChanged.postMessage(leafReaderScrollProgress());
   };
   window.leafReaderJumpToHref = (href) => {
     href = String(href || '');
