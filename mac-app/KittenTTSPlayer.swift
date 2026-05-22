@@ -33,6 +33,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     private var serverProcess: Process?
     private var serverOutputPipe: Pipe?
     private var serverErrorPipe: Pipe?
+    private var activeBackend: PreferredBackend?
     private var kokoroWorkerProcess: Process?
     private var kokoroWorkerInputPipe: Pipe?
     private var kokoroWorkerOutputPipe: Pipe?
@@ -582,6 +583,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         serverProcess = nil
         serverOutputPipe = nil
         serverErrorPipe = nil
+        activeBackend = nil
     }
 
     private func stopKittenServer() {
@@ -785,9 +787,10 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     private func generateWAV(text: String, outputURL: URL) -> Bool {
-        switch Self.preferredBackend() {
+        let backend = Self.preferredBackend()
+        prepareForBackend(backend)
+        switch backend {
         case .kokoroCoreML:
-            stopKittenServer()
             if generateWAVWithKokoroWorker(text: text, outputURL: outputURL) {
                 return true
             }
@@ -796,7 +799,6 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             }
             return false
         case .kitten:
-            stopKokoroWorker()
             if ensureServer() {
                 if Self.generateWAVWithServer(text: text, outputURL: outputURL) {
                     return true
@@ -809,9 +811,21 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             }
             return false
         case .none:
-            stopRuntimeProcesses()
             return false
         }
+    }
+
+    private func prepareForBackend(_ backend: PreferredBackend) {
+        guard activeBackend != backend else { return }
+        switch backend {
+        case .kokoroCoreML:
+            stopKittenServer()
+        case .kitten:
+            stopKokoroWorker()
+        case .none:
+            stopRuntimeProcesses()
+        }
+        activeBackend = backend
     }
 
     private enum PreferredBackend {
@@ -1031,6 +1045,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     private func stopRuntimeProcesses() {
         stopKokoroWorker()
         stopKittenServer()
+        activeBackend = nil
     }
 
     private func readKokoroWorkerResponse(
