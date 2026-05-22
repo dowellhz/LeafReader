@@ -494,7 +494,7 @@ extension ReaderWindowController {
     }
 
     private func canStartReadAloudWithLocalTTS() -> Bool {
-        guard let runtime = SpeechRuntimeResourceManager.installedRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) else {
+        guard let runtime = SpeechRuntimeResourceManager.runnableRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) else {
             showMissingSpeechRuntimeAlert()
             return false
         }

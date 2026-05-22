@@ -33,8 +33,9 @@ Short vocabulary and AI-panel speech can fall back to `NSSpeechSynthesizer` thro
 
 - KittenTTS is the default local runtime target for macOS 12 and later.
 - Kokoro can be downloaded on older macOS versions, but it requires macOS 14 or later to run. The settings UI shows a compatibility warning before download on unsupported systems.
-- `SpeechRuntimeResourceManager.isInstalled(_:)` only reports a runtime as selectable when the files are present and the current macOS version can run it.
-- `SpeechRuntimeResourceManager.installedRuntime(preferredID:)` is the runtime selection gate used by playback code.
+- `SpeechRuntimeResourceManager.isDownloaded(_:)` checks whether runtime files are present, independent of the current macOS version.
+- `SpeechRuntimeResourceManager.isRunnable(_:)` checks both downloaded files and the current macOS runtime requirement.
+- `SpeechRuntimeResourceManager.runnableRuntime(preferredID:)` is the runtime selection gate used by playback code.
 - Download status text is user-facing; keep it aligned with the actual install and compatibility checks.
 
 ## Packaging And Release

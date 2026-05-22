@@ -61,8 +61,8 @@ Runtime OS requirements:
 
 Download packages are served from GitHub Releases:
 
-- `https://github.com/dowellhz/LeafReader/releases/download/v1.5.7/kokoro-coreml-macos-arm64.tar.gz` (Kokoro runtime plus ANE/G2P model cache, about 518 MB)
-- `https://github.com/dowellhz/LeafReader/releases/download/v1.4.18/kitten-tts-rs-macos-arm64.tar.gz` (KittenTTS runtime plus mini model, about 74 MB)
+- `https://github.com/dowellhz/LeafReader/releases/download/v<version>/kokoro-coreml-macos-arm64.tar.gz` (Kokoro runtime plus ANE/G2P model cache, about 518 MB)
+- `https://github.com/dowellhz/LeafReader/releases/download/v<version>/kitten-tts-rs-macos-arm64.tar.gz` (KittenTTS runtime plus mini model, about 74 MB)
 
 Generate the website packages with:
 

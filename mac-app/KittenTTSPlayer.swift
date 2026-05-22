@@ -829,7 +829,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         case "kokoro", "kokoro-coreml", "coreml":
             return .kokoroCoreML
         default:
-            switch SpeechRuntimeResourceManager.installedRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) {
+            switch SpeechRuntimeResourceManager.runnableRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) {
             case .kitten:
                 return .kitten
             case .kokoro:
@@ -841,7 +841,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     private static func generateWAVWithKokoroCoreML(text: String, outputURL: URL) -> Bool {
-        guard SpeechRuntimeResourceManager.isInstalled(.kokoro) else { return false }
+        guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
         guard let cliURL = kokoroCoreMLRuntime() else { return false }
 
         let process = Process()
@@ -923,7 +923,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     private func generateWAVWithKokoroWorker(text: String, outputURL: URL) -> Bool {
-        guard SpeechRuntimeResourceManager.isInstalled(.kokoro) else {
+        guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else {
             stopKokoroWorker()
             return false
         }
@@ -976,7 +976,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     private func ensureKokoroWorker() -> Bool {
-        guard SpeechRuntimeResourceManager.isInstalled(.kokoro) else { return false }
+        guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
         if kokoroWorkerProcess?.isRunning == true {
             return true
         }

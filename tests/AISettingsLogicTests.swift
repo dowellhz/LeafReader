@@ -188,6 +188,15 @@ enum AISettingsLogicTests {
         }
     }
 
+    static func testSpeechRuntimeDownloadURLsUseReleaseAssets() throws {
+        let kittenURL = SpeechRuntimeResourceManager.Runtime.kitten.downloadURL.absoluteString
+        let kokoroURL = SpeechRuntimeResourceManager.Runtime.kokoro.downloadURL.absoluteString
+
+        try expect(kittenURL.hasSuffix("/kitten-tts-rs-macos-arm64.tar.gz"), "KittenTTS should use the release asset archive")
+        try expect(kokoroURL.hasSuffix("/kokoro-coreml-macos-arm64.tar.gz"), "Kokoro should use the release asset archive")
+        try expect(!kittenURL.contains("/v1.4.18/"), "KittenTTS download URL should not be pinned to the old 1.4.18 release")
+    }
+
     static func testEmbeddingKeyIsolation() throws {
         var store = EmbeddingKeyStore()
         store.saveEmbeddingKey("openai-key", optionID: "openai")

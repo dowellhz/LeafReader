@@ -75,7 +75,7 @@ enum SpeechRuntimeResourceManager {
             case .kokoro:
                 return Self.releaseAssetURL(fileName: "kokoro-coreml-macos-arm64.tar.gz")
             case .kitten:
-                return URL(string: "https://github.com/dowellhz/LeafReader/releases/download/v1.4.18/kitten-tts-rs-macos-arm64.tar.gz")!
+                return Self.releaseAssetURL(fileName: "kitten-tts-rs-macos-arm64.tar.gz")
             }
         }
 
@@ -140,8 +140,7 @@ enum SpeechRuntimeResourceManager {
         }
     }
 
-    static func isInstalled(_ runtime: Runtime) -> Bool {
-        guard runtime.isSupportedOnCurrentSystem else { return false }
+    static func isDownloaded(_ runtime: Runtime) -> Bool {
         if runtime == .kitten {
             return runtime.installDirectories.contains { directory in
                 kittenRuntimePathsExist(in: directory)
@@ -159,17 +158,21 @@ enum SpeechRuntimeResourceManager {
         }
     }
 
-    static func installedRuntime(preferredID: String) -> Runtime? {
-        if let preferred = Runtime.runtime(for: preferredID),
-           isInstalled(preferred) {
-            return preferred
-        }
-        return installedReadAloudRuntimes().first
+    static func isRunnable(_ runtime: Runtime) -> Bool {
+        runtime.isSupportedOnCurrentSystem && isDownloaded(runtime)
     }
 
-    static func installedReadAloudRuntimes() -> [Runtime] {
+    static func runnableRuntime(preferredID: String) -> Runtime? {
+        if let preferred = Runtime.runtime(for: preferredID),
+           isRunnable(preferred) {
+            return preferred
+        }
+        return runnableReadAloudRuntimes().first
+    }
+
+    static func runnableReadAloudRuntimes() -> [Runtime] {
         Runtime.displayOrder.filter { runtime in
-            isInstalled(runtime)
+            isRunnable(runtime)
         }
     }
 
@@ -251,16 +254,25 @@ enum SpeechRuntimeResourceManager {
 
     static func statusText(for runtime: Runtime) -> String {
         let size = runtime.downloadSizeText
-        if !runtime.isSupportedOnCurrentSystem {
-            return AppText.localized("需要 \(runtime.minimumSystemVersionText) 或更高 · \(size)", "Requires \(runtime.minimumSystemVersionText) or later · \(size)")
-        }
         if isDownloading(runtime) {
             if isPaused(runtime) {
                 return AppText.localized("已暂停 · \(size)", "Paused · \(size)")
             }
             return AppText.localized("下载中 · \(size)", "Downloading · \(size)")
         }
-        if isInstalled(runtime) {
+        if !runtime.isSupportedOnCurrentSystem {
+            if isDownloaded(runtime) {
+                return AppText.localized(
+                    "已下载 · 需要 \(runtime.minimumSystemVersionText) 或更高",
+                    "Downloaded · Requires \(runtime.minimumSystemVersionText) or later"
+                )
+            }
+            return AppText.localized(
+                "未下载 · 需要 \(runtime.minimumSystemVersionText) 或更高 · \(size)",
+                "Not downloaded · Requires \(runtime.minimumSystemVersionText) or later · \(size)"
+            )
+        }
+        if isRunnable(runtime) {
             return AppText.localized("已安装 · \(size)", "Installed · \(size)")
         }
         return AppText.localized("未安装 · \(size)", "Not installed · \(size)")

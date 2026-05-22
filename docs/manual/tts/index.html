@@ -1039,8 +1039,9 @@
 <ul>
 <li>KittenTTS is the default local runtime target for macOS 12 and later.</li>
 <li>Kokoro can be downloaded on older macOS versions, but it requires macOS 14 or later to run. The settings UI shows a compatibility warning before download on unsupported systems.</li>
-<li><code>SpeechRuntimeResourceManager.isInstalled(_:)</code> only reports a runtime as selectable when the files are present and the current macOS version can run it.</li>
-<li><code>SpeechRuntimeResourceManager.installedRuntime(preferredID:)</code> is the runtime selection gate used by playback code.</li>
+<li><code>SpeechRuntimeResourceManager.isDownloaded(_:)</code> checks whether runtime files are present, independent of the current macOS version.</li>
+<li><code>SpeechRuntimeResourceManager.isRunnable(_:)</code> checks both downloaded files and the current macOS runtime requirement.</li>
+<li><code>SpeechRuntimeResourceManager.runnableRuntime(preferredID:)</code> is the runtime selection gate used by playback code.</li>
 <li>Download status text is user-facing; keep it aligned with the actual install and compatibility checks.</li>
 </ul>
 <h2 id="packaging-and-release">Packaging And Release<a class="headerlink" href="#packaging-and-release" title="Permanent link">&para;</a></h2>

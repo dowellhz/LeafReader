@@ -51,6 +51,8 @@ swiftc \
   mac-app/AIModelConfig.swift \
   mac-app/LocalEncryptedStore.swift \
   mac-app/AISettingsStore.swift \
+  mac-app/SpeechRuntimeResourceManager.swift \
+  mac-app/RuntimeDownload.swift \
   mac-app/ReadingContextSnapshot.swift \
   mac-app/ReaderDocumentKind.swift \
   mac-app/VocabularyExporter.swift \
