@@ -10,6 +10,12 @@ enum SpeechRuntimeResourceManager {
     private static let downloadErrorDomain = "LeafReader.SpeechRuntime.Download"
     private static let maxDownloadAttempts = 4
     private static let releaseDownloadsBaseURL = "https://github.com/dowellhz/LeafReader/releases"
+    private static let installManifestFileName = ".leafreader-install-manifest.json"
+
+    fileprivate struct InstallManifest: Codable {
+        let runtimeID: String
+        let cacheDirectoryPaths: [String]
+    }
 
     enum Runtime: CaseIterable {
         case kokoro
@@ -336,10 +342,12 @@ enum SpeechRuntimeResourceManager {
 
     static func delete(_ runtime: Runtime) throws {
         _ = stopActiveDownload(for: runtime)
+        let manifest = installManifest(for: runtime)
         try removeItemIfExists(at: partialDownloadURL(for: runtime))
         try removeItemIfExists(at: runtime.installDirectory)
         if runtime == .kokoro {
-            for modelCacheDirectory in kokoroModelCacheDirectories() {
+            let modelCacheDirectories = manifest?.cacheDirectories ?? kokoroModelCacheDirectories()
+            for modelCacheDirectory in modelCacheDirectories {
                 try removeItemIfExists(at: modelCacheDirectory)
             }
         }
@@ -545,7 +553,10 @@ enum SpeechRuntimeResourceManager {
         }
         do {
             if runtime == .kokoro {
-                try installBundledKokoroModelCache(from: runtime.installDirectory)
+                let cacheDirectories = try installBundledKokoroModelCache(from: runtime.installDirectory)
+                try? writeInstallManifest(runtime: runtime, cacheDirectories: cacheDirectories)
+            } else {
+                try? writeInstallManifest(runtime: runtime, cacheDirectories: [])
             }
         } catch {
             restoreRuntimeInstall(runtime, from: backupDirectory)
@@ -577,10 +588,11 @@ enum SpeechRuntimeResourceManager {
         }
     }
 
-    private static func installBundledKokoroModelCache(from installDirectory: URL) throws {
+    private static func installBundledKokoroModelCache(from installDirectory: URL) throws -> [URL] {
         let fileManager = FileManager.default
         let cacheRoot = Runtime.fluidAudioModelCacheRoot
         try fileManager.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
+        var installedDirectories: [URL] = []
         for name in ["kokoro", "kokoro-82m-coreml"] {
             let source = installDirectory.appendingPathComponent("Models/\(name)", isDirectory: true)
             var isDirectory: ObjCBool = false
@@ -597,6 +609,7 @@ enum SpeechRuntimeResourceManager {
             }
             do {
                 try fileManager.moveItem(at: source, to: destination)
+                installedDirectories.append(destination)
             } catch {
                 if fileManager.fileExists(atPath: backup.path),
                    !fileManager.fileExists(atPath: destination.path) {
@@ -605,6 +618,7 @@ enum SpeechRuntimeResourceManager {
                 throw error
             }
         }
+        return installedDirectories
     }
 
     private static func restoreRuntimeInstall(_ runtime: Runtime, from backupDirectory: URL) {
@@ -612,5 +626,46 @@ enum SpeechRuntimeResourceManager {
         guard fileManager.fileExists(atPath: backupDirectory.path) else { return }
         try? fileManager.removeItem(at: runtime.installDirectory)
         try? fileManager.moveItem(at: backupDirectory, to: runtime.installDirectory)
+    }
+
+    private static func installManifestURL(for runtime: Runtime) -> URL {
+        runtime.installDirectory.appendingPathComponent(installManifestFileName)
+    }
+
+    private static func writeInstallManifest(runtime: Runtime, cacheDirectories: [URL]) throws {
+        let manifest = InstallManifest(
+            runtimeID: runtime.id,
+            cacheDirectoryPaths: cacheDirectories.map(\.path)
+        )
+        let data = try JSONEncoder().encode(manifest)
+        try data.write(to: installManifestURL(for: runtime), options: .atomic)
+    }
+
+    private static func installManifest(for runtime: Runtime) -> InstallManifest? {
+        guard let data = try? Data(contentsOf: installManifestURL(for: runtime)),
+              let manifest = try? JSONDecoder().decode(InstallManifest.self, from: data),
+              manifest.runtimeID == runtime.id else {
+            return nil
+        }
+        return manifest
+    }
+}
+
+private extension SpeechRuntimeResourceManager.InstallManifest {
+    var cacheDirectories: [URL] {
+        cacheDirectoryPaths.compactMap { path in
+            let url = URL(fileURLWithPath: path, isDirectory: true)
+            return url.isInsideFluidAudioModelCache ? url : nil
+        }
+    }
+}
+
+private extension URL {
+    var isInsideFluidAudioModelCache: Bool {
+        let rootPath = SpeechRuntimeResourceManager.Runtime.fluidAudioModelCacheRoot
+            .standardizedFileURL
+            .path
+        let path = standardizedFileURL.path
+        return path.hasPrefix(rootPath + "/")
     }
 }
