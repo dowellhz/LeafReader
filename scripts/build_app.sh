@@ -11,8 +11,8 @@ KITTEN_RUNTIME_DIR="${KITTEN_RUNTIME_DIR:-$HOME/.local/share/leafreader/kittentt
 KITTEN_RUNTIME_ARCHIVE="${KITTEN_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kitten-tts-rs-macos-arm64.tar.gz}"
 KOKORO_RUNTIME="${KOKORO_RUNTIME:-$HOME/.local/share/leafreader/kokoro-coreml/fluidaudiocli}"
 KOKORO_RUNTIME_ARCHIVE="${KOKORO_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kokoro-coreml-macos-arm64.tar.gz}"
-ESPEAK_NG_ROOT="${ESPEAK_NG_ROOT:-/opt/homebrew/opt/espeak-ng}"
-PCAUDIOLIB_ROOT="${PCAUDIOLIB_ROOT:-/opt/homebrew/opt/pcaudiolib}"
+ESPEAK_NG_ROOT="${ESPEAK_NG_ROOT:-$HOME/.local/share/leafreader/espeak-ng-macos12}"
+PCAUDIOLIB_ROOT="${PCAUDIOLIB_ROOT:-$ESPEAK_NG_ROOT}"
 export COPYFILE_DISABLE=1
 
 if [[ ! -d "$SPARKLE_HOME/Sparkle.framework" ]]; then

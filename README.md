@@ -28,6 +28,13 @@ Project website:
 
 https://leafreader.space/
 
+## System Requirements
+
+- macOS 12.0 Monterey or later.
+- Apple Silicon or Intel Mac.
+- An API key is optional and only needed for AI features.
+- Optional Kokoro local speech requires macOS 14.0 or later. KittenTTS local speech supports the app baseline, macOS 12.0 Monterey or later.
+
 ## Highlights
 
 - Open local PDF, EPUB, and DOCX files in one macOS app.
@@ -45,6 +52,12 @@ https://leafreader.space/
 Leaf Reader can use [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) or [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs) for English text-to-speech. Small speech runtime executables are bundled in the installer; large model files are downloaded on demand. Open Settings -> AI Analysis -> Speech to download Kokoro or KittenTTS.
 
 Runtime priority is automatic: KittenTTS first, then Kokoro. Short word or phrase selections use Apple TTS directly.
+
+Runtime OS requirements:
+
+- Kokoro local speech requires macOS 14.0 or later.
+- KittenTTS local speech supports macOS 12.0 Monterey or later.
+- The main reader app still supports macOS 12.0 Monterey or later; unsupported local speech runtimes are skipped.
 
 Download packages are served from GitHub Releases:
 
@@ -243,7 +256,7 @@ Generate the website packages with:
 
 ## Requirements
 
-- macOS 12.0 or later.
+- macOS 12.0 Monterey or later.
 - Swift toolchain with Cocoa, PDFKit, WebKit, and CryptoKit frameworks.
 - An API key for AI features, configured inside the app settings.
 
@@ -263,6 +276,13 @@ Install Sparkle first:
 
 ```sh
 brew install --cask sparkle
+```
+
+Build the macOS 12-compatible KittenTTS `espeak-ng` helper runtime:
+
+```sh
+brew install autoconf automake libtool pkgconf
+./scripts/build_espeak_ng_runtime.sh
 ```
 
 Create the app bundle directory if needed, then compile the Swift sources:

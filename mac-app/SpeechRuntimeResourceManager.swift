@@ -44,6 +44,28 @@ enum SpeechRuntimeResourceManager {
             }
         }
 
+        var minimumSystemVersion: OperatingSystemVersion {
+            switch self {
+            case .kokoro:
+                return OperatingSystemVersion(majorVersion: 14, minorVersion: 0, patchVersion: 0)
+            case .kitten:
+                return OperatingSystemVersion(majorVersion: 12, minorVersion: 0, patchVersion: 0)
+            }
+        }
+
+        var minimumSystemVersionText: String {
+            switch self {
+            case .kokoro:
+                return "macOS 14.0"
+            case .kitten:
+                return "macOS 12.0"
+            }
+        }
+
+        var isSupportedOnCurrentSystem: Bool {
+            ProcessInfo.processInfo.isOperatingSystemAtLeast(minimumSystemVersion)
+        }
+
         static func runtime(for id: String) -> Runtime? {
             displayOrder.first { $0.id == id }
         }
@@ -123,6 +145,7 @@ enum SpeechRuntimeResourceManager {
     }
 
     static func isInstalled(_ runtime: Runtime) -> Bool {
+        guard runtime.isSupportedOnCurrentSystem else { return false }
         if runtime == .kitten {
             return runtime.installDirectories.contains { directory in
                 kittenRuntimePathsExist(in: directory)
@@ -232,6 +255,9 @@ enum SpeechRuntimeResourceManager {
 
     static func statusText(for runtime: Runtime) -> String {
         let size = runtime.downloadSizeText
+        if !runtime.isSupportedOnCurrentSystem {
+            return AppText.localized("需要 \(runtime.minimumSystemVersionText) 或更高 · \(size)", "Requires \(runtime.minimumSystemVersionText) or later · \(size)")
+        }
         if isDownloading(runtime) {
             if isPaused(runtime) {
                 return AppText.localized("已暂停 · \(size)", "Paused · \(size)")
@@ -319,6 +345,23 @@ enum SpeechRuntimeResourceManager {
     }
 
     static func download(_ runtime: Runtime, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard runtime.isSupportedOnCurrentSystem else {
+            let error = NSError(
+                domain: "LeafReader.SpeechRuntime",
+                code: -10,
+                userInfo: [
+                    NSLocalizedDescriptionKey: AppText.localized(
+                        "\(runtime.title) 需要 \(runtime.minimumSystemVersionText) 或更高版本。",
+                        "\(runtime.title) requires \(runtime.minimumSystemVersionText) or later."
+                    )
+                ]
+            )
+            DispatchQueue.main.async {
+                completion(.failure(error))
+            }
+            return
+        }
+
         var shouldStart = false
         stateQueue.sync {
             if activeDownloads[runtime] != nil {
