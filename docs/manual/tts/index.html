@@ -1043,7 +1043,8 @@
 <li><code>SpeechRuntimeResourceManager.isDownloaded(_:)</code> checks whether runtime files are present, independent of the current macOS version.</li>
 <li><code>SpeechRuntimeResourceManager.isRunnable(_:)</code> checks both downloaded files and the current macOS runtime requirement.</li>
 <li><code>SpeechRuntimeResourceManager.runnableRuntime(preferredID:)</code> is the runtime selection gate used by playback code.</li>
-<li>Runtime installs write <code>.leafreader-install-manifest.json</code>; Kokoro cache replacement is transactional, and deletion uses that manifest to remove only Leaf Reader-installed FluidAudio cache directories, with legacy fallback for older installs.</li>
+<li>Runtime installs write <code>.leafreader-install-manifest.json</code>; manifest write failure aborts install and rolls back, Kokoro cache replacement is transactional, and deletion uses that manifest to remove only Leaf Reader-installed FluidAudio cache directories, with legacy fallback for older installs.</li>
+<li>The runtime picker shows why unavailable runtimes cannot be selected, such as missing downloads, incomplete files, or macOS version requirements.</li>
 <li>Download attempts carry an active task ID so stale callbacks from cancelled or superseded downloads cannot update current progress or completion state.</li>
 <li>Download failures are stored per runtime and shown in the settings status, including unsupported macOS states, until the next successful download, cancellation, or delete.</li>
 <li>Download and delete error alerts use the shared network/error sanitizer before showing details to the user.</li>

@@ -191,10 +191,10 @@ extension AISettingsPanelController {
             let runnable = runnableRuntimes.contains(runtime)
             if runnable {
                 item.title = runtime.title
-            } else if SpeechRuntimeResourceManager.isDownloaded(runtime) {
-                item.title = AppText.localized("\(runtime.title)（不可用）", "\(runtime.title) (Unavailable)")
+            } else if let reason = SpeechRuntimeResourceManager.availabilityText(for: runtime) {
+                item.title = "\(runtime.title)（\(reason)）"
             } else {
-                item.title = AppText.localized("\(runtime.title)（未下载）", "\(runtime.title) (Not downloaded)")
+                item.title = AppText.localized("\(runtime.title)（不可用）", "\(runtime.title) (Unavailable)")
             }
             item.isEnabled = runnable
         }

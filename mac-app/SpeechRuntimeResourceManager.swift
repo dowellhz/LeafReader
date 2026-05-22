@@ -175,6 +175,20 @@ enum SpeechRuntimeResourceManager {
         runtime.isSupportedOnCurrentSystem && isDownloaded(runtime)
     }
 
+    static func availabilityText(for runtime: Runtime) -> String? {
+        guard !isRunnable(runtime) else { return nil }
+        if !runtime.isSupportedOnCurrentSystem {
+            return AppText.localized(
+                "需要 \(runtime.minimumSystemVersionText)",
+                "Requires \(runtime.minimumSystemVersionText)"
+            )
+        }
+        if isDownloaded(runtime) {
+            return AppText.localized("文件不完整", "Incomplete files")
+        }
+        return AppText.localized("未下载", "Not downloaded")
+    }
+
     static func runnableRuntime(preferredID: String) -> Runtime? {
         if let preferred = Runtime.runtime(for: preferredID),
            isRunnable(preferred) {
@@ -614,9 +628,9 @@ enum SpeechRuntimeResourceManager {
         do {
             if runtime == .kokoro {
                 let cacheDirectories = try installBundledKokoroModelCache(from: runtime.installDirectory)
-                try? writeInstallManifest(runtime: runtime, cacheDirectories: cacheDirectories)
+                try writeInstallManifest(runtime: runtime, cacheDirectories: cacheDirectories)
             } else {
-                try? writeInstallManifest(runtime: runtime, cacheDirectories: [])
+                try writeInstallManifest(runtime: runtime, cacheDirectories: [])
             }
         } catch {
             restoreRuntimeInstall(runtime, from: backupDirectory)
