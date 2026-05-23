@@ -1,0 +1,331 @@
+import Cocoa
+import PDFKit
+
+extension ReaderWindowController {
+    func readCurrentPDFPageRemainderAndContinue(startAtPageTop: Bool) {
+        guard isReadAloudActive else { return }
+        guard !isReadAloudPaused else {
+            pendingReadAloudPDFContinuation = .currentScreen(startAtPageTop: startAtPageTop)
+            return
+        }
+        pendingReadAloudPDFContinuation = nil
+        guard let batch = pdfReadAloudBatchFromCurrentScreen(startAtPageTop: startAtPageTop) else {
+            continueReadAloudAfterCurrentPDFScreen()
+            return
+        }
+
+        ttsReadingPDFPages = batch.pages
+        ttsReadingPDFPageTextCache = batch.pageTextCache
+        ttsReadingPDFCandidatePageIndex = 0
+        ttsReadingPDFSearchLocation = 0
+
+        KittenTTSPlayer.shared.speakEnglish(segments: batch.segments) { [weak self] didUseKittenTTS in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                self.handleReadAloudStartResult(didUseKittenTTS: didUseKittenTTS)
+            }
+        } finished: { [weak self] in
+            DispatchQueue.main.async {
+                self?.continueReadAloudAfterPDFBatch(lastQueuedPage: batch.lastPage)
+            }
+        }
+    }
+
+    func resumePendingPDFReadAloudIfNeeded() {
+        guard currentDocumentKind == .pdf,
+              isReadAloudActive,
+              !isReadAloudPaused,
+              !KittenTTSPlayer.shared.hasActiveReadAloudWork() else {
+            return
+        }
+        let continuation = pendingReadAloudPDFContinuation
+        pendingReadAloudPDFContinuation = nil
+        switch continuation {
+        case .afterBatch(let lastQueuedPage):
+            continueReadAloudAfterPDFBatch(lastQueuedPage: lastQueuedPage)
+        case .afterCurrentScreen:
+            continueReadAloudAfterCurrentPDFScreen()
+        case .waitForPage(let expectedPageIndex, let previousPageIndex, let startAtPageTop):
+            waitForPDFReadAloudPageChange(
+                expectedPageIndex: expectedPageIndex,
+                previousPageIndex: previousPageIndex,
+                startAtPageTop: startAtPageTop
+            )
+        case .currentScreen(let startAtPageTop):
+            readCurrentPDFPageRemainderAndContinue(startAtPageTop: startAtPageTop)
+        case nil:
+            readCurrentPDFPageRemainderAndContinue(startAtPageTop: false)
+        }
+    }
+
+    private func continueReadAloudAfterPDFBatch(lastQueuedPage: PDFPage) {
+        guard isReadAloudActive else { return }
+        guard !isReadAloudPaused else {
+            pendingReadAloudPDFContinuation = .afterBatch(lastQueuedPage: lastQueuedPage)
+            return
+        }
+        pendingReadAloudPDFContinuation = nil
+        guard let document = pdfView.document else {
+            continueReadAloudAfterCurrentPDFScreen()
+            return
+        }
+        let lastQueuedIndex = document.index(for: lastQueuedPage)
+        guard lastQueuedIndex != NSNotFound else {
+            continueReadAloudAfterCurrentPDFScreen()
+            return
+        }
+        continueReadAloudFromPDFPageTop(at: lastQueuedIndex + 1, previousPageIndex: nil)
+    }
+
+    private func continueReadAloudAfterCurrentPDFScreen() {
+        guard isReadAloudActive else { return }
+        guard !isReadAloudPaused else {
+            pendingReadAloudPDFContinuation = .afterCurrentScreen
+            return
+        }
+        pendingReadAloudPDFContinuation = nil
+        guard let before = currentPageIndex() else {
+            finishReadAloudFromToolbar()
+            return
+        }
+        continueReadAloudFromPDFPageTop(at: before + 1, previousPageIndex: before)
+    }
+
+    private func waitForPDFReadAloudPageChange(
+        expectedPageIndex: Int?,
+        previousPageIndex: Int?,
+        startAtPageTop: Bool,
+        attemptsRemaining: Int = 10
+    ) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let self, self.isReadAloudActive else { return }
+            guard !self.isReadAloudPaused else {
+                self.pendingReadAloudPDFContinuation = .waitForPage(
+                    expectedPageIndex: expectedPageIndex,
+                    previousPageIndex: previousPageIndex,
+                    startAtPageTop: startAtPageTop
+                )
+                return
+            }
+
+            let current = self.currentPageIndex()
+            let reachedTarget = expectedPageIndex.map { current == $0 } ?? false
+            let movedFromPrevious = previousPageIndex.map { current != nil && current != $0 } ?? false
+            if reachedTarget || movedFromPrevious {
+                self.readCurrentPDFPageRemainderAndContinue(startAtPageTop: startAtPageTop)
+                return
+            }
+
+            guard attemptsRemaining > 0 else {
+                self.recoverFromPDFReadAloudPageWaitTimeout(
+                    expectedPageIndex: expectedPageIndex,
+                    previousPageIndex: previousPageIndex,
+                    startAtPageTop: startAtPageTop
+                )
+                return
+            }
+            self.waitForPDFReadAloudPageChange(
+                expectedPageIndex: expectedPageIndex,
+                previousPageIndex: previousPageIndex,
+                startAtPageTop: startAtPageTop,
+                attemptsRemaining: attemptsRemaining - 1
+            )
+        }
+    }
+
+    private func recoverFromPDFReadAloudPageWaitTimeout(
+        expectedPageIndex: Int?,
+        previousPageIndex: Int?,
+        startAtPageTop: Bool
+    ) {
+        if let expectedPageIndex,
+           let document = pdfView.document,
+           expectedPageIndex >= 0,
+           expectedPageIndex < document.pageCount,
+           let page = document.page(at: expectedPageIndex) {
+            NSLog("LeafReader read aloud: forcing PDF page after delayed page change (target=%d)", expectedPageIndex + 1)
+            goToPDFReadAloudPageTop(page)
+            lastPageIndex = expectedPageIndex
+            updatePageLabel()
+            saveSession()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                guard let self, self.isReadAloudActive else { return }
+                guard !self.isReadAloudPaused else {
+                    self.pendingReadAloudPDFContinuation = .waitForPage(
+                        expectedPageIndex: expectedPageIndex,
+                        previousPageIndex: previousPageIndex,
+                        startAtPageTop: startAtPageTop
+                    )
+                    return
+                }
+                self.readCurrentPDFPageRemainderAndContinue(startAtPageTop: startAtPageTop)
+            }
+            return
+        }
+
+        if let previousPageIndex,
+           currentPageIndex() == previousPageIndex {
+            finishReadAloudFromToolbar()
+            return
+        }
+        readCurrentPDFPageRemainderAndContinue(startAtPageTop: startAtPageTop)
+    }
+
+    private func goToPDFReadAloudPageTop(_ page: PDFPage) {
+        let bounds = page.bounds(for: pdfView.displayBox)
+        let destination = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY))
+        pdfView.go(to: destination)
+        if let pageIndex = pdfView.document?.index(for: page), pageIndex != NSNotFound {
+            ttsPageLockedAtTopIndex = pageIndex
+        }
+    }
+
+    private func continueReadAloudFromPDFPageTop(at pageIndex: Int, previousPageIndex: Int?) {
+        guard let document = pdfView.document,
+              pageIndex >= 0,
+              pageIndex < document.pageCount,
+              let page = document.page(at: pageIndex) else {
+            finishReadAloudFromToolbar()
+            return
+        }
+        goToPDFReadAloudPageTop(page)
+        waitForPDFReadAloudPageChange(
+            expectedPageIndex: pageIndex,
+            previousPageIndex: previousPageIndex,
+            startAtPageTop: true
+        )
+    }
+
+    private func pdfTextFromVisibleTopToPageEnd(of page: PDFPage) -> String? {
+        let pageBounds = page.bounds(for: pdfView.displayBox)
+        let visibleRect = pdfView.convert(pdfView.bounds, to: page)
+            .intersection(pageBounds)
+        let verticalChromeInset = max(24, pageBounds.height * 0.06)
+        let contentTopY = pageBounds.maxY - verticalChromeInset
+        let contentBottomY = pageBounds.minY + verticalChromeInset
+        let topY = visibleRect.isNull
+            ? contentTopY
+            : min(max(visibleRect.maxY, contentBottomY), contentTopY)
+        let unreadRect = CGRect(
+            x: pageBounds.minX,
+            y: contentBottomY,
+            width: pageBounds.width,
+            height: max(0, topY - contentBottomY)
+        )
+        let selection = unreadRect.width > 0 && unreadRect.height > 0
+            ? page.selection(for: unreadRect)
+            : nil
+        let rawText = selection?.string?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? page.string?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? ""
+        let text = strippedPDFChromeForReadAloud(rawText, page: page)
+        guard Self.readAloudWordCount(in: text) >= 4 else { return nil }
+        return text.isEmpty ? nil : text
+    }
+
+    private static func readAloudWordCount(in text: String) -> Int {
+        text.split { !$0.isLetter && !$0.isNumber }.count
+    }
+
+    private struct PDFReadAloudBatch {
+        let pages: [PDFPage]
+        let pageTextCache: [Int: String]
+        let segments: [KittenTTSPlayer.ReadAloudSegment]
+        let lastPage: PDFPage
+    }
+
+    private func pdfReadAloudBatchFromCurrentScreen(startAtPageTop: Bool) -> PDFReadAloudBatch? {
+        guard let page = pdfView.currentPage,
+              let pageIndex = pdfView.document?.index(for: page),
+              pageIndex != NSNotFound else {
+            return nil
+        }
+        let text = startAtPageTop
+            ? pdfTextForFullPageReadAloud(page)
+            : pdfTextFromVisibleTopToPageEnd(of: page)
+        guard let text else { return nil }
+        var pages = [page]
+        var pageTexts: [PDFReadAloudPageText] = []
+        var pageTextCache: [Int: String] = [:]
+        pageTextCache[pageIndex] = page.string ?? ""
+
+        if let nextPage = nextPDFPage(after: page),
+           let nextPageIndex = pdfView.document?.index(for: nextPage),
+           nextPageIndex != NSNotFound,
+           let nextText = pdfTextForFullPageReadAloud(nextPage) {
+            pages.append(nextPage)
+            pageTextCache[nextPageIndex] = nextPage.string ?? ""
+            pageTexts.append(PDFReadAloudPageText(pageIndex: pageIndex, text: text))
+            pageTexts.append(PDFReadAloudPageText(pageIndex: nextPageIndex, text: nextText))
+        } else {
+            pageTexts.append(PDFReadAloudPageText(pageIndex: pageIndex, text: text))
+        }
+
+        let segments = Self.pdfReadAloudSegments(from: pageTexts)
+        guard !segments.isEmpty else { return nil }
+        return PDFReadAloudBatch(
+            pages: pages,
+            pageTextCache: pageTextCache,
+            segments: segments,
+            lastPage: pages.last ?? page
+        )
+    }
+
+    private struct PDFReadAloudPageText {
+        let pageIndex: Int
+        let text: String
+    }
+
+    private static func pdfReadAloudSegments(from pageTexts: [PDFReadAloudPageText]) -> [KittenTTSPlayer.ReadAloudSegment] {
+        var segments: [KittenTTSPlayer.ReadAloudSegment] = []
+        for pageText in pageTexts {
+            let text = pageText.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { continue }
+            for sourceSegment in SpeechTextPolicy.segments(for: text) {
+                let speechText = SpeechTextPolicy.normalizedReadAloudInput(sourceSegment)
+                guard !speechText.isEmpty else { continue }
+                segments.append(KittenTTSPlayer.ReadAloudSegment(
+                    speechText: speechText,
+                    displayText: speechText,
+                    matchText: sourceSegment,
+                    pageIndex: pageText.pageIndex
+                ))
+            }
+        }
+        return segments
+    }
+
+    private func nextPDFPage(after page: PDFPage) -> PDFPage? {
+        guard let document = pdfView.document else { return nil }
+        let pageIndex = document.index(for: page)
+        guard pageIndex != NSNotFound, pageIndex + 1 < document.pageCount else { return nil }
+        return document.page(at: pageIndex + 1)
+    }
+
+    private func pdfTextForFullPageReadAloud(_ page: PDFPage) -> String? {
+        let rawText = page.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let text = strippedPDFChromeForReadAloud(rawText, page: page)
+        guard Self.readAloudWordCount(in: text) >= 4 else { return nil }
+        return text.isEmpty ? nil : text
+    }
+
+    private func strippedPDFChromeForReadAloud(_ text: String, page: PDFPage) -> String {
+        guard let document = pdfView.document else {
+            return ReaderAIContextBuilder.stripPDFPageChrome(
+                from: text,
+                previousText: "",
+                nextText: "",
+                title: titleLabel.stringValue
+            ).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let pageIndex = document.index(for: page)
+        let previousText = pageIndex > 0 ? document.page(at: pageIndex - 1)?.string ?? "" : ""
+        let nextText = pageIndex + 1 < document.pageCount ? document.page(at: pageIndex + 1)?.string ?? "" : ""
+        return ReaderAIContextBuilder.stripPDFPageChrome(
+            from: text,
+            previousText: previousText,
+            nextText: nextText,
+            title: titleLabel.stringValue
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}

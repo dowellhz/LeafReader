@@ -52,47 +52,12 @@ enum AISettingsStore {
     static let kokoroSpeechVoiceKey = "kokoroSpeechVoice"
     private static let defaultSpeechRuntimeID = "kitten"
     private static let defaultSpeechSpeedID = "normal"
-    static let defaultKittenSpeechVoiceID = "Jasper"
-    static let defaultKokoroSpeechVoiceID = "af_heart"
+    static let defaultKittenSpeechVoiceID = SpeechVoiceCatalog.defaultKittenVoiceID
+    static let defaultKokoroSpeechVoiceID = SpeechVoiceCatalog.defaultKokoroVoiceID
     private static let validSpeechRuntimeIDs = Set(["kokoro", "kitten"])
     private static let validSpeechSpeedIDs = Set(["fast", "normal", "slow", "verySlow"])
-    private static let validKittenSpeechVoiceIDs = Set(["Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo"])
-    private typealias SpeechVoiceDefinition = (zhTitle: String, enTitle: String, id: String)
-
-    private static let kokoroEnglishSpeechVoiceDefinitions: [SpeechVoiceDefinition] = [
-        ("美国女声 Bella", "American Female Bella", "af_bella"),
-        ("美国女声 Heart", "American Female Heart", "af_heart"),
-        ("美国男声 Adam", "American Male Adam", "am_adam"),
-        ("美国男声 Michael", "American Male Michael", "am_michael"),
-        ("英国女声 Emma", "British Female Emma", "bf_emma"),
-        ("英国女声 Isabella", "British Female Isabella", "bf_isabella"),
-        ("英国男声 George", "British Male George", "bm_george"),
-        ("英国男声 Lewis", "British Male Lewis", "bm_lewis")
-    ]
-    static let kokoroEnglishSpeechVoiceIDs = Set(
-        kokoroEnglishSpeechVoiceDefinitions.map { $0.id }
-    )
-    private static let kokoroChineseSpeechVoiceDefinitions: [SpeechVoiceDefinition] = [
-        ("中文女声 1", "Chinese Female 1", "zf_001"),
-        ("中文女声 2", "Chinese Female 2", "zf_002"),
-        ("中文女声 3", "Chinese Female 3", "zf_003"),
-        ("中文女声 4", "Chinese Female 4", "zf_004"),
-        ("中文女声 5", "Chinese Female 5", "zf_005"),
-        ("中文男声 1", "Chinese Male 1", "zm_009"),
-        ("中文男声 2", "Chinese Male 2", "zm_010"),
-        ("中文男声 3", "Chinese Male 3", "zm_011"),
-        ("中文男声 4", "Chinese Male 4", "zm_012"),
-        ("浑厚男", "Deep Male", "zm_013"),
-        ("Maple", "Maple", "af_maple"),
-        ("Sol", "Sol", "af_sol"),
-        ("Vale", "Vale", "bf_vale")
-    ]
-    static let kokoroChineseSpeechVoiceIDs = Set(
-        kokoroChineseSpeechVoiceDefinitions.map { $0.id }
-    )
-    private static let validKokoroSpeechVoiceIDs = Set(
-        (kokoroEnglishSpeechVoiceDefinitions + kokoroChineseSpeechVoiceDefinitions).map { $0.id }
-    )
+    static let kokoroEnglishSpeechVoiceIDs = SpeechVoiceCatalog.kokoroEnglishVoiceIDs
+    static let kokoroChineseSpeechVoiceIDs = SpeechVoiceCatalog.kokoroChineseVoiceIDs
     private static var defaults: UserDefaults = .standard
     private static let fallbackCustomEndpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private static let fallbackEmbeddingEndpoint = URL(string: "https://api.openai.com/v1/embeddings")!
@@ -371,28 +336,15 @@ enum AISettingsStore {
     }
 
     static var kittenSpeechVoiceOptions: [(title: String, id: String)] {
-        ["Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo"].map { ($0, $0) }
+        SpeechVoiceCatalog.kittenVoiceOptions
     }
 
     static var kokoroSpeechVoiceOptions: [(title: String, id: String)] {
-        kokoroSpeechVoiceOptions(languageHint: nil)
+        SpeechVoiceCatalog.kokoroVoiceOptions
     }
 
     static func kokoroSpeechVoiceOptions(languageHint: SpeechLanguageHint?) -> [(title: String, id: String)] {
-        let englishOptions = localizedSpeechVoiceOptions(kokoroEnglishSpeechVoiceDefinitions)
-        let chineseOptions = localizedSpeechVoiceOptions(kokoroChineseSpeechVoiceDefinitions)
-        let availableIDs = availableKokoroSpeechVoiceIDs()
-        let installedChineseOptions = availableIDs.isEmpty
-            ? chineseOptions
-            : chineseOptions.filter { availableIDs.contains($0.id) }
-        switch languageHint {
-        case .english:
-            return englishOptions
-        case .chinese:
-            return installedChineseOptions
-        case .none:
-            return englishOptions + installedChineseOptions
-        }
+        SpeechVoiceCatalog.kokoroVoiceOptions(languageHint: languageHint)
     }
 
     static func speechVoiceOptions(runtimeID: String?) -> [(title: String, id: String)] {
@@ -408,12 +360,7 @@ enum AISettingsStore {
     }
 
     static func selectedKokoroSpeechVoiceID(languageHint: SpeechLanguageHint?) -> String {
-        let selected = selectedKokoroSpeechVoiceID
-        let options = kokoroSpeechVoiceOptions(languageHint: languageHint)
-        if options.contains(where: { $0.id == selected }) {
-            return selected
-        }
-        return options.first?.id ?? defaultKokoroSpeechVoiceID
+        SpeechVoiceCatalog.selectedKokoroVoiceID(selectedKokoroSpeechVoiceID, languageHint: languageHint)
     }
 
     static func speechVoiceTitle(for id: String, runtimeID: String?) -> String {
@@ -424,52 +371,24 @@ enum AISettingsStore {
         runtimeID == SpeechRuntimeResourceManager.Runtime.kokoro.id
     }
 
-    private static func localizedSpeechVoiceOptions(_ definitions: [SpeechVoiceDefinition]) -> [(title: String, id: String)] {
-        definitions.map {
-            (title: AppText.localized($0.zhTitle, $0.enTitle), id: $0.id)
-        }
-    }
-
-    private static func availableKokoroSpeechVoiceIDs() -> Set<String> {
-        let root = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".cache/fluidaudio/Models/kokoro-82m-coreml", isDirectory: true)
-        let candidates = [
-            root.appendingPathComponent("ANE", isDirectory: true),
-            root.appendingPathComponent("ANE-zh/voices", isDirectory: true)
-        ]
-        var ids = Set<String>()
-        for directory in candidates {
-            guard let contents = try? FileManager.default.contentsOfDirectory(
-                at: directory,
-                includingPropertiesForKeys: nil
-            ) else {
-                continue
-            }
-            for url in contents where url.pathExtension == "bin" {
-                ids.insert(url.deletingPathExtension().lastPathComponent)
-            }
-        }
-        return ids
-    }
-
     static var selectedKittenSpeechVoiceID: String {
         let value = nonEmptyTrimmed(defaults.string(forKey: kittenSpeechVoiceKey)) ?? defaultKittenSpeechVoiceID
-        return validKittenSpeechVoiceIDs.contains(value) ? value : defaultKittenSpeechVoiceID
+        return SpeechVoiceCatalog.isValidKittenVoiceID(value) ? value : defaultKittenSpeechVoiceID
     }
 
     static var selectedKokoroSpeechVoiceID: String {
         let value = nonEmptyTrimmed(defaults.string(forKey: kokoroSpeechVoiceKey)) ?? defaultKokoroSpeechVoiceID
-        return validKokoroSpeechVoiceIDs.contains(value) ? value : defaultKokoroSpeechVoiceID
+        return SpeechVoiceCatalog.isValidKokoroVoiceID(value) ? value : defaultKokoroSpeechVoiceID
     }
 
     static func saveKittenSpeechVoiceID(_ id: String) {
-        guard validKittenSpeechVoiceIDs.contains(id) else { return }
+        guard SpeechVoiceCatalog.isValidKittenVoiceID(id) else { return }
         defaults.set(id, forKey: kittenSpeechVoiceKey)
         defaults.synchronize()
     }
 
     static func saveKokoroSpeechVoiceID(_ id: String) {
-        guard validKokoroSpeechVoiceIDs.contains(id) else { return }
+        guard SpeechVoiceCatalog.isValidKokoroVoiceID(id) else { return }
         defaults.set(id, forKey: kokoroSpeechVoiceKey)
         defaults.synchronize()
     }

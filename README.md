@@ -16,7 +16,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 ![Leaf Reader passage explanation in dark mode](assets/reader-dark-ai.png)
 
-![Leaf Reader vocabulary book in dark mode](assets/reader-dark-vocabulary.png)
+![Leaf Reader vocabulary review](assets/reader-dark-vocabulary.png)
 
 ## Download
 
@@ -345,7 +345,7 @@ Run the full local pre-commit check, including whitespace checks, tests, and an 
 - `assets/reader-bookshelf.png` - bookshelf screenshot.
 - `assets/reader-settings.png` - settings panel screenshot.
 - `assets/reader-dark-ai.png` - dark mode AI reading screenshot.
-- `assets/reader-dark-vocabulary.png` - dark mode vocabulary book screenshot.
+- `assets/reader-dark-vocabulary.png` - vocabulary review screenshot.
 - `release/` - local release artifacts when generated.
 
 ## Code Wiki
@@ -406,40 +406,7 @@ Run the full publish flow from a clean working tree:
 
 The publish script runs tests, builds/signs/notarizes the pkg, commits the version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg plus any generated speech runtime archives in `docs/tts/`, and verifies the download URLs.
 
-The release script accepts `SPARKLE_PRIVATE_KEY` from the environment, `SPARKLE_PRIVATE_KEY_FILE`, `$HOME/.config/leafreader/sparkle-ed25519-private-key`, the local ignored `sparkle-ed25519-private-key` file, or Sparkle's default keychain account.
-
-### Sparkle Key Management
-
-Current `SUPublicEDKey`:
-
-```text
-WxXNtAF6ZaqVPUux2Zqcmswgu4LPdhoA1Lb0fEfzckI=
-```
-
-The private key is stored in three places on the release machine:
-
-- macOS login Keychain item: `Private key for signing Sparkle updates`
-- Primary local backup file outside the repo: `$HOME/.config/leafreader/sparkle-ed25519-private-key`
-- Optional repo-local ignored copy: `sparkle-ed25519-private-key`
-
-The backup file must stay out of git and should keep `0600` permissions:
-
-```sh
-chmod 600 "$HOME/.config/leafreader/sparkle-ed25519-private-key"
-```
-
-After generating a new Sparkle key, immediately export and back it up outside the repo:
-
-```sh
-mkdir -p "$HOME/.config/leafreader"
-/private/tmp/sparkle-generate_keys -x "$HOME/.config/leafreader/sparkle-ed25519-private-key"
-chmod 600 "$HOME/.config/leafreader/sparkle-ed25519-private-key"
-/opt/homebrew/Caskroom/sparkle/2.9.2/bin/sign_update --ed-key-file "$HOME/.config/leafreader/sparkle-ed25519-private-key" release/<version>/LeafReader-<version>.pkg
-```
-
-Keep an encrypted copy outside this repository, such as in a password manager secure note or an encrypted disk image. Losing the private key breaks automatic updates for apps that already ship with the matching public key.
-
-Changing `SUPublicEDKey` also breaks automatic updates from builds that shipped with the old public key. After a key rotation, publish a manually installed release first; future updates from that release can use the new key.
+The release script accepts the Sparkle private key through the configured release-machine environment. Keep the private key out of git and store recovery details only in private operational notes. Losing the private key breaks automatic updates for apps that already ship with the matching public key.
 
 ## Notes
 

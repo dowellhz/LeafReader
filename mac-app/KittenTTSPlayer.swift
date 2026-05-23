@@ -1,44 +1,20 @@
 import Cocoa
 import AVFoundation
-import CryptoKit
 
 final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     static let shared = KittenTTSPlayer()
     static let readingSegmentDidChangeNotification = Notification.Name("LeafReader.KittenTTS.readingSegmentDidChange")
     private static let idleShutdownDelay: TimeInterval = 180
-    private static let processServerPort = Int.random(in: 20000...49151)
-    private static let kokoroWorkerResponseTimeout: TimeInterval = 45
-    private static let kokoroFallbackTimeout: TimeInterval = 45
     private static let maxPendingReadAloudSegments = 2
 
     private enum Runtime {
         static let backendEnvironmentKey = "LEAFREADER_TTS_BACKEND"
-        static let kokoroCoreMLCLIEnvironmentKey = "LEAFREADER_KOKORO_COREML_CLI"
-        static let kokoroCoreMLVoiceEnvironmentKey = "LEAFREADER_KOKORO_COREML_VOICE"
-        static let kokoroCoreMLSpeedEnvironmentKey = "LEAFREADER_KOKORO_COREML_SPEED"
-        static let modelEnvironmentKey = "LEAFREADER_KITTENTTS_RS_MODEL"
-        static let voiceEnvironmentKey = "LEAFREADER_KITTENTTS_VOICE"
-        static let speedEnvironmentKey = "LEAFREADER_KITTENTTS_SPEED"
-        static let portEnvironmentKey = "LEAFREADER_KITTENTTS_RS_PORT"
-        static let defaultKokoroCoreMLVoice = "af_heart"
-        static let defaultKokoroCoreMLCLIPath = ".local/share/leafreader/kokoro-coreml/fluidaudiocli"
-        static let defaultSpeed = 1.0
-        static let defaultPort = 18181
-        static let defaultServerPath = ".local/share/leafreader/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
-        static let defaultModelPath = ".local/share/leafreader/kittentts-rs-runtime/kitten-tts-mini"
     }
 
     private let queue = DispatchQueue(label: "LeafReader.KittenTTS", qos: .userInitiated)
-    private var serverProcess: Process?
-    private var serverOutputPipe: Pipe?
-    private var serverErrorPipe: Pipe?
+    private let kokoroBackend = KokoroTTSBackend()
+    private let kittenBackend = KittenServerTTSBackend()
     private var activeBackend: PreferredBackend?
-    private var kokoroWorkerProcess: Process?
-    private var kokoroWorkerInputPipe: Pipe?
-    private var kokoroWorkerOutputPipe: Pipe?
-    private var kokoroWorkerErrorPipe: Pipe?
-    private var kokoroWorkerVariant: String?
-    private var kokoroWorkerVoiceID: String?
     private var currentPlayer: AVAudioPlayer?
     private var currentSegment: PlaybackSegment?
     private var pendingSegments: [PlaybackSegment] = []
@@ -81,31 +57,6 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         let index: Int
         let total: Int
         let pageIndex: Int?
-    }
-
-    private struct ServerHealthCheck {
-        let isHealthy: Bool
-        let statusCode: Int
-        let timedOut: Bool
-        let hasModelResponse: Bool
-
-        var failureDescription: String {
-            if timedOut {
-                return "timeout"
-            }
-            if statusCode != 200 {
-                return "status=\(statusCode)"
-            }
-            return hasModelResponse ? "unknown" : "invalid model response"
-        }
-    }
-
-    private struct KokoroWorkerRequest: Codable {
-        let id: String
-        let text: String
-        let output: String
-        let voice: String?
-        let speed: Double?
     }
 
     func speakEnglish(_ text: String, completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
@@ -287,13 +238,13 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         }
 
         let segment = SpeechTextPolicy.segments(for: value).joined(separator: " ")
-        let cacheURL = Self.previewCacheURL(text: segment, runtimeID: runtimeID, voiceID: voiceID, speedID: speedID)
+        let cacheURL = TTSPreviewCache.audioURL(text: segment, runtimeID: runtimeID, voiceID: voiceID, speedID: speedID)
         let generationID = UUID()
         beginInterruptionGeneration(generationID)
         queue.async { [weak self] in
             guard let self else { return }
             guard self.isActiveInterruptionGeneration(generationID) else { return }
-            if Self.isUsableWAV(at: cacheURL) {
+            if TTSWaveFile.isUsable(at: cacheURL) {
                 NSLog("LeafReader TTS preview: cache hit runtime=%@ voice=%@ speed=%@ output=%@", runtimeID, voiceID, speedID, cacheURL.path)
                 DispatchQueue.main.async {
                     guard self.activeInterruptionGenerationID == generationID else { return }
@@ -310,7 +261,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             let tempURL = cacheURL.deletingLastPathComponent()
                 .appendingPathComponent("pending-\(UUID().uuidString).wav")
             guard self.generateWAV(text: segment, outputURL: tempURL, voiceID: voiceID),
-                  Self.isUsableWAV(at: tempURL) else {
+                  TTSWaveFile.isUsable(at: tempURL) else {
                 NSLog("LeafReader TTS preview: generation failed runtime=%@ voice=%@ speed=%@ output=%@", runtimeID, voiceID, speedID, tempURL.path)
                 try? FileManager.default.removeItem(at: tempURL)
                 DispatchQueue.main.async {
@@ -342,10 +293,9 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     func cancelCurrentSpeechPreview(terminateKokoroWorker: Bool = false) {
         beginInterruptionGeneration(UUID())
         guard terminateKokoroWorker else { return }
-        kokoroWorkerProcess?.terminate()
         queue.async { [weak self] in
             guard let self else { return }
-            self.stopKokoroWorker()
+            self.kokoroBackend.stop()
             if self.activeBackend == .kokoroCoreML {
                 self.activeBackend = nil
             }
@@ -630,36 +580,9 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     private func forceTerminateRuntimeProcesses() {
-        kokoroWorkerErrorPipe?.fileHandleForReading.readabilityHandler = nil
-        serverOutputPipe?.fileHandleForReading.readabilityHandler = nil
-        serverErrorPipe?.fileHandleForReading.readabilityHandler = nil
-        try? kokoroWorkerInputPipe?.fileHandleForWriting.close()
-        try? kokoroWorkerOutputPipe?.fileHandleForReading.close()
-        if kokoroWorkerProcess?.isRunning == true {
-            kokoroWorkerProcess?.terminate()
-        }
-        if serverProcess?.isRunning == true {
-            serverProcess?.terminate()
-        }
-        kokoroWorkerProcess = nil
-        kokoroWorkerInputPipe = nil
-        kokoroWorkerOutputPipe = nil
-        kokoroWorkerErrorPipe = nil
-        serverProcess = nil
-        serverOutputPipe = nil
-        serverErrorPipe = nil
+        kokoroBackend.stop()
+        kittenBackend.stop()
         activeBackend = nil
-    }
-
-    private func stopKittenServer() {
-        serverOutputPipe?.fileHandleForReading.readabilityHandler = nil
-        serverErrorPipe?.fileHandleForReading.readabilityHandler = nil
-        if serverProcess?.isRunning == true {
-            serverProcess?.terminate()
-        }
-        serverProcess = nil
-        serverOutputPipe = nil
-        serverErrorPipe = nil
     }
 
     private func postReadingSegment(_ segment: PlaybackSegment) {
@@ -716,9 +639,9 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             }
             switch targetBackend {
             case .kokoroCoreML:
-                self.stopKokoroWorker()
+                self.kokoroBackend.stop()
             case .kitten:
-                self.stopKittenServer()
+                self.kittenBackend.stop()
             case .none:
                 break
             }
@@ -728,14 +651,8 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     func stopKokoroWorkerIfLanguageDiffers(from text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        let expectedVariant = Self.kokoroVariant(for: trimmed)
         queue.async {
-            guard self.kokoroWorkerProcess?.isRunning == true,
-                  let currentVariant = self.kokoroWorkerVariant,
-                  currentVariant != expectedVariant else {
-                return
-            }
-            self.stopKokoroWorker()
+            self.kokoroBackend.stopIfLanguageDiffers(from: trimmed)
         }
     }
 
@@ -770,25 +687,9 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         prepareForBackend(backend)
         switch backend {
         case .kokoroCoreML:
-            if generateWAVWithKokoroWorker(text: text, outputURL: outputURL, voiceID: voiceID) {
-                return true
-            }
-            if Self.generateWAVWithKokoroCoreML(text: text, outputURL: outputURL, voiceID: voiceID) {
-                return true
-            }
-            return false
+            return kokoroBackend.synthesize(text: text, outputURL: outputURL, voiceID: voiceID)
         case .kitten:
-            if ensureServer() {
-                if Self.generateWAVWithServer(text: text, outputURL: outputURL, voiceID: voiceID) {
-                    return true
-                }
-                stopKittenServer()
-                if ensureServer(),
-                   Self.generateWAVWithServer(text: text, outputURL: outputURL, voiceID: voiceID) {
-                    return true
-                }
-            }
-            return false
+            return kittenBackend.synthesize(text: text, outputURL: outputURL, voiceID: voiceID)
         case .none:
             return false
         }
@@ -798,9 +699,9 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         guard activeBackend != backend else { return }
         switch backend {
         case .kokoroCoreML:
-            stopKittenServer()
+            kittenBackend.stop()
         case .kitten:
-            stopKokoroWorker()
+            kokoroBackend.stop()
         case .none:
             stopRuntimeProcesses()
         }
@@ -850,568 +751,9 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         }
     }
 
-    private static func generateWAVWithKokoroCoreML(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
-        guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
-        guard let cliURL = kokoroCoreMLRuntime() else { return false }
-        let variant = kokoroVariant(for: text)
-        let voice = voiceID ?? selectedKokoroVoiceID(forVariant: variant)
-        guard KokoroVoiceResourceManager.ensureInstalled(voiceID: voice, variant: variant) else {
-            return false
-        }
-
-        let arguments = [
-            "tts",
-            text,
-            "--backend",
-            "kokoro-ane",
-            "--variant",
-            variant,
-            "--voice",
-            voice,
-            "--speed",
-            String(Self.kokoroTTSSpeed()),
-            "--output",
-            outputURL.path
-        ]
-
-        let result: ProcessRunResult
-        do {
-            result = try ProcessRunner.run(
-                executableURL: cliURL,
-                arguments: arguments,
-                timeout: kokoroFallbackTimeout,
-                currentDirectoryURL: FileManager.default.temporaryDirectory
-            )
-        } catch {
-            NSLog("LeafReader Kokoro CoreML: failed to run FluidAudio CLI (error=%@)", error.localizedDescription)
-            return false
-        }
-        if result.timedOut {
-            NSLog("LeafReader Kokoro CoreML: FluidAudio CLI timed out after %.0fs", kokoroFallbackTimeout)
-            return false
-        }
-        let outputExists = Self.isUsableWAV(at: outputURL)
-        if result.terminationStatus == 0, outputExists {
-            return true
-        }
-
-        if outputExists {
-            NSLog(
-                "LeafReader Kokoro CoreML: FluidAudio CLI exited with status=%d after creating audio; continuing playback (output=%@)",
-                result.terminationStatus,
-                outputURL.path
-            )
-            return true
-        }
-
-        let message = Self.diagnosticTail(processOutputText(stdout: result.stdout, stderr: result.stderr))
-        NSLog(
-            "LeafReader Kokoro CoreML: FluidAudio CLI failed (status=%d, outputExists=%@, output=%@, details=%@)",
-            result.terminationStatus,
-            outputExists ? "yes" : "no",
-            outputURL.path,
-            message
-        )
-        return false
-    }
-
-    private static func processOutputText(stdout: Data, stderr: Data) -> String {
-        let stdoutText = String(data: stdout, encoding: .utf8) ?? ""
-        let stderrText = String(data: stderr, encoding: .utf8) ?? ""
-        return [stdoutText, stderrText]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: "\n")
-    }
-
-    private static func diagnosticTail(_ value: String?) -> String {
-        let text = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard text.count > 2400 else { return text }
-        return String(text.suffix(2400))
-    }
-
-    private static func isUsableWAV(at url: URL) -> Bool {
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
-              let size = attributes[.size] as? NSNumber else {
-            return false
-        }
-        return size.intValue > 44
-    }
-
-    private func generateWAVWithKokoroWorker(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
-        guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else {
-            stopKokoroWorker()
-            return false
-        }
-        let variant = Self.kokoroVariant(for: text)
-        let voice = voiceID ?? Self.selectedKokoroVoiceID(forVariant: variant)
-        guard KokoroVoiceResourceManager.ensureInstalled(voiceID: voice, variant: variant),
-              ensureKokoroWorker(variant: variant, voiceID: voice),
-              let inputPipe = kokoroWorkerInputPipe,
-              let outputPipe = kokoroWorkerOutputPipe else {
-            return false
-        }
-
-        let request = KokoroWorkerRequest(
-            id: UUID().uuidString,
-            text: text,
-            output: outputURL.path,
-            voice: voice,
-            speed: Self.kokoroTTSSpeed()
-        )
-        guard let requestData = try? JSONEncoder().encode(request) else {
-            return false
-        }
-
-        do {
-            var line = requestData
-            line.append(0x0A)
-            try inputPipe.fileHandleForWriting.write(contentsOf: line)
-        } catch {
-            NSLog("LeafReader Kokoro CoreML: failed to write worker request (error=%@)", error.localizedDescription)
-            stopKokoroWorker()
-            return false
-        }
-
-        guard let response = readKokoroWorkerResponse(
-            requestID: request.id,
-            from: outputPipe.fileHandleForReading,
-            timeout: Self.kokoroWorkerResponseTimeout
-        ) else {
-            NSLog("LeafReader Kokoro CoreML: worker synthesis timed out")
-            stopKokoroWorker()
-            return false
-        }
-        if response.ok, Self.isUsableWAV(at: outputURL) {
-            return true
-        }
-        if let error = response.error, !error.isEmpty {
-            NSLog("LeafReader Kokoro CoreML: worker synthesis failed (%@)", error)
-        }
-        return false
-    }
-
-    private func ensureKokoroWorker(variant: String, voiceID: String) -> Bool {
-        guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
-        if kokoroWorkerProcess?.isRunning == true,
-           kokoroWorkerVariant == variant,
-           kokoroWorkerVoiceID == voiceID {
-            return true
-        }
-        stopKokoroWorker()
-        guard let cliURL = Self.kokoroCoreMLRuntime() else { return false }
-        guard KokoroVoiceResourceManager.ensureInstalled(voiceID: voiceID, variant: variant) else {
-            return false
-        }
-
-        let process = Process()
-        let inputPipe = Pipe()
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.executableURL = cliURL
-        process.currentDirectoryURL = FileManager.default.temporaryDirectory
-        process.arguments = [
-            "tts-worker",
-            "--variant",
-            variant,
-            "--voice",
-            voiceID
-        ]
-        process.standardInput = inputPipe
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-        errorPipe.fileHandleForReading.readabilityHandler = { handle in
-            _ = handle.availableData
-        }
-
-        do {
-            try process.run()
-        } catch {
-            NSLog("LeafReader Kokoro CoreML: failed to start worker (error=%@)", error.localizedDescription)
-            return false
-        }
-        kokoroWorkerProcess = process
-        kokoroWorkerVariant = variant
-        kokoroWorkerVoiceID = voiceID
-        kokoroWorkerInputPipe = inputPipe
-        kokoroWorkerOutputPipe = outputPipe
-        kokoroWorkerErrorPipe = errorPipe
-        return true
-    }
-
-    private func stopKokoroWorker() {
-        kokoroWorkerErrorPipe?.fileHandleForReading.readabilityHandler = nil
-        kokoroWorkerInputPipe?.fileHandleForWriting.closeFile()
-        if kokoroWorkerProcess?.isRunning == true {
-            kokoroWorkerProcess?.terminate()
-        }
-        kokoroWorkerProcess = nil
-        kokoroWorkerInputPipe = nil
-        kokoroWorkerOutputPipe = nil
-        kokoroWorkerErrorPipe = nil
-        kokoroWorkerVariant = nil
-        kokoroWorkerVoiceID = nil
-    }
-
     private func stopRuntimeProcesses() {
-        stopKokoroWorker()
-        stopKittenServer()
+        kokoroBackend.stop()
+        kittenBackend.stop()
         activeBackend = nil
-    }
-
-    private func readKokoroWorkerResponse(
-        requestID: String,
-        from handle: FileHandle,
-        timeout: TimeInterval
-    ) -> KokoroWorkerResponse? {
-        let semaphore = DispatchSemaphore(value: 0)
-        let lock = NSLock()
-        var reader = KokoroWorkerResponseReader(requestID: requestID)
-        var matchedResponse: KokoroWorkerResponse?
-        var didComplete = false
-
-        handle.readabilityHandler = { readableHandle in
-            let data = readableHandle.availableData
-            lock.lock()
-            defer { lock.unlock() }
-            guard !didComplete else { return }
-            guard !data.isEmpty else {
-                didComplete = true
-                semaphore.signal()
-                return
-            }
-
-            if let response = reader.append(data) {
-                matchedResponse = response
-                didComplete = true
-                semaphore.signal()
-            }
-        }
-
-        let waitResult = semaphore.wait(timeout: .now() + timeout)
-        handle.readabilityHandler = nil
-
-        lock.lock()
-        defer { lock.unlock() }
-        if waitResult == .timedOut {
-            didComplete = true
-        }
-        return matchedResponse
-    }
-
-    private static func kokoroCoreMLRuntime() -> URL? {
-        let fileManager = FileManager.default
-        let environmentPath = ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLCLIEnvironmentKey]
-        let candidatePaths = [
-            environmentPath,
-            Bundle.main.resourceURL?
-                .appendingPathComponent("SpeechRuntimes", isDirectory: true)
-                .appendingPathComponent("kokoro-coreml", isDirectory: true)
-                .appendingPathComponent("fluidaudiocli")
-                .path,
-            fileManager.homeDirectoryForCurrentUser
-                .appendingPathComponent(Runtime.defaultKokoroCoreMLCLIPath)
-                .path,
-        ].compactMap { $0 }
-
-        for path in candidatePaths where fileManager.isExecutableFile(atPath: path) {
-            return URL(fileURLWithPath: path)
-        }
-        return nil
-    }
-
-    private func ensureServer() -> Bool {
-        guard let runtime = Self.rustRuntime() else { return false }
-        if Self.serverHealthCheck().isHealthy {
-            return true
-        }
-        if serverProcess?.isRunning == true {
-            return waitForServer()
-        }
-
-        let arguments = [
-            runtime.modelDirectoryURL.path,
-            "--host",
-            "127.0.0.1",
-            "--port",
-            String(Self.serverPort())
-        ]
-        var environment = ProcessInfo.processInfo.environment
-        if let espeakRuntime = Self.bundledESpeakRuntime() {
-            let existingPath = environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
-            environment["PATH"] = "\(espeakRuntime.binDirectoryURL.path):\(existingPath)"
-            environment["ESPEAK_DATA_PATH"] = espeakRuntime.dataDirectoryURL.path
-        }
-        guard let started = startDrainedProcess(
-            executableURL: runtime.serverURL,
-            arguments: arguments,
-            environment: environment
-        ) else {
-            return false
-        }
-
-        serverProcess = started.process
-        serverOutputPipe = started.outputPipe
-        serverErrorPipe = started.errorPipe
-        return waitForServer()
-    }
-
-    private func startDrainedProcess(
-        executableURL: URL,
-        arguments: [String],
-        environment: [String: String]
-    ) -> (process: Process, outputPipe: Pipe, errorPipe: Pipe)? {
-        let process = Process()
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.executableURL = executableURL
-        process.arguments = arguments
-        process.environment = environment
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-        outputPipe.fileHandleForReading.readabilityHandler = { handle in
-            _ = handle.availableData
-        }
-        errorPipe.fileHandleForReading.readabilityHandler = { handle in
-            _ = handle.availableData
-        }
-        do {
-            try process.run()
-            return (process, outputPipe, errorPipe)
-        } catch {
-            outputPipe.fileHandleForReading.readabilityHandler = nil
-            errorPipe.fileHandleForReading.readabilityHandler = nil
-            NSLog("LeafReader KittenTTS: failed to start process %@ (error=%@)", executableURL.path, error.localizedDescription)
-            return nil
-        }
-    }
-
-    private func waitForServer() -> Bool {
-        var lastCheck = Self.serverHealthCheck()
-        if lastCheck.isHealthy {
-            return true
-        }
-        for _ in 0..<40 {
-            Thread.sleep(forTimeInterval: 0.2)
-            lastCheck = Self.serverHealthCheck()
-            if lastCheck.isHealthy {
-                return true
-            }
-        }
-        NSLog("LeafReader KittenTTS: server did not become healthy (%@, port=%d)", lastCheck.failureDescription, Self.serverPort())
-        return false
-    }
-
-    private static func serverHealthCheck() -> ServerHealthCheck {
-        var request = URLRequest(url: serverURL(path: "/v1/models"))
-        request.timeoutInterval = 0.5
-        let result = performRequest(request)
-        let hasModelResponse = isKittenServerModelsResponse(result.data)
-        return ServerHealthCheck(
-            isHealthy: !result.timedOut && result.statusCode == 200 && hasModelResponse,
-            statusCode: result.statusCode,
-            timedOut: result.timedOut,
-            hasModelResponse: hasModelResponse
-        )
-    }
-
-    private static func isKittenServerModelsResponse(_ data: Data?) -> Bool {
-        guard let data,
-              let json = try? JSONSerialization.jsonObject(with: data) else {
-            return false
-        }
-        return jsonContainsKittenTTSModel(json)
-    }
-
-    private static func jsonContainsKittenTTSModel(_ value: Any) -> Bool {
-        if let string = value as? String {
-            let normalized = string.lowercased()
-            return normalized.contains("kitten") && normalized.contains("tts")
-        }
-        if let array = value as? [Any] {
-            return array.contains { jsonContainsKittenTTSModel($0) }
-        }
-        if let dictionary = value as? [String: Any] {
-            return dictionary.values.contains { jsonContainsKittenTTSModel($0) }
-        }
-        return false
-    }
-
-    private static func generateWAVWithServer(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
-        var request = URLRequest(url: serverURL(path: "/v1/audio/speech"))
-        request.httpMethod = "POST"
-        request.timeoutInterval = 30
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let payload: [String: Any] = [
-            "model": "kitten-tts",
-            "input": text,
-            "voice": voiceID ?? ProcessInfo.processInfo.environment[Runtime.voiceEnvironmentKey] ?? AISettingsStore.selectedKittenSpeechVoiceID,
-            "speed": ttsSpeed(),
-            "response_format": "wav"
-        ]
-        guard let body = try? JSONSerialization.data(withJSONObject: payload) else {
-            return false
-        }
-        request.httpBody = body
-
-        let result = performRequest(request)
-        guard result.statusCode == 200,
-              let data = result.data,
-              !data.isEmpty else {
-            if result.timedOut {
-                NSLog("LeafReader KittenTTS: server synthesis timed out (port=%d)", serverPort())
-            } else {
-                NSLog(
-                    "LeafReader KittenTTS: server synthesis failed (status=%d, bytes=%d, port=%d)",
-                    result.statusCode,
-                    result.data?.count ?? 0,
-                    serverPort()
-                )
-            }
-            return false
-        }
-        do {
-            try data.write(to: outputURL, options: .atomic)
-            return true
-        } catch {
-            NSLog("LeafReader KittenTTS: failed to write server audio (error=%@)", error.localizedDescription)
-            return false
-        }
-    }
-
-    private static func performRequest(_ request: URLRequest) -> (statusCode: Int, data: Data?, timedOut: Bool) {
-        let semaphore = DispatchSemaphore(value: 0)
-        let lock = NSLock()
-        var statusCode = 0
-        var responseData: Data?
-        var didFinish = false
-        let task = URLSession.shared.dataTask(with: request) { data, response, _ in
-            lock.lock()
-            defer { lock.unlock() }
-            guard !didFinish else { return }
-            didFinish = true
-            statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-            responseData = data
-            semaphore.signal()
-        }
-        task.resume()
-        let waitResult = semaphore.wait(timeout: .now() + request.timeoutInterval + 1)
-        if waitResult == .timedOut {
-            lock.lock()
-            didFinish = true
-            lock.unlock()
-            task.cancel()
-            return (statusCode, responseData, true)
-        }
-        return (statusCode, responseData, false)
-    }
-
-    private static func serverURL(path: String) -> URL {
-        URL(string: "http://127.0.0.1:\(serverPort())\(path)")!
-    }
-
-    private static func serverPort() -> Int {
-        if let value = ProcessInfo.processInfo.environment[Runtime.portEnvironmentKey].flatMap(Int.init),
-           (1...65535).contains(value) {
-            return value
-        }
-        return processServerPort
-    }
-
-    private static func ttsSpeed() -> Double {
-        let value = ProcessInfo.processInfo.environment[Runtime.speedEnvironmentKey]
-            .flatMap(Double.init) ?? AISettingsStore.kittenSpeechSpeedMultiplier
-        return min(max(value, 0.5), 2.0)
-    }
-
-    private static func bundledESpeakRuntime() -> (binDirectoryURL: URL, dataDirectoryURL: URL)? {
-        guard let resourceURL = Bundle.main.resourceURL else {
-            return nil
-        }
-        let runtimeRoot = resourceURL
-            .appendingPathComponent("SpeechRuntimes", isDirectory: true)
-            .appendingPathComponent("espeak-ng", isDirectory: true)
-        let binDirectoryURL = runtimeRoot.appendingPathComponent("bin", isDirectory: true)
-        let executableURL = binDirectoryURL.appendingPathComponent("espeak-ng")
-        let dataDirectoryURL = runtimeRoot
-            .appendingPathComponent("share", isDirectory: true)
-            .appendingPathComponent("espeak-ng-data", isDirectory: true)
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.isExecutableFile(atPath: executableURL.path),
-              FileManager.default.fileExists(atPath: dataDirectoryURL.path, isDirectory: &isDirectory),
-              isDirectory.boolValue else {
-            return nil
-        }
-        return (binDirectoryURL, dataDirectoryURL)
-    }
-
-    private static func kokoroTTSSpeed() -> Double {
-        let value = ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLSpeedEnvironmentKey]
-            .flatMap(Double.init) ?? AISettingsStore.kokoroSpeechSpeedMultiplier
-        return min(max(value, 0.5), 2.0)
-    }
-
-    private static func selectedKokoroVoiceID(forVariant variant: String) -> String {
-        if let environmentVoice = ProcessInfo.processInfo.environment[Runtime.kokoroCoreMLVoiceEnvironmentKey] {
-            return environmentVoice
-        }
-        let hint: AISettingsStore.SpeechLanguageHint = variant == "zh" ? .chinese : .english
-        return AISettingsStore.selectedKokoroSpeechVoiceID(languageHint: hint)
-    }
-
-    private static func kokoroVariant(for text: String) -> String {
-        SpeechTextPolicy.prefersChineseTTS(text) ? "zh" : "en"
-    }
-
-    private static func previewCacheURL(text: String, runtimeID: String, voiceID: String, speedID: String) -> URL {
-        let digestInput = "preview-v4|\(runtimeID)|\(voiceID)|\(speedID)|\(text)"
-        let digest = SHA256.hash(data: Data(digestInput.utf8))
-            .map { String(format: "%02x", $0) }
-            .joined()
-        let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
-            ?? FileManager.default.temporaryDirectory
-        let bundleID = Bundle.main.bundleIdentifier ?? "com.linlu.leafreader"
-        return root
-            .appendingPathComponent(bundleID, isDirectory: true)
-            .appendingPathComponent("TTSPreviews", isDirectory: true)
-            .appendingPathComponent("\(digest).wav")
-    }
-
-    private static func rustRuntime() -> (serverURL: URL, modelDirectoryURL: URL)? {
-        let fileManager = FileManager.default
-        let environment = ProcessInfo.processInfo.environment
-        if let modelPath = environment[Runtime.modelEnvironmentKey] {
-            let serverPath = fileManager.homeDirectoryForCurrentUser
-                .appendingPathComponent(Runtime.defaultServerPath)
-                .path
-            guard fileManager.isExecutableFile(atPath: serverPath),
-                  fileManager.fileExists(atPath: modelPath) else {
-                return nil
-            }
-            return (URL(fileURLWithPath: serverPath), URL(fileURLWithPath: modelPath))
-        }
-
-        let runtime = SpeechRuntimeResourceManager.Runtime.kitten
-        let serverCandidateRoots = [runtime.bundledInstallDirectory, runtime.installDirectory].compactMap { $0 }
-        let modelCandidateRoots = [runtime.installDirectory, runtime.bundledInstallDirectory].compactMap { $0 }
-        for runtimeRoot in serverCandidateRoots {
-            let serverURL = runtimeRoot.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server")
-            guard fileManager.isExecutableFile(atPath: serverURL.path) else {
-                continue
-            }
-            for modelRoot in modelCandidateRoots {
-                let modelDirectoryURL = modelRoot.appendingPathComponent("kitten-tts-mini", isDirectory: true)
-                let modelURL = modelDirectoryURL.appendingPathComponent("kitten_tts_mini_v0_8.onnx")
-                let voicesURL = modelDirectoryURL.appendingPathComponent("voices.npz")
-                let configURL = modelDirectoryURL.appendingPathComponent("config.json")
-                guard fileManager.fileExists(atPath: modelURL.path),
-                      fileManager.fileExists(atPath: voicesURL.path),
-                      fileManager.fileExists(atPath: configURL.path) else {
-                    continue
-                }
-                return (serverURL, modelDirectoryURL)
-            }
-        }
-        return nil
     }
 }
