@@ -8,9 +8,40 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 ## Language
 
-- [Chinese README](README.zh-CN.md)
-- English: this file
+- [English](#english)
+- [中文 README](#中文)
 - The website automatically follows the browser language and also provides a manual Chinese/English switch in the header: <https://leafreader.space/>
+
+## 中文
+
+Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX。它面向长文档阅读、学习和批注场景，提供阅读进度恢复、文档搜索、浅色/护眼/深色主题、AI 问答、选中文本翻译/解释/总结、背单词和本地朗读。
+
+下载最新 macOS 安装包：
+
+[下载 Leaf Reader 1.6.1 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.6.1/LeafReader-1.6.1.pkg)
+
+系统要求：
+
+- macOS 12.0 Monterey 或更高版本。
+- 支持 Apple Silicon 和 Intel Mac。
+- AI 功能需要用户自行配置模型服务和 API Key；普通阅读不需要。
+- KittenTTS 本地朗读支持 macOS 12.0 Monterey 或更高版本。
+- Kokoro 本地朗读需要 macOS 14.0 或更高版本。
+
+主要功能：
+
+- 打开本地 PDF、EPUB、DOCX 文档，并自动恢复阅读位置。
+- 支持文档搜索、PDF 翻页、书架、最近阅读、浅色/护眼/深色主题。
+- 选中文本后可让 AI 解释、总结、翻译或继续追问上下文。
+- 支持保存单词、复习新词、导出词表。
+- 支持 KittenTTS 和 Kokoro 本地朗读；短词和短句可回退到 macOS 系统语音。
+- 文档保存在本机；只有使用 AI 功能时，相关文本才会发送到用户配置的模型服务。
+
+项目官网：<https://leafreader.space/>
+
+许可证：Leaf Reader 使用 [Apache License 2.0](LICENSE) 许可发布。
+
+## English
 
 ## License
 
