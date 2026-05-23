@@ -13,11 +13,8 @@ enum SpeechVoiceCatalog {
         ("美国女声 Bella", "American Female Bella", "af_bella"),
         ("美国女声 Heart", "American Female Heart", "af_heart"),
         ("美国男声 Adam", "American Male Adam", "am_adam"),
-        ("美国男声 Michael", "American Male Michael", "am_michael"),
         ("英国女声 Emma", "British Female Emma", "bf_emma"),
-        ("英国女声 Isabella", "British Female Isabella", "bf_isabella"),
-        ("英国男声 George", "British Male George", "bm_george"),
-        ("英国男声 Lewis", "British Male Lewis", "bm_lewis")
+        ("英国男声 George", "British Male George", "bm_george")
     ]
 
     private static let kokoroChineseVoiceDefinitions: [Definition] = [

@@ -74,6 +74,12 @@ Generate speech model packages with:
 
 The packaging script also writes `docs/tts/speech-models-manifest.json` with each asset's file size and SHA256 digest. When model files change, update `runtimeAssetsReleaseTag` to the release tag that will host the new model assets and publish with `--with-speech-models`.
 
+## What's New in 1.6.1
+
+- Reduced the bundled speech footprint by keeping only the espeak English dictionary needed by KittenTTS.
+- Trimmed duplicate Kokoro English voices while keeping Bella, Heart, Adam, Emma, and George available.
+- Kept KittenTTS and Kokoro local playback working with the smaller bundled runtime resources.
+
 ## What's New in 1.6.0
 
 - Refined the reader, AI chat, settings, recent documents, and vocabulary surfaces with a shared theme palette.

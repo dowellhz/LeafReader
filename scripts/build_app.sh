@@ -16,6 +16,29 @@ ESPEAK_NG_ROOT="${ESPEAK_NG_ROOT:-$HOME/.local/share/leafreader/espeak-ng-macos1
 PCAUDIOLIB_ROOT="${PCAUDIOLIB_ROOT:-$ESPEAK_NG_ROOT}"
 export COPYFILE_DISABLE=1
 
+ESPEAK_BUNDLED_DICTS=(en_dict)
+
+prune_espeak_data() {
+  local data_dir="$1"
+
+  find "$data_dir" -maxdepth 1 -type f -name '*_dict' | while IFS= read -r dict_path; do
+    local dict_name
+    local keep_dict=false
+
+    dict_name="$(basename "$dict_path")"
+    for bundled_dict in "${ESPEAK_BUNDLED_DICTS[@]}"; do
+      if [[ "$dict_name" == "$bundled_dict" ]]; then
+        keep_dict=true
+        break
+      fi
+    done
+
+    if [[ "$keep_dict" == false ]]; then
+      rm -f "$dict_path"
+    fi
+  done
+}
+
 if [[ ! -d "$SPARKLE_HOME/Sparkle.framework" ]]; then
   echo "Sparkle.framework not found at $SPARKLE_HOME" >&2
   echo "Install Sparkle with: brew install --cask sparkle" >&2
@@ -36,7 +59,7 @@ cp "$ROOT_DIR/mac-app/AppIcon.icns" "$APP_PATH/Contents/Resources/AppIcon.icns"
 if [[ -d "$ROOT_DIR/mac-app/Resources" ]]; then
   cp -R "$ROOT_DIR/mac-app/Resources/." "$APP_PATH/Contents/Resources/"
 fi
-KOKORO_ENGLISH_VOICES=(af_bella af_heart am_adam am_michael bf_emma bf_isabella bm_george bm_lewis)
+KOKORO_ENGLISH_VOICES=(af_bella af_heart am_adam bf_emma bm_george)
 KOKORO_CHINESE_VOICES=(zf_001 zf_002 zf_003 zf_004 zf_005 zm_009 zm_010 zm_011 zm_012 zm_013 af_maple af_sol bf_vale)
 KOKORO_BUNDLE_ROOT="$APP_PATH/Contents/Resources/KokoroVoices"
 mkdir -p "$KOKORO_BUNDLE_ROOT/English" "$KOKORO_BUNDLE_ROOT/Chinese"
@@ -90,6 +113,7 @@ if [[ -x "$ESPEAK_NG_ROOT/bin/espeak-ng" \
   cp "$ESPEAK_NG_ROOT/lib/libespeak-ng.1.dylib" "$ESPEAK_BUNDLE_DIR/lib/libespeak-ng.1.dylib"
   cp "$PCAUDIOLIB_ROOT/lib/libpcaudio.0.dylib" "$ESPEAK_BUNDLE_DIR/lib/libpcaudio.0.dylib"
   cp -R "$ESPEAK_NG_ROOT/share/espeak-ng-data" "$ESPEAK_BUNDLE_DIR/share/espeak-ng-data"
+  prune_espeak_data "$ESPEAK_BUNDLE_DIR/share/espeak-ng-data"
   chmod 755 "$ESPEAK_BUNDLE_DIR/bin/espeak-ng"
   chmod 644 "$ESPEAK_BUNDLE_DIR/lib/libespeak-ng.1.dylib" "$ESPEAK_BUNDLE_DIR/lib/libpcaudio.0.dylib"
   if [[ -n "$ESPEAK_NG_LIB_ID" ]]; then
