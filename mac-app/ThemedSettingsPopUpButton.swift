@@ -5,6 +5,20 @@ final class ThemedSettingsPopUpButton: NSPopUpButton {
         didSet { needsDisplay = true }
     }
 
+    override init(frame buttonFrame: NSRect, pullsDown flag: Bool) {
+        super.init(frame: buttonFrame, pullsDown: flag)
+        configure()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        configure()
+    }
+
+    private func configure() {
+        focusRingType = .none
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         let rect = bounds.insetBy(dx: 0.5, dy: 0.5)
         let path = NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8)

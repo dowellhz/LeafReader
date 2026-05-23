@@ -25,6 +25,7 @@ final class ThemedSettingsSlider: NSControl {
         self.minValue = minValue
         self.maxValue = maxValue
         super.init(frame: .zero)
+        focusRingType = .none
         currentValue = min(max(value, minValue), maxValue)
     }
 
@@ -32,6 +33,7 @@ final class ThemedSettingsSlider: NSControl {
         minValue = 0
         maxValue = 1
         super.init(coder: coder)
+        focusRingType = .none
     }
 
     override var intrinsicContentSize: NSSize {

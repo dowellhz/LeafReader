@@ -30,6 +30,7 @@ final class ThemedSettingsCheckbox: NSButton {
         self.title = ""
         setButtonType(.toggle)
         isBordered = false
+        focusRingType = .none
         imagePosition = .noImage
         alignment = .left
         attributedTitle = NSAttributedString(string: "")

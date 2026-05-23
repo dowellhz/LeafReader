@@ -64,6 +64,7 @@ final class SettingsTabsView: NSView {
             let button = NSButton(title: text, target: self, action: #selector(selectTab(_:)))
             button.tag = index
             button.isBordered = false
+            button.focusRingType = .none
             button.wantsLayer = true
             button.layer?.cornerRadius = style == .segmented ? 11 : 8
             button.layer?.masksToBounds = true

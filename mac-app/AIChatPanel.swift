@@ -99,6 +99,16 @@ final class WordSpeakerButton: NSButton {
 
     override var acceptsFirstResponder: Bool { false }
 
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        isBordered = false
+        focusRingType = .none
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
     override func mouseDown(with event: NSEvent) {
         if isEnabled, let action {
             NSApp.sendAction(action, to: target, from: self)
@@ -112,6 +122,16 @@ final class WordSpeakerButton: NSButton {
 
 final class BubbleDeleteButton: NSButton {
     override var acceptsFirstResponder: Bool { false }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        isBordered = false
+        focusRingType = .none
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func mouseDown(with event: NSEvent) {
         if isEnabled, let action {

@@ -234,6 +234,7 @@ final class SelectionActionButton: NSButton {
 
     func applyTheme(_ theme: ReaderTheme) {
         isBordered = false
+        focusRingType = .none
         wantsLayer = true
         layer?.cornerRadius = Metrics.cornerRadius
         layer?.masksToBounds = true

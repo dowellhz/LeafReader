@@ -13,6 +13,16 @@ final class GradientButton: NSButton {
         didSet { needsDisplay = true }
     }
 
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        isBordered = false
+        focusRingType = .none
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
     override var isEnabled: Bool {
         didSet {
             layer?.shadowOpacity = isEnabled ? 0.24 : 0
@@ -155,6 +165,16 @@ final class SideHandleButton: NSButton {
 
     var collapsedStyle = true {
         didSet { needsDisplay = true }
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        isBordered = false
+        focusRingType = .none
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 
     override var isHighlighted: Bool {
