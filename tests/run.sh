@@ -55,6 +55,7 @@ swiftc \
   mac-app/LocalEncryptedStore.swift \
   mac-app/SpeechVoiceCatalog.swift \
   mac-app/AISettingsStore.swift \
+  mac-app/AISettingsStore+Speech.swift \
   mac-app/NetworkErrorFormatter.swift \
   mac-app/KokoroWorkerResponseReader.swift \
   mac-app/ProcessRunner.swift \
