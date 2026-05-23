@@ -79,13 +79,6 @@ final class ThemedSettingsPopUpButton: NSPopUpButton {
     }
 
     private var arrowColor: NSColor {
-        switch theme {
-        case .original:
-            return NSColor(red: 0.02, green: 0.48, blue: 0.98, alpha: 1)
-        case .eyeCare:
-            return NSColor(red: 0.53, green: 0.37, blue: 0.14, alpha: 1)
-        case .dark:
-            return NSColor(red: 0.32, green: 0.55, blue: 1, alpha: 1)
-        }
+        theme.accentColor
     }
 }

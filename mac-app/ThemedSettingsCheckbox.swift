@@ -4,6 +4,7 @@ final class ThemedSettingsCheckbox: NSButton {
     var theme: ReaderTheme = .original {
         didSet { needsDisplay = true }
     }
+    private var displayTitle = ""
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -25,7 +26,8 @@ final class ThemedSettingsCheckbox: NSButton {
     }
 
     private func configure(title: String) {
-        self.title = title
+        displayTitle = title
+        self.title = ""
         setButtonType(.toggle)
         isBordered = false
         imagePosition = .noImage
@@ -35,9 +37,9 @@ final class ThemedSettingsCheckbox: NSButton {
     }
 
     override var intrinsicContentSize: NSSize {
-        let titleWidth = title.isEmpty
+        let titleWidth = displayTitle.isEmpty
             ? 0
-            : (title as NSString).size(withAttributes: [.font: font ?? AppFont.semibold(ofSize: 14)]).width + 8
+            : (displayTitle as NSString).size(withAttributes: [.font: font ?? AppFont.semibold(ofSize: 14)]).width + 8
         return NSSize(width: 22 + titleWidth, height: 24)
     }
 
@@ -65,13 +67,13 @@ final class ThemedSettingsCheckbox: NSButton {
             check.stroke()
         }
 
-        guard !title.isEmpty else { return }
+        guard !displayTitle.isEmpty else { return }
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font ?? AppFont.semibold(ofSize: 14),
             .foregroundColor: textColor
         ]
-        let titleSize = title.size(withAttributes: attrs)
-        title.draw(
+        let titleSize = displayTitle.size(withAttributes: attrs)
+        displayTitle.draw(
             at: NSPoint(x: boxRect.maxX + 8, y: max(0, (bounds.height - titleSize.height) / 2)),
             withAttributes: attrs
         )
@@ -104,14 +106,7 @@ final class ThemedSettingsCheckbox: NSButton {
     }
 
     private var selectedFillColor: NSColor {
-        switch theme {
-        case .original:
-            return NSColor(red: 0.02, green: 0.48, blue: 0.98, alpha: 1)
-        case .eyeCare:
-            return NSColor(red: 0.55, green: 0.38, blue: 0.14, alpha: 1)
-        case .dark:
-            return NSColor(red: 0.32, green: 0.55, blue: 1, alpha: 1)
-        }
+        theme.accentColor
     }
 
     private var borderColor: NSColor {

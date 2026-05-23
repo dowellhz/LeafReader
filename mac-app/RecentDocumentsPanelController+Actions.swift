@@ -28,7 +28,7 @@ extension RecentDocumentsPanelController {
         case .original:
             return NSColor(red: 0.45, green: 0.49, blue: 0.60, alpha: 1)
         case .eyeCare:
-            return NSColor(red: 0.45, green: 0.39, blue: 0.26, alpha: 1)
+            return theme.secondaryTextColor
         case .dark:
             return NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
         }
@@ -72,7 +72,7 @@ extension RecentDocumentsPanelController {
         alert.addButton(withTitle: AppText.cancel)
 
         let clearVectorCheckbox = NSButton(
-            checkboxWithTitle: AppText.localized("清除 AI 阅读记录", "Clear AI reading records"),
+            checkboxWithTitle: AppText.localized("清除 AI 分析缓存", "Clear AI analysis cache"),
             target: nil,
             action: nil
         )
@@ -206,30 +206,41 @@ extension RecentDocumentsPanelController {
         title: String,
         target: AnyObject,
         action: Selector,
-        panelBackground: NSColor,
-        primaryText: NSColor,
-        isDark: Bool
-    ) -> NSButton {
-        let button = NSButton(title: title, target: target, action: action)
-        button.isBordered = false
-        button.wantsLayer = true
-        button.layer?.backgroundColor = panelBackground.cgColor
-        button.layer?.borderWidth = 1
-        button.layer?.borderColor = (isDark
-            ? NSColor(red: 0.30, green: 0.36, blue: 0.44, alpha: 1)
-            : NSColor(red: 0.78, green: 0.82, blue: 0.88, alpha: 1)
-        ).cgColor
-        button.layer?.cornerRadius = 7
-        button.font = AppFont.semibold(ofSize: 13)
-        button.attributedTitle = NSAttributedString(
-            string: title,
-            attributes: [
-                .font: AppFont.semibold(ofSize: 13),
-                .foregroundColor: primaryText
-            ]
-        )
+        isPrimary: Bool = false
+    ) -> ThemedSettingsActionButton {
+        let theme = ReaderTheme.selected
+        let button = ThemedSettingsActionButton(title: title, target: target, action: action)
+        button.fillColor = isPrimary ? shelfPrimaryActionBackgroundColor(for: theme) : shelfButtonBackgroundColor(for: theme)
+        button.strokeColor = isPrimary ? shelfPrimaryActionBorderColor(for: theme) : shelfBorderColor(for: theme)
+        button.labelColor = isPrimary ? shelfPrimaryActionTextColor(for: theme) : shelfPrimaryTextColor(for: theme)
+        button.font = AppFont.semibold(ofSize: 14)
+        button.controlSize = .large
+        button.lineBreakMode = .byTruncatingTail
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
+    }
+
+    func shelfButtonBackgroundColor(for theme: ReaderTheme) -> NSColor {
+        switch theme {
+        case .original:
+            return .white
+        case .eyeCare:
+            return NSColor(red: 0.89, green: 0.84, blue: 0.69, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+        }
+    }
+
+    func shelfPrimaryActionBackgroundColor(for theme: ReaderTheme) -> NSColor {
+        theme.accentColor
+    }
+
+    func shelfPrimaryActionBorderColor(for theme: ReaderTheme) -> NSColor {
+        shelfPrimaryActionBackgroundColor(for: theme)
+    }
+
+    func shelfPrimaryActionTextColor(for theme: ReaderTheme) -> NSColor {
+        theme.primaryActionTextColor
     }
 
 }

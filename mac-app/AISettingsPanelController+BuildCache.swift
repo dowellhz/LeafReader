@@ -24,7 +24,7 @@ extension AISettingsPanelController {
         primaryText: NSColor,
         secondaryText: NSColor
     ) -> AISettingsCacheSection {
-        let cacheLabel = label(AppText.localized("AI 阅读记录", "AI Reading Records"), size: 15, weight: .semibold, color: primaryText)
+        let cacheLabel = label(AppText.localized("AI 分析缓存", "AI Analysis Cache"), size: 15, weight: .semibold, color: primaryText)
         let cacheStatusLabel = label(AppText.localized("正在统计缓存...", "Calculating cache..."), size: settingsFontSize, color: secondaryText)
         let cacheDisclosureButton = NSButton(title: "", target: self, action: #selector(clearVectorCache(_:)))
         cacheDisclosureButton.isBordered = false
@@ -33,7 +33,7 @@ extension AISettingsPanelController {
         cacheDisclosureButton.isHidden = true
         cacheDisclosureButton.translatesAutoresizingMaskIntoConstraints = false
         let clearVectorCacheButton = cacheActionButton(
-            title: AppText.localized("清除 AI 阅读记录", "Clear AI Reading Records"),
+            title: AppText.localized("清除全部缓存", "Clear All Cache"),
             symbol: "trash",
             tint: NSColor(red: 1.00, green: 0.16, blue: 0.18, alpha: 1),
             target: self,
@@ -42,7 +42,7 @@ extension AISettingsPanelController {
         clearVectorCacheButton.layer?.cornerRadius = 8
         clearVectorCacheButton.font = AppFont.semibold(ofSize: 14)
         clearVectorCacheButton.attributedTitle = NSAttributedString(
-            string: AppText.localized("清除 AI 阅读记录", "Clear AI Reading Records"),
+            string: AppText.localized("清除全部缓存", "Clear All Cache"),
             attributes: [
                 .font: AppFont.semibold(ofSize: 14),
                 .foregroundColor: primaryText
@@ -54,7 +54,7 @@ extension AISettingsPanelController {
         currentIndexStatusLabel.maximumNumberOfLines = 2
         currentIndexStatusLabel.lineBreakMode = .byWordWrapping
         let startIndexButton = cacheActionButton(
-            title: AppText.localized("重分析本书", "Reanalyze Book"),
+            title: AppText.localized("生成/更新本书缓存", "Build / Update Book Cache"),
             symbol: "play.circle",
             tint: NSColor(red: 0.00, green: 0.48, blue: 1.00, alpha: 1),
             target: self,
@@ -75,14 +75,14 @@ extension AISettingsPanelController {
             action: #selector(cancelCurrentVectorIndex(_:))
         )
         let clearCurrentIndexButton = cacheActionButton(
-            title: AppText.localized("清除本书缓存", "Clear Book Cache"),
+            title: AppText.localized("清除本书分析缓存", "Clear Book Analysis Cache"),
             symbol: "paintbrush",
             tint: NSColor(red: 0.60, green: 0.27, blue: 1.00, alpha: 1),
             target: self,
             action: #selector(clearCurrentVectorIndex(_:))
         )
         let clearCurrentWordsButton = cacheActionButton(
-            title: AppText.localized("清除当前书单词记录", "Clear Current Book Words"),
+            title: AppText.localized("清除本书单词记录", "Clear Book Words"),
             symbol: "trash",
             tint: NSColor(red: 0.00, green: 0.72, blue: 0.74, alpha: 1),
             target: self,
@@ -90,8 +90,12 @@ extension AISettingsPanelController {
         )
         let currentIndexCard = settingsCard()
         let vectorCacheCard = settingsCard()
+        for card in [currentIndexCard, vectorCacheCard] {
+            card.layer?.backgroundColor = NSColor.clear.cgColor
+            card.layer?.borderWidth = 0
+        }
 
-        for view in [currentIndexLabel, currentIndexStatusLabel, startIndexButton, pauseIndexButton, cancelIndexButton, clearCurrentIndexButton, clearCurrentWordsButton] {
+        for view in [currentIndexLabel, startIndexButton, pauseIndexButton, cancelIndexButton, clearCurrentIndexButton, clearCurrentWordsButton] {
             currentIndexCard.addSubview(view)
         }
         for view in [cacheLabel, cacheStatusLabel, cacheDisclosureButton, clearVectorCacheButton] {
@@ -125,13 +129,10 @@ extension AISettingsPanelController {
             section.currentIndexCard.topAnchor.constraint(equalTo: page.topAnchor, constant: 4),
             section.currentIndexCard.leadingAnchor.constraint(equalTo: page.leadingAnchor),
             section.currentIndexCard.widthAnchor.constraint(equalToConstant: formWidth),
-            section.currentIndexCard.heightAnchor.constraint(equalToConstant: 204),
-            section.currentIndexLabel.topAnchor.constraint(equalTo: section.currentIndexCard.topAnchor, constant: 24),
+            section.currentIndexCard.heightAnchor.constraint(equalToConstant: 164),
+            section.currentIndexLabel.topAnchor.constraint(equalTo: section.currentIndexCard.topAnchor, constant: 18),
             section.currentIndexLabel.leadingAnchor.constraint(equalTo: section.currentIndexCard.leadingAnchor, constant: 22),
-            section.currentIndexStatusLabel.topAnchor.constraint(equalTo: section.currentIndexLabel.bottomAnchor, constant: 14),
-            section.currentIndexStatusLabel.leadingAnchor.constraint(equalTo: section.currentIndexLabel.leadingAnchor),
-            section.currentIndexStatusLabel.widthAnchor.constraint(equalToConstant: formWidth - 44),
-            section.startIndexButton.topAnchor.constraint(equalTo: section.currentIndexStatusLabel.bottomAnchor, constant: 20),
+            section.startIndexButton.topAnchor.constraint(equalTo: section.currentIndexLabel.bottomAnchor, constant: 18),
             section.startIndexButton.leadingAnchor.constraint(equalTo: section.currentIndexLabel.leadingAnchor),
             section.startIndexButton.widthAnchor.constraint(equalToConstant: 194),
             section.startIndexButton.heightAnchor.constraint(equalToConstant: 44),
@@ -143,7 +144,7 @@ extension AISettingsPanelController {
             section.cancelIndexButton.leadingAnchor.constraint(equalTo: section.pauseIndexButton.trailingAnchor, constant: 16),
             section.cancelIndexButton.widthAnchor.constraint(equalToConstant: 194),
             section.cancelIndexButton.heightAnchor.constraint(equalToConstant: 44),
-            section.clearCurrentIndexButton.topAnchor.constraint(equalTo: section.startIndexButton.bottomAnchor, constant: 12),
+            section.clearCurrentIndexButton.topAnchor.constraint(equalTo: section.startIndexButton.bottomAnchor, constant: 10),
             section.clearCurrentIndexButton.leadingAnchor.constraint(equalTo: section.currentIndexLabel.leadingAnchor),
             section.clearCurrentIndexButton.widthAnchor.constraint(equalToConstant: 194),
             section.clearCurrentIndexButton.heightAnchor.constraint(equalToConstant: 44),
@@ -152,16 +153,16 @@ extension AISettingsPanelController {
             section.clearCurrentWordsButton.widthAnchor.constraint(equalToConstant: 194),
             section.clearCurrentWordsButton.heightAnchor.constraint(equalToConstant: 44),
 
-            section.vectorCacheCard.topAnchor.constraint(equalTo: section.currentIndexCard.bottomAnchor, constant: 18),
+            section.vectorCacheCard.topAnchor.constraint(equalTo: section.currentIndexCard.bottomAnchor, constant: 14),
             section.vectorCacheCard.leadingAnchor.constraint(equalTo: page.leadingAnchor),
             section.vectorCacheCard.widthAnchor.constraint(equalToConstant: formWidth),
             section.vectorCacheCard.heightAnchor.constraint(equalToConstant: 138),
             section.cacheLabel.topAnchor.constraint(equalTo: section.vectorCacheCard.topAnchor, constant: 18),
             section.cacheLabel.leadingAnchor.constraint(equalTo: section.vectorCacheCard.leadingAnchor, constant: 22),
-            section.cacheStatusLabel.topAnchor.constraint(equalTo: section.cacheLabel.bottomAnchor, constant: 12),
-            section.cacheStatusLabel.leadingAnchor.constraint(equalTo: section.cacheLabel.leadingAnchor),
-            section.cacheStatusLabel.widthAnchor.constraint(equalToConstant: formWidth - 92),
-            section.clearVectorCacheButton.topAnchor.constraint(equalTo: section.cacheStatusLabel.bottomAnchor, constant: 16),
+            section.cacheStatusLabel.centerYAnchor.constraint(equalTo: section.cacheLabel.centerYAnchor),
+            section.cacheStatusLabel.leadingAnchor.constraint(equalTo: section.cacheLabel.trailingAnchor, constant: 18),
+            section.cacheStatusLabel.trailingAnchor.constraint(lessThanOrEqualTo: section.vectorCacheCard.trailingAnchor, constant: -22),
+            section.clearVectorCacheButton.topAnchor.constraint(equalTo: section.cacheLabel.bottomAnchor, constant: 20),
             section.clearVectorCacheButton.leadingAnchor.constraint(equalTo: section.vectorCacheCard.leadingAnchor, constant: 22),
             section.clearVectorCacheButton.widthAnchor.constraint(equalToConstant: 194),
             section.clearVectorCacheButton.heightAnchor.constraint(equalToConstant: 44),

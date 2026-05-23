@@ -23,7 +23,7 @@ enum ReaderUILayout {
     static let aiHandleTopOffset: CGFloat = 90
 
     static let settingsLeading: CGFloat = 18
-    static let settingsButtonSize: CGFloat = 24
+    static let settingsButtonSize: CGFloat = 32
     static let shelfButtonLeading: CGFloat = 18
     static let shelfButtonWidth: CGFloat = 88
     static let vocabularyButtonLeading: CGFloat = 10

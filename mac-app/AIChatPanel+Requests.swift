@@ -76,7 +76,7 @@ extension AIChatPanel {
         let button = NSButton(title: AppText.localized("重试", "Retry"), target: self, action: #selector(retryLastFailedRequest(_:)))
         button.isBordered = false
         button.wantsLayer = true
-        button.layer?.backgroundColor = NSColor.systemBlue.cgColor
+        button.layer?.backgroundColor = aiAccentColor.cgColor
         button.layer?.cornerRadius = 7
         button.attributedTitle = NSAttributedString(
             string: AppText.localized("重试", "Retry"),

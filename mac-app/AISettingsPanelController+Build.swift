@@ -45,27 +45,30 @@ extension AISettingsPanelController {
         closeButton.contentTintColor = primaryText
         closeButton.translatesAutoresizingMaskIntoConstraints = false
 
-        let tabControl = SettingsTabsView(
-            labels: [
+        let tabLabels = [
             AppText.localized("基础", "General"),
             AppText.localized("模型", "Model"),
             AppText.localized("AI 分析", "AI Analysis"),
             AppText.localized("朗读", "Read Aloud"),
             AppText.localized("缓存", "Cache")
-            ],
-            selectedIndex: initialTab.rawValue
+        ]
+        let sidebarControl = SettingsTabsView(
+            labels: tabLabels,
+            selectedIndex: initialTab.rawValue,
+            style: .sidebar
         )
-        tabControl.onSelectionChanged = { [weak self] index in
+        sidebarControl.onSelectionChanged = { [weak self] index in
             self?.settingsTabChanged(index: index)
         }
-        tabControl.translatesAutoresizingMaskIntoConstraints = false
+        sidebarControl.translatesAutoresizingMaskIntoConstraints = false
 
-        let scrollView = NSScrollView()
+        let scrollView = NonScrollingSettingsScrollView()
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = false
-        scrollView.verticalScrollElasticity = .allowed
+        scrollView.verticalScrollElasticity = .none
         scrollView.horizontalScrollElasticity = .none
+        scrollView.scrollerStyle = .overlay
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
         scrollView.wantsLayer = true
@@ -146,7 +149,6 @@ extension AISettingsPanelController {
             selectedEndpoint: selectedEmbeddingEndpoint,
             settingsFontSize: settingsFontSize,
             primaryText: primaryText,
-            secondaryText: secondaryText,
             theme: theme
         )
         let embeddingProviderPopup = embeddingSection.providerPopup
@@ -201,7 +203,7 @@ extension AISettingsPanelController {
         themePopup.identifier = Identifiers.themePopup
         keyField.identifier = Identifiers.keyField
 
-        for view in [titleIcon, titleLabel, closeButton, tabControl, scrollView, cancelButton, saveButton] {
+        for view in [titleIcon, titleLabel, closeButton, sidebarControl, scrollView, cancelButton, saveButton] {
             content.addSubview(view)
         }
         for view in [customEndpointLabel, customEndpointField, customModelLabel, customModelField] {
@@ -267,10 +269,10 @@ extension AISettingsPanelController {
             formWidth: formWidth
         ))
         NSLayoutConstraint.activate([
-            titleIcon.topAnchor.constraint(equalTo: content.topAnchor, constant: 32),
-            titleIcon.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 44),
-            titleIcon.widthAnchor.constraint(equalToConstant: 36),
-            titleIcon.heightAnchor.constraint(equalToConstant: 36),
+            titleIcon.topAnchor.constraint(equalTo: content.topAnchor, constant: 26),
+            titleIcon.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 38),
+            titleIcon.widthAnchor.constraint(equalToConstant: layout.titleIconSize),
+            titleIcon.heightAnchor.constraint(equalToConstant: layout.titleIconSize),
             titleLabel.centerYAnchor.constraint(equalTo: titleIcon.centerYAnchor),
             titleLabel.leadingAnchor.constraint(equalTo: titleIcon.trailingAnchor, constant: 14),
             titleLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -54),
@@ -279,14 +281,14 @@ extension AISettingsPanelController {
             closeButton.widthAnchor.constraint(equalToConstant: 34),
             closeButton.heightAnchor.constraint(equalToConstant: 34),
 
-            tabControl.topAnchor.constraint(equalTo: content.topAnchor, constant: 78),
-            tabControl.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            tabControl.widthAnchor.constraint(equalToConstant: 540),
-            tabControl.heightAnchor.constraint(equalToConstant: 40),
+            sidebarControl.topAnchor.constraint(equalTo: content.topAnchor, constant: 96),
+            sidebarControl.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 28),
+            sidebarControl.widthAnchor.constraint(equalToConstant: 148),
+            sidebarControl.bottomAnchor.constraint(lessThanOrEqualTo: saveButton.topAnchor, constant: -22),
 
-            scrollView.topAnchor.constraint(equalTo: content.topAnchor, constant: 134),
-            scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 44),
-            scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -44),
+            scrollView.topAnchor.constraint(equalTo: content.topAnchor, constant: 96),
+            scrollView.leadingAnchor.constraint(equalTo: sidebarControl.trailingAnchor, constant: 24),
+            scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -28),
             scrollView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -22),
             formContent.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor, constant: 22),
             formContent.centerXAnchor.constraint(equalTo: scrollView.contentView.centerXAnchor),
@@ -416,7 +418,8 @@ extension AISettingsPanelController {
         ])
 
         self.panel = panel
-        self.settingsTabControl = tabControl
+        self.settingsTabControl = nil
+        self.settingsSidebarControl = sidebarControl
         self.settingsScrollView = scrollView
         self.basicPage = basicPage
         self.modelPage = modelPage

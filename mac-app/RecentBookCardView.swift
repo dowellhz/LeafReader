@@ -30,7 +30,7 @@ final class RecentBookCardView: NSView {
         menu.addItem(menuItem(title: AppText.localized("在 Finder 中显示", "Show in Finder"), action: #selector(revealFromMenu(_:))))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(menuItem(title: AppText.localized("移出书架", "Remove from Shelf"), action: #selector(removeFromMenu(_:))))
-        menu.addItem(menuItem(title: AppText.localized("清除本书 AI 阅读记录", "Clear Book AI Reading Records"), action: #selector(clearVectorCacheFromMenu(_:))))
+        menu.addItem(menuItem(title: AppText.localized("清除本书 AI 分析缓存", "Clear Book AI Analysis Cache"), action: #selector(clearVectorCacheFromMenu(_:))))
         menu.addItem(menuItem(title: AppText.localized("清除本书单词记录", "Clear Book Words"), action: #selector(clearWordRecordsFromMenu(_:))))
         menu.addItem(menuItem(title: AppText.localized("清除本书 AI 数据", "Clear Book AI Data"), action: #selector(clearAIDataFromMenu(_:))))
         NSMenu.popUpContextMenu(menu, with: event, for: self)
@@ -70,4 +70,3 @@ final class RecentBookCardView: NSView {
         addCursorRect(bounds, cursor: .pointingHand)
     }
 }
-

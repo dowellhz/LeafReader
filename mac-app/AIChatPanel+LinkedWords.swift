@@ -94,5 +94,7 @@ extension AIChatPanel {
         }
         updateLinkedBubbleSelection()
         notifyConversationChangedIfNeeded()
+        transcriptStack.needsLayout = true
+        scheduleTranscriptLayout()
     }
 }

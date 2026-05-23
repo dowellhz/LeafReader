@@ -114,6 +114,7 @@ extension ReaderWindowController {
     func setAIPanelCollapsed(_ collapsed: Bool, animated: Bool) {
         if collapsed == isAIPanelCollapsed {
             if !collapsed {
+                aiPanel.setTheme(ReaderTheme.selected)
                 aiPanel.setContentVisible(true)
                 runPendingAIPanelExpansionAction()
             }
@@ -130,6 +131,9 @@ extension ReaderWindowController {
         }
         isAIPanelCollapsed = collapsed
         aiPanel.isHidden = false
+        if !collapsed {
+            aiPanel.setTheme(ReaderTheme.selected)
+        }
         if collapsed {
             aiPanel.setContentVisible(false)
         }

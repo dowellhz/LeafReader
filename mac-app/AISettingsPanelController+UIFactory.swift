@@ -14,25 +14,27 @@ extension AISettingsPanelController {
     }
 
     func settingsTitleIcon(primaryText: NSColor) -> NSView {
+        let metrics = AISettingsLayoutMetrics()
         let container = NSView()
         container.wantsLayer = true
-        container.layer?.backgroundColor = settingsIconBackgroundColor(for: ReaderTheme.selected).cgColor
-        container.layer?.cornerRadius = 18
-        container.layer?.masksToBounds = true
+        container.layer?.backgroundColor = NSColor.clear.cgColor
+        container.layer?.cornerRadius = 0
+        container.layer?.masksToBounds = false
         container.translatesAutoresizingMaskIntoConstraints = false
 
         let imageView = NSImageView()
-        imageView.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
-        imageView.contentTintColor = primaryText
-        imageView.imageScaling = .scaleProportionallyDown
+        imageView.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: metrics.titleIconSymbolSize, weight: .regular))
+        imageView.contentTintColor = settingsTitleIconColor(for: ReaderTheme.selected, fallback: primaryText)
+        imageView.imageScaling = .scaleNone
         imageView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(imageView)
 
         NSLayoutConstraint.activate([
             imageView.centerXAnchor.constraint(equalTo: container.centerXAnchor),
             imageView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            imageView.widthAnchor.constraint(equalToConstant: 20),
-            imageView.heightAnchor.constraint(equalToConstant: 20)
+            imageView.widthAnchor.constraint(equalToConstant: metrics.titleIconSymbolSize),
+            imageView.heightAnchor.constraint(equalToConstant: metrics.titleIconSymbolSize)
         ])
         return container
     }
@@ -54,6 +56,7 @@ extension AISettingsPanelController {
         field.drawsBackground = false
         field.isEditable = true
         field.isSelectable = true
+        field.focusRingType = .none
         field.textColor = textColor
         applyThemedFieldChrome(to: field, backgroundColor: backgroundColor)
         field.translatesAutoresizingMaskIntoConstraints = false
@@ -69,6 +72,7 @@ extension AISettingsPanelController {
         field.isEditable = true
         field.isSelectable = true
         field.isEnabled = true
+        field.focusRingType = .none
         field.textColor = textColor
         applyThemedFieldChrome(to: field, backgroundColor: backgroundColor)
         field.translatesAutoresizingMaskIntoConstraints = false
@@ -131,26 +135,15 @@ extension AISettingsPanelController {
         target: AnyObject,
         action: Selector
     ) -> NSButton {
-        let button = NSButton(title: title, target: target, action: action)
-        button.isBordered = false
-        button.wantsLayer = true
         let theme = ReaderTheme.selected
-        button.layer?.backgroundColor = settingsButtonBackgroundColor(for: theme).cgColor
-        button.layer?.borderWidth = 1
-        button.layer?.borderColor = settingsBorderColor(for: theme).cgColor
-        button.layer?.cornerRadius = 8
-        button.layer?.masksToBounds = true
-        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-        button.imagePosition = .imageLeft
-        button.imageScaling = .scaleProportionallyDown
-        button.contentTintColor = tint
-        button.font = AppFont.semibold(ofSize: 14)
-        button.attributedTitle = NSAttributedString(
-            string: title,
-            attributes: [
-                .font: AppFont.semibold(ofSize: 14),
-                .foregroundColor: settingsPrimaryTextColor(for: theme)
-            ]
+        let button = ThemedSettingsActionButton(title: title, target: target, action: action)
+        button.leadingSymbolName = symbol
+        button.leadingSymbolColor = tint
+        styleSettingsActionButton(
+            button,
+            backgroundColor: settingsButtonBackgroundColor(for: theme),
+            titleColor: settingsPrimaryTextColor(for: theme),
+            borderColor: settingsBorderColor(for: theme)
         )
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
@@ -253,14 +246,14 @@ extension AISettingsPanelController {
         }
     }
 
-    func settingsIconBackgroundColor(for theme: ReaderTheme) -> NSColor {
+    func settingsTitleIconColor(for theme: ReaderTheme, fallback: NSColor) -> NSColor {
         switch theme {
         case .original:
-            return NSColor(red: 0.95, green: 0.91, blue: 0.84, alpha: 1)
+            return NSColor(red: 0.08, green: 0.10, blue: 0.14, alpha: 1)
         case .eyeCare:
-            return NSColor(red: 0.86, green: 0.80, blue: 0.63, alpha: 1)
+            return NSColor(red: 0.42, green: 0.29, blue: 0.08, alpha: 1)
         case .dark:
-            return NSColor(red: 0.14, green: 0.17, blue: 0.22, alpha: 1)
+            return fallback
         }
     }
 

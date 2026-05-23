@@ -3,7 +3,7 @@ import Cocoa
 extension AIChatPanel {
     @objc func toggleCollapsedBubble(_ recognizer: NSClickGestureRecognizer) {
         guard
-            let box = recognizer.view as? ChatBubbleView,
+            let box = bubbleBox(for: recognizer),
             let body = box.subviews.compactMap({ $0 as? NSTextField }).first
         else { return }
 
@@ -14,8 +14,7 @@ extension AIChatPanel {
     }
 
     @objc func selectLinkedBubble(_ recognizer: NSClickGestureRecognizer) {
-        guard let box = recognizer.view as? ChatBubbleView,
-              !isClickOnBubbleButton(recognizer, in: box),
+        guard let box = bubbleBox(for: recognizer),
               let linkID = box.identifier?.rawValue else { return }
         selectedLinkID = linkID
         updateLinkedBubbleSelection()
@@ -23,8 +22,7 @@ extension AIChatPanel {
     }
 
     @objc func selectConversationSourceBubble(_ recognizer: NSClickGestureRecognizer) {
-        guard let box = recognizer.view as? ChatBubbleView,
-              !isClickOnBubbleButton(recognizer, in: box),
+        guard let box = bubbleBox(for: recognizer),
               let bodyID = box.identifier?.rawValue,
               let sourceLocation = bubbleMetadataByID[bodyID]?.sourceLocation else {
             return
@@ -32,17 +30,21 @@ extension AIChatPanel {
         onConversationBubbleSelected?(sourceLocation)
     }
 
-    func isClickOnBubbleButton(_ recognizer: NSClickGestureRecognizer, in box: ChatBubbleView) -> Bool {
-        let location = recognizer.location(in: box)
-        return box.subviews.contains { subview in
-            subview is NSButton && subview.frame.contains(location)
+    func bubbleBox(for recognizer: NSClickGestureRecognizer) -> ChatBubbleView? {
+        var view = recognizer.view
+        while let current = view {
+            if let box = current as? ChatBubbleView {
+                return box
+            }
+            view = current.superview
         }
+        return nil
     }
 
     func updateLinkedBubbleSelection() {
         for (linkID, box) in bubbleBoxByLinkID {
             box.borderColor = linkID == selectedLinkID
-                ? NSColor.systemBlue.withAlphaComponent(0.9)
+                ? aiAccentColor.withAlphaComponent(0.9)
                 : bubbleBorderColor
             box.needsDisplay = true
         }
@@ -66,8 +68,10 @@ extension AIChatPanel {
         scrollView.reflectScrolledClipView(clipView)
     }
 
-    func scrollToConversationSource(_ source: AIConversationSourceLocation) {
-        let preferredRoles = [AppText.aiRole, AppText.userRole]
+    func scrollToConversationSource(_ source: AIConversationSourceLocation, prefersHeaderBubble: Bool = false) {
+        let preferredRoles = prefersHeaderBubble
+            ? [AppText.userRole, AppText.aiRole]
+            : [AppText.aiRole, AppText.userRole]
         for role in preferredRoles {
             if let bodyID = bubbleMetadataByID.first(where: { _, metadata in
                 metadata.role == role && metadata.sourceLocation == source

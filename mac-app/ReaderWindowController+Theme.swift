@@ -23,10 +23,11 @@ extension ReaderWindowController {
         zoomGroupView?.layer?.backgroundColor = controlBackground.cgColor
         zoomGroupView?.layer?.borderColor = controlBorder.cgColor
         resizeHandle.layer?.backgroundColor = handleColor.cgColor
-        searchUnderlineButton?.isDark = isDark
+        searchUnderlineButton?.theme = theme
         applyChromeTheme(to: window?.contentView, theme: theme)
         updatePageLabelTextColor()
         updateEmbeddingStatusTextColor()
+        aiHandleButton.theme = theme
         aiPanel.setTheme(theme)
         updateReadAloudSoftHintTheme()
         searchOverlay.setTheme(theme)
@@ -106,28 +107,14 @@ extension ReaderWindowController {
 
     func applyChromeTheme(to view: NSView?, theme: ReaderTheme) {
         guard let view else { return }
-        let textColor: NSColor
-        let secondaryColor: NSColor
-        switch theme {
-        case .original:
-            textColor = NSColor(red: 0.10, green: 0.11, blue: 0.14, alpha: 1)
-            secondaryColor = NSColor(red: 0.36, green: 0.39, blue: 0.48, alpha: 1)
-        case .eyeCare:
-            textColor = NSColor(red: 0.18, green: 0.15, blue: 0.09, alpha: 1)
-            secondaryColor = NSColor(red: 0.45, green: 0.39, blue: 0.26, alpha: 1)
-        case .dark:
-            textColor = NSColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 1)
-            secondaryColor = NSColor(red: 0.62, green: 0.67, blue: 0.74, alpha: 1)
-        }
-
         if let label = view as? NSTextField {
-            label.textColor = textColor
+            label.textColor = theme.primaryTextColor
         }
         if let button = view as? NSButton {
             if button.identifier == Self.capsuleButtonIdentifier {
                 (button as? CapsuleChromeButton)?.theme = theme
             } else {
-                button.contentTintColor = secondaryColor
+                button.contentTintColor = theme.secondaryTextColor
             }
         }
         if view !== aiPanel, view !== searchOverlay {
@@ -138,23 +125,21 @@ extension ReaderWindowController {
     }
 
     func updatePageLabelTextColor() {
-        let isDark = ReaderTheme.selected == .dark
-        if pageLabel.stringValue == AppText.noPDF {
-            pageLabel.textColor = isDark
-                ? NSColor(red: 0.54, green: 0.58, blue: 0.64, alpha: 1)
-                : NSColor(red: 0.52, green: 0.55, blue: 0.62, alpha: 1)
-        } else {
-            pageLabel.textColor = isDark
-                ? NSColor(red: 0.82, green: 0.85, blue: 0.90, alpha: 1)
-                : NSColor(red: 0.10, green: 0.11, blue: 0.14, alpha: 1)
-        }
+        pageLabel.textColor = pageLabel.stringValue == AppText.noPDF
+            ? noDocumentPageLabelTextColor(for: ReaderTheme.selected)
+            : pageLabelTextColor(for: ReaderTheme.selected)
+    }
+
+    func pageLabelTextColor(for theme: ReaderTheme) -> NSColor {
+        theme.primaryTextColor
+    }
+
+    func noDocumentPageLabelTextColor(for theme: ReaderTheme) -> NSColor {
+        theme.mutedTextColor
     }
 
     func updateEmbeddingStatusTextColor() {
-        let isDark = ReaderTheme.selected == .dark
-        embeddingStatusLabel.textColor = isDark
-            ? NSColor(red: 0.68, green: 0.73, blue: 0.80, alpha: 1)
-            : NSColor(red: 0.60, green: 0.65, blue: 0.72, alpha: 1)
+        embeddingStatusLabel.textColor = ReaderTheme.selected.secondaryTextColor
     }
 
     func applyPDFReaderTheme(theme: ReaderTheme) {

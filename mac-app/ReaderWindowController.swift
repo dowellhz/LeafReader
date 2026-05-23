@@ -71,6 +71,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     static let pdfTwoPageModeDefaultsKey = "pdfTwoPageMode"
     static let pdfMarginCropDefaultsKey = "pdfMarginCrop"
     static let fileMD5CacheDefaultsKey = "fileMD5Cache"
+    static let embeddingControlStateDefaultsKey = "embeddingControlState"
     static let minimumReadablePDFScale: CGFloat = 1.0
     static let capsuleButtonIdentifier = NSUserInterfaceItemIdentifier("leafReaderCapsuleButton")
 

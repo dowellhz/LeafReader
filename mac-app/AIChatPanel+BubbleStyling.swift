@@ -136,7 +136,7 @@ extension AIChatPanel {
         }
     }
 
-    var sendButtonTintColor: NSColor {
+    var aiAccentColor: NSColor {
         switch readerTheme {
         case .original:
             return NSColor(red: 0.0, green: 0.35, blue: 0.9, alpha: 1)
@@ -145,6 +145,14 @@ extension AIChatPanel {
         case .dark:
             return NSColor(red: 0.32, green: 0.55, blue: 1, alpha: 1)
         }
+    }
+
+    var aiSelectionBackgroundColor: NSColor {
+        aiAccentColor.withAlphaComponent(readerTheme == .eyeCare ? 0.24 : 0.20)
+    }
+
+    var sendButtonTintColor: NSColor {
+        aiAccentColor
     }
 
     var bubbleBorderColor: NSColor {
@@ -209,7 +217,7 @@ extension AIChatPanel {
         let entries = transcriptStack.arrangedSubviews.compactMap { view -> BubbleMetadata? in
             guard
                 let box = view as? NSBox,
-                let body = box.subviews.compactMap({ $0 as? NSTextField }).first,
+                let body = bubbleBody(in: box),
                 let bodyID = body.identifier?.rawValue,
                 let metadata = bubbleMetadataByID[bodyID]
             else {
@@ -240,7 +248,7 @@ extension AIChatPanel {
 
         for box in transcriptStack.arrangedSubviews.compactMap({ $0 as? ChatBubbleView }) {
             box.borderColor = bubbleBorderColor
-            guard let body = box.subviews.compactMap({ $0 as? NSTextField }).first else { continue }
+            guard let body = bubbleBody(in: box) else { continue }
             let metadata: BubbleMetadata?
             if let bodyID = body.identifier?.rawValue {
                 metadata = bubbleMetadataByID[bodyID]
@@ -254,8 +262,14 @@ extension AIChatPanel {
             } else {
                 box.fillColor = bubbleFillColor(role: AppText.aiRole)
                 let updated = NSMutableAttributedString(attributedString: body.attributedStringValue)
-                updated.addAttribute(.foregroundColor, value: primaryTextColor, range: NSRange(location: 0, length: updated.length))
+                updated.addAttribute(NSAttributedString.Key.foregroundColor, value: primaryTextColor, range: NSRange(location: 0, length: updated.length))
                 body.attributedStringValue = updated
+            }
+            for button in box.subviews.compactMap({ $0 as? NSButton }) where button.action == #selector(deleteBubble(_:)) {
+                button.contentTintColor = secondaryTextColor
+            }
+            if let metadata {
+                restyleSourceLabels(in: box, body: body, sourceLocation: metadata.sourceLocation)
             }
             box.needsDisplay = true
             body.needsDisplay = true
@@ -263,5 +277,23 @@ extension AIChatPanel {
         updateLinkedBubbleSelection()
         transcriptStack.needsLayout = true
         scheduleTranscriptLayout()
+    }
+
+    private func bubbleBody(in box: NSView) -> NSTextField? {
+        box.subviews.compactMap { $0 as? NSTextField }.first { textField in
+            guard let id = textField.identifier?.rawValue else { return false }
+            return bubbleMetadataByID[id] != nil
+        }
+    }
+
+    private func restyleSourceLabels(in box: NSView, body: NSTextField, sourceLocation: AIConversationSourceLocation?) {
+        guard let sourceLocation else { return }
+        for label in box.subviews.compactMap({ $0 as? NSTextField }) where label !== body {
+            label.stringValue = sourceSummaryText(for: sourceLocation)
+            label.textColor = sourceSummaryTextColor
+            label.layer?.backgroundColor = sourceSummaryBackgroundColor.cgColor
+            label.toolTip = sourceTooltipText(for: sourceLocation)
+            label.needsDisplay = true
+        }
     }
 }

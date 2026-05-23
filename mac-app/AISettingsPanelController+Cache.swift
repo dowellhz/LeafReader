@@ -74,10 +74,10 @@ extension AISettingsPanelController {
 
     @objc func clearVectorCache(_ sender: NSButton) {
         let alert = NSAlert()
-        alert.messageText = AppText.localized("清除 AI 阅读记录？", "Clear AI reading records?")
+        alert.messageText = AppText.localized("清除全部 AI 分析缓存？", "Clear all AI analysis cache?")
         alert.informativeText = AppText.localized(
-            "这会删除本机已缓存的 AI 分析数据。之后再次使用文档问答时，会按需重新分析。",
-            "This deletes locally cached AI analysis data. It will be rebuilt on demand when document Q&A is used again."
+            "这会删除本机所有书籍的向量分析缓存。之后再次使用文档问答时，会按需重新生成。",
+            "This deletes vector analysis cache for all books on this Mac. It will be rebuilt on demand when document Q&A is used again."
         )
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppText.localized("清除", "Clear"))
@@ -86,7 +86,7 @@ extension AISettingsPanelController {
         guard let panel else { return }
         alert.beginSheetModal(for: panel) { [weak self] response in
             guard response == .alertFirstButtonReturn else { return }
-            self?.cacheStatusLabel?.stringValue = AppText.localized("正在清除缓存...", "Clearing cache...")
+            self?.cacheStatusLabel?.stringValue = AppText.localized("正在清除分析缓存...", "Clearing analysis cache...")
             self?.vectorCacheQueue.async { [weak self] in
                 PDFEmbeddingStore()?.deleteAll()
                 DispatchQueue.main.async {
@@ -113,8 +113,8 @@ extension AISettingsPanelController {
         let size = formatBytes(store.cacheSizeBytes())
         let count = store.documentCount()
         return AppText.localized(
-            "当前占用 \(size)，已缓存 \(count) 本书籍。超过 1GB 会自动删除最久未使用的书籍缓存。",
-            "Using \(size), \(count) cached book(s). When it exceeds 1GB, the least recently used book cache is removed automatically."
+            "\(size) · \(count) 本书 · 超过 1GB 自动清理",
+            "\(size) · \(count) books · Auto-cleans over 1GB"
         )
     }
 

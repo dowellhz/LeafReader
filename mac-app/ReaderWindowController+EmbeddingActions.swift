@@ -6,12 +6,15 @@ extension ReaderWindowController {
         isEmbeddingBackfillPaused.toggle()
         updateEmbeddingControlButtons()
         if isEmbeddingBackfillPaused {
-            embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已暂停，点击继续", "AI analysis data: paused, tap resume")
-            embeddingStatusLabel.isHidden = false
+            if let documentID = currentFileMD5 {
+                saveEmbeddingControlState(.paused, documentID: documentID)
+            }
+            showPausedEmbeddingStatus()
             return
         }
         guard let documentID = currentFileMD5,
               let config = EmbeddingClient.configFromCurrentAISettings() else { return }
+        clearStoredEmbeddingControlState(documentID: documentID)
         continuePDFEmbeddingBackfill(
             documentID: documentID,
             config: config,
@@ -24,22 +27,21 @@ extension ReaderWindowController {
 
     @objc func cancelEmbeddingBackfill() {
         guard isPreparingPDFEmbeddings else { return }
+        if let documentID = currentFileMD5 {
+            saveEmbeddingControlState(.cancelled, documentID: documentID)
+        }
         invalidateEmbeddingBackfill()
         notifyEmbeddingReady(nil, includePending: true)
-        embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已取消", "AI analysis data: cancelled")
-        embeddingStatusLabel.isHidden = false
-        updateEmbeddingControlButtons()
-        DispatchQueue.main.asyncAfter(deadline: .now() + EmbeddingActionPolicy.statusClearDelay) { [weak self] in
-            guard let self, !self.isPreparingPDFEmbeddings else { return }
-            self.clearEmbeddingStatus()
-        }
+        clearEmbeddingStatus()
     }
 
     func startCurrentVectorIndex() {
         guard EmbeddingClient.configFromCurrentAISettings() != nil else {
-            embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：请先配置向量模型", "AI analysis data: configure embedding model first")
-            embeddingStatusLabel.isHidden = false
+            showEmbeddingStatus(AppText.localized("AI 分析数据：请先配置向量模型", "AI analysis data: configure embedding model first"))
             return
+        }
+        if let documentID = currentFileMD5 {
+            clearStoredEmbeddingControlState(documentID: documentID)
         }
         embeddingBackfillNeedsRetry = false
         ensureDocumentAgentIndexAsync { [weak self] in
@@ -53,14 +55,14 @@ extension ReaderWindowController {
             NSSound.beep()
             return
         }
+        clearStoredEmbeddingControlState(documentID: documentID)
         invalidateEmbeddingBackfill(clearPendingCallbacks: true)
         embeddingStoreQueue.async { [weak self] in
             self?.pdfEmbeddingStore?.deleteDocument(documentID: documentID)
         }
         invalidateDocumentAgentIndex()
         ensureDocumentAgentIndexAsync()
-        embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已清除当前书", "AI analysis data: current book cleared")
-        embeddingStatusLabel.isHidden = false
+        showEmbeddingStatus(AppText.localized("AI 分析数据：已清除当前书", "AI analysis data: current book cleared"))
         updateEmbeddingControlButtons()
         DispatchQueue.main.asyncAfter(deadline: .now() + EmbeddingActionPolicy.statusClearDelay) { [weak self] in
             guard let self, !self.isPreparingPDFEmbeddings else { return }

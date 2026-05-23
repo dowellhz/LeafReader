@@ -41,6 +41,9 @@ final class ChatBubbleView: NSView {
 final class LoadingDotsView: NSView {
     var timer: Timer?
     var phase = 0
+    var accentColor: NSColor = .labelColor {
+        didSet { needsDisplay = true }
+    }
 
     func startAnimating() {
         timer?.invalidate()
@@ -69,8 +72,8 @@ final class LoadingDotsView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        let activeColor = NSColor.systemBlue.withAlphaComponent(0.95)
-        let inactiveColor = NSColor.systemBlue.withAlphaComponent(0.28)
+        let activeColor = accentColor.withAlphaComponent(0.95)
+        let inactiveColor = accentColor.withAlphaComponent(0.28)
         let radius: CGFloat = 3
         let y = bounds.midY - radius
         for index in 0..<3 {

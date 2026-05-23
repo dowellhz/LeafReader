@@ -37,6 +37,10 @@ extension AIChatPanel {
         )
 
         box.addSubview(body)
+        let deleteButton = makeBubbleDeleteButton(bodyID: bodyID, role: role)
+        if let deleteButton {
+            box.addSubview(deleteButton)
+        }
         let sourceLabel: NSTextField?
         if role == AppText.aiRole, let effectiveSourceLocation {
             let label = NSTextField(labelWithString: sourceSummaryText(for: effectiveSourceLocation))
@@ -60,7 +64,7 @@ extension AIChatPanel {
             let button = WordSpeakerButton(title: "", target: self, action: #selector(playBubbleWord(_:)))
             button.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: AppText.localized("播放发音", "Play pronunciation"))
             button.isBordered = false
-            button.contentTintColor = NSColor.systemBlue
+            button.contentTintColor = aiAccentColor
             button.imageScaling = .scaleProportionallyDown
             button.imagePosition = .imageOnly
             button.identifier = NSUserInterfaceItemIdentifier(word)
@@ -81,13 +85,13 @@ extension AIChatPanel {
                 bubbleBoxByLinkID[linkID] = box
             }
             if speakerButton == nil {
-                box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(selectLinkedBubble(_:))))
+                addBubbleBodyClick(to: body, action: #selector(selectLinkedBubble(_:)))
             }
         } else if effectiveSourceLocation != nil {
             box.identifier = NSUserInterfaceItemIdentifier(bodyID)
-            box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(selectConversationSourceBubble(_:))))
+            addBubbleBodyClick(to: body, action: #selector(selectConversationSourceBubble(_:)))
         } else if collapsible {
-            box.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(toggleCollapsedBubble(_:))))
+            addBubbleBodyClick(to: body, action: #selector(toggleCollapsedBubble(_:)))
             box.toolTip = AppText.tapToExpand
         }
 
@@ -96,11 +100,20 @@ extension AIChatPanel {
             body.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 12),
             body.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -12)
         ]
+        if let deleteButton {
+            constraints.append(contentsOf: [
+                deleteButton.topAnchor.constraint(equalTo: box.topAnchor, constant: 8),
+                deleteButton.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -8),
+                deleteButton.widthAnchor.constraint(equalToConstant: 30),
+                deleteButton.heightAnchor.constraint(equalToConstant: 30)
+            ])
+        }
         if let sourceLabel {
+            let sourceTrailingAnchor = deleteButton?.leadingAnchor ?? box.trailingAnchor
             constraints.append(contentsOf: [
                 sourceLabel.topAnchor.constraint(equalTo: box.topAnchor, constant: 10),
                 sourceLabel.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 12),
-                sourceLabel.trailingAnchor.constraint(lessThanOrEqualTo: box.trailingAnchor, constant: -12),
+                sourceLabel.trailingAnchor.constraint(lessThanOrEqualTo: sourceTrailingAnchor, constant: deleteButton == nil ? -12 : -8),
                 body.topAnchor.constraint(equalTo: sourceLabel.bottomAnchor, constant: 8)
             ])
         } else {
@@ -116,7 +129,7 @@ extension AIChatPanel {
                 speakerButton.heightAnchor.constraint(equalToConstant: 54)
             ])
         } else {
-            constraints.append(body.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -12))
+            constraints.append(body.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: deleteButton == nil ? -12 : -50))
         }
         NSLayoutConstraint.activate(constraints)
 
@@ -128,6 +141,24 @@ extension AIChatPanel {
 
         scheduleTranscriptLayout(scrollTarget: box, forceScroll: true)
         return body
+    }
+
+    func makeBubbleDeleteButton(bodyID: String, role: String) -> NSButton? {
+        guard role == AppText.userRole else { return nil }
+        let button = BubbleDeleteButton(title: "", target: self, action: #selector(deleteBubble(_:)))
+        button.image = NSImage(systemSymbolName: "trash", accessibilityDescription: AppText.localized("删除气泡", "Delete bubble"))
+        button.isBordered = false
+        button.contentTintColor = secondaryTextColor
+        button.imageScaling = .scaleProportionallyDown
+        button.imagePosition = .imageOnly
+        button.identifier = NSUserInterfaceItemIdentifier(bodyID)
+        button.toolTip = AppText.localized("删除这段气泡", "Delete this bubble")
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }
+
+    func addBubbleBodyClick(to body: NSTextField, action: Selector) {
+        body.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: action))
     }
 
     func speakerWordForBubble(role: String, text: String, linkID: String?) -> String? {
@@ -178,7 +209,7 @@ extension AIChatPanel {
         ))
         if body === activeBubbleTextField,
            let highlightRange = activeBubbleHighlightRange(in: rendered) {
-            rendered.addAttribute(.backgroundColor, value: NSColor.selectedTextBackgroundColor.withAlphaComponent(0.55), range: highlightRange)
+            rendered.addAttribute(.backgroundColor, value: aiSelectionBackgroundColor, range: highlightRange)
         }
         body.attributedStringValue = rendered
         body.needsDisplay = true

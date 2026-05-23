@@ -31,7 +31,7 @@ extension AppDelegate {
         case .eyeCare:
             backgroundColor = NSColor(red: 0.91, green: 0.87, blue: 0.74, alpha: 1)
             primaryText = NSColor(red: 0.16, green: 0.13, blue: 0.08, alpha: 1)
-            secondaryText = NSColor(red: 0.45, green: 0.39, blue: 0.26, alpha: 1)
+            secondaryText = theme.secondaryTextColor
         case .dark:
             backgroundColor = NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
             primaryText = NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)

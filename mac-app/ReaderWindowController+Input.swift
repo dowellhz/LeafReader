@@ -60,7 +60,7 @@ extension ReaderWindowController {
             guard selectedText.isEmpty else { return }
             self.ensureAIConversationSourceBubbleLoaded(source)
             self.pendingAIPanelExpansionAction = { [weak self] in
-                self?.aiPanel.scrollToConversationSource(source)
+                self?.aiPanel.scrollToConversationSource(source, prefersHeaderBubble: true)
             }
             self.setAIPanelCollapsed(false, animated: true)
         }

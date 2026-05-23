@@ -10,6 +10,12 @@ final class ThemedSettingsActionButton: NSButton {
     var labelColor: NSColor = .labelColor {
         didSet { needsDisplay = true }
     }
+    var leadingSymbolName: String? {
+        didSet { needsDisplay = true }
+    }
+    var leadingSymbolColor: NSColor = .labelColor {
+        didSet { needsDisplay = true }
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -69,7 +75,33 @@ final class ThemedSettingsActionButton: NSButton {
             .foregroundColor: labelColor,
             .paragraphStyle: paragraph
         ]
-        let titleHeight = displayTitle.size(withAttributes: attrs).height
+        let titleSize = displayTitle.size(withAttributes: attrs)
+        let titleHeight = titleSize.height
+        if let leadingSymbolName,
+           let symbol = NSImage(systemSymbolName: leadingSymbolName, accessibilityDescription: nil)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 16, weight: .semibold)) {
+            let iconSize: CGFloat = 18
+            let iconLeadingInset: CGFloat = 18
+            let centerY = bounds.midY
+            let iconRect = NSRect(
+                x: iconLeadingInset,
+                y: centerY - iconSize / 2,
+                width: iconSize,
+                height: iconSize
+            )
+            let titleRect = NSRect(
+                x: 36,
+                y: max(0, centerY - titleHeight / 2),
+                width: max(0, bounds.width - 72),
+                height: titleHeight
+            )
+            symbol.isTemplate = true
+            leadingSymbolColor.set()
+            symbol.draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: isEnabled ? 1 : 0.45, respectFlipped: true, hints: nil)
+            displayTitle.draw(in: titleRect, withAttributes: attrs)
+            return
+        }
+
         let titleRect = NSRect(
             x: 8,
             y: max(0, (bounds.height - titleHeight) / 2),

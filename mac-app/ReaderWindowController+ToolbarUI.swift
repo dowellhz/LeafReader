@@ -34,6 +34,8 @@ extension ReaderWindowController {
     func configureBottomBarViews() -> ReaderBottomBarSetup {
         let bottomBar = readerBarView()
         let settingsButton = iconButton(symbol: "gearshape", action: #selector(openAISettings))
+        settingsButton.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: AppText.settings)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 19, weight: .regular))
         let navigationStack = NSStackView()
 
         bottomBarView = bottomBar
@@ -152,7 +154,7 @@ extension ReaderWindowController {
 
         searchUnderlineButton = SearchUnderlineButton(title: "", target: self, action: #selector(showSearchOverlay))
         searchUnderlineButton.toolTip = AppText.localized("搜索文档", "Search document")
-        searchUnderlineButton.isDark = ReaderTheme.selected == .dark
+        searchUnderlineButton.theme = ReaderTheme.selected
         searchButton = iconButton(symbol: "magnifyingglass", action: #selector(showSearchOverlay))
         searchButton.toolTip = AppText.localized("搜索文档", "Search document")
     }

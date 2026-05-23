@@ -90,10 +90,6 @@ extension ReaderWindowController {
         switch source.kind {
         case .pdfPage:
             addAISourceUnderline(for: source)
-            if currentPageIndex() == source.index {
-                updatePageLabel()
-                return
-            }
             jumpToPDFPage(index: source.index, skipIfCurrentPage: false)
         case .webProgress:
             jumpToWebDocumentProgress(source.progress)

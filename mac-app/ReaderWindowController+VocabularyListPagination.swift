@@ -31,17 +31,11 @@ extension ReaderWindowController {
         let container = NSView()
         container.translatesAutoresizingMaskIntoConstraints = false
 
-        let previousButton = NSButton(title: AppText.localized("上一页", "Previous"), target: self, action: #selector(previousVocabularyListPage(_:)))
-        previousButton.controlSize = .large
-        styleVocabularyButton(previousButton, fontSize: 13)
+        let previousButton = vocabularyActionButton(title: AppText.localized("上一页", "Previous"), target: self, action: #selector(previousVocabularyListPage(_:)), fontSize: 13)
         previousButton.isEnabled = currentPage > 0
-        previousButton.translatesAutoresizingMaskIntoConstraints = false
 
-        let nextButton = NSButton(title: AppText.localized("下一页", "Next"), target: self, action: #selector(nextVocabularyListPage(_:)))
-        nextButton.controlSize = .large
-        styleVocabularyButton(nextButton, fontSize: 13)
+        let nextButton = vocabularyActionButton(title: AppText.localized("下一页", "Next"), target: self, action: #selector(nextVocabularyListPage(_:)), fontSize: 13)
         nextButton.isEnabled = currentPage + 1 < pageCount
-        nextButton.translatesAutoresizingMaskIntoConstraints = false
 
         let pageLabel = NSTextField(labelWithString: AppText.localized("第 \(currentPage + 1) / \(pageCount) 页 · 共 \(total) 个", "Page \(currentPage + 1) / \(pageCount) · \(total) total"))
         pageLabel.font = AppFont.semibold(ofSize: 13)

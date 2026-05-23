@@ -43,28 +43,6 @@ extension AppDelegate {
             target: controller
         ))
         menu.addItem(.separator())
-
-        menu.addItem(menuItem(
-            AppText.localized("隐藏 \(appName)", "Hide \(appName)"),
-            action: #selector(NSApplication.hide(_:)),
-            key: "h",
-            target: NSApp
-        ))
-        let hideOthers = menuItem(
-            AppText.localized("隐藏其他", "Hide Others"),
-            action: #selector(NSApplication.hideOtherApplications(_:)),
-            key: "h",
-            target: NSApp
-        )
-        hideOthers.keyEquivalentModifierMask = [.command, .option]
-        menu.addItem(hideOthers)
-        menu.addItem(menuItem(
-            AppText.localized("全部显示", "Show All"),
-            action: #selector(NSApplication.unhideAllApplications(_:)),
-            key: "",
-            target: NSApp
-        ))
-        menu.addItem(.separator())
         menu.addItem(menuItem(
             AppText.localized("退出 \(appName)", "Quit \(appName)"),
             action: #selector(NSApplication.terminate(_:)),
@@ -112,12 +90,6 @@ extension AppDelegate {
             AppText.localized("背单词", "Vocab"),
             action: #selector(ReaderWindowController.showVocabularyBook),
             key: "d",
-            target: controller
-        ))
-        menu.addItem(menuItem(
-            AppText.localized("目录", "Table of Contents"),
-            action: #selector(ReaderWindowController.showTableOfContents),
-            key: "t",
             target: controller
         ))
         menu.addItem(menuItem(

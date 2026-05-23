@@ -151,7 +151,7 @@ extension ReaderWindowController {
         }
         ensureAIConversationSourceBubbleLoaded(source)
         pendingAIPanelExpansionAction = { [weak self] in
-            self?.aiPanel.scrollToConversationSource(source)
+            self?.aiPanel.scrollToConversationSource(source, prefersHeaderBubble: true)
         }
         setAIPanelCollapsed(false, animated: true)
     }

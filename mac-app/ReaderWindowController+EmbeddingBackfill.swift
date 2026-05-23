@@ -51,33 +51,13 @@ extension ReaderWindowController {
             completion?()
             return
         }
+        if applyStoredEmbeddingControlStateIfNeeded(documentID: documentID) {
+            completion?()
+            return
+        }
 
         if isPreparingPDFEmbeddings {
-            if isEmbeddingBackfillPaused {
-                isEmbeddingBackfillPaused = false
-                updateEmbeddingControlButtons()
-                if let documentID = currentFileMD5,
-                   let config = EmbeddingClient.configFromCurrentAISettings() {
-                    let generation = embeddingBackfillGeneration
-                    DispatchQueue.main.async { [weak self] in
-                        guard let self, generation == self.embeddingBackfillGeneration else { return }
-                        self.continuePDFEmbeddingBackfill(
-                            documentID: documentID,
-                            config: config,
-                            priorityPageIndex: priorityPageIndex,
-                            afterFirstBatch: nil,
-                            notifyPendingAfterBatch: true,
-                            generation: generation
-                        )
-                    }
-                }
-            }
-            if let priorityPageIndex {
-                queuedEmbeddingPriorityPageIndex = priorityPageIndex
-            }
-            if let completion {
-                pendingEmbeddingReadyCallbacks.append(completion)
-            }
+            queuePendingEmbeddingRequest(priorityPageIndex: priorityPageIndex, completion: completion)
             return
         }
 
@@ -126,9 +106,7 @@ extension ReaderWindowController {
             return
         }
         guard !isEmbeddingBackfillPaused else {
-            embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已暂停，点击继续", "AI analysis data: paused, tap resume")
-            embeddingStatusLabel.isHidden = false
-            updateEmbeddingControlButtons()
+            showPausedEmbeddingStatus()
             return
         }
 
@@ -186,11 +164,19 @@ extension ReaderWindowController {
                     self.stopEmbeddingBackfill()
                     self.embeddingBackfillNeedsRetry = true
                     self.notifyEmbeddingReady(afterFirstBatch, includePending: true)
-                    self.embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：失败，可重试", "AI analysis data: failed, retry available")
-                    self.embeddingStatusLabel.isHidden = false
+                    self.showEmbeddingStatus(AppText.localized("AI 分析数据：失败，可重试", "AI analysis data: failed, retry available"))
                     self.updateEmbeddingControlButtons()
                 }
             }
+        }
+    }
+
+    func queuePendingEmbeddingRequest(priorityPageIndex: Int?, completion: (() -> Void)?) {
+        if let priorityPageIndex {
+            queuedEmbeddingPriorityPageIndex = priorityPageIndex
+        }
+        if let completion {
+            pendingEmbeddingReadyCallbacks.append(completion)
         }
     }
 }

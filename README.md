@@ -74,6 +74,14 @@ Generate speech model packages with:
 
 The packaging script also writes `docs/tts/speech-models-manifest.json` with each asset's file size and SHA256 digest. When model files change, update `runtimeAssetsReleaseTag` to the release tag that will host the new model assets and publish with `--with-speech-models`.
 
+## What's New in 1.6.0
+
+- Refined the reader, AI chat, settings, recent documents, and vocabulary surfaces with a shared theme palette.
+- Added SF Symbol icons to the selected-text floating toolbar actions and tightened the toolbar layout.
+- Improved AI chat bubble persistence, linked word handling, and source annotations across reading sessions.
+- Made embedding lifecycle/status handling more resilient during backfill, rebuild, and document changes.
+- Polished vocabulary review/list navigation and recent document cleanup flows.
+
 ## What's New in 1.5.11
 
 - Reorganized local speech playback and runtime installation code into smaller focused modules.

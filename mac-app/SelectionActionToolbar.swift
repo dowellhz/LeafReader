@@ -1,6 +1,15 @@
 import Cocoa
 
 final class SelectionActionToolbar: NSView {
+    private enum Metrics {
+        static let toolbarCornerRadius: CGFloat = 10
+        static let stackSpacing: CGFloat = 4
+        static let stackInsets = NSEdgeInsets(top: 4, left: 6, bottom: 4, right: 6)
+        static let buttonWidth: CGFloat = 80
+        static let buttonHeight: CGFloat = 36
+        static let toolbarHeight: CGFloat = 44
+    }
+
     var onTranslate: (() -> Void)?
     var onExplain: (() -> Void)?
     var onAddWord: (() -> Void)?
@@ -9,13 +18,42 @@ final class SelectionActionToolbar: NSView {
     var onCopy: (() -> Void)?
 
     private let stack = NSStackView()
-    private let translateButton = SelectionActionButton(title: AppText.localized("翻译", "Translate"), target: nil, action: nil)
-    private let explainButton = SelectionActionButton(title: AppText.localized("解释", "Explain"), target: nil, action: nil)
-    private let contextButton = SelectionActionButton(title: AppText.localized("总结", "Summarize"), target: nil, action: nil)
-    private let speakButton = SelectionActionButton(title: AppText.localized("朗读", "Speak"), target: nil, action: nil)
-    private let copyButton = SelectionActionButton(title: AppText.localized("复制", "Copy"), target: nil, action: nil)
+    private let translateButton = SelectionActionButton(
+        title: AppText.localized("翻译", "Translate"),
+        symbolName: "globe",
+        target: nil,
+        action: nil
+    )
+    private let explainButton = SelectionActionButton(
+        title: AppText.localized("解释", "Explain"),
+        symbolName: "text.bubble",
+        target: nil,
+        action: nil
+    )
+    private let contextButton = SelectionActionButton(
+        title: AppText.localized("总结", "Summarize"),
+        symbolName: "list.bullet.rectangle",
+        target: nil,
+        action: nil
+    )
+    private let speakButton = SelectionActionButton(
+        title: AppText.localized("朗读", "Speak"),
+        symbolName: "speaker.wave.2",
+        target: nil,
+        action: nil
+    )
+    private let copyButton = SelectionActionButton(
+        title: AppText.localized("复制", "Copy"),
+        symbolName: "doc.on.doc",
+        target: nil,
+        action: nil
+    )
     private var contextAction: ContextAction = .summarize
     private var showsSpeakButton = true
+
+    private var actionButtons: [SelectionActionButton] {
+        [translateButton, explainButton, contextButton, speakButton, copyButton]
+    }
 
     enum ContextAction {
         case addWord
@@ -25,19 +63,14 @@ final class SelectionActionToolbar: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.cornerRadius = 10
+        layer?.cornerRadius = Metrics.toolbarCornerRadius
         layer?.masksToBounds = false
         layer?.shadowColor = NSColor.black.cgColor
         layer?.shadowOpacity = 0.18
         layer?.shadowRadius = 18
         layer?.shadowOffset = CGSize(width: 0, height: -8)
 
-        stack.orientation = .horizontal
-        stack.alignment = .centerY
-        stack.distribution = .fillEqually
-        stack.spacing = 6
-        stack.edgeInsets = NSEdgeInsets(top: 6, left: 8, bottom: 6, right: 8)
-        stack.translatesAutoresizingMaskIntoConstraints = false
+        configureStack()
         addSubview(stack)
 
         configureButton(translateButton, action: #selector(translateTapped))
@@ -64,8 +97,8 @@ final class SelectionActionToolbar: NSView {
         let visibleButtonCount = showsSpeakButton ? 5 : 4
         let horizontalInsets = stack.edgeInsets.left + stack.edgeInsets.right
         let spacing = CGFloat(max(0, visibleButtonCount - 1)) * stack.spacing
-        let buttonWidth: CGFloat = 76
-        return CGSize(width: horizontalInsets + spacing + CGFloat(visibleButtonCount) * buttonWidth, height: 44)
+        let width = horizontalInsets + spacing + CGFloat(visibleButtonCount) * Metrics.buttonWidth
+        return CGSize(width: width, height: Metrics.toolbarHeight)
     }
 
     func applyTheme(_ theme: ReaderTheme) {
@@ -85,7 +118,7 @@ final class SelectionActionToolbar: NSView {
         layer?.backgroundColor = background.cgColor
         layer?.borderColor = border.cgColor
         layer?.borderWidth = 1
-        [translateButton, explainButton, contextButton, speakButton, copyButton].forEach { $0.applyTheme(theme) }
+        actionButtons.forEach { $0.applyTheme(theme) }
     }
 
     func refreshLanguage() {
@@ -94,9 +127,12 @@ final class SelectionActionToolbar: NSView {
         contextButton.title = contextAction == .addWord
             ? AppText.localized("加入单词本", "Add Word")
             : AppText.localized("总结", "Summarize")
+        contextButton.symbolName = contextAction == .addWord
+            ? "text.badge.plus"
+            : "list.bullet.rectangle"
         speakButton.title = AppText.localized("朗读", "Speak")
         copyButton.title = AppText.localized("复制", "Copy")
-        [translateButton, explainButton, contextButton, speakButton, copyButton].forEach { $0.applyTheme(ReaderTheme.selected) }
+        actionButtons.forEach { $0.applyTheme(ReaderTheme.selected) }
     }
 
     func setContextAction(_ action: ContextAction) {
@@ -108,6 +144,15 @@ final class SelectionActionToolbar: NSView {
         showsSpeakButton = visible
         speakButton.isHidden = !visible
         needsLayout = true
+    }
+
+    private func configureStack() {
+        stack.orientation = .horizontal
+        stack.alignment = .centerY
+        stack.distribution = .fillEqually
+        stack.spacing = Metrics.stackSpacing
+        stack.edgeInsets = Metrics.stackInsets
+        stack.translatesAutoresizingMaskIntoConstraints = false
     }
 
     private func trigger(_ button: NSButton) {
@@ -137,6 +182,7 @@ final class SelectionActionToolbar: NSView {
         button.action = action
         button.translatesAutoresizingMaskIntoConstraints = false
         stack.addArrangedSubview(button)
+        button.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight).isActive = true
     }
 
     @objc private func translateTapped() {
@@ -161,6 +207,24 @@ final class SelectionActionToolbar: NSView {
 }
 
 final class SelectionActionButton: NSButton {
+    private enum Metrics {
+        static let cornerRadius: CGFloat = 6
+        static let fontSize: CGFloat = 11.5
+        static let symbolPointSize: CGFloat = 11
+    }
+
+    var symbolName: String? {
+        didSet {
+            updateSymbol()
+        }
+    }
+
+    convenience init(title: String, symbolName: String?, target: AnyObject?, action: Selector?) {
+        self.init(title: title, target: target, action: action)
+        self.symbolName = symbolName
+        updateSymbol()
+    }
+
     override var acceptsFirstResponder: Bool { false }
 
     override func mouseDown(with event: NSEvent) {
@@ -171,7 +235,7 @@ final class SelectionActionButton: NSButton {
     func applyTheme(_ theme: ReaderTheme) {
         isBordered = false
         wantsLayer = true
-        layer?.cornerRadius = 7
+        layer?.cornerRadius = Metrics.cornerRadius
         layer?.masksToBounds = true
         let textColor: NSColor
         switch theme {
@@ -185,13 +249,28 @@ final class SelectionActionButton: NSButton {
             layer?.backgroundColor = NSColor(red: 0.18, green: 0.23, blue: 0.29, alpha: 1).cgColor
             textColor = NSColor(red: 0.88, green: 0.91, blue: 0.96, alpha: 1)
         }
-        font = AppFont.semibold(ofSize: 12)
+        font = AppFont.semibold(ofSize: Metrics.fontSize)
+        contentTintColor = textColor
         attributedTitle = NSAttributedString(
             string: title,
             attributes: [
-                .font: AppFont.semibold(ofSize: 12),
+                .font: AppFont.semibold(ofSize: Metrics.fontSize),
                 .foregroundColor: textColor
             ]
         )
+        updateSymbol()
+    }
+
+    private func updateSymbol() {
+        guard let symbolName else {
+            image = nil
+            imagePosition = .noImage
+            return
+        }
+        image = NSImage(systemSymbolName: symbolName, accessibilityDescription: title)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: Metrics.symbolPointSize, weight: .semibold))
+        image?.isTemplate = true
+        imagePosition = .imageLeft
+        imageScaling = .scaleProportionallyDown
     }
 }

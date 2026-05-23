@@ -28,8 +28,8 @@ Question
 
 ## User-Facing Terms
 
-- UI should prefer “AI analysis data” or “AI reading records” over “vector index” unless the setting is explicitly about an embedding model/provider.
-- Current buttons use short labels such as `重分析本书` and `清除本书缓存`.
+- UI should prefer “AI analysis data” or “AI analysis cache” over “vector index” unless the setting is explicitly about an embedding model/provider.
+- Button labels should match scope: `生成/更新本书缓存` fills missing current-book embeddings, `清除本书分析缓存` deletes only the current book's embeddings, and `清除全部缓存` deletes all local embedding cache rows.
 
 ## Related Files
 

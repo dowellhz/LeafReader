@@ -10,8 +10,8 @@ struct AISettingsEmbeddingSection {
     let modelField: NSTextField
     let keyLabel: NSTextField
     let keyField: APIKeySecureTextField
-    let helpLabel: NSTextField
     let autoIndexCheckbox: NSButton
+    let autoIndexLabel: NSTextField
     let testButton: NSButton
 
     var pageViews: [NSView] {
@@ -23,8 +23,8 @@ struct AISettingsEmbeddingSection {
             modelField,
             keyLabel,
             keyField,
-            helpLabel,
             autoIndexCheckbox,
+            autoIndexLabel,
             testButton
         ]
     }
@@ -41,7 +41,6 @@ extension AISettingsPanelController {
         selectedEndpoint: AISettingsStore.EmbeddingEndpointOption,
         settingsFontSize: CGFloat,
         primaryText: NSColor,
-        secondaryText: NSColor,
         theme: ReaderTheme
     ) -> AISettingsEmbeddingSection {
         let serviceLabel = label(AppText.localized("向量服务", "Embedding Service"), size: settingsFontSize, weight: .semibold, color: primaryText)
@@ -89,20 +88,12 @@ extension AISettingsPanelController {
         )
         keyField.identifier = Identifiers.embeddingKeyField
 
-        let helpLabel = label(
-            AppText.localized(
-                "用于 PDF、EPUB 和 DOCX 向量检索。聊天模型和向量模型可以使用不同 API Key。默认使用 OpenAI text-embedding-3-small，也可填兼容接口。",
-                "Used for PDF, EPUB, and DOCX vector retrieval. Chat and embedding models can use different API keys. Defaults to OpenAI text-embedding-3-small; compatible endpoints can be used."
-            ),
-            size: settingsFontSize,
-            color: secondaryText
-        )
         let autoIndexCheckbox = settingsCheckbox(
-            title: AppText.localized("打开书后自动生成 AI 分析数据", "Automatically build AI analysis data after opening a book"),
             isOn: AISettingsStore.autoEmbeddingIndexEnabled,
             theme: theme,
             fontSize: settingsFontSize
         )
+        let autoIndexLabel = label(AppText.localized("自动 AI 缓存", "Auto AI Cache"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let testButton = settingsActionButton(
             title: AppText.localized("测试向量连接", "Test Embedding"),
             target: self,
@@ -120,8 +111,8 @@ extension AISettingsPanelController {
             modelField: modelField,
             keyLabel: keyLabel,
             keyField: keyField,
-            helpLabel: helpLabel,
             autoIndexCheckbox: autoIndexCheckbox,
+            autoIndexLabel: autoIndexLabel,
             testButton: testButton
         )
     }
@@ -172,13 +163,14 @@ extension AISettingsPanelController {
                 section.keyField.leadingAnchor.constraint(equalTo: page.leadingAnchor, constant: labelColumnWidth),
                 section.keyField.widthAnchor.constraint(equalToConstant: fieldWidth),
                 section.keyField.heightAnchor.constraint(equalToConstant: inputHeight),
-                section.helpLabel.topAnchor.constraint(equalTo: section.keyField.bottomAnchor, constant: 6),
-                section.helpLabel.leadingAnchor.constraint(equalTo: section.keyField.leadingAnchor),
-                section.helpLabel.widthAnchor.constraint(equalToConstant: fieldWidth),
-                section.autoIndexCheckbox.topAnchor.constraint(equalTo: section.helpLabel.bottomAnchor, constant: 10),
+                section.autoIndexCheckbox.topAnchor.constraint(equalTo: section.keyField.bottomAnchor, constant: 12),
                 section.autoIndexCheckbox.leadingAnchor.constraint(equalTo: section.keyField.leadingAnchor),
-                section.autoIndexCheckbox.widthAnchor.constraint(equalToConstant: fieldWidth),
-                section.testButton.topAnchor.constraint(equalTo: section.autoIndexCheckbox.bottomAnchor, constant: 10),
+                section.autoIndexCheckbox.widthAnchor.constraint(equalToConstant: 28),
+                section.autoIndexCheckbox.heightAnchor.constraint(equalToConstant: 28),
+                section.autoIndexLabel.centerYAnchor.constraint(equalTo: section.autoIndexCheckbox.centerYAnchor),
+                section.autoIndexLabel.leadingAnchor.constraint(equalTo: section.autoIndexCheckbox.trailingAnchor, constant: 8),
+                section.autoIndexLabel.trailingAnchor.constraint(lessThanOrEqualTo: section.keyField.trailingAnchor),
+                section.testButton.topAnchor.constraint(equalTo: section.autoIndexCheckbox.bottomAnchor, constant: 14),
                 section.testButton.leadingAnchor.constraint(equalTo: section.keyField.leadingAnchor),
                 section.testButton.widthAnchor.constraint(equalToConstant: 136),
                 section.testButton.heightAnchor.constraint(equalToConstant: controlHeight),

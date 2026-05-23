@@ -1,13 +1,15 @@
 import Cocoa
 
 struct AISettingsLayoutMetrics {
-    let panelSize = NSSize(width: 760, height: 540)
+    let panelSize = NSSize(width: 920, height: 640)
     let cornerRadius: CGFloat = 18
     let titleTop: CGFloat = 34
-    let horizontalInset: CGFloat = 44
+    let horizontalInset: CGFloat = 36
+    let titleIconSize: CGFloat = 56
+    let titleIconSymbolSize: CGFloat = 34
     let labelColumnWidth: CGFloat = 110
-    let fieldWidth: CGFloat = 440
-    let formWidth: CGFloat = 672
+    let fieldWidth: CGFloat = 500
+    let formWidth: CGFloat = 640
     let controlHeight: CGFloat = 40
     let inputHeight: CGFloat = 36
 }

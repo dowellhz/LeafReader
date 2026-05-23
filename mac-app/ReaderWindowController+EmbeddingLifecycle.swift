@@ -1,13 +1,21 @@
 import Cocoa
 
 extension ReaderWindowController {
+    enum EmbeddingControlState: String {
+        case paused
+        case cancelled
+    }
+
     func scheduleDocumentEmbeddingWarmup(priorityPageIndex: Int?) {
         guard AISettingsStore.autoEmbeddingIndexEnabled,
               EmbeddingClient.configFromCurrentAISettings() != nil else {
             return
         }
-        let documentID = currentFileMD5
-        scheduledEmbeddingCacheRestoreWorkItem?.cancel()
+        guard let documentID = currentFileMD5 else { return }
+        cancelScheduledEmbeddingWarmup()
+        if applyStoredEmbeddingControlStateIfNeeded(documentID: documentID) {
+            return
+        }
         let cacheWorkItem = DispatchWorkItem { [weak self] in
             guard let self else {
                 return
@@ -29,7 +37,6 @@ extension ReaderWindowController {
         scheduledEmbeddingCacheRestoreWorkItem = cacheWorkItem
         DispatchQueue.main.asyncAfter(deadline: .now() + EmbeddingWarmupPolicy.cacheRestoreDelay, execute: cacheWorkItem)
 
-        scheduledEmbeddingWarmupWorkItem?.cancel()
         let warmupWorkItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
             guard self.currentFileMD5 == documentID else { return }
@@ -37,8 +44,7 @@ extension ReaderWindowController {
                 return
             }
             guard self.isReaderIdleForEmbedding else {
-                self.embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：空闲后继续", "AI analysis data: continues when idle")
-                self.embeddingStatusLabel.isHidden = false
+                self.showEmbeddingStatus(AppText.localized("AI 分析数据：空闲后继续", "AI analysis data: continues when idle"))
                 self.scheduleDocumentEmbeddingWarmup(priorityPageIndex: priorityPageIndex)
                 return
             }
@@ -100,6 +106,47 @@ extension ReaderWindowController {
         stopEmbeddingBackfill(clearPendingCallbacks: clearPendingCallbacks)
         if clearRetry {
             embeddingBackfillNeedsRetry = false
+        }
+    }
+
+    func storedEmbeddingControlState(documentID: String) -> EmbeddingControlState? {
+        guard let rawValue = UserDefaults.standard.string(forKey: embeddingControlStateKey(documentID: documentID)) else {
+            return nil
+        }
+        return EmbeddingControlState(rawValue: rawValue)
+    }
+
+    func saveEmbeddingControlState(_ state: EmbeddingControlState, documentID: String) {
+        UserDefaults.standard.set(state.rawValue, forKey: embeddingControlStateKey(documentID: documentID))
+    }
+
+    func clearStoredEmbeddingControlState(documentID: String) {
+        UserDefaults.standard.removeObject(forKey: embeddingControlStateKey(documentID: documentID))
+    }
+
+    func embeddingControlStateKey(documentID: String) -> String {
+        "\(Self.embeddingControlStateDefaultsKey).\(documentID)"
+    }
+
+    func showPausedEmbeddingStatus() {
+        showEmbeddingStatus(AppText.localized("AI 分析数据：已暂停，点击继续", "AI analysis data: paused, tap resume"))
+        updateEmbeddingControlButtons()
+    }
+
+    func applyStoredEmbeddingControlStateIfNeeded(documentID: String) -> Bool {
+        switch storedEmbeddingControlState(documentID: documentID) {
+        case .paused:
+            isPreparingPDFEmbeddings = true
+            isEmbeddingBackfillPaused = true
+            embeddingBackfillNeedsRetry = false
+            showPausedEmbeddingStatus()
+            return true
+        case .cancelled:
+            invalidateEmbeddingBackfill(clearPendingCallbacks: true, clearRetry: true)
+            clearEmbeddingStatus()
+            return true
+        case nil:
+            return false
         }
     }
 }

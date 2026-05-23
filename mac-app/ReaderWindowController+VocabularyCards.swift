@@ -15,12 +15,12 @@ extension ReaderWindowController {
         card.translatesAutoresizingMaskIntoConstraints = false
 
         let bullet = NSTextField(labelWithString: "•")
-        bullet.font = NSFont.systemFont(ofSize: 24, weight: .bold)
-        bullet.textColor = NSColor(red: 0.08, green: 0.45, blue: 0.95, alpha: 1)
+        bullet.font = NSFont.systemFont(ofSize: 26, weight: .bold)
+        bullet.textColor = vocabularyAccentColor(for: theme)
         bullet.translatesAutoresizingMaskIntoConstraints = false
 
         let wordLabel = NSTextField(labelWithString: word)
-        wordLabel.font = AppFont.semibold(ofSize: 17)
+        wordLabel.font = AppFont.semibold(ofSize: 19)
         wordLabel.textColor = vocabularyPrimaryTextColor(for: theme)
         wordLabel.lineBreakMode = .byTruncatingTail
         wordLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -30,7 +30,7 @@ extension ReaderWindowController {
             let button = VocabularySpeakerButton(title: "", target: self, action: #selector(playVocabularyWord(_:)))
             button.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: AppText.localized("播放发音", "Play pronunciation"))
             button.isBordered = false
-            button.contentTintColor = NSColor.systemBlue
+            button.contentTintColor = vocabularyAccentColor(for: theme)
             button.imageScaling = .scaleProportionallyDown
             button.imagePosition = .imageOnly
             button.spokenWord = spokenWord
@@ -40,27 +40,25 @@ extension ReaderWindowController {
         }
 
         let locationLabel = NSTextField(labelWithString: location)
-        locationLabel.font = AppFont.semibold(ofSize: 12)
+        locationLabel.font = AppFont.semibold(ofSize: 14)
         locationLabel.textColor = vocabularySecondaryTextColor(for: theme)
         locationLabel.alignment = .right
         locationLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let srsLabel = NSTextField(labelWithString: vocabularySRSStatusText(record.srs))
-        srsLabel.font = AppFont.semibold(ofSize: 12)
+        srsLabel.font = AppFont.semibold(ofSize: 14)
         srsLabel.textColor = vocabularySecondaryTextColor(for: theme)
         srsLabel.lineBreakMode = .byTruncatingTail
         srsLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         srsLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        let masteredButton = NSButton(title: AppText.localized("删除", "Delete"), target: self, action: #selector(markVocabularyRecordMastered(_:)))
+        let masteredButton = vocabularyActionButton(title: AppText.localized("删除", "Delete"), target: self, action: #selector(markVocabularyRecordMastered(_:)), fontSize: 14)
         masteredButton.controlSize = .small
-        styleVocabularyButton(masteredButton, fontSize: 12)
         masteredButton.identifier = NSUserInterfaceItemIdentifier(record.ids.joined(separator: "|"))
-        masteredButton.translatesAutoresizingMaskIntoConstraints = false
 
         let answerColor = vocabularyBodyTextColor(for: theme)
         let answerBody = vocabularyAnswerBody(answer, word: word)
-        let answerLabel = NSTextField(labelWithAttributedString: MarkdownRenderer.render(String(answerBody.prefix(900)), fontSize: 13, textColor: answerColor))
+        let answerLabel = NSTextField(labelWithAttributedString: MarkdownRenderer.render(String(answerBody.prefix(900)), fontSize: 15, textColor: answerColor))
         answerLabel.maximumNumberOfLines = 0
         answerLabel.lineBreakMode = .byWordWrapping
         answerLabel.translatesAutoresizingMaskIntoConstraints = false

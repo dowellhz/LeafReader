@@ -110,6 +110,20 @@ final class WordSpeakerButton: NSButton {
     }
 }
 
+final class BubbleDeleteButton: NSButton {
+    override var acceptsFirstResponder: Bool { false }
+
+    override func mouseDown(with event: NSEvent) {
+        if isEnabled, let action {
+            NSApp.sendAction(action, to: target, from: self)
+        }
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+}
+
 final class AIChatPanel: NSView, NSTextFieldDelegate {
     static let readerBodyFontSize: CGFloat = 15
     static let maxSavedConversationBubbles = 100
@@ -163,6 +177,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var onLinkedAnswerCompleted: ((String, String, String) -> Void)?
     var onLinkedAnswerFailed: ((String) -> Void)?
     var onLinkedBubbleSelected: ((String) -> Void)?
+    var onLinkedBubbleDeleted: ((String) -> Void)?
     var onSummarizeCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onTranslateCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onCurrentReadingContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
@@ -315,8 +330,10 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         inputBar.layer?.borderColor = inputBorderColor.cgColor
         inputField.textColor = primaryTextColor
         askButton.theme = theme
+        askButton.layer?.shadowColor = aiAccentColor.cgColor
         summaryButton.theme = theme
         translateButton.theme = theme
+        loadingDots.accentColor = aiAccentColor
         sendButton.contentTintColor = sendButtonTintColor
         cancelRequestButton.contentTintColor = secondaryTextColor
         restyleTranscript()

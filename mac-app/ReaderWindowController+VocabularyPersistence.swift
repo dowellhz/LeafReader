@@ -23,12 +23,13 @@ extension ReaderWindowController {
             return existing.id
         }
         if let reusable = reusablePDFWordRecord(for: text) {
+            let context = vocabularyContextForCurrentSelection(selectedText: text)
             let record = StoredPDFWordRecord(
                 id: UUID().uuidString,
                 word: text.trimmingCharacters(in: .whitespacesAndNewlines),
                 pageIndex: pageIndex,
                 bounds: StoredPDFWordRect(bounds),
-                context: contextForCurrentSelection(selectedText: text),
+                context: context,
                 question: reusable.question,
                 answer: reusable.answer,
                 createdAt: Date(),
@@ -46,7 +47,7 @@ extension ReaderWindowController {
             word: text.trimmingCharacters(in: .whitespacesAndNewlines),
             pageIndex: pageIndex,
             bounds: StoredPDFWordRect(bounds),
-            context: contextForCurrentSelection(selectedText: text),
+            context: vocabularyContextForCurrentSelection(selectedText: text),
             createdAt: Date()
         )
         return id
@@ -58,7 +59,7 @@ extension ReaderWindowController {
             return nil
         }
         let word = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let context = currentWebSelectionContext.trimmingCharacters(in: .whitespacesAndNewlines)
+        let context = sanitizedVocabularyContext(currentWebSelectionContext)
         if let pending = existingPendingWebWordRecord(
             word: word,
             context: context,
@@ -123,6 +124,14 @@ extension ReaderWindowController {
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
+    }
+
+    private func vocabularyContextForCurrentSelection(selectedText: String) -> String {
+        sanitizedVocabularyContext(contextForCurrentSelection(selectedText: selectedText))
+    }
+
+    private func sanitizedVocabularyContext(_ context: String) -> String {
+        ReaderAIContextBuilder.trimLeadingContextQuotes(context)
     }
 
 }

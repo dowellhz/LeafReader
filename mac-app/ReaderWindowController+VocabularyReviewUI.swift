@@ -81,7 +81,7 @@ extension ReaderWindowController {
         card.translatesAutoresizingMaskIntoConstraints = false
 
         let wordLabel = NSTextField(labelWithString: record.word)
-        wordLabel.font = AppFont.semibold(ofSize: 34)
+        wordLabel.font = AppFont.semibold(ofSize: 36)
         wordLabel.textColor = vocabularyPrimaryTextColor(for: theme)
         wordLabel.maximumNumberOfLines = 2
         wordLabel.lineBreakMode = .byWordWrapping
@@ -102,7 +102,7 @@ extension ReaderWindowController {
             let button = VocabularySpeakerButton(title: "", target: self, action: #selector(playVocabularyWord(_:)))
             button.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: AppText.localized("播放发音", "Play pronunciation"))
             button.isBordered = false
-            button.contentTintColor = NSColor.systemBlue
+            button.contentTintColor = vocabularyAccentColor(for: theme)
             button.imageScaling = .scaleProportionallyDown
             button.imagePosition = .imageOnly
             button.spokenWord = spokenWord
@@ -171,12 +171,16 @@ extension ReaderWindowController {
             textView.setContentHuggingPriority(.defaultLow, for: .horizontal)
             let answerAttributedText = MarkdownRenderer.render(
                 body,
-                fontSize: 14,
+                fontSize: 16,
                 textColor: vocabularyBodyTextColor(for: theme)
             )
             textView.textStorage?.setAttributedString(
-                emphasizedVocabularyWord(in: answerAttributedText, word: record.word, boldFontSize: 14)
+                emphasizedVocabularyWord(in: answerAttributedText, word: record.word, boldFontSize: 16)
             )
+            textView.selectedTextAttributes = [
+                .backgroundColor: vocabularySelectionBackgroundColor(for: theme),
+                .foregroundColor: vocabularyBodyTextColor(for: theme)
+            ]
             if let layoutManager = textView.layoutManager,
                let textContainer = textView.textContainer {
                 layoutManager.ensureLayout(for: textContainer)
@@ -192,7 +196,7 @@ extension ReaderWindowController {
                 textView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor)
             ])
 
-            let nextButton = vocabularyReviewActionButton(title: AppText.localized("下一个", "Next"), action: #selector(nextVocabularyReviewCard(_:)), width: vocabularyReviewButtonWidth)
+            let nextButton = vocabularyReviewActionButton(title: AppText.localized("下一个", "Next"), action: #selector(nextVocabularyReviewCard(_:)), width: vocabularyReviewButtonWidth, isPrimary: true)
             let footerButtons: NSView
             if vocabularyReviewDidScoreCurrentCard, !vocabularyReviewUndoSRSByID.isEmpty {
                 let undoButton = vocabularyReviewActionButton(title: AppText.localized("撤销", "Undo"), action: #selector(undoVocabularyReviewScore(_:)), width: vocabularyReviewButtonWidth)
@@ -209,7 +213,7 @@ extension ReaderWindowController {
             let contextText = record.context.trimmingCharacters(in: .whitespacesAndNewlines)
             let meaningfulContext = isMeaningfulVocabularyContext(contextText) ? contextText : AppText.localized("没有可用的原文句子。", "No source sentence available.")
             let contextColor = vocabularyBodyTextColor(for: theme)
-            let contextLabel = NSTextField(labelWithAttributedString: vocabularyExampleAttributedString(meaningfulContext, word: record.word, fontSize: 17, textColor: contextColor))
+            let contextLabel = NSTextField(labelWithAttributedString: vocabularyExampleAttributedString(meaningfulContext, word: record.word, fontSize: 19, textColor: contextColor))
             contextLabel.maximumNumberOfLines = 0
             contextLabel.lineBreakMode = .byWordWrapping
             contextLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -223,7 +227,7 @@ extension ReaderWindowController {
                 contextLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentArea.bottomAnchor)
             ])
 
-            let rememberedButton = vocabularyReviewActionButton(title: AppText.localized("想起来了", "Remembered"), action: #selector(rememberedAfterContextVocabularyCard(_:)), width: vocabularyReviewButtonWidth)
+            let rememberedButton = vocabularyReviewActionButton(title: AppText.localized("想起来了", "Remembered"), action: #selector(rememberedAfterContextVocabularyCard(_:)), width: vocabularyReviewButtonWidth, isPrimary: true)
             let forgotButton = vocabularyReviewActionButton(title: AppText.localized("没想起来", "Forgot"), action: #selector(showVocabularyAnswer(_:)), width: vocabularyReviewButtonWidth)
             let buttons = vocabularyReviewButtonRow([rememberedButton, forgotButton])
             footerArea.addSubview(buttons)
@@ -232,7 +236,7 @@ extension ReaderWindowController {
                 buttons.centerYAnchor.constraint(equalTo: footerArea.centerYAnchor)
             ])
         } else {
-            let rememberedButton = vocabularyReviewActionButton(title: AppText.localized("认识", "Know"), action: #selector(rememberedVocabularyCard(_:)), width: vocabularyReviewButtonWidth)
+            let rememberedButton = vocabularyReviewActionButton(title: AppText.localized("认识", "Know"), action: #selector(rememberedVocabularyCard(_:)), width: vocabularyReviewButtonWidth, isPrimary: true)
             let forgotButton = vocabularyReviewActionButton(title: AppText.localized("不认识", "Do not know"), action: #selector(showVocabularyContext(_:)), width: vocabularyReviewButtonWidth)
             let buttons = vocabularyReviewButtonRow([rememberedButton, forgotButton])
             footerArea.addSubview(buttons)
@@ -245,26 +249,8 @@ extension ReaderWindowController {
         return card
     }
 
-    func vocabularyReviewActionButton(title: String, action: Selector, width: CGFloat) -> NSButton {
-        let theme = ReaderTheme.selected
-        let button = NSButton(title: title, target: self, action: action)
-        button.isBordered = false
-        button.wantsLayer = true
-        button.layer?.backgroundColor = vocabularyButtonBackgroundColor(for: theme).cgColor
-        button.layer?.borderWidth = 1
-        button.layer?.borderColor = vocabularyBorderColor(for: theme).cgColor
-        button.layer?.cornerRadius = 8
-        button.layer?.masksToBounds = true
-        button.controlSize = .large
-        button.font = AppFont.semibold(ofSize: 15)
-        button.attributedTitle = NSAttributedString(
-            string: title,
-            attributes: [
-                .font: AppFont.semibold(ofSize: 15),
-                .foregroundColor: vocabularyPrimaryTextColor(for: theme)
-            ]
-        )
-        button.translatesAutoresizingMaskIntoConstraints = false
+    func vocabularyReviewActionButton(title: String, action: Selector, width: CGFloat, isPrimary: Bool = false) -> NSButton {
+        let button = vocabularyActionButton(title: title, target: self, action: action, fontSize: 15, isPrimary: isPrimary)
         NSLayoutConstraint.activate([
             button.widthAnchor.constraint(equalToConstant: width),
             button.heightAnchor.constraint(equalToConstant: 42)

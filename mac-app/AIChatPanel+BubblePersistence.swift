@@ -30,6 +30,29 @@ extension AIChatPanel {
     func removeConversationBubble(bodyID: String) {
         guard let metadata = bubbleMetadataByID[bodyID],
               metadata.linkID == nil else { return }
+        removeBubbleView(bodyID: bodyID)
+        bubbleMetadataByID.removeValue(forKey: bodyID)
+        persistentBubbleIDs.removeAll { $0 == bodyID }
+        notifyConversationChangedIfNeeded()
+    }
+
+    @objc func deleteBubble(_ sender: NSButton) {
+        guard let bodyID = sender.identifier?.rawValue,
+              let metadata = bubbleMetadataByID[bodyID] else {
+            return
+        }
+        if let linkID = metadata.linkID {
+            if let onLinkedBubbleDeleted {
+                onLinkedBubbleDeleted(linkID)
+            } else {
+                removeLinkedWordBubbles(ids: [linkID])
+            }
+            return
+        }
+        removeConversationBubbleGroup(startingAt: bodyID)
+    }
+
+    func removeBubbleView(bodyID: String) {
         for view in transcriptStack.arrangedSubviews {
             guard let box = view as? ChatBubbleView,
                   box.subviews.contains(where: { ($0 as? NSTextField)?.identifier?.rawValue == bodyID }) else {
@@ -39,9 +62,51 @@ extension AIChatPanel {
             box.removeFromSuperview()
             break
         }
-        bubbleMetadataByID.removeValue(forKey: bodyID)
-        persistentBubbleIDs.removeAll { $0 == bodyID }
+    }
+
+    func removeConversationBubbleGroup(startingAt bodyID: String) {
+        guard let startIndex = transcriptStack.arrangedSubviews.firstIndex(where: { view in
+            guard let box = view as? ChatBubbleView else { return false }
+            return bodyIDForBubbleBox(box) == bodyID
+        }) else {
+            return
+        }
+
+        var boxesToRemove: [ChatBubbleView] = []
+        var idsToRemove: [String] = []
+        for view in transcriptStack.arrangedSubviews[startIndex...] {
+            guard let box = view as? ChatBubbleView,
+                  let candidateID = bodyIDForBubbleBox(box),
+                  let metadata = bubbleMetadataByID[candidateID],
+                  metadata.linkID == nil else {
+                continue
+            }
+            if !idsToRemove.isEmpty, metadata.role == AppText.userRole {
+                break
+            }
+            boxesToRemove.append(box)
+            idsToRemove.append(candidateID)
+        }
+
+        guard !idsToRemove.isEmpty else { return }
+        for box in boxesToRemove {
+            transcriptStack.removeArrangedSubview(box)
+            box.removeFromSuperview()
+        }
+        for removedID in idsToRemove {
+            bubbleMetadataByID.removeValue(forKey: removedID)
+            persistentBubbleIDs.removeAll { $0 == removedID }
+        }
         notifyConversationChangedIfNeeded()
+        transcriptStack.needsLayout = true
+        scheduleTranscriptLayout()
+    }
+
+    func bodyIDForBubbleBox(_ box: ChatBubbleView) -> String? {
+        box.subviews
+            .compactMap { $0 as? NSTextField }
+            .compactMap { $0.identifier?.rawValue }
+            .first { bubbleMetadataByID[$0] != nil }
     }
 
     func savedConversation() -> SavedAIConversation {

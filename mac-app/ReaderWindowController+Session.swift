@@ -106,7 +106,7 @@ extension ReaderWindowController {
     func jumpToDocumentSource(index: Int) {
         setAIPanelCollapsed(false, animated: true)
         if currentDocumentKind == .pdf {
-            jumpToPDFPage(index: index, skipIfCurrentPage: true)
+            jumpToPDFPage(index: index, skipIfCurrentPage: false)
             return
         }
         jumpToWebDocumentSection(index: index)

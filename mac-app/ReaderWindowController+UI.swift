@@ -114,6 +114,9 @@ extension ReaderWindowController {
         aiPanel.onLinkedBubbleSelected = { [weak self] linkID in
             self?.jumpToStoredLinkedWord(linkID: linkID)
         }
+        aiPanel.onLinkedBubbleDeleted = { [weak self] linkID in
+            self?.removeVocabularyRecords(ids: [linkID])
+        }
         aiPanel.onSummarizeCurrentContent = { [weak self] completion in
             self?.currentSummaryContent(completion: completion)
         }

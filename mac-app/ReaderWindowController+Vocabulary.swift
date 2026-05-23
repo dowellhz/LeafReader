@@ -62,7 +62,7 @@ extension ReaderWindowController {
         case .original:
             return NSColor(red: 0.48, green: 0.54, blue: 0.66, alpha: 1)
         case .eyeCare:
-            return NSColor(red: 0.45, green: 0.39, blue: 0.26, alpha: 1)
+            return theme.secondaryTextColor
         case .dark:
             return NSColor(red: 0.60, green: 0.67, blue: 0.76, alpha: 1)
         }
@@ -123,23 +123,37 @@ extension ReaderWindowController {
         }
     }
 
-    func styleVocabularyButton(_ button: NSButton, fontSize: CGFloat = 14) {
+    func vocabularyPrimaryActionBackgroundColor(for theme: ReaderTheme) -> NSColor {
+        theme.accentColor
+    }
+
+    func vocabularyPrimaryActionTextColor(for theme: ReaderTheme) -> NSColor {
+        theme.primaryActionTextColor
+    }
+
+    func vocabularyAccentColor(for theme: ReaderTheme) -> NSColor {
+        theme.strongAccentColor
+    }
+
+    func vocabularySelectionBackgroundColor(for theme: ReaderTheme) -> NSColor {
+        vocabularyAccentColor(for: theme).withAlphaComponent(theme == .eyeCare ? 0.24 : 0.20)
+    }
+
+    func styleVocabularyActionButton(_ button: ThemedSettingsActionButton, fontSize: CGFloat = 14, isPrimary: Bool = false) {
         let theme = ReaderTheme.selected
-        button.isBordered = false
-        button.wantsLayer = true
-        button.layer?.backgroundColor = vocabularyButtonBackgroundColor(for: theme).cgColor
-        button.layer?.borderWidth = 1
-        button.layer?.borderColor = vocabularyBorderColor(for: theme).cgColor
-        button.layer?.cornerRadius = 8
-        button.layer?.masksToBounds = true
+        button.fillColor = isPrimary ? vocabularyPrimaryActionBackgroundColor(for: theme) : vocabularyButtonBackgroundColor(for: theme)
+        button.strokeColor = isPrimary ? vocabularyPrimaryActionBackgroundColor(for: theme) : vocabularyBorderColor(for: theme)
+        button.labelColor = isPrimary ? vocabularyPrimaryActionTextColor(for: theme) : vocabularyPrimaryTextColor(for: theme)
         button.font = AppFont.semibold(ofSize: fontSize)
-        button.attributedTitle = NSAttributedString(
-            string: button.title,
-            attributes: [
-                .font: AppFont.semibold(ofSize: fontSize),
-                .foregroundColor: vocabularyPrimaryTextColor(for: theme)
-            ]
-        )
+        button.lineBreakMode = .byTruncatingTail
+    }
+
+    func vocabularyActionButton(title: String, target: AnyObject?, action: Selector?, fontSize: CGFloat = 14, isPrimary: Bool = false) -> ThemedSettingsActionButton {
+        let button = ThemedSettingsActionButton(title: title, target: target, action: action)
+        button.controlSize = .large
+        styleVocabularyActionButton(button, fontSize: fontSize, isPrimary: isPrimary)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
     }
 
     enum VocabularyFilter: Int {
@@ -223,13 +237,16 @@ extension ReaderWindowController {
         root.translatesAutoresizingMaskIntoConstraints = true
         panel.contentView = root
 
-        let title = NSTextField(labelWithString: AppText.localized("本书背单词", "Book Vocabulary Trainer"))
+        let title = NSTextField(labelWithString: AppText.localized("背单词", "Vocabulary Trainer"))
         title.font = AppFont.semibold(ofSize: 20)
         title.textColor = primaryText
         title.translatesAutoresizingMaskIntoConstraints = false
 
-        let icon = NSImageView(image: NSImage(systemSymbolName: "text.book.closed.fill", accessibilityDescription: nil) ?? NSImage())
-        icon.contentTintColor = NSColor(red: 0.16, green: 0.45, blue: 0.95, alpha: 1)
+        let icon = NSImageView()
+        icon.image = NSImage(systemSymbolName: "text.book.closed", accessibilityDescription: nil)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 26, weight: .semibold))
+        icon.contentTintColor = vocabularyAccentColor(for: theme)
+        icon.imageScaling = .scaleNone
         icon.translatesAutoresizingMaskIntoConstraints = false
 
         let scrollView = NSScrollView()
@@ -283,25 +300,14 @@ extension ReaderWindowController {
         populateVocabularyReviewContainer(reviewContainer, records: aggregatedRecords, filter: .due, isDark: isDark, autoPlayNewCard: false)
         scrollView.isHidden = true
 
-        let closeButton = NSButton(title: AppText.close, target: nil, action: nil)
-        closeButton.controlSize = .large
-        styleVocabularyButton(closeButton, fontSize: 14)
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
-        closeButton.target = self
-        closeButton.action = #selector(closeVocabularyBook(_:))
+        let closeButton = vocabularyActionButton(title: AppText.close, target: self, action: #selector(closeVocabularyBook(_:)))
         closeButton.identifier = NSUserInterfaceItemIdentifier("closeVocabularyBook")
 
-        let exportMarkdownButton = NSButton(title: AppText.localized("导出 MD", "Export MD"), target: self, action: #selector(exportVocabularyMarkdown(_:)))
-        exportMarkdownButton.controlSize = .large
-        styleVocabularyButton(exportMarkdownButton, fontSize: 14)
+        let exportMarkdownButton = vocabularyActionButton(title: AppText.localized("导出 MD", "Export MD"), target: self, action: #selector(exportVocabularyMarkdown(_:)))
         exportMarkdownButton.identifier = NSUserInterfaceItemIdentifier("vocabularyExportMarkdownButton")
-        exportMarkdownButton.translatesAutoresizingMaskIntoConstraints = false
 
-        let exportCSVButton = NSButton(title: AppText.localized("导出 Anki CSV", "Export Anki CSV"), target: self, action: #selector(exportVocabularyCSV(_:)))
-        exportCSVButton.controlSize = .large
-        styleVocabularyButton(exportCSVButton, fontSize: 14)
+        let exportCSVButton = vocabularyActionButton(title: AppText.localized("导出 Anki CSV", "Export Anki CSV"), target: self, action: #selector(exportVocabularyCSV(_:)))
         exportCSVButton.identifier = NSUserInterfaceItemIdentifier("vocabularyExportCSVButton")
-        exportCSVButton.translatesAutoresizingMaskIntoConstraints = false
 
         exportMarkdownButton.isHidden = true
         exportCSVButton.isHidden = true
@@ -313,9 +319,9 @@ extension ReaderWindowController {
         NSLayoutConstraint.activate([
             icon.topAnchor.constraint(equalTo: root.topAnchor, constant: 28),
             icon.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 34),
-            icon.widthAnchor.constraint(equalToConstant: 42),
-            icon.heightAnchor.constraint(equalToConstant: 42),
-            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 14),
+            icon.widthAnchor.constraint(equalToConstant: 30),
+            icon.heightAnchor.constraint(equalToConstant: 30),
+            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 12),
             title.centerYAnchor.constraint(equalTo: icon.centerYAnchor),
             title.trailingAnchor.constraint(lessThanOrEqualTo: filterControl.leadingAnchor, constant: -16),
             filterControl.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -30),

@@ -10,7 +10,7 @@ extension AIChatPanel {
         askButton.isBordered = false
         askButton.isEnabled = false
         askButton.wantsLayer = true
-        askButton.layer?.shadowColor = NSColor(red: 0.22, green: 0.32, blue: 0.92, alpha: 1).cgColor
+        askButton.layer?.shadowColor = aiAccentColor.cgColor
         askButton.layer?.shadowOpacity = 0.24
         askButton.layer?.shadowRadius = 9
         askButton.layer?.shadowOffset = CGSize(width: 0, height: -3)
@@ -47,6 +47,7 @@ extension AIChatPanel {
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
 
         loadingDots.isHidden = true
+        loadingDots.accentColor = aiAccentColor
         loadingDots.translatesAutoresizingMaskIntoConstraints = false
         cancelRequestButton.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: AppText.cancel)
         cancelRequestButton.isBordered = false
@@ -80,7 +81,7 @@ extension AIChatPanel {
         sendButton.isBordered = false
         sendButton.target = self
         sendButton.action = #selector(sendFollowUp)
-        sendButton.contentTintColor = NSColor(red: 0.0, green: 0.35, blue: 0.9, alpha: 1)
+        sendButton.contentTintColor = sendButtonTintColor
         sendButton.translatesAutoresizingMaskIntoConstraints = false
 
         inputBar.addSubview(inputField)
@@ -161,4 +162,3 @@ extension AIChatPanel {
         }
     }
 }
-

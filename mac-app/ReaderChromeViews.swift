@@ -146,8 +146,12 @@ final class GradientButton: NSButton {
 }
 
 final class SideHandleButton: NSButton {
-    static let handleWidth: CGFloat = 14
-    static let handleHeight: CGFloat = 50
+    static let handleWidth: CGFloat = 19
+    static let handleHeight: CGFloat = 67
+
+    var theme: ReaderTheme = .original {
+        didSet { needsDisplay = true }
+    }
 
     var collapsedStyle = true {
         didSet { needsDisplay = true }
@@ -159,20 +163,21 @@ final class SideHandleButton: NSButton {
 
     override func draw(_ dirtyRect: NSRect) {
         let rect = bounds.insetBy(dx: 1, dy: 1)
-        let path = NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4)
-        let fill = collapsedStyle
-            ? NSColor(red: isHighlighted ? 0.92 : 0.98, green: isHighlighted ? 0.16 : 0.24, blue: isHighlighted ? 0.17 : 0.24, alpha: 1)
-            : NSColor(red: 0.22, green: 0.50, blue: 0.98, alpha: 1)
-        fill.setFill()
+        let path = NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8)
+        handleFillColor.setFill()
         path.fill()
 
         let symbol = collapsedStyle ? "‹" : "›"
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 18, weight: .regular),
+            .font: NSFont.systemFont(ofSize: 24, weight: .regular),
             .foregroundColor: NSColor.white
         ]
         let size = symbol.size(withAttributes: attrs)
         symbol.draw(at: NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2 + 1), withAttributes: attrs)
+    }
+
+    private var handleFillColor: NSColor {
+        theme.sideHandleFillColor(isHighlighted: isHighlighted)
     }
 }
 
@@ -263,7 +268,7 @@ final class CapsuleChromeButton: NSButton {
 }
 
 final class SearchUnderlineButton: NSButton {
-    var isDark = false {
+    var theme: ReaderTheme = .original {
         didSet { needsDisplay = true }
     }
 
@@ -282,16 +287,17 @@ final class SearchUnderlineButton: NSButton {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        let lineColor = isDark
-            ? NSColor(red: 0.42, green: 0.48, blue: 0.56, alpha: isHighlighted ? 1 : 0.8)
-            : NSColor(red: 0.72, green: 0.76, blue: 0.82, alpha: isHighlighted ? 1 : 0.9)
-        lineColor.setStroke()
+        searchUnderlineColor.setStroke()
         let path = NSBezierPath()
         path.lineWidth = 1.5
         let underlineY = bounds.isEmpty ? 0 : bounds.height - 4
         path.move(to: NSPoint(x: 0, y: underlineY))
         path.line(to: NSPoint(x: bounds.width, y: underlineY))
         path.stroke()
+    }
+
+    private var searchUnderlineColor: NSColor {
+        theme.searchUnderlineColor(isHighlighted: isHighlighted)
     }
 }
 

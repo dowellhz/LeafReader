@@ -227,7 +227,7 @@ struct ReaderAIContextBuilder {
         let sentenceEnd = normalizedText[range.upperBound...].firstIndex { char in
             ".!?。！？\n".contains(char)
         }.map { normalizedText.index(after: $0) } ?? normalizedText.endIndex
-        let sentence = normalizeWhitespace(String(normalizedText[sentenceStart..<sentenceEnd]))
+        let sentence = normalizeWhitespace(trimLeadingContextQuotes(String(normalizedText[sentenceStart..<sentenceEnd])))
         guard sentence.count > normalizedSelection.count else { return nil }
         return sentence
     }
@@ -242,6 +242,15 @@ struct ReaderAIContextBuilder {
 
         let prefixStart = normalizedText.index(range.lowerBound, offsetBy: -radius, limitedBy: normalizedText.startIndex) ?? normalizedText.startIndex
         let suffixEnd = normalizedText.index(range.upperBound, offsetBy: radius, limitedBy: normalizedText.endIndex) ?? normalizedText.endIndex
-        return normalizeWhitespace(String(normalizedText[prefixStart..<suffixEnd]))
+        return normalizeWhitespace(trimLeadingContextQuotes(String(normalizedText[prefixStart..<suffixEnd])))
+    }
+
+    static func trimLeadingContextQuotes(_ text: String) -> String {
+        var result = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        while let first = result.first, #""“”‘’'`"#.contains(first) {
+            result.removeFirst()
+            result = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return result
     }
 }

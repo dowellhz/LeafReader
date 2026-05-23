@@ -89,6 +89,7 @@ extension AISettingsPanelController {
 
     func settingsTabChanged(index: Int) {
         (settingsTabControl as? SettingsTabsView)?.selectIndex(index)
+        (settingsSidebarControl as? SettingsTabsView)?.selectIndex(index)
         basicPage?.isHidden = index != 0
         modelPage?.isHidden = index != 1
         embeddingPage?.isHidden = index != 2
@@ -101,9 +102,8 @@ extension AISettingsPanelController {
         if let scrollView = settingsScrollView {
             scrollView.contentView.scroll(to: NSPoint(x: 0, y: 0))
             scrollView.reflectScrolledClipView(scrollView.contentView)
-            let allowsScrolling = index == 4
-            scrollView.verticalScrollElasticity = allowsScrolling ? .allowed : .none
-            scrollView.hasVerticalScroller = allowsScrolling
+            scrollView.verticalScrollElasticity = .none
+            scrollView.hasVerticalScroller = false
         }
     }
 }

@@ -98,6 +98,13 @@ final class RecentDocumentsPanelController: NSObject {
         content.translatesAutoresizingMaskIntoConstraints = true
         panel.contentView = content
 
+        let titleIcon = NSImageView()
+        titleIcon.image = NSImage(systemSymbolName: "books.vertical", accessibilityDescription: nil)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 26, weight: .semibold))
+        titleIcon.contentTintColor = primaryText
+        titleIcon.imageScaling = .scaleNone
+        titleIcon.translatesAutoresizingMaskIntoConstraints = false
+
         let title = NSTextField(labelWithString: AppText.localized("书架", "Shelf"))
         title.font = AppFont.semibold(ofSize: 22)
         title.textColor = primaryText
@@ -113,17 +120,12 @@ final class RecentDocumentsPanelController: NSObject {
             title: AppText.localized("增加", "Add"),
             target: self,
             action: #selector(openDocumentFromShelf(_:)),
-            panelBackground: panelBackground,
-            primaryText: primaryText,
-            isDark: isDark
+            isPrimary: true
         )
         let clearButton = shelfActionButton(
             title: AppText.localized("清空", "Clear"),
             target: self,
-            action: #selector(clearRecentDocuments(_:)),
-            panelBackground: panelBackground,
-            primaryText: primaryText,
-            isDark: isDark
+            action: #selector(clearRecentDocuments(_:))
         )
 
         let scrollView = NSScrollView()
@@ -166,8 +168,8 @@ final class RecentDocumentsPanelController: NSObject {
             }
             card.onClearVectorCache = { [weak self] path in
                 guard self?.confirmShelfAction(
-                    title: AppText.localized("清除本书 AI 阅读记录？", "Clear AI Reading Records for This Book?"),
-                    message: AppText.localized("清除后，之后使用文档问答时会重新分析这本书。", "After clearing, this book will be analyzed again when document Q&A is used."),
+                    title: AppText.localized("清除本书 AI 分析缓存？", "Clear AI Analysis Cache for This Book?"),
+                    message: AppText.localized("这会删除本书的向量分析缓存。之后使用文档问答时会重新生成。", "This deletes this book's vector analysis cache. It will be rebuilt when document Q&A is used."),
                     confirmTitle: AppText.localized("清除", "Clear")
                 ) == true else { return }
                 self?.onClearVectorCache?(path)
@@ -191,13 +193,17 @@ final class RecentDocumentsPanelController: NSObject {
             stack.addArrangedSubview(card)
         }
 
-        for view in [title, closeButton, openButton, clearButton, scrollView] {
+        for view in [titleIcon, title, closeButton, openButton, clearButton, scrollView] {
             content.addSubview(view)
         }
 
         NSLayoutConstraint.activate([
+            titleIcon.centerYAnchor.constraint(equalTo: title.centerYAnchor),
+            titleIcon.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 36),
+            titleIcon.widthAnchor.constraint(equalToConstant: 30),
+            titleIcon.heightAnchor.constraint(equalToConstant: 30),
             title.topAnchor.constraint(equalTo: content.topAnchor, constant: 36),
-            title.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 36),
+            title.leadingAnchor.constraint(equalTo: titleIcon.trailingAnchor, constant: 12),
 
             closeButton.topAnchor.constraint(equalTo: content.topAnchor, constant: 32),
             closeButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -34),
@@ -206,12 +212,12 @@ final class RecentDocumentsPanelController: NSObject {
 
             clearButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
             clearButton.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -22),
-            clearButton.widthAnchor.constraint(equalToConstant: 68),
-            clearButton.heightAnchor.constraint(equalToConstant: 28),
+            clearButton.widthAnchor.constraint(equalToConstant: 104),
+            clearButton.heightAnchor.constraint(equalToConstant: 44),
             openButton.centerYAnchor.constraint(equalTo: clearButton.centerYAnchor),
-            openButton.trailingAnchor.constraint(equalTo: clearButton.leadingAnchor, constant: -10),
-            openButton.widthAnchor.constraint(equalToConstant: 68),
-            openButton.heightAnchor.constraint(equalToConstant: 28),
+            openButton.trailingAnchor.constraint(equalTo: clearButton.leadingAnchor, constant: -16),
+            openButton.widthAnchor.constraint(equalToConstant: 104),
+            openButton.heightAnchor.constraint(equalToConstant: 44),
 
             scrollView.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 38),
             scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 36),

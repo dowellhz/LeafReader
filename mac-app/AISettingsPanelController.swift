@@ -35,6 +35,7 @@ final class AISettingsPanelController {
     weak var parentWindow: NSWindow?
     var panel: SettingsPanel?
     weak var settingsTabControl: NSView?
+    weak var settingsSidebarControl: NSView?
     weak var settingsScrollView: NSScrollView?
     weak var basicPage: NSView?
     weak var modelPage: NSView?

@@ -11,7 +11,7 @@ enum ReaderTheme: String, CaseIterable {
     var title: String {
         switch self {
         case .original:
-            return AppText.localized("浅色模式", "Light Mode")
+            return AppText.localized("白色模式", "White Mode")
         case .eyeCare:
             return AppText.localized("护眼模式", "Eye Care Mode")
         case .dark:

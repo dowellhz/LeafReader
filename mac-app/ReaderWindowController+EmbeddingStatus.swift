@@ -66,8 +66,7 @@ extension ReaderWindowController {
                 "AI analysis data: indexing \(percent)% \(unit)\(firstPage + 1)"
             )
         }
-        embeddingStatusLabel.stringValue = text
-        embeddingStatusLabel.isHidden = false
+        showEmbeddingStatus(text)
         updateEmbeddingControlButtons()
     }
 
@@ -80,8 +79,7 @@ extension ReaderWindowController {
         let text = isComplete || percent >= 100
             ? AppText.localized("AI 分析数据：已缓存", "AI analysis data: cached")
             : AppText.localized("AI 分析数据：已缓存 \(percent)%，空闲后继续", "AI analysis data: cached \(percent)%, continues when idle")
-        embeddingStatusLabel.stringValue = text
-        embeddingStatusLabel.isHidden = false
+        showEmbeddingStatus(text)
         updateEmbeddingControlButtons()
     }
 
@@ -89,16 +87,17 @@ extension ReaderWindowController {
         guard !embeddingStatusLabel.isHidden else { return }
         if isPreparingPDFEmbeddings {
             if isEmbeddingBackfillPaused {
-                embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：已暂停，点击继续", "AI analysis data: paused, tap resume")
+                showPausedEmbeddingStatus()
+                return
             } else if let progress = pdfAgentIndex?.embeddingCoverage, progress.total > 0 {
                 let percent = embeddingCoveragePercent(progress)
-                embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：生成中 \(percent)%", "AI analysis data: indexing \(percent)%")
+                showEmbeddingStatus(AppText.localized("AI 分析数据：生成中 \(percent)%", "AI analysis data: indexing \(percent)%"))
             }
             updateEmbeddingControlButtons()
             return
         }
         if embeddingBackfillNeedsRetry {
-            embeddingStatusLabel.stringValue = AppText.localized("AI 分析数据：失败，可重试", "AI analysis data: failed, retry available")
+            showEmbeddingStatus(AppText.localized("AI 分析数据：失败，可重试", "AI analysis data: failed, retry available"))
             updateEmbeddingControlButtons()
             return
         }
@@ -128,6 +127,12 @@ extension ReaderWindowController {
         embeddingStatusLabel.stringValue = ""
         embeddingStatusLabel.isHidden = true
         updateEmbeddingControlButtons()
+    }
+
+    func showEmbeddingStatus(_ text: String) {
+        embeddingStatusLabel.stringValue = text
+        embeddingStatusLabel.isHidden = false
+        updateEmbeddingStatusTextColor()
     }
 
     func updateEmbeddingControlButtons() {

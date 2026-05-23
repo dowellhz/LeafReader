@@ -92,6 +92,7 @@ extension ReaderWindowController {
         }
         if let documentID {
             ReaderSessionStore(fileMD5: documentID).clearProgress()
+            clearStoredEmbeddingControlState(documentID: documentID)
         }
         if clearVectorCache {
             clearVectorCacheForShelfItem(path: path)
@@ -181,6 +182,7 @@ extension ReaderWindowController {
             NSSound.beep()
             return
         }
+        clearStoredEmbeddingControlState(documentID: documentID)
         embeddingStoreQueue.async { [weak self] in
             self?.pdfEmbeddingStore?.deleteDocument(documentID: documentID)
         }
@@ -216,6 +218,7 @@ extension ReaderWindowController {
     }
 
     func clearAIDataForDocument(documentID: String, wasCurrentDocument: Bool) {
+        clearStoredEmbeddingControlState(documentID: documentID)
         if wasCurrentDocument {
             aiConversationSaveTask.cancel()
             pendingAIConversationToSave = nil

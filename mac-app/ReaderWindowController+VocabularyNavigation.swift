@@ -13,7 +13,7 @@ extension ReaderWindowController {
         if linkID.hasPrefix("pdf-page:") {
             let rawPage = String(linkID.dropFirst("pdf-page:".count))
             if let pageIndex = Int(rawPage) {
-                jumpToPDFPage(index: pageIndex, skipIfCurrentPage: true)
+                jumpToPDFPage(index: pageIndex, skipIfCurrentPage: false)
             }
             return
         }
