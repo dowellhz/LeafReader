@@ -7,10 +7,10 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
     private static let idleShutdownDelay: TimeInterval = 180
     private static let maxPendingReadAloudSegments = 2
 
-    fileprivate let queue = DispatchQueue(label: "LeafReader.SpeechPlayback", qos: .userInitiated)
-    fileprivate let kokoroBackend = KokoroTTSBackend()
-    fileprivate let kittenBackend = KittenServerTTSBackend()
-    fileprivate var activeBackend: PreferredBackend?
+    let queue = DispatchQueue(label: "LeafReader.SpeechPlayback", qos: .userInitiated)
+    let kokoroBackend = KokoroTTSBackend()
+    let kittenBackend = KittenServerTTSBackend()
+    var activeBackend: PreferredBackend?
     private var currentPlayer: AVAudioPlayer?
     private var currentSegment: PlaybackSegment?
     private var pendingSegments: [PlaybackSegment] = []
@@ -20,14 +20,14 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
     private var isPlaybackPaused = false
     private var isStoppingPlayback = false
     private var playbackFinishHandler: (() -> Void)?
-    fileprivate var interruptionPlayer: AVAudioPlayer?
-    fileprivate var interruptionOutputURL: URL?
-    fileprivate var interruptionOutputShouldRemove = true
-    fileprivate var interruptionFinishHandler: (() -> Void)?
-    fileprivate var activeInterruptionGenerationID = UUID()
+    var interruptionPlayer: AVAudioPlayer?
+    var interruptionOutputURL: URL?
+    var interruptionOutputShouldRemove = true
+    var interruptionFinishHandler: (() -> Void)?
+    var activeInterruptionGenerationID = UUID()
     private var idleShutdownWorkItem: DispatchWorkItem?
     private var playbackWatchdogWorkItem: DispatchWorkItem?
-    fileprivate var interruptionWatchdogWorkItem: DispatchWorkItem?
+    var interruptionWatchdogWorkItem: DispatchWorkItem?
 
     private override init() {}
 
@@ -436,7 +436,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         forceTerminateRuntimeProcesses()
     }
 
-    fileprivate func cancelScheduledIdleShutdown() {
+    func cancelScheduledIdleShutdown() {
         DispatchQueue.main.async {
             self.idleShutdownWorkItem?.cancel()
             self.idleShutdownWorkItem = nil
@@ -455,7 +455,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.idleShutdownDelay, execute: workItem)
     }
 
-    fileprivate func generateWAV(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
+    func generateWAV(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
         let backend = Self.preferredBackend(for: text)
         prepareForBackend(backend)
         switch backend {

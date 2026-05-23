@@ -142,23 +142,20 @@ extension AISettingsPanelController {
         let saveAIConversationLabel = label(AppText.localized("保存 AI 对话信息", "Save AI Chat"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let saveAIConversationCheckbox = settingsCheckbox(isOn: AISettingsStore.saveAIConversationEnabled, theme: theme, fontSize: settingsFontSize)
 
-        let embeddingLabel = label(AppText.localized("向量服务", "Embedding Service"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let embeddingProviderPopup = popup(items: AISettingsStore.embeddingEndpointOptions.map { ($0.title, $0.id) }, selected: selectedEmbeddingEndpoint.id, fontSize: settingsFontSize)
-        let embeddingEndpointLabel = label(AppText.localized("接口 URL", "Endpoint URL"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let embeddingEndpointField = inputField(AISettingsStore.embeddingEndpointString, placeholder: "https://api.openai.com/v1/embeddings", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground())
-        let embeddingEndpointContainer = settingsCard()
-        let embeddingModelNameLabel = label(AppText.localized("向量模型", "Embedding Model"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let embeddingModelField = inputField(AISettingsStore.embeddingModelName, placeholder: AISettingsStore.fallbackEmbeddingModelName, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground())
-        let embeddingKeyLabel = label(AppText.localized("向量 API Key", "Embedding API Key"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let embeddingKeyField = APIKeySecureTextField(string: AISettingsStore.embeddingAPIKeyMigratingLegacyIfNeeded(for: selectedEmbeddingEndpoint.id))
-        configureKeyField(embeddingKeyField, placeholder: AppText.apiKeyPlaceholder, fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground())
-        let embeddingHelpLabel = label(AppText.localized("用于 PDF、EPUB 和 DOCX 向量检索。聊天模型和向量模型可以使用不同 API Key。默认使用 OpenAI text-embedding-3-small，也可填兼容接口。", "Used for PDF, EPUB, and DOCX vector retrieval. Chat and embedding models can use different API keys. Defaults to OpenAI text-embedding-3-small; compatible endpoints can be used."), size: settingsFontSize, color: secondaryText)
-        let autoEmbeddingIndexCheckbox = settingsCheckbox(
-            title: AppText.localized("打开书后自动生成 AI 分析数据", "Automatically build AI analysis data after opening a book"),
-            isOn: AISettingsStore.autoEmbeddingIndexEnabled,
-            theme: theme,
-            fontSize: settingsFontSize
+        let embeddingSection = makeEmbeddingSection(
+            selectedEndpoint: selectedEmbeddingEndpoint,
+            settingsFontSize: settingsFontSize,
+            primaryText: primaryText,
+            secondaryText: secondaryText,
+            theme: theme
         )
+        let embeddingProviderPopup = embeddingSection.providerPopup
+        let embeddingEndpointContainer = embeddingSection.endpointContainer
+        let embeddingEndpointLabel = embeddingSection.endpointLabel
+        let embeddingEndpointField = embeddingSection.endpointField
+        let embeddingModelField = embeddingSection.modelField
+        let embeddingKeyField = embeddingSection.keyField
+        let autoEmbeddingIndexCheckbox = embeddingSection.autoIndexCheckbox
         let speechLabel = label(AppText.localized("朗读", "Read Aloud"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let speechRuntimeLabel = label(AppText.localized("朗读模型", "TTS Model"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let selectedSpeechLanguageHint = currentSpeechLanguageHint?()
@@ -250,8 +247,6 @@ extension AISettingsPanelController {
 
         let testChatButton = settingsActionButton(title: AppText.localized("测试模型连接", "Test Chat"), target: self, action: #selector(testChatConnection(_:)))
         testChatButton.font = AppFont.semibold(ofSize: settingsFontSize)
-        let testEmbeddingButton = settingsActionButton(title: AppText.localized("测试向量连接", "Test Embedding"), target: self, action: #selector(testEmbeddingConnection(_:)))
-        testEmbeddingButton.font = AppFont.semibold(ofSize: settingsFontSize)
 
         let cacheLabel = label(AppText.localized("AI 阅读记录", "AI Reading Records"), size: 15, weight: .semibold, color: primaryText)
         let cacheStatusLabel = label(AppText.localized("正在统计缓存...", "Calculating cache..."), size: settingsFontSize, color: secondaryText)
@@ -298,25 +293,16 @@ extension AISettingsPanelController {
         modelPopup.action = #selector(modelChanged(_:))
         themePopup.target = self
         themePopup.action = #selector(themeChanged(_:))
-        embeddingProviderPopup.target = self
-        embeddingProviderPopup.action = #selector(embeddingProviderChanged(_:))
         modelPopup.identifier = Identifiers.modelPopup
         languagePopup.identifier = Identifiers.languagePopup
         themePopup.identifier = Identifiers.themePopup
         keyField.identifier = Identifiers.keyField
-        embeddingProviderPopup.identifier = Identifiers.embeddingProviderPopup
-        embeddingEndpointField.identifier = Identifiers.embeddingEndpointField
-        embeddingModelField.identifier = Identifiers.embeddingModelField
-        embeddingKeyField.identifier = Identifiers.embeddingKeyField
 
         for view in [titleIcon, titleLabel, closeButton, tabControl, scrollView, cancelButton, saveButton] {
             content.addSubview(view)
         }
         for view in [customEndpointLabel, customEndpointField, customModelLabel, customModelField] {
             customModelContainer.addSubview(view)
-        }
-        for view in [embeddingEndpointLabel, embeddingEndpointField] {
-            embeddingEndpointContainer.addSubview(view)
         }
         for view in [currentIndexLabel, currentIndexStatusLabel, startIndexButton, pauseIndexButton, cancelIndexButton, clearCurrentIndexButton, clearCurrentWordsButton] {
             currentIndexCard.addSubview(view)
@@ -330,7 +316,7 @@ extension AISettingsPanelController {
         for view in [modelLabel, modelPopup, modelHelpLabel, customModelContainer, keyLabel, keyField, keyHelpLabel, testChatButton] {
             modelPage.addSubview(view)
         }
-        for view in [embeddingLabel, embeddingProviderPopup, embeddingEndpointContainer, embeddingModelNameLabel, embeddingModelField, embeddingKeyLabel, embeddingKeyField, embeddingHelpLabel, autoEmbeddingIndexCheckbox, testEmbeddingButton] {
+        for view in embeddingSection.pageViews {
             embeddingPage.addSubview(view)
         }
         for view in [speechLabel, speechRuntimeLabel, speechRuntimePopup, speechVoiceLabel, speechVoicePopup, speechSpeedLabel, speechSpeedPopup, kokoroSpeechCard, kittenSpeechCard, kokoroSpeechLabel, kokoroSpeechStatusLabel, kokoroSpeechProgressIndicator, kokoroSpeechDownloadButton, kokoroSpeechPauseButton, kokoroSpeechCancelButton, kokoroSpeechDeleteButton, kittenSpeechLabel, kittenSpeechStatusLabel, kittenSpeechProgressIndicator, kittenSpeechDownloadButton, kittenSpeechPauseButton, kittenSpeechCancelButton, kittenSpeechDeleteButton] {
@@ -347,8 +333,16 @@ extension AISettingsPanelController {
         let formWidth = layout.formWidth
         let controlHeight = layout.controlHeight
         let inputHeight = layout.inputHeight
-        let embeddingModelTopWithCustomEndpoint = embeddingModelNameLabel.topAnchor.constraint(equalTo: embeddingEndpointContainer.bottomAnchor, constant: 10)
-        let embeddingModelTopWithoutCustomEndpoint = embeddingModelNameLabel.topAnchor.constraint(equalTo: embeddingProviderPopup.bottomAnchor, constant: 8)
+        let embeddingLayout = embeddingConstraints(
+            for: embeddingSection,
+            page: embeddingPage,
+            labelColumnWidth: labelColumnWidth,
+            fieldWidth: fieldWidth,
+            inputHeight: inputHeight,
+            controlHeight: controlHeight
+        )
+        let embeddingModelTopWithCustomEndpoint = embeddingLayout.modelTopWithCustomEndpoint
+        let embeddingModelTopWithoutCustomEndpoint = embeddingLayout.modelTopWithoutCustomEndpoint
         keyTopWithCustomConstraint = keyTopWithCustom
         keyTopWithoutCustomConstraint = keyTopWithoutCustom
         embeddingModelTopWithCustomEndpointConstraint = embeddingModelTopWithCustomEndpoint
@@ -362,6 +356,7 @@ extension AISettingsPanelController {
             pdfDimmingSlider.heightAnchor.constraint(equalToConstant: 0)
         ]
 
+        NSLayoutConstraint.activate(embeddingLayout.constraints)
         NSLayoutConstraint.activate([
             titleIcon.topAnchor.constraint(equalTo: content.topAnchor, constant: 32),
             titleIcon.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 44),
@@ -500,51 +495,6 @@ extension AISettingsPanelController {
             testChatButton.widthAnchor.constraint(equalToConstant: 136),
             testChatButton.heightAnchor.constraint(equalToConstant: controlHeight),
             testChatButton.bottomAnchor.constraint(lessThanOrEqualTo: modelPage.bottomAnchor, constant: -8),
-
-            embeddingLabel.topAnchor.constraint(equalTo: embeddingPage.topAnchor, constant: 4),
-            embeddingLabel.leadingAnchor.constraint(equalTo: embeddingPage.leadingAnchor),
-            embeddingLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
-            embeddingProviderPopup.topAnchor.constraint(equalTo: embeddingLabel.topAnchor),
-            embeddingProviderPopup.leadingAnchor.constraint(equalTo: embeddingPage.leadingAnchor, constant: labelColumnWidth),
-            embeddingProviderPopup.widthAnchor.constraint(equalToConstant: fieldWidth),
-            embeddingProviderPopup.heightAnchor.constraint(equalToConstant: controlHeight),
-            embeddingEndpointContainer.topAnchor.constraint(equalTo: embeddingProviderPopup.bottomAnchor, constant: 10),
-            embeddingEndpointContainer.leadingAnchor.constraint(equalTo: embeddingProviderPopup.leadingAnchor),
-            embeddingEndpointContainer.widthAnchor.constraint(equalToConstant: fieldWidth),
-            embeddingEndpointContainer.heightAnchor.constraint(equalToConstant: 68),
-            embeddingEndpointLabel.centerYAnchor.constraint(equalTo: embeddingEndpointContainer.centerYAnchor),
-            embeddingEndpointLabel.leadingAnchor.constraint(equalTo: embeddingEndpointContainer.leadingAnchor, constant: 14),
-            embeddingEndpointLabel.widthAnchor.constraint(equalToConstant: 128),
-            embeddingEndpointField.centerYAnchor.constraint(equalTo: embeddingEndpointContainer.centerYAnchor),
-            embeddingEndpointField.leadingAnchor.constraint(equalTo: embeddingEndpointContainer.leadingAnchor, constant: 150),
-            embeddingEndpointField.trailingAnchor.constraint(equalTo: embeddingEndpointContainer.trailingAnchor, constant: -14),
-            embeddingEndpointField.heightAnchor.constraint(equalToConstant: inputHeight),
-            embeddingModelTopWithCustomEndpoint,
-            embeddingModelNameLabel.leadingAnchor.constraint(equalTo: embeddingPage.leadingAnchor),
-            embeddingModelNameLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
-            embeddingModelField.topAnchor.constraint(equalTo: embeddingModelNameLabel.topAnchor),
-            embeddingModelField.leadingAnchor.constraint(equalTo: embeddingPage.leadingAnchor, constant: labelColumnWidth),
-            embeddingModelField.widthAnchor.constraint(equalToConstant: fieldWidth),
-            embeddingModelField.heightAnchor.constraint(equalToConstant: inputHeight),
-            embeddingKeyLabel.topAnchor.constraint(equalTo: embeddingModelField.bottomAnchor, constant: 8),
-            embeddingKeyLabel.leadingAnchor.constraint(equalTo: embeddingPage.leadingAnchor),
-            embeddingKeyLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
-            embeddingKeyField.topAnchor.constraint(equalTo: embeddingKeyLabel.topAnchor),
-            embeddingKeyField.leadingAnchor.constraint(equalTo: embeddingPage.leadingAnchor, constant: labelColumnWidth),
-            embeddingKeyField.widthAnchor.constraint(equalToConstant: fieldWidth),
-            embeddingKeyField.heightAnchor.constraint(equalToConstant: inputHeight),
-            embeddingHelpLabel.topAnchor.constraint(equalTo: embeddingKeyField.bottomAnchor, constant: 6),
-            embeddingHelpLabel.leadingAnchor.constraint(equalTo: embeddingKeyField.leadingAnchor),
-            embeddingHelpLabel.widthAnchor.constraint(equalToConstant: fieldWidth),
-
-            autoEmbeddingIndexCheckbox.topAnchor.constraint(equalTo: embeddingHelpLabel.bottomAnchor, constant: 10),
-            autoEmbeddingIndexCheckbox.leadingAnchor.constraint(equalTo: embeddingKeyField.leadingAnchor),
-            autoEmbeddingIndexCheckbox.widthAnchor.constraint(equalToConstant: fieldWidth),
-            testEmbeddingButton.topAnchor.constraint(equalTo: autoEmbeddingIndexCheckbox.bottomAnchor, constant: 10),
-            testEmbeddingButton.leadingAnchor.constraint(equalTo: embeddingKeyField.leadingAnchor),
-            testEmbeddingButton.widthAnchor.constraint(equalToConstant: 136),
-            testEmbeddingButton.heightAnchor.constraint(equalToConstant: controlHeight),
-            testEmbeddingButton.bottomAnchor.constraint(lessThanOrEqualTo: embeddingPage.bottomAnchor, constant: -8),
 
             speechLabel.topAnchor.constraint(equalTo: speechPage.topAnchor, constant: 4),
             speechLabel.leadingAnchor.constraint(equalTo: speechPage.leadingAnchor),

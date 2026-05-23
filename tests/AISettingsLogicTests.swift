@@ -92,13 +92,6 @@ private struct EmbeddingKeyStore {
     }
 }
 
-private extension URL {
-    var isLocalEndpoint: Bool {
-        guard let host = host?.lowercased() else { return false }
-        return host == "localhost" || host == "127.0.0.1" || host == "::1"
-    }
-}
-
 private func withIsolatedAISettingsDefaults(_ body: (UserDefaults) throws -> Void) throws {
     let suiteName = "LeafReaderTests.AISettingsStore.\(UUID().uuidString)"
     guard let defaults = UserDefaults(suiteName: suiteName) else {
