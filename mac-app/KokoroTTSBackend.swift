@@ -6,7 +6,6 @@ final class KokoroTTSBackend {
     private static let cliEnvironmentKey = "LEAFREADER_KOKORO_COREML_CLI"
     private static let voiceEnvironmentKey = "LEAFREADER_KOKORO_COREML_VOICE"
     private static let speedEnvironmentKey = "LEAFREADER_KOKORO_COREML_SPEED"
-    private static let defaultCLIPath = ".local/share/leafreader/kokoro-coreml/fluidaudiocli"
 
     private struct Request: Codable {
         let id: String
@@ -267,14 +266,8 @@ final class KokoroTTSBackend {
         let environmentPath = ProcessInfo.processInfo.environment[cliEnvironmentKey]
         let candidatePaths = [
             environmentPath,
-            Bundle.main.resourceURL?
-                .appendingPathComponent("SpeechRuntimes", isDirectory: true)
-                .appendingPathComponent("kokoro-coreml", isDirectory: true)
-                .appendingPathComponent("fluidaudiocli")
-                .path,
-            fileManager.homeDirectoryForCurrentUser
-                .appendingPathComponent(defaultCLIPath)
-                .path,
+            SpeechRuntimeResourceManager.Runtime.kokoro.bundledExecutableURL?.path,
+            SpeechRuntimeResourceManager.Runtime.kokoro.userExecutableURL.path,
         ].compactMap { $0 }
 
         for path in candidatePaths where fileManager.isExecutableFile(atPath: path) {

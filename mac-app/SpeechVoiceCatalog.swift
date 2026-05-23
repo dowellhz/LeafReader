@@ -84,8 +84,8 @@ enum SpeechVoiceCatalog {
     }
 
     private static func availableKokoroVoiceIDs() -> Set<String> {
-        let root = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".cache/fluidaudio/Models/kokoro-82m-coreml", isDirectory: true)
+        let root = SpeechRuntimeResourceManager.Runtime.fluidAudioModelCacheRoot
+            .appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
         let candidates = [
             root.appendingPathComponent("ANE", isDirectory: true),
             root.appendingPathComponent("ANE-zh/voices", isDirectory: true)

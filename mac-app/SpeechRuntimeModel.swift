@@ -81,28 +81,22 @@ extension SpeechRuntimeResourceManager {
             releaseAssetURL(fileName: "speech-models-manifest.json")
         }
 
-        var installDirectory: URL {
-            let root = FileManager.default.homeDirectoryForCurrentUser
+        private static var userInstallRoot: URL {
+            FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent(".local/share/leafreader", isDirectory: true)
-            switch self {
-            case .kokoro:
-                return root.appendingPathComponent("kokoro-coreml", isDirectory: true)
-            case .kitten:
-                return root.appendingPathComponent("kittentts-rs-runtime", isDirectory: true)
-            }
+        }
+
+        private static var bundledRuntimeRoot: URL? {
+            Bundle.main.resourceURL?
+                .appendingPathComponent("SpeechRuntimes", isDirectory: true)
+        }
+
+        var installDirectory: URL {
+            runtimeDirectory(in: Self.userInstallRoot)
         }
 
         var bundledInstallDirectory: URL? {
-            guard let resourceURL = Bundle.main.resourceURL else {
-                return nil
-            }
-            let root = resourceURL.appendingPathComponent("SpeechRuntimes", isDirectory: true)
-            switch self {
-            case .kokoro:
-                return root.appendingPathComponent("kokoro-coreml", isDirectory: true)
-            case .kitten:
-                return root.appendingPathComponent("kittentts-rs-runtime", isDirectory: true)
-            }
+            Self.bundledRuntimeRoot.map { runtimeDirectory(in: $0) }
         }
 
         var installDirectories: [URL] {
@@ -113,17 +107,47 @@ extension SpeechRuntimeResourceManager {
             requiredPaths(in: installDirectory)
         }
 
+        var bundledExecutableURL: URL? {
+            bundledInstallDirectory.map(executableURL(in:))
+        }
+
+        var userExecutableURL: URL {
+            executableURL(in: installDirectory)
+        }
+
+        var kittenModelDirectoryName: String {
+            "kitten-tts-mini"
+        }
+
+        func modelDirectory(in directory: URL) -> URL {
+            switch self {
+            case .kokoro:
+                return directory.appendingPathComponent("Models", isDirectory: true)
+            case .kitten:
+                return directory.appendingPathComponent(kittenModelDirectoryName, isDirectory: true)
+            }
+        }
+
+        func executableURL(in directory: URL) -> URL {
+            switch self {
+            case .kokoro:
+                return directory.appendingPathComponent("fluidaudiocli")
+            case .kitten:
+                return directory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server")
+            }
+        }
+
         func requiredPaths(in directory: URL) -> [URL] {
             switch self {
             case .kokoro:
                 return [
-                    directory.appendingPathComponent("fluidaudiocli")
+                    executableURL(in: directory)
                 ]
             case .kitten:
                 return [
                     directory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts"),
-                    directory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server"),
-                    directory.appendingPathComponent("kitten-tts-mini", isDirectory: true)
+                    executableURL(in: directory),
+                    modelDirectory(in: directory)
                 ]
             }
         }
@@ -135,6 +159,15 @@ extension SpeechRuntimeResourceManager {
 
         private static func releaseAssetURL(fileName: String) -> URL {
             URL(string: "\(releaseDownloadsBaseURL)/download/\(runtimeAssetsReleaseTag)/\(fileName)")!
+        }
+
+        private func runtimeDirectory(in root: URL) -> URL {
+            switch self {
+            case .kokoro:
+                return root.appendingPathComponent("kokoro-coreml", isDirectory: true)
+            case .kitten:
+                return root.appendingPathComponent("kittentts-rs-runtime", isDirectory: true)
+            }
         }
     }
 }

@@ -74,7 +74,7 @@ extension SpeechRuntimeResourceManager {
             isValid = kittenModelPathsExist(in: directory)
                 && (kittenRuntimePathsExist(in: directory) || bundledRuntimePathsExist(for: runtime))
         case .kokoro:
-            let modelCacheRoot = directory.appendingPathComponent("Models", isDirectory: true)
+            let modelCacheRoot = runtime.modelDirectory(in: directory)
             isValid = (requiredPathsExist(runtime.requiredPaths(in: directory)) || bundledRuntimePathsExist(for: runtime))
                 && kokoroAneModelCacheExists(in: modelCacheRoot)
         }
@@ -98,7 +98,8 @@ extension SpeechRuntimeResourceManager {
         try fileManager.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
         var transaction = KokoroCacheInstallTransaction(fileManager: fileManager)
         for name in ["kokoro", "kokoro-82m-coreml"] {
-            let source = installDirectory.appendingPathComponent("Models/\(name)", isDirectory: true)
+            let source = Runtime.kokoro.modelDirectory(in: installDirectory)
+                .appendingPathComponent(name, isDirectory: true)
             var isDirectory: ObjCBool = false
             guard fileManager.fileExists(atPath: source.path, isDirectory: &isDirectory), isDirectory.boolValue else {
                 continue

@@ -13,8 +13,7 @@ extension SpeechRuntimeResourceManager {
     }
 
     static func kittenRuntimePathsExist(in directory: URL) -> Bool {
-        let server = directory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server")
-        return FileManager.default.isExecutableFile(atPath: server.path)
+        FileManager.default.isExecutableFile(atPath: Runtime.kitten.executableURL(in: directory).path)
     }
 
     static func bundledRuntimePathsExist(for runtime: Runtime) -> Bool {
@@ -30,7 +29,7 @@ extension SpeechRuntimeResourceManager {
     }
 
     static func kittenModelPathsExist(in directory: URL) -> Bool {
-        let modelDirectory = directory.appendingPathComponent("kitten-tts-mini", isDirectory: true)
+        let modelDirectory = Runtime.kitten.modelDirectory(in: directory)
         let model = modelDirectory.appendingPathComponent("kitten_tts_mini_v0_8.onnx")
         let voices = modelDirectory.appendingPathComponent("voices.npz")
         let config = modelDirectory.appendingPathComponent("config.json")

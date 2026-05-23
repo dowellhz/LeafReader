@@ -6,7 +6,6 @@ final class KittenServerTTSBackend {
     private static let voiceEnvironmentKey = "LEAFREADER_KITTENTTS_VOICE"
     private static let speedEnvironmentKey = "LEAFREADER_KITTENTTS_SPEED"
     private static let portEnvironmentKey = "LEAFREADER_KITTENTTS_RS_PORT"
-    private static let defaultServerPath = ".local/share/leafreader/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
 
     private struct HealthCheck {
         let isHealthy: Bool
@@ -283,9 +282,7 @@ final class KittenServerTTSBackend {
         let fileManager = FileManager.default
         let environment = ProcessInfo.processInfo.environment
         if let modelPath = environment[modelEnvironmentKey] {
-            let serverPath = fileManager.homeDirectoryForCurrentUser
-                .appendingPathComponent(defaultServerPath)
-                .path
+            let serverPath = SpeechRuntimeResourceManager.Runtime.kitten.userExecutableURL.path
             guard fileManager.isExecutableFile(atPath: serverPath),
                   fileManager.fileExists(atPath: modelPath) else {
                 return nil
@@ -302,7 +299,7 @@ final class KittenServerTTSBackend {
                 continue
             }
             for modelRoot in modelCandidateRoots {
-                let modelDirectoryURL = modelRoot.appendingPathComponent("kitten-tts-mini", isDirectory: true)
+                let modelDirectoryURL = runtime.modelDirectory(in: modelRoot)
                 let modelURL = modelDirectoryURL.appendingPathComponent("kitten_tts_mini_v0_8.onnx")
                 let voicesURL = modelDirectoryURL.appendingPathComponent("voices.npz")
                 let configURL = modelDirectoryURL.appendingPathComponent("config.json")
