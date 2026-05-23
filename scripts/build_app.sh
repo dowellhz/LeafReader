@@ -11,6 +11,7 @@ KITTEN_RUNTIME_DIR="${KITTEN_RUNTIME_DIR:-$HOME/.local/share/leafreader/kittentt
 KITTEN_RUNTIME_ARCHIVE="${KITTEN_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kitten-tts-rs-macos-arm64.tar.gz}"
 KOKORO_RUNTIME="${KOKORO_RUNTIME:-$HOME/.local/share/leafreader/kokoro-coreml/fluidaudiocli}"
 KOKORO_RUNTIME_ARCHIVE="${KOKORO_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kokoro-coreml-macos-arm64.tar.gz}"
+KOKORO_MODEL_CACHE_ROOT="${KOKORO_MODEL_CACHE_ROOT:-$HOME/.cache/fluidaudio/Models}"
 ESPEAK_NG_ROOT="${ESPEAK_NG_ROOT:-$HOME/.local/share/leafreader/espeak-ng-macos12}"
 PCAUDIOLIB_ROOT="${PCAUDIOLIB_ROOT:-$ESPEAK_NG_ROOT}"
 export COPYFILE_DISABLE=1
@@ -35,6 +36,26 @@ cp "$ROOT_DIR/mac-app/AppIcon.icns" "$APP_PATH/Contents/Resources/AppIcon.icns"
 if [[ -d "$ROOT_DIR/mac-app/Resources" ]]; then
   cp -R "$ROOT_DIR/mac-app/Resources/." "$APP_PATH/Contents/Resources/"
 fi
+KOKORO_ENGLISH_VOICES=(af_bella af_heart am_adam am_michael bf_emma bf_isabella bm_george bm_lewis)
+KOKORO_CHINESE_VOICES=(zf_001 zf_002 zf_003 zf_004 zf_005 zm_009 zm_010 zm_011 zm_012 zm_013 af_maple af_sol bf_vale)
+KOKORO_BUNDLE_ROOT="$APP_PATH/Contents/Resources/KokoroVoices"
+mkdir -p "$KOKORO_BUNDLE_ROOT/English" "$KOKORO_BUNDLE_ROOT/Chinese"
+for voice in "${KOKORO_ENGLISH_VOICES[@]}"; do
+  source="$KOKORO_MODEL_CACHE_ROOT/kokoro-82m-coreml/ANE/$voice.bin"
+  if [[ -f "$source" ]]; then
+    cp "$source" "$KOKORO_BUNDLE_ROOT/English/$voice.bin"
+  elif [[ ! -f "$KOKORO_BUNDLE_ROOT/English/$voice.bin" ]]; then
+    echo "Warning: Kokoro English voice not bundled; missing $source" >&2
+  fi
+done
+for voice in "${KOKORO_CHINESE_VOICES[@]}"; do
+  source="$KOKORO_MODEL_CACHE_ROOT/kokoro-82m-coreml/ANE-zh/voices/$voice.bin"
+  if [[ -f "$source" ]]; then
+    cp "$source" "$KOKORO_BUNDLE_ROOT/Chinese/$voice.bin"
+  else
+    echo "Warning: Kokoro Chinese voice not bundled; missing $source" >&2
+  fi
+done
 if [[ -d "$KITTEN_RUNTIME_DIR/kitten-tts-aarch64-macos" ]]; then
   mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime"
   mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos"

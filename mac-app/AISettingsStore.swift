@@ -57,7 +57,9 @@ enum AISettingsStore {
     private static let validSpeechRuntimeIDs = Set(["kokoro", "kitten"])
     private static let validSpeechSpeedIDs = Set(["fast", "normal", "slow", "verySlow"])
     private static let validKittenSpeechVoiceIDs = Set(["Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo"])
-    private static let kokoroEnglishSpeechVoiceDefinitions: [(zhTitle: String, enTitle: String, id: String)] = [
+    private typealias SpeechVoiceDefinition = (zhTitle: String, enTitle: String, id: String)
+
+    private static let kokoroEnglishSpeechVoiceDefinitions: [SpeechVoiceDefinition] = [
         ("美国女声 Bella", "American Female Bella", "af_bella"),
         ("美国女声 Heart", "American Female Heart", "af_heart"),
         ("美国男声 Adam", "American Male Adam", "am_adam"),
@@ -70,13 +72,27 @@ enum AISettingsStore {
     static let kokoroEnglishSpeechVoiceIDs = Set(
         kokoroEnglishSpeechVoiceDefinitions.map { $0.id }
     )
-    private static let validKokoroChineseSpeechVoiceIDs = Set([
-        "zf_001", "zf_002", "zf_003", "zf_004", "zf_005",
-        "zm_009", "zm_010", "zm_011", "zm_012", "zm_013",
-        "af_maple", "af_sol", "bf_vale"
-    ])
-    private static let validKokoroSpeechVoiceIDs = kokoroEnglishSpeechVoiceIDs
-        .union(validKokoroChineseSpeechVoiceIDs)
+    private static let kokoroChineseSpeechVoiceDefinitions: [SpeechVoiceDefinition] = [
+        ("中文女声 1", "Chinese Female 1", "zf_001"),
+        ("中文女声 2", "Chinese Female 2", "zf_002"),
+        ("中文女声 3", "Chinese Female 3", "zf_003"),
+        ("中文女声 4", "Chinese Female 4", "zf_004"),
+        ("中文女声 5", "Chinese Female 5", "zf_005"),
+        ("中文男声 1", "Chinese Male 1", "zm_009"),
+        ("中文男声 2", "Chinese Male 2", "zm_010"),
+        ("中文男声 3", "Chinese Male 3", "zm_011"),
+        ("中文男声 4", "Chinese Male 4", "zm_012"),
+        ("浑厚男", "Deep Male", "zm_013"),
+        ("Maple", "Maple", "af_maple"),
+        ("Sol", "Sol", "af_sol"),
+        ("Vale", "Vale", "bf_vale")
+    ]
+    static let kokoroChineseSpeechVoiceIDs = Set(
+        kokoroChineseSpeechVoiceDefinitions.map { $0.id }
+    )
+    private static let validKokoroSpeechVoiceIDs = Set(
+        (kokoroEnglishSpeechVoiceDefinitions + kokoroChineseSpeechVoiceDefinitions).map { $0.id }
+    )
     private static var defaults: UserDefaults = .standard
     private static let fallbackCustomEndpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     private static let fallbackEmbeddingEndpoint = URL(string: "https://api.openai.com/v1/embeddings")!
@@ -363,24 +379,8 @@ enum AISettingsStore {
     }
 
     static func kokoroSpeechVoiceOptions(languageHint: SpeechLanguageHint?) -> [(title: String, id: String)] {
-        let englishOptions = kokoroEnglishSpeechVoiceDefinitions.map {
-            (title: AppText.localized($0.zhTitle, $0.enTitle), id: $0.id)
-        }
-        let chineseOptions: [(title: String, id: String)] = [
-            (AppText.localized("中文女声 1", "Chinese Female 1"), "zf_001"),
-            (AppText.localized("中文女声 2", "Chinese Female 2"), "zf_002"),
-            (AppText.localized("中文女声 3", "Chinese Female 3"), "zf_003"),
-            (AppText.localized("中文女声 4", "Chinese Female 4"), "zf_004"),
-            (AppText.localized("中文女声 5", "Chinese Female 5"), "zf_005"),
-            (AppText.localized("中文男声 1", "Chinese Male 1"), "zm_009"),
-            (AppText.localized("中文男声 2", "Chinese Male 2"), "zm_010"),
-            (AppText.localized("中文男声 3", "Chinese Male 3"), "zm_011"),
-            (AppText.localized("中文男声 4", "Chinese Male 4"), "zm_012"),
-            (AppText.localized("浑厚男", "Deep Male"), "zm_013"),
-            ("Maple", "af_maple"),
-            ("Sol", "af_sol"),
-            ("Vale", "bf_vale")
-        ]
+        let englishOptions = localizedSpeechVoiceOptions(kokoroEnglishSpeechVoiceDefinitions)
+        let chineseOptions = localizedSpeechVoiceOptions(kokoroChineseSpeechVoiceDefinitions)
         let availableIDs = availableKokoroSpeechVoiceIDs()
         let installedChineseOptions = availableIDs.isEmpty
             ? chineseOptions
@@ -396,15 +396,15 @@ enum AISettingsStore {
     }
 
     static func speechVoiceOptions(runtimeID: String?) -> [(title: String, id: String)] {
-        runtimeID == "kokoro" ? kokoroSpeechVoiceOptions : kittenSpeechVoiceOptions
+        isKokoroSpeechRuntime(runtimeID) ? kokoroSpeechVoiceOptions : kittenSpeechVoiceOptions
     }
 
     static func speechVoiceOptions(runtimeID: String?, languageHint: SpeechLanguageHint?) -> [(title: String, id: String)] {
-        runtimeID == "kokoro" ? kokoroSpeechVoiceOptions(languageHint: languageHint) : kittenSpeechVoiceOptions
+        isKokoroSpeechRuntime(runtimeID) ? kokoroSpeechVoiceOptions(languageHint: languageHint) : kittenSpeechVoiceOptions
     }
 
     static func selectedSpeechVoiceID(runtimeID: String?) -> String {
-        runtimeID == "kokoro" ? selectedKokoroSpeechVoiceID : selectedKittenSpeechVoiceID
+        isKokoroSpeechRuntime(runtimeID) ? selectedKokoroSpeechVoiceID : selectedKittenSpeechVoiceID
     }
 
     static func selectedKokoroSpeechVoiceID(languageHint: SpeechLanguageHint?) -> String {
@@ -418,6 +418,16 @@ enum AISettingsStore {
 
     static func speechVoiceTitle(for id: String, runtimeID: String?) -> String {
         speechVoiceOptions(runtimeID: runtimeID).first { $0.id == id }?.title ?? id
+    }
+
+    private static func isKokoroSpeechRuntime(_ runtimeID: String?) -> Bool {
+        runtimeID == SpeechRuntimeResourceManager.Runtime.kokoro.id
+    }
+
+    private static func localizedSpeechVoiceOptions(_ definitions: [SpeechVoiceDefinition]) -> [(title: String, id: String)] {
+        definitions.map {
+            (title: AppText.localized($0.zhTitle, $0.enTitle), id: $0.id)
+        }
     }
 
     private static func availableKokoroSpeechVoiceIDs() -> Set<String> {
@@ -465,7 +475,7 @@ enum AISettingsStore {
     }
 
     static func saveSpeechVoiceID(_ id: String, runtimeID: String?) {
-        if runtimeID == "kokoro" {
+        if isKokoroSpeechRuntime(runtimeID) {
             saveKokoroSpeechVoiceID(id)
         } else {
             saveKittenSpeechVoiceID(id)

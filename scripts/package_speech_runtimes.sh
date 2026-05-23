@@ -19,6 +19,9 @@ if [[ -x "$KOKORO_RUNTIME" && -d "$KOKORO_MODEL_CACHE_ROOT/kokoro" && -d "$KOKOR
   cp "$KOKORO_RUNTIME" "$KOKORO_STAGE/fluidaudiocli"
   cp -R "$KOKORO_MODEL_CACHE_ROOT/kokoro" "$KOKORO_STAGE/Models/kokoro"
   cp -R "$KOKORO_MODEL_CACHE_ROOT/kokoro-82m-coreml" "$KOKORO_STAGE/Models/kokoro-82m-coreml"
+  find "$KOKORO_STAGE/Models/kokoro-82m-coreml" -type d -name '*.mlpackage' -prune -exec rm -rf {} +
+  find "$KOKORO_STAGE/Models/kokoro-82m-coreml/ANE" -maxdepth 1 -type f -name '*.bin' -delete
+  find "$KOKORO_STAGE/Models/kokoro-82m-coreml/ANE-zh/voices" -maxdepth 1 -type f -name '*.bin' -delete
   chmod 755 "$KOKORO_STAGE/fluidaudiocli"
   tar -C "$KOKORO_STAGE" -czf "$OUT_DIR/kokoro-coreml-macos-arm64.tar.gz" .
   echo "Packaged $OUT_DIR/kokoro-coreml-macos-arm64.tar.gz"

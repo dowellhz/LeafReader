@@ -266,8 +266,7 @@ enum SpeechRuntimeResourceManager {
             "KokoroNoise.mlmodelc",
             "KokoroVocoder.mlmodelc",
             "KokoroTail.mlmodelc",
-            "vocab.json",
-            "af_heart.bin"
+            "vocab.json"
         ]
         guard requiredAneFiles.allSatisfy({
             FileManager.default.fileExists(atPath: aneDirectory.appendingPathComponent($0).path)

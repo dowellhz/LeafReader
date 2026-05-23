@@ -6,15 +6,14 @@ enum KokoroVoiceResourceManager {
     private static let expectedVoiceBinSize = voiceEmbeddingCount * voiceEmbeddingWidth * MemoryLayout<Float>.size
 
     static func ensureInstalled(voiceID: String, variant: String) -> Bool {
-        guard variant == "en",
-              AISettingsStore.kokoroEnglishSpeechVoiceIDs.contains(voiceID) else {
+        guard let location = voiceLocation(voiceID: voiceID, variant: variant) else {
             return true
         }
-        let destination = englishVoiceCacheURL(for: voiceID)
+        let destination = cacheURL(for: voiceID, location: location)
         if isUsableVoiceBin(at: destination) {
             return true
         }
-        guard let source = bundledEnglishVoiceURL(for: voiceID),
+        guard let source = bundledVoiceURL(for: voiceID, location: location),
               isUsableVoiceBin(at: source) else {
             NSLog("LeafReader Kokoro voices: missing bundled voice bin for %@", voiceID)
             return false
@@ -37,16 +36,50 @@ enum KokoroVoiceResourceManager {
         }
     }
 
-    private static func bundledEnglishVoiceURL(for voiceID: String) -> URL? {
+    private enum VoiceLocation {
+        case english
+        case chinese
+
+        var bundleDirectoryName: String {
+            switch self {
+            case .english:
+                return "English"
+            case .chinese:
+                return "Chinese"
+            }
+        }
+
+        var cacheSubpath: String {
+            switch self {
+            case .english:
+                return "ANE"
+            case .chinese:
+                return "ANE-zh/voices"
+            }
+        }
+    }
+
+    private static func voiceLocation(voiceID: String, variant: String) -> VoiceLocation? {
+        if variant == "en", AISettingsStore.kokoroEnglishSpeechVoiceIDs.contains(voiceID) {
+            return .english
+        }
+        if variant == "zh", AISettingsStore.kokoroChineseSpeechVoiceIDs.contains(voiceID) {
+            return .chinese
+        }
+        return nil
+    }
+
+    private static func bundledVoiceURL(for voiceID: String, location: VoiceLocation) -> URL? {
         Bundle.main.resourceURL?
-            .appendingPathComponent("KokoroVoices/English", isDirectory: true)
+            .appendingPathComponent("KokoroVoices", isDirectory: true)
+            .appendingPathComponent(location.bundleDirectoryName, isDirectory: true)
             .appendingPathComponent("\(voiceID).bin")
     }
 
-    private static func englishVoiceCacheURL(for voiceID: String) -> URL {
+    private static func cacheURL(for voiceID: String, location: VoiceLocation) -> URL {
         SpeechRuntimeResourceManager.Runtime.fluidAudioModelCacheRoot
             .appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
-            .appendingPathComponent("ANE", isDirectory: true)
+            .appendingPathComponent(location.cacheSubpath, isDirectory: true)
             .appendingPathComponent("\(voiceID).bin")
     }
 
