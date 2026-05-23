@@ -52,6 +52,7 @@ check_version_references() {
   expect_contains "$ROOT_DIR/README.md" "[Leaf Reader-$VERSION.pkg]($DOWNLOAD_URL)" || failures=$((failures + 1))
   expect_contains "$ROOT_DIR/README.md" "release/$VERSION/" || failures=$((failures + 1))
   expect_contains "$ROOT_DIR/README.md" "release_pkg.sh $VERSION" || failures=$((failures + 1))
+  expect_contains "$ROOT_DIR/README.md" "publish_release.sh $VERSION" || failures=$((failures + 1))
 
   expect_contains "$ROOT_DIR/docs/index.html" "<title>Leaf Reader $VERSION</title>" || failures=$((failures + 1))
   expect_contains "$ROOT_DIR/docs/index.html" "Leaf Reader $VERSION is a native macOS reader" || failures=$((failures + 1))
@@ -80,6 +81,7 @@ perl -0pi -e 's#Git tag: `v[^`]+`#Git tag: `v'"$VERSION"'`#g' "$ROOT_DIR/README.
 perl -0pi -e 's#\[Leaf Reader-[0-9.]+\.pkg\]\(https://github\.com/dowellhz/LeafReader/releases/download/v[0-9.]+/LeafReader-[0-9.]+\.pkg\)#[Leaf Reader-'"$VERSION"'.pkg]('"$DOWNLOAD_URL"')#g' "$ROOT_DIR/README.md"
 perl -0pi -e 's#release/[0-9.]+/#release/'"$VERSION"'/#g' "$ROOT_DIR/README.md"
 perl -0pi -e 's#release_pkg\.sh [0-9.]+#release_pkg.sh '"$VERSION"'#g' "$ROOT_DIR/README.md"
+perl -0pi -e 's#publish_release\.sh [0-9.]+#publish_release.sh '"$VERSION"'#g' "$ROOT_DIR/README.md"
 
 perl -0pi -e 's#<title>Leaf Reader [0-9.]+</title>#<title>Leaf Reader '"$VERSION"'</title>#g' "$ROOT_DIR/docs/index.html"
 perl -0pi -e 's#Leaf Reader [0-9.]+ is a native macOS reader#Leaf Reader '"$VERSION"' is a native macOS reader#g' "$ROOT_DIR/docs/index.html"

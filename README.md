@@ -59,12 +59,14 @@ Runtime OS requirements:
 - KittenTTS local speech supports macOS 12.0 Monterey or later.
 - The main reader app still supports macOS 12.0 Monterey or later. On older systems, Kokoro downloads show a compatibility warning before continuing.
 
-Download packages are served from GitHub Releases:
+Speech model downloads currently point to the stable `v1.5.10` speech asset release:
 
-- `https://github.com/dowellhz/LeafReader/releases/download/<runtime-asset-version>/kokoro-coreml-macos-arm64.tar.gz` (Kokoro ANE/G2P model cache)
-- `https://github.com/dowellhz/LeafReader/releases/download/<runtime-asset-version>/kitten-tts-rs-macos-arm64.tar.gz` (KittenTTS mini model)
+- `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/kokoro-coreml-macos-arm64.tar.gz` (Kokoro ANE/G2P model cache)
+- `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/kitten-tts-rs-macos-arm64.tar.gz` (KittenTTS mini model)
 
-Generate the website packages with:
+Regular app releases reuse those files. The native runtime binaries are bundled with the app; regenerated speech archives should only be published when model files change, then `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag` should be updated to the new asset tag.
+
+Generate speech model packages with:
 
 ```sh
 ./scripts/package_speech_runtimes.sh
@@ -398,7 +400,7 @@ Sparkle updates use:
 https://leafreader.space/appcast.xml
 ```
 
-The appcast entry points to the signed and notarized pkg uploaded to GitHub Releases. For pkg updates, update `docs/appcast.xml` manually with the new version, pkg URL, file length, and EdDSA signature from Sparkle's `sign_update` tool.
+The appcast entry points to the signed and notarized pkg uploaded to GitHub Releases. `scripts/release_pkg.sh` regenerates `docs/appcast.xml` with the new version, pkg URL, file length, and EdDSA signature from Sparkle's `sign_update` tool.
 
 Build, sign, notarize, staple, and update the Sparkle appcast for a release:
 
@@ -409,7 +411,7 @@ SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_
 Run the full publish flow from a clean working tree:
 
 ```sh
-./scripts/publish_release.sh 1.4.12
+./scripts/publish_release.sh 1.5.11
 ```
 
 The publish script runs tests, builds/signs/notarizes the pkg, commits the version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-runtimes` only when publishing changed speech model archives in `docs/tts/`.

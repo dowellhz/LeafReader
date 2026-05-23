@@ -39,7 +39,7 @@ Short vocabulary and AI-panel speech can fall back to `NSSpeechSynthesizer` thro
 - `SpeechRuntimeResourceManager.isRunnable(_:)` checks both downloaded files and the current macOS runtime requirement.
 - `SpeechRuntimeResourceManager.runnableRuntime(preferredID:)` is the runtime selection gate used by playback code.
 - Runtime installs write `.leafreader-install-manifest.json`; manifest write failure aborts install and rolls back, Kokoro cache replacement is transactional, and deletion uses that manifest to remove only Leaf Reader-installed FluidAudio cache directories, with legacy fallback for older installs.
-- Runtime download URLs point at `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag`, not the app version, so regular app releases do not need to re-upload unchanged model archives. Only update that tag and publish speech runtime assets when the runtime/model archive changes.
+- Model download URLs point at `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag`, not the app version, so regular app releases do not need to re-upload unchanged model archives. The native runtime binaries are bundled with the app. Only update that tag and publish speech model assets when the model archive changes.
 - The runtime picker shows why unavailable runtimes cannot be selected, such as missing downloads, incomplete files, or macOS version requirements.
 - Download attempts carry an active task ID so stale callbacks from cancelled or superseded downloads cannot update current progress or completion state.
 - Download failures are stored per runtime and shown in the settings status, including unsupported macOS states, until the next successful download, cancellation, or delete.

@@ -7,10 +7,10 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
     private static let idleShutdownDelay: TimeInterval = 180
     private static let maxPendingReadAloudSegments = 2
 
-    private let queue = DispatchQueue(label: "LeafReader.SpeechPlayback", qos: .userInitiated)
-    private let kokoroBackend = KokoroTTSBackend()
-    private let kittenBackend = KittenServerTTSBackend()
-    private var activeBackend: PreferredBackend?
+    fileprivate let queue = DispatchQueue(label: "LeafReader.SpeechPlayback", qos: .userInitiated)
+    fileprivate let kokoroBackend = KokoroTTSBackend()
+    fileprivate let kittenBackend = KittenServerTTSBackend()
+    fileprivate var activeBackend: PreferredBackend?
     private var currentPlayer: AVAudioPlayer?
     private var currentSegment: PlaybackSegment?
     private var pendingSegments: [PlaybackSegment] = []
@@ -20,14 +20,14 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
     private var isPlaybackPaused = false
     private var isStoppingPlayback = false
     private var playbackFinishHandler: (() -> Void)?
-    private var interruptionPlayer: AVAudioPlayer?
-    private var interruptionOutputURL: URL?
-    private var interruptionOutputShouldRemove = true
-    private var interruptionFinishHandler: (() -> Void)?
-    private var activeInterruptionGenerationID = UUID()
+    fileprivate var interruptionPlayer: AVAudioPlayer?
+    fileprivate var interruptionOutputURL: URL?
+    fileprivate var interruptionOutputShouldRemove = true
+    fileprivate var interruptionFinishHandler: (() -> Void)?
+    fileprivate var activeInterruptionGenerationID = UUID()
     private var idleShutdownWorkItem: DispatchWorkItem?
     private var playbackWatchdogWorkItem: DispatchWorkItem?
-    private var interruptionWatchdogWorkItem: DispatchWorkItem?
+    fileprivate var interruptionWatchdogWorkItem: DispatchWorkItem?
 
     private override init() {}
 
@@ -163,124 +163,6 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
             work()
         } else {
             DispatchQueue.main.async(execute: work)
-        }
-    }
-
-    func speakTextInterruption(_ text: String, completion: @escaping (Bool) -> Void, finished: @escaping () -> Void) {
-        cancelScheduledIdleShutdown()
-        let value = SpeechTextPolicy.normalizedReadAloudInput(text)
-        guard SpeechTextPolicy.isLocalTTSCandidate(value) else {
-            completion(false)
-            return
-        }
-
-        let segment = SpeechTextPolicy.segments(for: value).joined(separator: " ")
-        let outputURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("LeafReader-SpeechPlayback-Interrupt-\(UUID().uuidString).wav")
-        let generationID = UUID()
-        beginInterruptionGeneration(generationID)
-        queue.async { [weak self] in
-            guard let self else { return }
-            guard self.isActiveInterruptionGeneration(generationID) else {
-                try? FileManager.default.removeItem(at: outputURL)
-                return
-            }
-            guard self.generateWAV(text: segment, outputURL: outputURL) else {
-                try? FileManager.default.removeItem(at: outputURL)
-                DispatchQueue.main.async {
-                    guard self.activeInterruptionGenerationID == generationID else { return }
-                    completion(false)
-                }
-                return
-            }
-            DispatchQueue.main.async {
-                guard self.activeInterruptionGenerationID == generationID else {
-                    try? FileManager.default.removeItem(at: outputURL)
-                    return
-                }
-                completion(true)
-                self.playInterruptionOutput(outputURL, finished: finished)
-            }
-        }
-    }
-
-    func speakCachedPreviewInterruption(
-        _ text: String,
-        runtimeID: String,
-        voiceID: String,
-        speedID: String,
-        completion: @escaping (Bool) -> Void,
-        finished: @escaping () -> Void
-    ) {
-        cancelScheduledIdleShutdown()
-        let value = SpeechTextPolicy.normalizedReadAloudInput(text)
-        guard SpeechTextPolicy.isLocalTTSCandidate(value) else {
-            completion(false)
-            return
-        }
-
-        let segment = SpeechTextPolicy.segments(for: value).joined(separator: " ")
-        let cacheURL = TTSPreviewCache.audioURL(text: segment, runtimeID: runtimeID, voiceID: voiceID, speedID: speedID)
-        let generationID = UUID()
-        beginInterruptionGeneration(generationID)
-        queue.async { [weak self] in
-            guard let self else { return }
-            guard self.isActiveInterruptionGeneration(generationID) else { return }
-            if TTSWaveFile.isUsable(at: cacheURL) {
-                NSLog("LeafReader TTS preview: cache hit runtime=%@ voice=%@ speed=%@ output=%@", runtimeID, voiceID, speedID, cacheURL.path)
-                DispatchQueue.main.async {
-                    guard self.activeInterruptionGenerationID == generationID else { return }
-                    completion(true)
-                    self.playInterruptionOutput(cacheURL, removeAfterPlayback: false, finished: finished)
-                }
-                return
-            }
-
-            try? FileManager.default.createDirectory(
-                at: cacheURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            let tempURL = cacheURL.deletingLastPathComponent()
-                .appendingPathComponent("pending-\(UUID().uuidString).wav")
-            guard self.generateWAV(text: segment, outputURL: tempURL, voiceID: voiceID),
-                  TTSWaveFile.isUsable(at: tempURL) else {
-                NSLog("LeafReader TTS preview: generation failed runtime=%@ voice=%@ speed=%@ output=%@", runtimeID, voiceID, speedID, tempURL.path)
-                try? FileManager.default.removeItem(at: tempURL)
-                DispatchQueue.main.async {
-                    guard self.activeInterruptionGenerationID == generationID else { return }
-                    completion(false)
-                }
-                return
-            }
-            try? FileManager.default.removeItem(at: cacheURL)
-            do {
-                try FileManager.default.moveItem(at: tempURL, to: cacheURL)
-            } catch {
-                try? FileManager.default.removeItem(at: tempURL)
-                DispatchQueue.main.async {
-                    guard self.activeInterruptionGenerationID == generationID else { return }
-                    completion(false)
-                }
-                return
-            }
-            NSLog("LeafReader TTS preview: generated runtime=%@ voice=%@ speed=%@ output=%@", runtimeID, voiceID, speedID, cacheURL.path)
-            DispatchQueue.main.async {
-                guard self.activeInterruptionGenerationID == generationID else { return }
-                completion(true)
-                self.playInterruptionOutput(cacheURL, removeAfterPlayback: false, finished: finished)
-            }
-        }
-    }
-
-    func cancelCurrentSpeechPreview(terminateKokoroWorker: Bool = false) {
-        beginInterruptionGeneration(UUID())
-        guard terminateKokoroWorker else { return }
-        queue.async { [weak self] in
-            guard let self else { return }
-            self.kokoroBackend.stop()
-            if self.activeBackend == .kokoroCoreML {
-                self.activeBackend = nil
-            }
         }
     }
 
@@ -470,97 +352,6 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         postReadingEnded()
     }
 
-    private func playInterruptionOutput(_ outputURL: URL, removeAfterPlayback: Bool = true, finished: @escaping () -> Void) {
-        stopInterruptionPlayback()
-        let player: AVAudioPlayer
-        do {
-            player = try AVAudioPlayer(contentsOf: outputURL)
-        } catch {
-            NSLog("LeafReader SpeechPlayback: interruption AVAudioPlayer load failed (output=%@, error=%@)", outputURL.path, String(describing: error))
-            try? FileManager.default.removeItem(at: outputURL)
-            finished()
-            return
-        }
-        interruptionPlayer = player
-        interruptionOutputURL = outputURL
-        interruptionOutputShouldRemove = removeAfterPlayback
-        interruptionFinishHandler = finished
-        player.delegate = self
-        player.prepareToPlay()
-        if !player.play() {
-            NSLog("LeafReader SpeechPlayback: interruption AVAudioPlayer playback failed (output=%@)", outputURL.path)
-            finishInterruptionPlayback()
-        } else {
-            NSLog("LeafReader TTS preview: playback started duration=%.3f output=%@", player.duration, outputURL.path)
-            scheduleInterruptionWatchdog(for: player, outputURL: outputURL)
-        }
-    }
-
-    private func scheduleInterruptionWatchdog(for player: AVAudioPlayer, outputURL: URL) {
-        interruptionWatchdogWorkItem?.cancel()
-        let timeout = max(2.0, player.duration + 1.5)
-        let workItem = DispatchWorkItem { [weak self, weak player] in
-            guard let self,
-                  let player,
-                  self.interruptionPlayer === player else {
-                return
-            }
-            NSLog("LeafReader SpeechPlayback: interruption playback watchdog advanced stuck sound (output=%@)", outputURL.path)
-            player.stop()
-            self.finishInterruptionPlayback()
-        }
-        interruptionWatchdogWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: workItem)
-    }
-
-    private func stopInterruptionPlayback() {
-        interruptionWatchdogWorkItem?.cancel()
-        interruptionWatchdogWorkItem = nil
-        interruptionFinishHandler = nil
-        interruptionPlayer?.delegate = nil
-        interruptionPlayer?.stop()
-        clearInterruptionPlayback()
-    }
-
-    private func finishInterruptionPlayback() {
-        interruptionWatchdogWorkItem?.cancel()
-        interruptionWatchdogWorkItem = nil
-        let handler = interruptionFinishHandler
-        interruptionFinishHandler = nil
-        clearInterruptionPlayback()
-        handler?()
-    }
-
-    private func clearInterruptionPlayback() {
-        interruptionPlayer?.delegate = nil
-        interruptionPlayer = nil
-        if interruptionOutputShouldRemove, let interruptionOutputURL {
-            try? FileManager.default.removeItem(at: interruptionOutputURL)
-        }
-        interruptionOutputShouldRemove = true
-        interruptionOutputURL = nil
-    }
-
-    private func beginInterruptionGeneration(_ generationID: UUID) {
-        let work = {
-            self.activeInterruptionGenerationID = generationID
-            self.stopInterruptionPlayback()
-        }
-        if Thread.isMainThread {
-            work()
-        } else {
-            DispatchQueue.main.sync(execute: work)
-        }
-    }
-
-    private func isActiveInterruptionGeneration(_ generationID: UUID) -> Bool {
-        var active = false
-        DispatchQueue.main.sync {
-            active = self.activeInterruptionGenerationID == generationID
-        }
-        return active
-    }
-
     private func forceTerminateRuntimeProcesses() {
         kokoroBackend.stop()
         kittenBackend.stop()
@@ -645,7 +436,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         forceTerminateRuntimeProcesses()
     }
 
-    private func cancelScheduledIdleShutdown() {
+    fileprivate func cancelScheduledIdleShutdown() {
         DispatchQueue.main.async {
             self.idleShutdownWorkItem?.cancel()
             self.idleShutdownWorkItem = nil
@@ -664,7 +455,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.idleShutdownDelay, execute: workItem)
     }
 
-    private func generateWAV(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
+    fileprivate func generateWAV(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
         let backend = Self.preferredBackend(for: text)
         prepareForBackend(backend)
         switch backend {
