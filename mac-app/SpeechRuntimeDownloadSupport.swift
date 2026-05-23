@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 extension SpeechRuntimeResourceManager {
@@ -43,22 +44,30 @@ extension SpeechRuntimeResourceManager {
     }
 
     static func sha256HexDigest(for fileURL: URL) throws -> String {
-        let result = try ProcessRunner.run(
-            executableURL: URL(fileURLWithPath: "/usr/bin/shasum"),
-            arguments: ["-a", "256", fileURL.path],
-            timeout: 30
-        )
-        guard !result.timedOut, result.terminationStatus == 0,
-              let output = String(data: result.stdout, encoding: .utf8)?
-                .split(separator: " ")
-                .first else {
-            throw NSError(
-                domain: downloadErrorDomain,
-                code: -6,
-                userInfo: [NSLocalizedDescriptionKey: AppText.localized("模型校验失败，请重试。", "Model verification failed. Please try again.")]
-            )
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while true {
+            let data = handle.readData(ofLength: 1024 * 1024)
+            if data.isEmpty { break }
+            hasher.update(data: data)
         }
-        return String(output)
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func validateArchiveManifest(_ archiveURL: URL, asset: SpeechModelManifest.Asset?) throws {
+        guard let asset else { return }
+        if let expectedSize = asset.size {
+            let actualSize = partialDownloadSize(at: archiveURL)
+            guard actualSize == expectedSize else {
+                throw NSError(
+                    domain: downloadErrorDomain,
+                    code: -8,
+                    userInfo: [NSLocalizedDescriptionKey: AppText.localized("模型文件大小校验失败，请重新下载。", "Model file size verification failed. Please download it again.")]
+                )
+            }
+        }
+        try validateArchiveChecksum(archiveURL, expectedSHA256: asset.sha256)
     }
 
     static func validateArchiveChecksum(_ archiveURL: URL, expectedSHA256: String?) throws {

@@ -69,7 +69,7 @@ Regular app releases reuse those files. The native runtime binaries are bundled 
 Generate speech model packages with:
 
 ```sh
-./scripts/package_speech_runtimes.sh
+./scripts/package_speech_models.sh
 ```
 
 The packaging script also writes `docs/tts/speech-models-manifest.json` with each asset's file size and SHA256 digest. When model files change, update `runtimeAssetsReleaseTag` to the release tag that will host the new model assets and publish with `--with-speech-models`.

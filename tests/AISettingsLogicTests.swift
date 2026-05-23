@@ -237,14 +237,15 @@ enum AISettingsLogicTests {
         }
         """.data(using: .utf8)!
         let manifest = try SpeechRuntimeResourceManager.decodeModelManifest(manifestJSON)
-        let expected = manifest.sha256(for: "kitten-tts-rs-macos-arm64.tar.gz")
-        try expectEqual(expected, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", "manifest lookup should return the matching asset digest")
+        let asset = manifest.asset(named: "kitten-tts-rs-macos-arm64.tar.gz")
+        try expectEqual(asset?.sha256, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", "manifest lookup should return the matching asset digest")
+        try expectEqual(asset?.size, 5, "manifest lookup should return the matching asset size")
 
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("leafreader-sha256-\(UUID().uuidString).txt")
         defer { try? FileManager.default.removeItem(at: fileURL) }
         try Data("hello".utf8).write(to: fileURL)
-        try SpeechRuntimeResourceManager.validateArchiveChecksum(fileURL, expectedSHA256: expected)
+        try SpeechRuntimeResourceManager.validateArchiveManifest(fileURL, asset: asset)
 
         do {
             try SpeechRuntimeResourceManager.validateArchiveChecksum(fileURL, expectedSHA256: String(repeating: "0", count: 64))
@@ -252,6 +253,15 @@ enum AISettingsLogicTests {
         } catch let error as NSError {
             try expectEqual(error.domain, SpeechRuntimeResourceManager.downloadErrorDomain, "checksum mismatch should use the download error domain")
             try expectEqual(error.code, -7, "checksum mismatch should use the checksum error code")
+        }
+
+        let wrongSize = SpeechModelManifest.Asset(name: "kitten-tts-rs-macos-arm64.tar.gz", size: 6, sha256: asset!.sha256)
+        do {
+            try SpeechRuntimeResourceManager.validateArchiveManifest(fileURL, asset: wrongSize)
+            throw TestFailure(description: "size mismatch should throw")
+        } catch let error as NSError {
+            try expectEqual(error.domain, SpeechRuntimeResourceManager.downloadErrorDomain, "size mismatch should use the download error domain")
+            try expectEqual(error.code, -8, "size mismatch should use the size error code")
         }
     }
 

@@ -10,8 +10,8 @@ struct SpeechModelManifest: Decodable {
     let generatedAt: String?
     let assets: [Asset]
 
-    func sha256(for fileName: String) -> String? {
-        assets.first { $0.name == fileName }?.sha256
+    func asset(named fileName: String) -> Asset? {
+        assets.first { $0.name == fileName }
     }
 }
 
@@ -23,7 +23,8 @@ extension SpeechRuntimeResourceManager {
     static func fetchModelManifest(completion: @escaping (Result<SpeechModelManifest?, Error>) -> Void) {
         let task = URLSession.shared.dataTask(with: Runtime.modelManifestURL) { data, response, error in
             if let error {
-                completion(.failure(error))
+                NSLog("LeafReader speech model manifest: unavailable, continuing without checksum validation (%@)", String(describing: error))
+                completion(.success(nil))
                 return
             }
 
