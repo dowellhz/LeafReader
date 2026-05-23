@@ -42,6 +42,7 @@ extension ReaderWindowController {
         vocabularySpeechSynthesizer.continueSpeaking()
         updateReadAloudButton()
         resumePendingPDFReadAloudIfNeeded()
+        resumePendingWebReadAloudIfNeeded()
     }
 
     func stopReadAloudImmediately() {
@@ -103,6 +104,7 @@ extension ReaderWindowController {
         lastReadAloudSoftHintKey = nil
         dismissReadAloudSoftHint()
         pendingReadAloudPDFContinuation = nil
+        pendingReadAloudWebContinuation = false
     }
 
     func updateReadAloudButton() {

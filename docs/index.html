@@ -62,6 +62,40 @@
       font-size: 14px;
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .language-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .language-toggle button {
+      min-width: 64px;
+      min-height: 30px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 6px;
+      color: var(--muted);
+      background: transparent;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .language-toggle button.active {
+      color: #fff;
+      background: var(--blue);
+    }
+
     a {
       color: inherit;
       text-decoration: none;
@@ -276,6 +310,13 @@
         padding: 18px 0;
       }
 
+      .header-actions {
+        width: 100%;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
+      }
+
       .hero {
         grid-template-columns: 1fr;
         gap: 34px;
@@ -299,26 +340,32 @@
         <img src="assets/leaf-reader-icon.png" alt="">
         <span>Leaf Reader</span>
       </a>
-      <nav>
-        <a href="#features">功能</a>
-        <a href="#screenshots">截图</a>
-        <a href="#docs">文档</a>
-        <a href="#download">下载</a>
-        <a href="https://github.com/dowellhz/LeafReader">GitHub</a>
-      </nav>
+      <div class="header-actions">
+        <nav>
+          <a href="#features" data-i18n="nav.features">功能</a>
+          <a href="#screenshots" data-i18n="nav.screenshots">截图</a>
+          <a href="#docs" data-i18n="nav.docs">文档</a>
+          <a href="#download" data-i18n="nav.download">下载</a>
+          <a href="https://github.com/dowellhz/LeafReader">GitHub</a>
+        </nav>
+        <div class="language-toggle" aria-label="Language">
+          <button type="button" data-lang-button="zh">中文</button>
+          <button type="button" data-lang-button="en">English</button>
+        </div>
+      </div>
     </header>
 
     <main>
       <section class="hero">
         <div>
           <h1>Leaf Reader</h1>
-          <p class="lead">原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX，集成 AI 问答、翻译、总结和背单词工作流。</p>
+          <p class="lead" data-i18n="hero.lead">原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX，集成 AI 问答、翻译、总结和背单词工作流。</p>
           <div class="actions">
-            <a class="button primary" href="https://github.com/dowellhz/LeafReader/releases/download/v1.6.1/LeafReader-1.6.1.pkg">下载 1.6.1</a>
-            <a class="button secondary" href="manual/getting-started/">安装与入门</a>
-            <a class="button secondary" href="https://github.com/dowellhz/LeafReader">查看源码</a>
+            <a class="button primary" href="https://github.com/dowellhz/LeafReader/releases/download/v1.6.1/LeafReader-1.6.1.pkg" data-i18n="hero.download">下载 1.6.1</a>
+            <a class="button secondary" href="manual/getting-started/" data-i18n="hero.gettingStarted">安装与入门</a>
+            <a class="button secondary" href="https://github.com/dowellhz/LeafReader" data-i18n="hero.source">查看源码</a>
           </div>
-          <div class="meta">当前版本 1.6.1。阅读器和 KittenTTS 需要 macOS 12.0 Monterey 或更高版本，支持 Apple Silicon 和 Intel Mac；Kokoro 本地朗读需要 macOS 14.0 或更高版本。安装包已 Developer ID 签名并通过 Apple 公证。</div>
+          <div class="meta" data-i18n="hero.meta">当前版本 1.6.1。阅读器和 KittenTTS 需要 macOS 12.0 Monterey 或更高版本，支持 Apple Silicon 和 Intel Mac；Kokoro 本地朗读需要 macOS 14.0 或更高版本。安装包已 Developer ID 签名并通过 Apple 公证。</div>
         </div>
         <div class="hero-image">
           <img src="assets/reader-light-ai-word.png" alt="Leaf Reader AI word learning screen">
@@ -326,37 +373,37 @@
       </section>
 
       <section class="section" id="features">
-        <h2>功能</h2>
+        <h2 data-i18n="features.title">功能</h2>
         <div class="features">
           <div class="feature">
-            <strong>多格式阅读</strong>
-            <p>打开 PDF、EPUB、DOCX，恢复阅读进度、缩放和页码位置。</p>
+            <strong data-i18n="features.formats.title">多格式阅读</strong>
+            <p data-i18n="features.formats.body">打开 PDF、EPUB、DOCX，恢复阅读进度、缩放和页码位置。</p>
           </div>
           <div class="feature">
-            <strong>AI 阅读助手</strong>
-            <p>选中文本后可以解释、总结、翻译，并继续追问上下文问题。</p>
+            <strong data-i18n="features.ai.title">AI 阅读助手</strong>
+            <p data-i18n="features.ai.body">选中文本后可以解释、总结、翻译，并继续追问上下文问题。</p>
           </div>
           <div class="feature">
-            <strong>背单词</strong>
-            <p>从阅读内容中保存单词，支持复习、新词、全部列表和导出。</p>
+            <strong data-i18n="features.vocab.title">背单词</strong>
+            <p data-i18n="features.vocab.body">从阅读内容中保存单词，支持复习、新词、全部列表和导出。</p>
           </div>
           <div class="feature">
-            <strong>书架</strong>
-            <p>管理最近导入的书籍，快速回到最近阅读位置。</p>
+            <strong data-i18n="features.shelf.title">书架</strong>
+            <p data-i18n="features.shelf.body">管理最近导入的书籍，快速回到最近阅读位置。</p>
           </div>
           <div class="feature">
-            <strong>本地优先</strong>
-            <p>文档保存在本机，只有使用 AI 功能时才发送请求到配置的模型服务。</p>
+            <strong data-i18n="features.local.title">本地优先</strong>
+            <p data-i18n="features.local.body">文档保存在本机，只有使用 AI 功能时才发送请求到配置的模型服务。</p>
           </div>
           <div class="feature">
-            <strong>自动更新</strong>
-            <p>内置 Sparkle 更新通道，后续版本可在应用内检查更新。</p>
+            <strong data-i18n="features.updates.title">自动更新</strong>
+            <p data-i18n="features.updates.body">内置 Sparkle 更新通道，后续版本可在应用内检查更新。</p>
           </div>
         </div>
       </section>
 
       <section class="section" id="screenshots">
-        <h2>截图</h2>
+        <h2 data-i18n="screenshots.title">截图</h2>
         <div class="screenshots">
           <img src="assets/reader-bookshelf.png" alt="Leaf Reader bookshelf">
           <img src="assets/reader-settings.png" alt="Leaf Reader settings">
@@ -366,49 +413,49 @@
       </section>
 
       <section class="section" id="docs">
-        <h2>文档</h2>
+        <h2 data-i18n="docs.title">文档</h2>
         <div class="docs-grid">
           <a class="doc-link" href="manual/getting-started/">
-            <strong>安装与入门</strong>
-            <p>下载、首次打开、AI 配置、翻译和背单词。</p>
+            <strong data-i18n="docs.gettingStarted.title">安装与入门</strong>
+            <p data-i18n="docs.gettingStarted.body">下载、首次打开、AI 配置、翻译和背单词。</p>
           </a>
           <a class="doc-link" href="manual/release-runbook/">
-            <strong>发布流程</strong>
-            <p>按步骤执行打包、签名、发布、Appcast 和版本验证。</p>
+            <strong data-i18n="docs.release.title">发布流程</strong>
+            <p data-i18n="docs.release.body">按步骤执行打包、签名、发布、Appcast 和版本验证。</p>
           </a>
           <a class="doc-link" href="manual/troubleshooting/">
-            <strong>故障排查</strong>
-            <p>定位更新失败、证书、PDF 翻页、AI 分析和 Wiki 同步问题。</p>
+            <strong data-i18n="docs.troubleshooting.title">故障排查</strong>
+            <p data-i18n="docs.troubleshooting.body">定位更新失败、证书、PDF 翻页、AI 分析和 Wiki 同步问题。</p>
           </a>
           <a class="doc-link" href="manual/code-map/">
-            <strong>代码地图</strong>
-            <p>浏览主要模块、最大文件和完整 Swift 类型索引。</p>
+            <strong data-i18n="docs.codeMap.title">代码地图</strong>
+            <p data-i18n="docs.codeMap.body">浏览主要模块、最大文件和完整 Swift 类型索引。</p>
           </a>
           <a class="doc-link" href="manual/feature-map/">
-            <strong>开发文档</strong>
-            <p>查看架构、功能地图和开发任务入口。</p>
+            <strong data-i18n="docs.development.title">开发文档</strong>
+            <p data-i18n="docs.development.body">查看架构、功能地图和开发任务入口。</p>
           </a>
         </div>
       </section>
 
       <section class="section" id="faq">
-        <h2>FAQ</h2>
+        <h2 data-i18n="faq.title">FAQ</h2>
         <div class="faq">
           <div class="faq-item">
-            <strong>支持哪些系统？</strong>
-            <p>阅读器和 KittenTTS 本地朗读需要 macOS 12.0 Monterey 或更高版本，支持 Apple Silicon 和 Intel Mac。Kokoro 本地朗读需要 macOS 14.0 或更高版本；低于 macOS 14 下载 Kokoro 时会先提示兼容性风险，确认后仍可继续下载。短文本和单词朗读可使用 macOS 系统语音回退。</p>
+            <strong data-i18n="faq.system.title">支持哪些系统？</strong>
+            <p data-i18n="faq.system.body">阅读器和 KittenTTS 本地朗读需要 macOS 12.0 Monterey 或更高版本，支持 Apple Silicon 和 Intel Mac。Kokoro 本地朗读需要 macOS 14.0 或更高版本；低于 macOS 14 下载 Kokoro 时会先提示兼容性风险，确认后仍可继续下载。短文本和单词朗读可使用 macOS 系统语音回退。</p>
           </div>
           <div class="faq-item">
-            <strong>AI 是必须的吗？</strong>
-            <p>不是。普通阅读、书架、翻页和基础文档打开可以直接使用；AI 功能可按 <a href="manual/getting-started/">安装与入门</a> 配置模型服务。</p>
+            <strong data-i18n="faq.ai.title">AI 是必须的吗？</strong>
+            <p data-i18n="faq.ai.body">不是。普通阅读、书架、翻页和基础文档打开可以直接使用；AI 功能可按安装与入门配置模型服务。</p>
           </div>
           <div class="faq-item">
-            <strong>文档会自动上传吗？</strong>
-            <p>不会。文档保存在本机，只有使用 AI 功能时才会把相关文本发送到你配置的模型服务。详见 <a href="manual/ai-chat/">AI 文档</a>。</p>
+            <strong data-i18n="faq.privacy.title">文档会自动上传吗？</strong>
+            <p data-i18n="faq.privacy.body">不会。文档保存在本机，只有使用 AI 功能时才会把相关文本发送到你配置的模型服务。</p>
           </div>
           <div class="faq-item">
-            <strong>为什么检查更新失败？</strong>
-            <p>可能是网络、证书、Appcast 或旧版本更新地址问题。可查看 <a href="manual/troubleshooting/">故障排查</a>。</p>
+            <strong data-i18n="faq.update.title">为什么检查更新失败？</strong>
+            <p data-i18n="faq.update.body">可能是网络、证书、Appcast 或旧版本更新地址问题。可查看故障排查。</p>
           </div>
         </div>
       </section>
@@ -417,9 +464,9 @@
         <div class="release">
           <div>
             <h2>Leaf Reader 1.6.1</h2>
-            <p>调整 Kokoro 朗读资源打包方式，语音 bin 随安装包本地提供，云端运行时包只保留模型和运行文件。</p>
+            <p data-i18n="release.body">缩减安装包内置语音资源，保留 KittenTTS 所需词典并减少重复 Kokoro 英文声音。</p>
           </div>
-          <a class="button primary" href="https://github.com/dowellhz/LeafReader/releases/download/v1.6.1/LeafReader-1.6.1.pkg">下载安装包</a>
+          <a class="button primary" href="https://github.com/dowellhz/LeafReader/releases/download/v1.6.1/LeafReader-1.6.1.pkg" data-i18n="release.download">下载安装包</a>
         </div>
       </section>
     </main>
@@ -430,5 +477,135 @@
       <a href="appcast.xml">Sparkle Appcast</a>
     </footer>
   </div>
+  <script>
+    (() => {
+      const translations = {
+        zh: {
+          "nav.features": "功能",
+          "nav.screenshots": "截图",
+          "nav.docs": "文档",
+          "nav.download": "下载",
+          "hero.lead": "原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX，集成 AI 问答、翻译、总结和背单词工作流。",
+          "hero.download": "下载 1.6.1",
+          "hero.gettingStarted": "安装与入门",
+          "hero.source": "查看源码",
+          "hero.meta": "当前版本 1.6.1。阅读器和 KittenTTS 需要 macOS 12.0 Monterey 或更高版本，支持 Apple Silicon 和 Intel Mac；Kokoro 本地朗读需要 macOS 14.0 或更高版本。安装包已 Developer ID 签名并通过 Apple 公证。",
+          "features.title": "功能",
+          "features.formats.title": "多格式阅读",
+          "features.formats.body": "打开 PDF、EPUB、DOCX，恢复阅读进度、缩放和页码位置。",
+          "features.ai.title": "AI 阅读助手",
+          "features.ai.body": "选中文本后可以解释、总结、翻译，并继续追问上下文问题。",
+          "features.vocab.title": "背单词",
+          "features.vocab.body": "从阅读内容中保存单词，支持复习、新词、全部列表和导出。",
+          "features.shelf.title": "书架",
+          "features.shelf.body": "管理最近导入的书籍，快速回到最近阅读位置。",
+          "features.local.title": "本地优先",
+          "features.local.body": "文档保存在本机，只有使用 AI 功能时才发送请求到配置的模型服务。",
+          "features.updates.title": "自动更新",
+          "features.updates.body": "内置 Sparkle 更新通道，后续版本可在应用内检查更新。",
+          "screenshots.title": "截图",
+          "docs.title": "文档",
+          "docs.gettingStarted.title": "安装与入门",
+          "docs.gettingStarted.body": "下载、首次打开、AI 配置、翻译和背单词。",
+          "docs.release.title": "发布流程",
+          "docs.release.body": "按步骤执行打包、签名、发布、Appcast 和版本验证。",
+          "docs.troubleshooting.title": "故障排查",
+          "docs.troubleshooting.body": "定位更新失败、证书、PDF 翻页、AI 分析和 Wiki 同步问题。",
+          "docs.codeMap.title": "代码地图",
+          "docs.codeMap.body": "浏览主要模块、最大文件和完整 Swift 类型索引。",
+          "docs.development.title": "开发文档",
+          "docs.development.body": "查看架构、功能地图和开发任务入口。",
+          "faq.title": "FAQ",
+          "faq.system.title": "支持哪些系统？",
+          "faq.system.body": "阅读器和 KittenTTS 本地朗读需要 macOS 12.0 Monterey 或更高版本，支持 Apple Silicon 和 Intel Mac。Kokoro 本地朗读需要 macOS 14.0 或更高版本；低于 macOS 14 下载 Kokoro 时会先提示兼容性风险，确认后仍可继续下载。短文本和单词朗读可使用 macOS 系统语音回退。",
+          "faq.ai.title": "AI 是必须的吗？",
+          "faq.ai.body": "不是。普通阅读、书架、翻页和基础文档打开可以直接使用；AI 功能可按<a href=\"manual/getting-started/\">安装与入门</a>配置模型服务。",
+          "faq.privacy.title": "文档会自动上传吗？",
+          "faq.privacy.body": "不会。文档保存在本机，只有使用 AI 功能时才会把相关文本发送到你配置的模型服务。详见 <a href=\"manual/ai-chat/\">AI 文档</a>。",
+          "faq.update.title": "为什么检查更新失败？",
+          "faq.update.body": "可能是网络、证书、Appcast 或旧版本更新地址问题。可查看<a href=\"manual/troubleshooting/\">故障排查</a>。",
+          "release.body": "缩减安装包内置语音资源，保留 KittenTTS 所需词典并减少重复 Kokoro 英文声音。",
+          "release.download": "下载安装包"
+        },
+        en: {
+          "nav.features": "Features",
+          "nav.screenshots": "Screenshots",
+          "nav.docs": "Docs",
+          "nav.download": "Download",
+          "hero.lead": "A native macOS reader for PDF, EPUB, and DOCX with AI Q&A, translation, summarization, vocabulary review, and local read-aloud workflows.",
+          "hero.download": "Download 1.6.1",
+          "hero.gettingStarted": "Getting Started",
+          "hero.source": "View Source",
+          "hero.meta": "Current version 1.6.1. Leaf Reader and KittenTTS require macOS 12.0 Monterey or later on Apple Silicon or Intel Mac. Kokoro local read aloud requires macOS 14.0 or later. The installer is Developer ID signed and notarized by Apple.",
+          "features.title": "Features",
+          "features.formats.title": "Multi-format Reading",
+          "features.formats.body": "Open PDF, EPUB, and DOCX files while restoring reading progress, zoom, and page position.",
+          "features.ai.title": "AI Reading Assistant",
+          "features.ai.body": "Explain, summarize, translate, and ask follow-up questions from selected text.",
+          "features.vocab.title": "Vocabulary Review",
+          "features.vocab.body": "Save words from books, review due cards, browse new words, and export vocabulary lists.",
+          "features.shelf.title": "Shelf",
+          "features.shelf.body": "Manage recently imported books and return to the last reading position quickly.",
+          "features.local.title": "Local First",
+          "features.local.body": "Documents stay on your Mac. Text is sent only when you use AI features with your configured model service.",
+          "features.updates.title": "Automatic Updates",
+          "features.updates.body": "Sparkle update support is built in, so future versions can be checked inside the app.",
+          "screenshots.title": "Screenshots",
+          "docs.title": "Docs",
+          "docs.gettingStarted.title": "Getting Started",
+          "docs.gettingStarted.body": "Download, first launch, AI setup, translation, and vocabulary review.",
+          "docs.release.title": "Release Runbook",
+          "docs.release.body": "Build, sign, notarize, publish, update Appcast, and verify releases step by step.",
+          "docs.troubleshooting.title": "Troubleshooting",
+          "docs.troubleshooting.body": "Debug update failures, certificates, PDF paging, AI analysis, and wiki sync issues.",
+          "docs.codeMap.title": "Code Map",
+          "docs.codeMap.body": "Browse major modules, largest files, and the generated Swift type index.",
+          "docs.development.title": "Development Docs",
+          "docs.development.body": "Read the architecture notes, feature map, and common development task guide.",
+          "faq.title": "FAQ",
+          "faq.system.title": "Which systems are supported?",
+          "faq.system.body": "Leaf Reader and KittenTTS local read aloud require macOS 12.0 Monterey or later on Apple Silicon or Intel Mac. Kokoro local read aloud requires macOS 14.0 or later. Short text and word pronunciation can fall back to macOS system voices.",
+          "faq.ai.title": "Is AI required?",
+          "faq.ai.body": "No. Normal reading, shelf management, paging, and opening documents work without AI. Configure a model service from <a href=\"manual/getting-started/\">Getting Started</a> only when you want AI features.",
+          "faq.privacy.title": "Are documents uploaded automatically?",
+          "faq.privacy.body": "No. Documents stay on your Mac. Only relevant text is sent to your configured model service when you use AI features. See the <a href=\"manual/ai-chat/\">AI docs</a>.",
+          "faq.update.title": "Why can update checks fail?",
+          "faq.update.body": "Common causes include network access, certificates, Appcast availability, or old update URLs. See <a href=\"manual/troubleshooting/\">Troubleshooting</a>.",
+          "release.body": "Reduces the bundled speech footprint by keeping the KittenTTS dictionary needed at runtime and trimming duplicate Kokoro English voices.",
+          "release.download": "Download Installer"
+        }
+      };
+
+      const preferredLanguage = () => {
+        const saved = localStorage.getItem("leafreader-language");
+        if (saved === "zh" || saved === "en") return saved;
+        const languages = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""];
+        return languages.some((value) => String(value).toLowerCase().startsWith("zh")) ? "zh" : "en";
+      };
+
+      const applyLanguage = (language) => {
+        const table = translations[language] || translations.en;
+        document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+        document.querySelectorAll("[data-i18n]").forEach((element) => {
+          const value = table[element.dataset.i18n];
+          if (value) element.innerHTML = value;
+        });
+        document.querySelectorAll("[data-lang-button]").forEach((button) => {
+          const active = button.dataset.langButton === language;
+          button.classList.toggle("active", active);
+          button.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+      };
+
+      document.querySelectorAll("[data-lang-button]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const language = button.dataset.langButton;
+          localStorage.setItem("leafreader-language", language);
+          applyLanguage(language);
+        });
+      });
+      applyLanguage(preferredLanguage());
+    })();
+  </script>
 </body>
 </html>

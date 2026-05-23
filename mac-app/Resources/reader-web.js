@@ -491,18 +491,25 @@
     return startIndex >= 0 ? blocks.slice(startIndex) : blocks;
   };
   let leafReaderTTSAnchorRanges = [];
+  let leafReaderReadAloudBatchEndRange = null;
+  const leafReaderMaxReadAloudBatchSegments = 16;
+  const leafReaderMaxReadAloudBatchCharacters = 2400;
   const leafReaderScrollProgress = () => {
     const height = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
     return Math.max(0, Math.min(1, window.scrollY / height));
   };
+  const leafReaderVisibleRangeRect = (range) => {
+    if (!range) return null;
+    return Array.from(range.getClientRects()).find((item) => item.width > 0 && item.height > 0) || range.getBoundingClientRect();
+  };
   const leafReaderProgressForRange = (range) => {
-    const rect = Array.from(range.getClientRects()).find((item) => item.width > 0 && item.height > 0) || range.getBoundingClientRect();
+    const rect = leafReaderVisibleRangeRect(range);
     const height = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
     const top = Math.max(0, (window.scrollY || 0) + (rect?.top || 0));
     return Math.max(0, Math.min(1, top / height));
   };
   const leafReaderScrollRangeToCenter = (range) => {
-    const rect = Array.from(range.getClientRects()).find((item) => item.width > 0 && item.height > 0) || range.getBoundingClientRect();
+    const rect = leafReaderVisibleRangeRect(range);
     if (rect && rect.height > 0) {
       window.scrollBy({ top: rect.top - window.innerHeight * 0.42, behavior: 'smooth' });
     }
@@ -571,7 +578,7 @@
     }
     return ranges;
   };
-  window.leafReaderPrepareReadAloudSegments = () => {
+  window.leafReaderPrepareReadAloudBatch = () => {
     installSelectionHighlightStyle();
     window.leafReaderClearTTSUnderline();
     if (window.leafReaderClearSelectionVisualOnly) {
@@ -584,8 +591,11 @@
     const seen = new Set();
     const rawSegments = [];
     leafReaderTTSAnchorRanges = [];
+    leafReaderReadAloudBatchEndRange = null;
     for (const block of blocks) {
       for (const item of leafReaderSegmentRangesForBlock(block)) {
+        const rect = leafReaderVisibleRangeRect(item.range);
+        if (rect && rect.bottom < window.innerHeight * 0.05) continue;
         const key = leafReaderRangeKey(item.range);
         if (seen.has(key)) continue;
         seen.add(key);
@@ -596,11 +606,14 @@
     let pendingText = '';
     let pendingRanges = [];
     let pendingWordCount = 0;
+    let consumedRawCount = 0;
+    let reachedBatchLimit = false;
     const flushPending = () => {
       const text = pendingText.trim();
       if (text && pendingRanges.length) {
         segments.push({ text, speechText: text });
         leafReaderTTSAnchorRanges.push(pendingRanges);
+        leafReaderReadAloudBatchEndRange = pendingRanges[pendingRanges.length - 1] || leafReaderReadAloudBatchEndRange;
       }
       pendingText = '';
       pendingRanges = [];
@@ -609,25 +622,47 @@
     for (const item of rawSegments) {
       const text = String(item.text || '').trim();
       if (!text) continue;
+      consumedRawCount += 1;
       pendingText = pendingText ? `${pendingText} ${text}` : text;
       pendingRanges.push(item.range);
       pendingWordCount += leafReaderWordCount(text);
       if (leafReaderHasCJK(pendingText) || pendingText.length >= leafReaderMaxChineseTTSSegmentLength || pendingWordCount >= 4) {
         flushPending();
+        const totalCharacters = segments.reduce((sum, segment) => sum + String(segment.text || '').length, 0);
+        if (segments.length >= leafReaderMaxReadAloudBatchSegments || totalCharacters >= leafReaderMaxReadAloudBatchCharacters) {
+          reachedBatchLimit = true;
+          break;
+        }
       }
     }
-    if (pendingText) {
+    if (pendingText && !reachedBatchLimit) {
       if (segments.length && leafReaderTTSAnchorRanges.length) {
         const last = segments[segments.length - 1];
         last.text = `${last.text} ${pendingText.trim()}`;
         last.speechText = last.text;
         leafReaderTTSAnchorRanges[leafReaderTTSAnchorRanges.length - 1] =
           leafReaderTTSAnchorRanges[leafReaderTTSAnchorRanges.length - 1].concat(pendingRanges);
+        leafReaderReadAloudBatchEndRange = pendingRanges[pendingRanges.length - 1] || leafReaderReadAloudBatchEndRange;
       } else {
         flushPending();
       }
     }
-    return segments;
+    return { segments, hasMore: consumedRawCount < rawSegments.length };
+  };
+  window.leafReaderPrepareReadAloudSegments = () => {
+    const batch = window.leafReaderPrepareReadAloudBatch();
+    return batch.segments || [];
+  };
+  window.leafReaderAdvanceReadAloudBatch = () => {
+    const range = leafReaderReadAloudBatchEndRange;
+    if (!range) return { ok: false, progress: leafReaderScrollProgress() };
+    const rect = leafReaderVisibleRangeRect(range);
+    if (!rect || rect.height <= 0) return { ok: false, progress: leafReaderScrollProgress() };
+    const delta = rect.bottom - window.innerHeight * 0.18;
+    if (Math.abs(delta) > 1) {
+      window.scrollBy({ top: delta, behavior: 'auto' });
+    }
+    return { ok: true, progress: leafReaderScrollProgress() };
   };
   window.leafReaderUnderlineTTSIndex = (segmentIndex, fallbackText) => {
     installSelectionHighlightStyle();

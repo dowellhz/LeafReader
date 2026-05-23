@@ -6,6 +6,41 @@
 
 Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is built with Swift, PDFKit, and WebKit, and focuses on a quiet reading experience with fast navigation, document search, reading progress restore, light and dark reader themes, and an optional AI panel for working with selected passages.
 
+## 语言 / Language
+
+- [中文说明](#中文说明)
+- [English README](#download)
+- 官网会根据浏览器语言自动显示中文或英文，也可以在页面右上角手动切换：<https://leafreader.space/>
+- The website automatically follows the browser language and also provides a manual Chinese/English switch in the header: <https://leafreader.space/>
+
+## 中文说明
+
+Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX。它面向长文档阅读、学习和批注场景，提供阅读进度恢复、文档搜索、浅色/护眼/深色主题、AI 问答、选中文本翻译/解释/总结、背单词和本地朗读。
+
+### 下载
+
+[下载 Leaf Reader 1.6.1 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.6.1/LeafReader-1.6.1.pkg)
+
+项目官网：<https://leafreader.space/>
+
+### 系统要求
+
+- macOS 12.0 Monterey 或更高版本。
+- 支持 Apple Silicon 和 Intel Mac。
+- AI 功能需要用户自行配置模型服务和 API Key；普通阅读不需要。
+- KittenTTS 本地朗读支持 macOS 12.0 或更高版本。
+- Kokoro 本地朗读需要 macOS 14.0 或更高版本。
+
+### 主要功能
+
+- 打开本地 PDF、EPUB、DOCX 文档。
+- 自动恢复上次阅读的文档、页码、缩放和滚动位置。
+- 支持文档搜索、翻页、目录、书架和最近阅读。
+- 选中文本后可让 AI 解释、总结、翻译或继续追问上下文。
+- 支持从阅读内容中保存单词，进行复习、查看新词、导出词表。
+- 支持 KittenTTS 和 Kokoro 本地朗读；短词和短句可回退到 macOS 系统语音。
+- 文档保存在本机；只有使用 AI 功能时，相关文本才会发送到用户配置的模型服务。
+
 ## Screenshots
 
 ![Leaf Reader word learning in light mode](assets/reader-light-ai-word.png)

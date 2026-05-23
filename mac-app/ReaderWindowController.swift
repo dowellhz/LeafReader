@@ -201,6 +201,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var readAloudSoftHintDismissWorkItem: DispatchWorkItem?
     var lastReadAloudSoftHintKey: String?
     var pendingReadAloudPDFContinuation: PendingReadAloudPDFContinuation?
+    var pendingReadAloudWebContinuation = false
     var isReadAloudActive = false
     var isReadAloudPaused = false
     var isReadAloudLoading = false
