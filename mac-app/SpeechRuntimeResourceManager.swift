@@ -13,17 +13,11 @@ enum SpeechRuntimeResourceManager {
     private static let maxDownloadAttempts = 4
     private static let releaseDownloadsBaseURL = "https://github.com/dowellhz/LeafReader/releases"
     private static let installManifestFileName = ".leafreader-install-manifest.json"
-    private static let lastFailureDefaultsPrefix = "speechRuntime.lastFailure."
     private static let installArchiveTimeout: TimeInterval = 180
 
-    fileprivate struct InstallManifest: Codable {
+    struct InstallManifest: Codable {
         let runtimeID: String
         let cacheDirectoryPaths: [String]
-    }
-
-    private struct LastDownloadFailure: Codable {
-        let message: String
-        let timestamp: TimeInterval
     }
 
     enum Runtime: CaseIterable {
@@ -306,7 +300,7 @@ enum SpeechRuntimeResourceManager {
                     "Downloaded · Requires \(runtime.minimumSystemVersionText) or later"
                 )
             }
-            if let failure = lastDownloadFailure(for: runtime) {
+            if let failure = SpeechRuntimeDownloadFailureStore.failure(for: runtime) {
                 return AppText.localized(
                     "未下载 · 需要 \(runtime.minimumSystemVersionText) 或更高 · \(size) · 上次失败：\(failure.message)",
                     "Not downloaded · Requires \(runtime.minimumSystemVersionText) or later · \(size) · Last failed: \(failure.message)"
@@ -320,7 +314,7 @@ enum SpeechRuntimeResourceManager {
         if isRunnable(runtime) {
             return AppText.localized("已安装 · \(size)", "Installed · \(size)")
         }
-        if let failure = lastDownloadFailure(for: runtime) {
+        if let failure = SpeechRuntimeDownloadFailureStore.failure(for: runtime) {
             return AppText.localized(
                 "未下载 · \(size) · 上次失败：\(failure.message)",
                 "Not downloaded · \(size) · Last failed: \(failure.message)"
@@ -360,7 +354,7 @@ enum SpeechRuntimeResourceManager {
     static func cancel(_ runtime: Runtime) {
         let completions = stopActiveDownload(for: runtime)
         try? FileManager.default.removeItem(at: partialDownloadURL(for: runtime))
-        clearLastDownloadFailure(for: runtime)
+        SpeechRuntimeDownloadFailureStore.clear(for: runtime)
         let error = NSError(
             domain: NSCocoaErrorDomain,
             code: NSUserCancelledError,
@@ -389,7 +383,7 @@ enum SpeechRuntimeResourceManager {
         let manifest = installManifest(for: runtime)
         try removeItemIfExists(at: partialDownloadURL(for: runtime))
         try removeItemIfExists(at: runtime.installDirectory)
-        clearLastDownloadFailure(for: runtime)
+        SpeechRuntimeDownloadFailureStore.clear(for: runtime)
         if runtime == .kokoro {
             let modelCacheDirectories = manifest?.cacheDirectories ?? kokoroModelCacheDirectories()
             for modelCacheDirectory in modelCacheDirectories {
@@ -438,10 +432,10 @@ enum SpeechRuntimeResourceManager {
         guard !completions.isEmpty else { return }
         switch result {
         case .success:
-            clearLastDownloadFailure(for: runtime)
+            SpeechRuntimeDownloadFailureStore.clear(for: runtime)
         case .failure(let error):
             if (error as NSError).code != NSUserCancelledError {
-                recordLastDownloadFailure(error, for: runtime)
+                SpeechRuntimeDownloadFailureStore.record(error, for: runtime)
             }
         }
         DispatchQueue.main.async {
@@ -767,128 +761,4 @@ enum SpeechRuntimeResourceManager {
         return manifest
     }
 
-    private static func lastFailureDefaultsKey(for runtime: Runtime) -> String {
-        "\(lastFailureDefaultsPrefix)\(runtime.id)"
-    }
-
-    private static func lastDownloadFailure(for runtime: Runtime) -> LastDownloadFailure? {
-        guard let data = UserDefaults.standard.data(forKey: lastFailureDefaultsKey(for: runtime)) else {
-            return nil
-        }
-        return try? JSONDecoder().decode(LastDownloadFailure.self, from: data)
-    }
-
-    private static func recordLastDownloadFailure(_ error: Error, for runtime: Runtime) {
-        let failure = LastDownloadFailure(
-            message: sanitizedFailureMessage(from: error),
-            timestamp: Date().timeIntervalSince1970
-        )
-        guard let data = try? JSONEncoder().encode(failure) else { return }
-        UserDefaults.standard.set(data, forKey: lastFailureDefaultsKey(for: runtime))
-    }
-
-    private static func clearLastDownloadFailure(for runtime: Runtime) {
-        UserDefaults.standard.removeObject(forKey: lastFailureDefaultsKey(for: runtime))
-    }
-
-    private static func sanitizedFailureMessage(from error: Error) -> String {
-        let raw = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallback = AppText.localized("未知错误", "Unknown error")
-        let message = NetworkErrorFormatter.sanitizedBody(raw.isEmpty ? fallback : raw)
-        if message.count > 160 {
-            return "\(message.prefix(160))..."
-        }
-        return message
-    }
-}
-
-private extension SpeechRuntimeResourceManager.InstallManifest {
-    var cacheDirectories: [URL] {
-        cacheDirectoryPaths.compactMap { path in
-            let url = URL(fileURLWithPath: path, isDirectory: true)
-            return url.isInsideFluidAudioModelCache ? url : nil
-        }
-    }
-}
-
-private struct KokoroCacheInstallTransaction {
-    private struct Replacement {
-        let destination: URL
-        let backup: URL
-        let hadExistingDestination: Bool
-    }
-
-    private let fileManager: FileManager
-    private var replacements: [Replacement] = []
-    private(set) var installedDirectories: [URL] = []
-    private var isCommitted = false
-
-    init(fileManager: FileManager) {
-        self.fileManager = fileManager
-    }
-
-    mutating func replace(source: URL, destination: URL, backup: URL) throws {
-        let hadExistingDestination = fileManager.fileExists(atPath: destination.path)
-        do {
-            if hadExistingDestination {
-                try fileManager.moveItem(at: destination, to: backup)
-            }
-            try fileManager.moveItem(at: source, to: destination)
-            replacements.append(Replacement(
-                destination: destination,
-                backup: backup,
-                hadExistingDestination: hadExistingDestination
-            ))
-            installedDirectories.append(destination)
-        } catch {
-            restoreCurrentReplacement(destination: destination, backup: backup, hadExistingDestination: hadExistingDestination)
-            rollback()
-            throw error
-        }
-    }
-
-    mutating func commit() {
-        isCommitted = true
-        for replacement in replacements {
-            try? fileManager.removeItem(at: replacement.backup)
-        }
-        replacements.removeAll()
-    }
-
-    mutating func rollback() {
-        guard !isCommitted else { return }
-        for replacement in replacements.reversed() {
-            try? fileManager.removeItem(at: replacement.destination)
-            if replacement.hadExistingDestination,
-               fileManager.fileExists(atPath: replacement.backup.path),
-               !fileManager.fileExists(atPath: replacement.destination.path) {
-                try? fileManager.moveItem(at: replacement.backup, to: replacement.destination)
-            } else {
-                try? fileManager.removeItem(at: replacement.backup)
-            }
-        }
-        replacements.removeAll()
-        installedDirectories.removeAll()
-    }
-
-    private func restoreCurrentReplacement(destination: URL, backup: URL, hadExistingDestination: Bool) {
-        try? fileManager.removeItem(at: destination)
-        if hadExistingDestination,
-           fileManager.fileExists(atPath: backup.path),
-           !fileManager.fileExists(atPath: destination.path) {
-            try? fileManager.moveItem(at: backup, to: destination)
-        } else {
-            try? fileManager.removeItem(at: backup)
-        }
-    }
-}
-
-private extension URL {
-    var isInsideFluidAudioModelCache: Bool {
-        let rootPath = SpeechRuntimeResourceManager.Runtime.fluidAudioModelCacheRoot
-            .standardizedFileURL
-            .path
-        let path = standardizedFileURL.path
-        return path.hasPrefix(rootPath + "/")
-    }
 }

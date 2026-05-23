@@ -58,6 +58,8 @@ swiftc \
   mac-app/KokoroWorkerResponseReader.swift \
   mac-app/ProcessRunner.swift \
   mac-app/SpeechTextPolicy.swift \
+  mac-app/SpeechRuntimeDownloadFailureStore.swift \
+  mac-app/SpeechRuntimeInstallHelpers.swift \
   mac-app/SpeechRuntimeResourceManager.swift \
   mac-app/RuntimeDownload.swift \
   mac-app/ReadingContextSnapshot.swift \
