@@ -72,6 +72,8 @@ Generate speech model packages with:
 ./scripts/package_speech_runtimes.sh
 ```
 
+The packaging script also writes `docs/tts/speech-models-manifest.json` with each asset's file size and SHA256 digest. When model files change, update `runtimeAssetsReleaseTag` to the release tag that will host the new model assets and publish with `--with-speech-models`.
+
 ## What's New in 1.5.11
 
 - Reorganized local speech playback and runtime installation code into smaller focused modules.
@@ -414,7 +416,7 @@ Run the full publish flow from a clean working tree:
 ./scripts/publish_release.sh 1.5.11
 ```
 
-The publish script runs tests, builds/signs/notarizes the pkg, commits the version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-runtimes` only when publishing changed speech model archives in `docs/tts/`.
+The publish script runs tests, builds/signs/notarizes the pkg, commits the version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-models` only when publishing changed speech model archives in `docs/tts/`.
 
 The release script accepts the Sparkle private key through the configured release-machine environment. Keep the private key out of git and store recovery details only in private operational notes. Losing the private key breaks automatic updates for apps that already ship with the matching public key.
 

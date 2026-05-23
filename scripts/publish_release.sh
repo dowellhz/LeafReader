@@ -2,21 +2,21 @@
 set -euo pipefail
 
 if [[ $# -lt 1 || $# -gt 3 ]]; then
-  echo "Usage: $0 <version> [release-notes-html-file] [--with-speech-runtimes]" >&2
+  echo "Usage: $0 <version> [release-notes-html-file] [--with-speech-models]" >&2
   exit 1
 fi
 
 VERSION="$1"
 NOTES_FILE="${2:-}"
-UPLOAD_SPEECH_RUNTIMES=0
-if [[ "${NOTES_FILE:-}" == "--with-speech-runtimes" ]]; then
+UPLOAD_SPEECH_MODELS=0
+if [[ "${NOTES_FILE:-}" == "--with-speech-models" || "${NOTES_FILE:-}" == "--with-speech-runtimes" ]]; then
   NOTES_FILE=""
-  UPLOAD_SPEECH_RUNTIMES=1
-elif [[ "${3:-}" == "--with-speech-runtimes" ]]; then
-  UPLOAD_SPEECH_RUNTIMES=1
+  UPLOAD_SPEECH_MODELS=1
+elif [[ "${3:-}" == "--with-speech-models" || "${3:-}" == "--with-speech-runtimes" ]]; then
+  UPLOAD_SPEECH_MODELS=1
 elif [[ -n "${3:-}" ]]; then
   echo "Unknown option: $3" >&2
-  echo "Usage: $0 <version> [release-notes-html-file] [--with-speech-runtimes]" >&2
+  echo "Usage: $0 <version> [release-notes-html-file] [--with-speech-models]" >&2
   exit 1
 fi
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -24,9 +24,10 @@ TAG="v$VERSION"
 PKG_PATH="$ROOT_DIR/release/$VERSION/LeafReader-$VERSION.pkg"
 RELEASE_URL="https://github.com/dowellhz/LeafReader/releases/tag/$TAG"
 CHECK_SCRIPT="$ROOT_DIR/scripts/check.sh"
-SPEECH_RUNTIME_ASSETS=(
+SPEECH_MODEL_ASSETS=(
   "$ROOT_DIR/docs/tts/kokoro-coreml-macos-arm64.tar.gz"
   "$ROOT_DIR/docs/tts/kitten-tts-rs-macos-arm64.tar.gz"
+  "$ROOT_DIR/docs/tts/speech-models-manifest.json"
 )
 
 cd "$ROOT_DIR"
@@ -67,6 +68,22 @@ if ! grep -q "## What's New in $VERSION" README.md; then
   exit 1
 fi
 
+RUNTIME_ASSETS_RELEASE_TAG="$(sed -n 's/.*static let runtimeAssetsReleaseTag = "\([^"]*\)".*/\1/p' mac-app/SpeechRuntimeModel.swift | head -1)"
+if [[ -z "$RUNTIME_ASSETS_RELEASE_TAG" ]]; then
+  echo "Unable to read SpeechRuntimeModel.runtimeAssetsReleaseTag" >&2
+  exit 1
+fi
+if [[ "$RUNTIME_ASSETS_RELEASE_TAG" == "$TAG" && "$UPLOAD_SPEECH_MODELS" -ne 1 ]]; then
+  echo "SpeechRuntimeModel.runtimeAssetsReleaseTag points at $TAG, but --with-speech-models was not provided." >&2
+  echo "Either publish the changed model archives with --with-speech-models, or keep runtimeAssetsReleaseTag pointed at the existing model asset release." >&2
+  exit 1
+fi
+if [[ "$UPLOAD_SPEECH_MODELS" -eq 1 && "$RUNTIME_ASSETS_RELEASE_TAG" != "$TAG" ]]; then
+  echo "Refusing to upload speech model assets to $TAG because SpeechRuntimeModel.runtimeAssetsReleaseTag is $RUNTIME_ASSETS_RELEASE_TAG." >&2
+  echo "Update runtimeAssetsReleaseTag to $TAG when publishing changed model archives." >&2
+  exit 1
+fi
+
 "$CHECK_SCRIPT" --no-build
 ./scripts/bump_version.sh --check "$VERSION" 2>/dev/null || true
 if [[ -n "$NOTES_FILE" ]]; then
@@ -96,18 +113,18 @@ gh release create "$TAG" "$PKG_PATH" --title "Leaf Reader $VERSION" --notes "$RE
 
 curl -I -L "https://github.com/dowellhz/LeafReader/releases/download/$TAG/LeafReader-$VERSION.pkg" >/dev/null
 
-if [[ "$UPLOAD_SPEECH_RUNTIMES" -eq 1 ]]; then
-  for asset in "${SPEECH_RUNTIME_ASSETS[@]}"; do
+if [[ "$UPLOAD_SPEECH_MODELS" -eq 1 ]]; then
+  for asset in "${SPEECH_MODEL_ASSETS[@]}"; do
     if [[ ! -f "$asset" ]]; then
-      echo "Skipping missing speech runtime asset: $asset"
-      continue
+      echo "Missing speech model asset: $asset" >&2
+      exit 1
     fi
     gh release upload "$TAG" "$asset" --clobber
     curl -I -L "https://github.com/dowellhz/LeafReader/releases/download/$TAG/$(basename "$asset")" >/dev/null
   done
 else
-  echo "Skipping speech runtime assets; existing app code points to the stable runtime asset release."
-  echo "Use --with-speech-runtimes only when model archives changed and SpeechRuntimeModel.runtimeAssetsReleaseTag was updated."
+  echo "Skipping speech model assets; app code points to $RUNTIME_ASSETS_RELEASE_TAG."
+  echo "Use --with-speech-models only when model archives changed and SpeechRuntimeModel.runtimeAssetsReleaseTag was updated."
 fi
 
 echo "Published $VERSION"

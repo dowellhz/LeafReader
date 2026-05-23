@@ -53,8 +53,8 @@ Short vocabulary and AI-panel speech can fall back to `NSSpeechSynthesizer` thro
 
 - `scripts/build_espeak_ng_runtime.sh`: builds the lower deployment target `espeak-ng` and `pcaudiolib` runtime used by KittenTTS.
 - `scripts/build_app.sh`: copies speech runtimes into the app bundle and verifies bundled runtime layout.
-- `scripts/package_speech_runtimes.sh`: packages downloadable TTS model archives. The native runtime binaries are bundled with the app.
-- `scripts/publish_release.sh`: uploads release packages; pass `--with-speech-runtimes` only when publishing changed model archives.
+- `scripts/package_speech_runtimes.sh`: packages downloadable TTS model archives and writes `docs/tts/speech-models-manifest.json` with file sizes and SHA256 digests. The native runtime binaries are bundled with the app.
+- `scripts/publish_release.sh`: uploads release packages; pass `--with-speech-models` only when publishing changed model archives. The script refuses model uploads unless `SpeechRuntimeModel.runtimeAssetsReleaseTag` matches the release tag.
 
 When changing bundled native runtime binaries, verify their minimum macOS version with `vtool` or `otool` before publishing.
 

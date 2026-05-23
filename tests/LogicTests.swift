@@ -421,6 +421,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("AI settings injected defaults embedding and toggles", AISettingsLogicTests.testAISettingsStoreInjectedDefaultsEmbeddingAndToggles),
     ("AI settings speech selection validation", AISettingsLogicTests.testAISettingsStoreSpeechSelectionValidation),
     ("Speech runtime release asset URLs", AISettingsLogicTests.testSpeechRuntimeDownloadURLsUseReleaseAssets),
+    ("Speech model manifest checksum validation", AISettingsLogicTests.testSpeechModelManifestParsingAndChecksumValidation),
     ("Speech runtime availability text", AISettingsLogicTests.testSpeechRuntimeAvailabilityText),
     ("Speech runtime install manifest cache filtering", AISettingsLogicTests.testSpeechRuntimeInstallManifestFiltersExternalCachePaths),
     ("Kokoro cache install transaction", AISettingsLogicTests.testKokoroCacheInstallTransactionRollbackAndCommit),

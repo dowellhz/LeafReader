@@ -104,8 +104,17 @@ enum SpeechRuntimeResourceManager {
             }
         }
         guard shouldStart else { return }
-        download(runtime, downloadID: downloadID, retryingWithoutResume: false) { result in
-            finishDownload(runtime, downloadID: downloadID, result: result)
+        fetchModelManifest { manifestResult in
+            guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
+            switch manifestResult {
+            case .success(let manifest):
+                let expectedSHA256 = manifest?.sha256(for: runtime.downloadURL.lastPathComponent)
+                download(runtime, downloadID: downloadID, expectedSHA256: expectedSHA256, retryingWithoutResume: false) { result in
+                    finishDownload(runtime, downloadID: downloadID, result: result)
+                }
+            case .failure(let error):
+                finishDownload(runtime, downloadID: downloadID, result: .failure(error))
+            }
         }
     }
 
@@ -144,15 +153,17 @@ enum SpeechRuntimeResourceManager {
     private static func download(
         _ runtime: Runtime,
         downloadID: UUID,
+        expectedSHA256: String?,
         retryingWithoutResume: Bool,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        download(runtime, downloadID: downloadID, retryingWithoutResume: retryingWithoutResume, attempt: 1, completion: completion)
+        download(runtime, downloadID: downloadID, expectedSHA256: expectedSHA256, retryingWithoutResume: retryingWithoutResume, attempt: 1, completion: completion)
     }
 
     private static func download(
         _ runtime: Runtime,
         downloadID: UUID,
+        expectedSHA256: String?,
         retryingWithoutResume: Bool,
         attempt: Int,
         completion: @escaping (Result<Void, Error>) -> Void
@@ -177,6 +188,7 @@ enum SpeechRuntimeResourceManager {
                 switch result {
                 case .success:
                     try validateArchive(at: partialURL)
+                    try validateArchiveChecksum(partialURL, expectedSHA256: expectedSHA256)
                     guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
                     try installArchiveIfIdle(partialURL, for: runtime)
                     try? fileManager.removeItem(at: partialURL)
@@ -186,9 +198,9 @@ enum SpeechRuntimeResourceManager {
                     if shouldRetryDownload(error: nsError, attempt: attempt) {
                         if nsError.domain == downloadErrorDomain, nsError.code == 416 {
                             try? fileManager.removeItem(at: partialURL)
-                            download(runtime, downloadID: downloadID, retryingWithoutResume: true, attempt: attempt + 1, completion: completion)
+                            download(runtime, downloadID: downloadID, expectedSHA256: expectedSHA256, retryingWithoutResume: true, attempt: attempt + 1, completion: completion)
                         } else {
-                            download(runtime, downloadID: downloadID, retryingWithoutResume: false, attempt: attempt + 1, completion: completion)
+                            download(runtime, downloadID: downloadID, expectedSHA256: expectedSHA256, retryingWithoutResume: false, attempt: attempt + 1, completion: completion)
                         }
                     } else {
                         DispatchQueue.main.async { completion(.failure(error)) }

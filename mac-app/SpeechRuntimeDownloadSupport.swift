@@ -41,4 +41,38 @@ extension SpeechRuntimeResourceManager {
             )
         }
     }
+
+    static func sha256HexDigest(for fileURL: URL) throws -> String {
+        let result = try ProcessRunner.run(
+            executableURL: URL(fileURLWithPath: "/usr/bin/shasum"),
+            arguments: ["-a", "256", fileURL.path],
+            timeout: 30
+        )
+        guard !result.timedOut, result.terminationStatus == 0,
+              let output = String(data: result.stdout, encoding: .utf8)?
+                .split(separator: " ")
+                .first else {
+            throw NSError(
+                domain: downloadErrorDomain,
+                code: -6,
+                userInfo: [NSLocalizedDescriptionKey: AppText.localized("模型校验失败，请重试。", "Model verification failed. Please try again.")]
+            )
+        }
+        return String(output)
+    }
+
+    static func validateArchiveChecksum(_ archiveURL: URL, expectedSHA256: String?) throws {
+        guard let expectedSHA256,
+              !expectedSHA256.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+        let actual = try sha256HexDigest(for: archiveURL)
+        guard actual.caseInsensitiveCompare(expectedSHA256) == .orderedSame else {
+            throw NSError(
+                domain: downloadErrorDomain,
+                code: -7,
+                userInfo: [NSLocalizedDescriptionKey: AppText.localized("模型文件校验失败，请重新下载。", "Model checksum verification failed. Please download it again.")]
+            )
+        }
+    }
 }

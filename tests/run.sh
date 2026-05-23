@@ -62,6 +62,7 @@ swiftc \
   mac-app/SpeechTextNormalization.swift \
   mac-app/SpeechSentenceBoundary.swift \
   mac-app/SpeechRuntimeDownloadSupport.swift \
+  mac-app/SpeechModelManifest.swift \
   mac-app/SpeechRuntimeModel.swift \
   mac-app/SpeechRuntimeStatus.swift \
   mac-app/SpeechRuntimeInstaller.swift \

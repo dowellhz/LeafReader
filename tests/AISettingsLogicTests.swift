@@ -218,7 +218,41 @@ enum AISettingsLogicTests {
         try expect(kokoroURL.hasSuffix("/kokoro-coreml-macos-arm64.tar.gz"), "Kokoro should use the release asset archive")
         try expect(kittenURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "KittenTTS should use the stable speech runtime asset release")
         try expect(kokoroURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Kokoro should use the stable speech runtime asset release")
+        try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Speech model manifest should use the same stable asset release")
+        try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.hasSuffix("/speech-models-manifest.json"), "Speech model manifest should use the release asset manifest")
         try expect(!kittenURL.contains("/v1.4.18/"), "KittenTTS download URL should not be pinned to the old 1.4.18 release")
+    }
+
+    static func testSpeechModelManifestParsingAndChecksumValidation() throws {
+        let manifestJSON = """
+        {
+          "generatedAt": "2026-05-23T06:08:12Z",
+          "assets": [
+            {
+              "name": "kitten-tts-rs-macos-arm64.tar.gz",
+              "size": 5,
+              "sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+            }
+          ]
+        }
+        """.data(using: .utf8)!
+        let manifest = try SpeechRuntimeResourceManager.decodeModelManifest(manifestJSON)
+        let expected = manifest.sha256(for: "kitten-tts-rs-macos-arm64.tar.gz")
+        try expectEqual(expected, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", "manifest lookup should return the matching asset digest")
+
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("leafreader-sha256-\(UUID().uuidString).txt")
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        try Data("hello".utf8).write(to: fileURL)
+        try SpeechRuntimeResourceManager.validateArchiveChecksum(fileURL, expectedSHA256: expected)
+
+        do {
+            try SpeechRuntimeResourceManager.validateArchiveChecksum(fileURL, expectedSHA256: String(repeating: "0", count: 64))
+            throw TestFailure(description: "checksum mismatch should throw")
+        } catch let error as NSError {
+            try expectEqual(error.domain, SpeechRuntimeResourceManager.downloadErrorDomain, "checksum mismatch should use the download error domain")
+            try expectEqual(error.code, -7, "checksum mismatch should use the checksum error code")
+        }
     }
 
     static func testSpeechRuntimeAvailabilityText() throws {

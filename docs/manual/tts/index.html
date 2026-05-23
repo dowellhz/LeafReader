@@ -1059,8 +1059,8 @@
 <ul>
 <li><code>scripts/build_espeak_ng_runtime.sh</code>: builds the lower deployment target <code>espeak-ng</code> and <code>pcaudiolib</code> runtime used by KittenTTS.</li>
 <li><code>scripts/build_app.sh</code>: copies speech runtimes into the app bundle and verifies bundled runtime layout.</li>
-<li><code>scripts/package_speech_runtimes.sh</code>: packages downloadable TTS model archives. The native runtime binaries are bundled with the app.</li>
-<li><code>scripts/publish_release.sh</code>: uploads release packages; pass <code>--with-speech-runtimes</code> only when publishing changed model archives.</li>
+<li><code>scripts/package_speech_runtimes.sh</code>: packages downloadable TTS model archives and writes <code>docs/tts/speech-models-manifest.json</code> with file sizes and SHA256 digests. The native runtime binaries are bundled with the app.</li>
+<li><code>scripts/publish_release.sh</code>: uploads release packages; pass <code>--with-speech-models</code> only when publishing changed model archives. The script refuses model uploads unless <code>SpeechRuntimeModel.runtimeAssetsReleaseTag</code> matches the release tag.</li>
 </ul>
 <p>When changing bundled native runtime binaries, verify their minimum macOS version with <code>vtool</code> or <code>otool</code> before publishing.</p>
 <h2 id="checks">Checks<a class="headerlink" href="#checks" title="Permanent link">&para;</a></h2>

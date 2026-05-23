@@ -77,6 +77,10 @@ extension SpeechRuntimeResourceManager {
             }
         }
 
+        static var modelManifestURL: URL {
+            releaseAssetURL(fileName: "speech-models-manifest.json")
+        }
+
         var installDirectory: URL {
             let root = FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent(".local/share/leafreader", isDirectory: true)
