@@ -6,40 +6,15 @@
 
 Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is built with Swift, PDFKit, and WebKit, and focuses on a quiet reading experience with fast navigation, document search, reading progress restore, light and dark reader themes, and an optional AI panel for working with selected passages.
 
-## 语言 / Language
+## Language
 
-- [中文说明](#中文说明)
-- [English README](#download)
-- 官网会根据浏览器语言自动显示中文或英文，也可以在页面右上角手动切换：<https://leafreader.space/>
+- [Chinese README](README.zh-CN.md)
+- English: this file
 - The website automatically follows the browser language and also provides a manual Chinese/English switch in the header: <https://leafreader.space/>
 
-## 中文说明
+## License
 
-Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX。它面向长文档阅读、学习和批注场景，提供阅读进度恢复、文档搜索、浅色/护眼/深色主题、AI 问答、选中文本翻译/解释/总结、背单词和本地朗读。
-
-### 下载
-
-[下载 Leaf Reader 1.6.1 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.6.1/LeafReader-1.6.1.pkg)
-
-项目官网：<https://leafreader.space/>
-
-### 系统要求
-
-- macOS 12.0 Monterey 或更高版本。
-- 支持 Apple Silicon 和 Intel Mac。
-- AI 功能需要用户自行配置模型服务和 API Key；普通阅读不需要。
-- KittenTTS 本地朗读支持 macOS 12.0 或更高版本。
-- Kokoro 本地朗读需要 macOS 14.0 或更高版本。
-
-### 主要功能
-
-- 打开本地 PDF、EPUB、DOCX 文档。
-- 自动恢复上次阅读的文档、页码、缩放和滚动位置。
-- 支持文档搜索、翻页、目录、书架和最近阅读。
-- 选中文本后可让 AI 解释、总结、翻译或继续追问上下文。
-- 支持从阅读内容中保存单词，进行复习、查看新词、导出词表。
-- 支持 KittenTTS 和 Kokoro 本地朗读；短词和短句可回退到 macOS 系统语音。
-- 文档保存在本机；只有使用 AI 功能时，相关文本才会发送到用户配置的模型服务。
+Leaf Reader is licensed under the [Apache License 2.0](LICENSE).
 
 ## Screenshots
 
@@ -78,13 +53,13 @@ https://leafreader.space/
 - Search documents with `Command+F`, next and previous result controls, and visible result positioning.
 - Switch between light and dark reader themes for the document area, search overlay, recent files panel, and AI chat panel.
 - Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
-- Read selected English text with optional downloadable Kokoro or KittenTTS output; otherwise Leaf Reader falls back to macOS system voices.
+- Read selected English or Chinese text with optional downloadable Kokoro or KittenTTS output where supported; otherwise Leaf Reader falls back to macOS system voices.
 - Configure model, API key, interface language, and reader theme from the in-app settings panel.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
 
-## Optional English Speech Runtimes
+## Optional Speech Runtimes
 
-Leaf Reader can use [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) or [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs) for English text-to-speech. Small speech runtime executables are bundled in the installer; large model files are downloaded on demand. Open Settings -> AI Analysis -> Speech to download Kokoro or KittenTTS.
+Leaf Reader can use [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) or [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs) for local text-to-speech. Kokoro provides English and Chinese voices; KittenTTS is used for English read aloud. Small speech runtime executables are bundled in the installer; large model files are downloaded on demand. Open Settings -> AI Analysis -> Speech to download Kokoro or KittenTTS.
 
 Runtime priority is automatic: KittenTTS first, then Kokoro. Short word or phrase selections use Apple TTS directly.
 
@@ -326,7 +301,7 @@ The packaging script also writes `docs/tts/speech-models-manifest.json` with eac
 
 ## What's New in 1.2
 
-- Renamed the assistant entry point to `学英语` and improved selected-word and short-phrase explanations.
+- Renamed the assistant entry point to the localized Learn English label and improved selected-word and short-phrase explanations.
 - Added Markdown rendering for AI answers, reference bubbles, and the book vocabulary panel.
 - Added PDF vector retrieval for document Q&A, with current-page priority, background indexing, cache reuse, and index progress in the bottom toolbar.
 - Added separate embedding service settings, including OpenAI-compatible providers, local embedding endpoints, custom endpoints, and a separate embedding API key.
