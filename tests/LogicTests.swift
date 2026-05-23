@@ -350,6 +350,21 @@ private func testSpeechTextPolicySegments() throws {
     try expect(segments.count > 1, "long text should split into multiple TTS segments")
     try expect(segments.allSatisfy { $0.count <= 520 }, "split TTS segments should stay within the max sentence length")
 
+    let abbreviationText = "The careful witnesses described the room, hallway, window, clock, table, shelves, door, floor, ceiling, and Dr. Yueh calmly entered with a sealed note. Another sentence follows after the doctor arrives."
+    let abbreviationSegments = SpeechTextPolicy.readAloudSegments(for: abbreviationText)
+    try expect(abbreviationSegments.contains { $0.contains("Dr. Yueh") }, "TTS sentence splitting should keep title abbreviations with the following name")
+    try expect(!abbreviationSegments.contains { $0.hasSuffix("Dr.") }, "TTS sentence splitting should not stop at title abbreviations")
+
+    let initialsText = "The title page credits the author F. Scott Fitzgerald before the next line continues with enough words to make a separate speech segment. The reader should keep the initials attached."
+    let initialsSegments = SpeechTextPolicy.readAloudSegments(for: initialsText)
+    try expect(initialsSegments.contains { $0.contains("F. Scott Fitzgerald") }, "TTS sentence splitting should keep initials with following names")
+    try expect(!initialsSegments.contains { $0.hasSuffix("F.") }, "TTS sentence splitting should not stop at initials")
+
+    let quotedText = "He said, \"This quoted sentence contains enough words to make the speech segment flush only after the closing quotation mark arrives.\" Another narrator sentence follows with enough words to stand apart after the quoted line and keep this verification from merging back into the first segment."
+    let quotedSegments = SpeechTextPolicy.readAloudSegments(for: quotedText)
+    try expect(quotedSegments.first?.hasSuffix("\"") == true, "TTS sentence splitting should attach closing quotes to the sentence they close")
+    try expect(!quotedSegments.dropFirst().contains { $0.hasPrefix("\"") }, "TTS sentence splitting should not start the next segment with a closing quote")
+
     let chineseSegments = SpeechTextPolicy.readAloudSegments(for: "第一句。第二句！第三句？")
     try expectEqual(chineseSegments, ["第一句。 第二句！ 第三句？"], "Chinese punctuation should split and merge into a stable read-aloud segment")
 
@@ -357,6 +372,21 @@ private func testSpeechTextPolicySegments() throws {
     let longChineseSegments = SpeechTextPolicy.readAloudSegments(for: longChineseText)
     try expect(longChineseSegments.count > 1, "long Chinese text should split into multiple TTS segments")
     try expect(longChineseSegments.allSatisfy { $0.count <= 120 }, "Chinese TTS segments should stay short for responsive Kokoro synthesis")
+}
+
+private func testReadAloudTextMatcher() throws {
+    let hyphenatedPage = "The well-\nknown explorer returned after winter."
+    let hyphenatedRange = ReadAloudTextMatcher.range(of: "wellknown explorer", in: hyphenatedPage)
+    try expect(hyphenatedRange != nil, "read-aloud matching should bridge PDF line-break hyphenation")
+
+    let dropCapPage = "T he doorway opened quietly."
+    let dropCapRange = ReadAloudTextMatcher.range(of: "The doorway", in: dropCapPage)
+    try expect(dropCapRange != nil, "read-aloud matching should bridge separated drop-cap letters")
+
+    let partialPage = "This opening sentence contains enough distinctive words for partial matching near the page edge."
+    let partialQuery = "This opening sentence contains enough distinctive words for partial matching near the page edge and then continues on the next page."
+    let partialRange = ReadAloudTextMatcher.range(of: partialQuery, in: partialPage)
+    try expect(partialRange != nil, "read-aloud matching should fall back to a stable partial token range")
 }
 
 private func testKokoroWorkerResponseReader() throws {
@@ -392,6 +422,8 @@ private let tests: [(String, () throws -> Void)] = [
     ("AI settings speech selection validation", AISettingsLogicTests.testAISettingsStoreSpeechSelectionValidation),
     ("Speech runtime release asset URLs", AISettingsLogicTests.testSpeechRuntimeDownloadURLsUseReleaseAssets),
     ("Speech runtime availability text", AISettingsLogicTests.testSpeechRuntimeAvailabilityText),
+    ("Speech runtime install manifest cache filtering", AISettingsLogicTests.testSpeechRuntimeInstallManifestFiltersExternalCachePaths),
+    ("Kokoro cache install transaction", AISettingsLogicTests.testKokoroCacheInstallTransactionRollbackAndCommit),
     ("Network error sensitive body formatting", AISettingsLogicTests.testNetworkErrorFormattingSanitizesSensitiveBody),
     ("Network error long body formatting", AISettingsLogicTests.testNetworkErrorFormattingTruncatesLongBody),
     ("AI response parser non-streaming", AISettingsLogicTests.testAIResponseParserParsesNonStreamingResponses),
@@ -429,6 +461,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Speech text normalization", testSpeechTextPolicyNormalization),
     ("Speech text English candidate", testSpeechTextPolicyEnglishCandidate),
     ("Speech text segments", testSpeechTextPolicySegments),
+    ("Read-aloud text matcher", testReadAloudTextMatcher),
     ("Kokoro worker response reader", testKokoroWorkerResponseReader),
     ("Kokoro worker response partial lines", testKokoroWorkerResponseReaderBuffersPartialLines)
 ]

@@ -73,6 +73,14 @@ assert.deepStrictEqual(
   ]
 );
 
+const abbreviationSegments = web.leafReaderSentenceSegments('The careful witnesses described the room, hallway, window, clock, table, shelves, door, floor, ceiling, and Dr. Yueh calmly entered with a sealed note. Another sentence follows after the doctor arrives.');
+assert(abbreviationSegments.some((segment) => segment.includes('Dr. Yueh')));
+assert(!abbreviationSegments.some((segment) => segment.endsWith('Dr.')));
+
+const quotedSegments = web.leafReaderSentenceSegments('He said, "This quoted sentence contains enough words to make the speech segment flush only after the closing quotation mark arrives." Another narrator sentence follows with enough words to stand apart after the quoted line.');
+assert(quotedSegments[0].endsWith('"'));
+assert(!quotedSegments.slice(1).some((segment) => segment.startsWith('"')));
+
 const chineseSegments = web.leafReaderSentenceSegments('第一句。第二句！第三句？');
 assert.deepStrictEqual(chineseSegments, ['第一句。', '第二句！', '第三句？']);
 

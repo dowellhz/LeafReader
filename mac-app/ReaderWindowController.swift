@@ -186,14 +186,14 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let vocabularyPanelReloadTask = DebouncedTask(delay: 0.04)
     var pendingAIPanelExpansionAction: (() -> Void)?
     var pendingAISourceClickWorkItem: DispatchWorkItem?
-    var ttsReadingOriginalTitle: String?
-    var ttsReadingOriginalToolTip: String?
-    var temporaryTTSUnderlineAnnotations: [(page: PDFPage, annotation: PDFAnnotation)] = []
-    var ttsReadingPDFPages: [PDFPage] = []
-    var ttsReadingPDFPageTextCache: [Int: String] = [:]
-    var ttsReadingPDFCandidatePageIndex = 0
-    var ttsReadingPDFSearchLocation = 0
-    var ttsPageLockedAtTopIndex: Int?
+    var readAloudOriginalTitle: String?
+    var readAloudOriginalToolTip: String?
+    var temporaryReadAloudUnderlineAnnotations: [(page: PDFPage, annotation: PDFAnnotation)] = []
+    var readAloudPDFPages: [PDFPage] = []
+    var readAloudPDFPageTextCache: [Int: String] = [:]
+    var readAloudPDFCandidatePageIndex = 0
+    var readAloudPDFSearchLocation = 0
+    var readAloudPageLockedAtTopIndex: Int?
     var lastReadAloudAISource: AIConversationSourceLocation?
     var lastReadAloudLinkedWordID: String?
     var readAloudSoftHintView: ReadAloudSoftHintView?
@@ -262,7 +262,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         window.readerWindowController = self
         window.delegate = self
         buildUI()
-        installKittenTTSProgressObserver()
+        installSpeechProgressObserver()
         vocabularySpeechSynthesizer.delegate = self
     }
 

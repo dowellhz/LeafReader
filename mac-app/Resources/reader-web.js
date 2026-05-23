@@ -144,6 +144,78 @@
   const leafReaderWordCount = (value) => String(value || '').split(/[^A-Za-z0-9]+/).filter(Boolean).length;
   const leafReaderHasCJK = (value) => /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/.test(String(value || ''));
   const leafReaderMaxChineseTTSSegmentLength = 120;
+  const leafReaderEnglishAbbreviations = new Set([
+    'adm', 'approx', 'apr', 'aug', 'ave', 'capt', 'cf', 'ch', 'co', 'col', 'corp',
+    'dec', 'dept', 'dr', 'e.g', 'etc', 'feb', 'fig', 'gen', 'gov', 'hon', 'i.e',
+    'inc', 'jan', 'jr', 'jul', 'jun', 'ltd', 'maj', 'mar', 'mr', 'mrs', 'ms',
+    'mt', 'no', 'nov', 'oct', 'p', 'pp', 'prof', 'rep', 'rev', 'sen', 'sep',
+    'sept', 'sr', 'st', 'vs', 'vol'
+  ]);
+  const leafReaderIsTrailingSentenceCloser = (char) => /["'\u2019\u201D\u00BB\u203A\]\)\}]/.test(char || '');
+  const leafReaderHasFollowingToken = (chars, index) => {
+    for (let cursor = index + 1; cursor < chars.length; cursor += 1) {
+      const char = chars[cursor];
+      if (/\s/.test(char) || leafReaderIsTrailingSentenceCloser(char)) continue;
+      return /[A-Za-z0-9]/.test(char);
+    }
+    return false;
+  };
+  const leafReaderTokenBeforePeriod = (chars, index) => {
+    let start = index;
+    while (start > 0 && /[A-Za-z.]/.test(chars[start - 1])) start -= 1;
+    return chars.slice(start, index).join('').replace(/^\.+|\.+$/g, '');
+  };
+  const leafReaderPeriodEndsKnownNonTerminalToken = (chars, index) => {
+    const token = leafReaderTokenBeforePeriod(chars, index);
+    if (!token) return false;
+    if (leafReaderEnglishAbbreviations.has(token.toLowerCase())) {
+      return leafReaderHasFollowingToken(chars, index);
+    }
+    if (/^[A-Z]$/.test(token)) {
+      return leafReaderHasFollowingToken(chars, index);
+    }
+    if (token.includes('.') && token.split('.').every((part) => /^[A-Za-z]$/.test(part))) {
+      return leafReaderHasFollowingToken(chars, index);
+    }
+    return false;
+  };
+  const leafReaderIsEnglishSentenceBoundary = (chars, index) => {
+    const char = chars[index];
+    if (char !== '.') return true;
+    if (chars[index + 1] === '.') return false;
+    if (chars[index - 1] === '.' && chars[index + 1] !== '.') return true;
+    if (/[0-9]/.test(chars[index - 1] || '') && /[0-9]/.test(chars[index + 1] || '')) return false;
+    const immediateNextIsCloser = leafReaderIsTrailingSentenceCloser(chars[index + 1]);
+    return immediateNextIsCloser || !leafReaderPeriodEndsKnownNonTerminalToken(chars, index);
+  };
+  const leafReaderEnglishSentenceUnits = (value) => {
+    const source = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!source) return [];
+    const chars = Array.from(source);
+    const units = [];
+    let sentenceStart = 0;
+    for (let index = 0; index < chars.length;) {
+      const char = chars[index];
+      if ('.!?'.includes(char) && leafReaderIsEnglishSentenceBoundary(chars, index)) {
+        let sentenceEnd = index + 1;
+        while (sentenceEnd < chars.length && leafReaderIsTrailingSentenceCloser(chars[sentenceEnd])) {
+          sentenceEnd += 1;
+        }
+        const unit = chars.slice(sentenceStart, sentenceEnd).join('').trim();
+        if (unit) units.push(unit);
+        sentenceStart = sentenceEnd;
+        while (sentenceStart < chars.length && /\s/.test(chars[sentenceStart])) sentenceStart += 1;
+        index = sentenceStart;
+        continue;
+      }
+      index += 1;
+    }
+    if (sentenceStart < chars.length) {
+      const tail = chars.slice(sentenceStart).join('').trim();
+      if (tail) units.push(tail);
+    }
+    return units;
+  };
   const leafReaderSplitByCharacterLimit = (value, limit) => {
     const chunks = [];
     let pending = '';
@@ -195,9 +267,7 @@
     const source = String(value || '').replace(/\s+/g, ' ').trim();
     if (!source) return [];
     if (leafReaderHasCJK(source)) return leafReaderChineseSentenceSegments(source);
-    const sentenceUnits = (source.match(/[^.!?]+[.!?]["'\u2019\u201D]?|[^.!?]+$/g) || [])
-      .map((item) => item.trim())
-      .filter(Boolean);
+    const sentenceUnits = leafReaderEnglishSentenceUnits(source);
     const units = sentenceUnits.length ? sentenceUnits : [source];
     const merged = [];
     let pending = '';

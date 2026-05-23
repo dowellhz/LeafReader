@@ -61,14 +61,22 @@ Runtime OS requirements:
 
 Download packages are served from GitHub Releases:
 
-- `https://github.com/dowellhz/LeafReader/releases/download/v<version>/kokoro-coreml-macos-arm64.tar.gz` (Kokoro runtime plus ANE/G2P model cache, about 518 MB)
-- `https://github.com/dowellhz/LeafReader/releases/download/v<version>/kitten-tts-rs-macos-arm64.tar.gz` (KittenTTS runtime plus mini model, about 74 MB)
+- `https://github.com/dowellhz/LeafReader/releases/download/<runtime-asset-version>/kokoro-coreml-macos-arm64.tar.gz` (Kokoro ANE/G2P model cache)
+- `https://github.com/dowellhz/LeafReader/releases/download/<runtime-asset-version>/kitten-tts-rs-macos-arm64.tar.gz` (KittenTTS mini model)
 
 Generate the website packages with:
 
 ```sh
 ./scripts/package_speech_runtimes.sh
 ```
+
+## What's New in 1.5.11
+
+- Reorganized local speech playback and runtime installation code into smaller focused modules.
+- Renamed Kitten-specific playback/progress code to generic read-aloud naming for Kokoro and KittenTTS.
+- Reused stable speech model release assets across app releases, so unchanged model archives do not need to be uploaded again.
+- Changed future downloadable speech packages to contain model data only while reusing the runtime binaries bundled with the app.
+- Improved English sentence splitting and read-aloud source matching for PDF and web-backed documents.
 
 ## What's New in 1.5.10
 
@@ -404,7 +412,7 @@ Run the full publish flow from a clean working tree:
 ./scripts/publish_release.sh 1.4.12
 ```
 
-The publish script runs tests, builds/signs/notarizes the pkg, commits the version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg plus any generated speech runtime archives in `docs/tts/`, and verifies the download URLs.
+The publish script runs tests, builds/signs/notarizes the pkg, commits the version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-runtimes` only when publishing changed speech model archives in `docs/tts/`.
 
 The release script accepts the Sparkle private key through the configured release-machine environment. Keep the private key out of git and store recovery details only in private operational notes. Losing the private key breaks automatic updates for apps that already ship with the matching public key.
 

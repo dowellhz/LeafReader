@@ -1014,17 +1014,17 @@
 <p>Use this page when changing local speech playback, read-aloud highlights, or downloadable TTS model runtimes.</p>
 <h2 id="runtime-shape">Runtime Shape<a class="headerlink" href="#runtime-shape" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ReaderWindowController+ReadAloud
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  -&gt; KittenTTSPlayer
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  -&gt; SpeechPlaybackCoordinator
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>     -&gt; SpeechRuntimeResourceManager
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        -&gt; KittenTTS runtime
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        -&gt; Kokoro Core ML runtime
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>     -&gt; AVAudioPlayer
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  -&gt; ReaderWindowController+TTSProgress
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  -&gt; ReaderWindowController+ReadAloudProgress
 </code></pre></div>
 <p>Short vocabulary and AI-panel speech can fall back to <code>NSSpeechSynthesizer</code> through <code>SpeechUtteranceFactory</code> when the local model path is not appropriate.</p>
 <h2 id="main-files">Main Files<a class="headerlink" href="#main-files" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>mac-app/KittenTTSPlayer.swift</code>: central speech coordinator. It chooses the installed runtime, segments text, manages generated WAV files, controls playback, and posts progress notifications.</li>
+<li><code>mac-app/SpeechPlaybackCoordinator.swift</code>: central speech coordinator. It chooses the installed runtime, segments text, manages generated WAV files, controls playback, and posts progress notifications.</li>
 <li><code>mac-app/KokoroWorkerResponseReader.swift</code>: parses Kokoro worker JSON-line responses and ignores unrelated request IDs.</li>
 <li><code>mac-app/SpeechTextPolicy.swift</code>: TTS text normalization, English candidate detection, and read-aloud segment splitting.</li>
 <li><code>mac-app/SpeechRuntimeResourceManager.swift</code>: install detection, download URLs, model sizes, runtime compatibility, pause/resume/cancel state, and cleanup.</li>
@@ -1032,7 +1032,7 @@
 <li><code>mac-app/AISettingsPanelController+Speech.swift</code>: settings actions for selecting, downloading, pausing, canceling, deleting, and warning about incompatible runtimes.</li>
 <li><code>mac-app/AISettingsPanelController+Build.swift</code>: visible read-aloud settings rows, model picker, status labels, buttons, and progress indicators.</li>
 <li><code>mac-app/ReaderWindowController+ReadAloud.swift</code>: document-level read-aloud entry points for PDF and WebKit-backed EPUB/DOCX content.</li>
-<li><code>mac-app/ReaderWindowController+TTSProgress.swift</code>: active segment underline/highlight updates while speech is playing.</li>
+<li><code>mac-app/ReaderWindowController+ReadAloudProgress.swift</code>: active segment underline/highlight updates while speech is playing.</li>
 <li><code>mac-app/AIChatPanel+Actions.swift</code>: speak selected AI text, with local TTS when possible and system speech fallback.</li>
 <li><code>mac-app/ReaderWindowController+VocabularyActions.swift</code>: vocabulary pronunciation, interruption behavior, and fallback speech.</li>
 <li><code>mac-app/SpeechUtteranceFactory.swift</code>: common system voice utterance settings.</li>
@@ -1045,6 +1045,7 @@
 <li><code>SpeechRuntimeResourceManager.isRunnable(_:)</code> checks both downloaded files and the current macOS runtime requirement.</li>
 <li><code>SpeechRuntimeResourceManager.runnableRuntime(preferredID:)</code> is the runtime selection gate used by playback code.</li>
 <li>Runtime installs write <code>.leafreader-install-manifest.json</code>; manifest write failure aborts install and rolls back, Kokoro cache replacement is transactional, and deletion uses that manifest to remove only Leaf Reader-installed FluidAudio cache directories, with legacy fallback for older installs.</li>
+<li>Runtime download URLs point at <code>SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag</code>, not the app version, so regular app releases do not need to re-upload unchanged model archives. Only update that tag and publish speech runtime assets when the runtime/model archive changes.</li>
 <li>The runtime picker shows why unavailable runtimes cannot be selected, such as missing downloads, incomplete files, or macOS version requirements.</li>
 <li>Download attempts carry an active task ID so stale callbacks from cancelled or superseded downloads cannot update current progress or completion state.</li>
 <li>Download failures are stored per runtime and shown in the settings status, including unsupported macOS states, until the next successful download, cancellation, or delete.</li>
@@ -1058,8 +1059,8 @@
 <ul>
 <li><code>scripts/build_espeak_ng_runtime.sh</code>: builds the lower deployment target <code>espeak-ng</code> and <code>pcaudiolib</code> runtime used by KittenTTS.</li>
 <li><code>scripts/build_app.sh</code>: copies speech runtimes into the app bundle and verifies bundled runtime layout.</li>
-<li><code>scripts/package_speech_runtimes.sh</code>: packages downloadable TTS runtime archives.</li>
-<li><code>scripts/publish_release.sh</code>: uploads release packages and TTS runtime assets, then updates Sparkle appcast data.</li>
+<li><code>scripts/package_speech_runtimes.sh</code>: packages downloadable TTS model archives. The native runtime binaries are bundled with the app.</li>
+<li><code>scripts/publish_release.sh</code>: uploads release packages; pass <code>--with-speech-runtimes</code> only when publishing changed model archives.</li>
 </ul>
 <p>When changing bundled native runtime binaries, verify their minimum macOS version with <code>vtool</code> or <code>otool</code> before publishing.</p>
 <h2 id="checks">Checks<a class="headerlink" href="#checks" title="Permanent link">&para;</a></h2>

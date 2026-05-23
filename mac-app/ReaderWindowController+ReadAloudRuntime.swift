@@ -5,7 +5,7 @@ extension ReaderWindowController {
         if let probeText = currentReadAloudProbeText(),
            SpeechTextPolicy.prefersChineseTTS(probeText) {
             guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else {
-                openSpeechSettingsForMissingKokoro()
+                openSpeechSettingsForMissingChineseRuntime()
                 return false
             }
             AISettingsStore.saveSelectedSpeechRuntimeID(SpeechRuntimeResourceManager.Runtime.kokoro.id)
@@ -26,7 +26,7 @@ extension ReaderWindowController {
         return currentWebSelectedText.isEmpty ? currentWebPlainText : currentWebSelectedText
     }
 
-    func canReadAloudSegmentsWithAvailableRuntime(_ segments: [KittenTTSPlayer.ReadAloudSegment]) -> Bool {
+    func canReadAloudSegmentsWithAvailableRuntime(_ segments: [SpeechPlaybackCoordinator.ReadAloudSegment]) -> Bool {
         let text = segments.map(\.speechText).joined(separator: " ")
         guard SpeechTextPolicy.prefersChineseTTS(text) else { return true }
         guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
@@ -34,7 +34,7 @@ extension ReaderWindowController {
         return true
     }
 
-    func openSpeechSettingsForMissingKokoro() {
+    func openSpeechSettingsForMissingChineseRuntime() {
         openSettingsPanel(tab: .speech)
     }
 

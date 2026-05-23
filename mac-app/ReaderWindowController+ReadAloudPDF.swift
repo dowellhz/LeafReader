@@ -14,15 +14,15 @@ extension ReaderWindowController {
             return
         }
 
-        ttsReadingPDFPages = batch.pages
-        ttsReadingPDFPageTextCache = batch.pageTextCache
-        ttsReadingPDFCandidatePageIndex = 0
-        ttsReadingPDFSearchLocation = 0
+        readAloudPDFPages = batch.pages
+        readAloudPDFPageTextCache = batch.pageTextCache
+        readAloudPDFCandidatePageIndex = 0
+        readAloudPDFSearchLocation = 0
 
-        KittenTTSPlayer.shared.speakEnglish(segments: batch.segments) { [weak self] didUseKittenTTS in
+        SpeechPlaybackCoordinator.shared.speakText(segments: batch.segments) { [weak self] didUseLocalTTS in
             guard let self else { return }
             DispatchQueue.main.async {
-                self.handleReadAloudStartResult(didUseKittenTTS: didUseKittenTTS)
+                self.handleReadAloudStartResult(didUseLocalTTS: didUseLocalTTS)
             }
         } finished: { [weak self] in
             DispatchQueue.main.async {
@@ -35,7 +35,7 @@ extension ReaderWindowController {
         guard currentDocumentKind == .pdf,
               isReadAloudActive,
               !isReadAloudPaused,
-              !KittenTTSPlayer.shared.hasActiveReadAloudWork() else {
+              !SpeechPlaybackCoordinator.shared.hasActiveReadAloudWork() else {
             return
         }
         let continuation = pendingReadAloudPDFContinuation
@@ -176,7 +176,7 @@ extension ReaderWindowController {
         let destination = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY))
         pdfView.go(to: destination)
         if let pageIndex = pdfView.document?.index(for: page), pageIndex != NSNotFound {
-            ttsPageLockedAtTopIndex = pageIndex
+            readAloudPageLockedAtTopIndex = pageIndex
         }
     }
 
@@ -230,7 +230,7 @@ extension ReaderWindowController {
     private struct PDFReadAloudBatch {
         let pages: [PDFPage]
         let pageTextCache: [Int: String]
-        let segments: [KittenTTSPlayer.ReadAloudSegment]
+        let segments: [SpeechPlaybackCoordinator.ReadAloudSegment]
         let lastPage: PDFPage
     }
 
@@ -276,15 +276,15 @@ extension ReaderWindowController {
         let text: String
     }
 
-    private static func pdfReadAloudSegments(from pageTexts: [PDFReadAloudPageText]) -> [KittenTTSPlayer.ReadAloudSegment] {
-        var segments: [KittenTTSPlayer.ReadAloudSegment] = []
+    private static func pdfReadAloudSegments(from pageTexts: [PDFReadAloudPageText]) -> [SpeechPlaybackCoordinator.ReadAloudSegment] {
+        var segments: [SpeechPlaybackCoordinator.ReadAloudSegment] = []
         for pageText in pageTexts {
             let text = pageText.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { continue }
             for sourceSegment in SpeechTextPolicy.segments(for: text) {
                 let speechText = SpeechTextPolicy.normalizedReadAloudInput(sourceSegment)
                 guard !speechText.isEmpty else { continue }
-                segments.append(KittenTTSPlayer.ReadAloudSegment(
+                segments.append(SpeechPlaybackCoordinator.ReadAloudSegment(
                     speechText: speechText,
                     displayText: speechText,
                     matchText: sourceSegment,

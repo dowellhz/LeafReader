@@ -1,13 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
-  echo "Usage: $0 <version> [release-notes-html-file]" >&2
+if [[ $# -lt 1 || $# -gt 3 ]]; then
+  echo "Usage: $0 <version> [release-notes-html-file] [--with-speech-runtimes]" >&2
   exit 1
 fi
 
 VERSION="$1"
 NOTES_FILE="${2:-}"
+UPLOAD_SPEECH_RUNTIMES=0
+if [[ "${NOTES_FILE:-}" == "--with-speech-runtimes" ]]; then
+  NOTES_FILE=""
+  UPLOAD_SPEECH_RUNTIMES=1
+elif [[ "${3:-}" == "--with-speech-runtimes" ]]; then
+  UPLOAD_SPEECH_RUNTIMES=1
+elif [[ -n "${3:-}" ]]; then
+  echo "Unknown option: $3" >&2
+  echo "Usage: $0 <version> [release-notes-html-file] [--with-speech-runtimes]" >&2
+  exit 1
+fi
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TAG="v$VERSION"
 PKG_PATH="$ROOT_DIR/release/$VERSION/LeafReader-$VERSION.pkg"
@@ -85,14 +96,19 @@ gh release create "$TAG" "$PKG_PATH" --title "Leaf Reader $VERSION" --notes "$RE
 
 curl -I -L "https://github.com/dowellhz/LeafReader/releases/download/$TAG/LeafReader-$VERSION.pkg" >/dev/null
 
-for asset in "${SPEECH_RUNTIME_ASSETS[@]}"; do
-  if [[ ! -f "$asset" ]]; then
-    echo "Skipping missing speech runtime asset: $asset"
-    continue
-  fi
-  gh release upload "$TAG" "$asset" --clobber
-  curl -I -L "https://github.com/dowellhz/LeafReader/releases/download/$TAG/$(basename "$asset")" >/dev/null
-done
+if [[ "$UPLOAD_SPEECH_RUNTIMES" -eq 1 ]]; then
+  for asset in "${SPEECH_RUNTIME_ASSETS[@]}"; do
+    if [[ ! -f "$asset" ]]; then
+      echo "Skipping missing speech runtime asset: $asset"
+      continue
+    fi
+    gh release upload "$TAG" "$asset" --clobber
+    curl -I -L "https://github.com/dowellhz/LeafReader/releases/download/$TAG/$(basename "$asset")" >/dev/null
+  done
+else
+  echo "Skipping speech runtime assets; existing app code points to the stable runtime asset release."
+  echo "Use --with-speech-runtimes only when model archives changed and SpeechRuntimeModel.runtimeAssetsReleaseTag was updated."
+fi
 
 echo "Published $VERSION"
 echo "Release: $RELEASE_URL"

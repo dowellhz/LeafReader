@@ -6,19 +6,19 @@ Use this page when changing local speech playback, read-aloud highlights, or dow
 
 ```text
 ReaderWindowController+ReadAloud
-  -> KittenTTSPlayer
+  -> SpeechPlaybackCoordinator
      -> SpeechRuntimeResourceManager
         -> KittenTTS runtime
         -> Kokoro Core ML runtime
      -> AVAudioPlayer
-  -> ReaderWindowController+TTSProgress
+  -> ReaderWindowController+ReadAloudProgress
 ```
 
 Short vocabulary and AI-panel speech can fall back to `NSSpeechSynthesizer` through `SpeechUtteranceFactory` when the local model path is not appropriate.
 
 ## Main Files
 
-- `mac-app/KittenTTSPlayer.swift`: central speech coordinator. It chooses the installed runtime, segments text, manages generated WAV files, controls playback, and posts progress notifications.
+- `mac-app/SpeechPlaybackCoordinator.swift`: central speech coordinator. It chooses the installed runtime, segments text, manages generated WAV files, controls playback, and posts progress notifications.
 - `mac-app/KokoroWorkerResponseReader.swift`: parses Kokoro worker JSON-line responses and ignores unrelated request IDs.
 - `mac-app/SpeechTextPolicy.swift`: TTS text normalization, English candidate detection, and read-aloud segment splitting.
 - `mac-app/SpeechRuntimeResourceManager.swift`: install detection, download URLs, model sizes, runtime compatibility, pause/resume/cancel state, and cleanup.
@@ -26,7 +26,7 @@ Short vocabulary and AI-panel speech can fall back to `NSSpeechSynthesizer` thro
 - `mac-app/AISettingsPanelController+Speech.swift`: settings actions for selecting, downloading, pausing, canceling, deleting, and warning about incompatible runtimes.
 - `mac-app/AISettingsPanelController+Build.swift`: visible read-aloud settings rows, model picker, status labels, buttons, and progress indicators.
 - `mac-app/ReaderWindowController+ReadAloud.swift`: document-level read-aloud entry points for PDF and WebKit-backed EPUB/DOCX content.
-- `mac-app/ReaderWindowController+TTSProgress.swift`: active segment underline/highlight updates while speech is playing.
+- `mac-app/ReaderWindowController+ReadAloudProgress.swift`: active segment underline/highlight updates while speech is playing.
 - `mac-app/AIChatPanel+Actions.swift`: speak selected AI text, with local TTS when possible and system speech fallback.
 - `mac-app/ReaderWindowController+VocabularyActions.swift`: vocabulary pronunciation, interruption behavior, and fallback speech.
 - `mac-app/SpeechUtteranceFactory.swift`: common system voice utterance settings.
@@ -39,6 +39,7 @@ Short vocabulary and AI-panel speech can fall back to `NSSpeechSynthesizer` thro
 - `SpeechRuntimeResourceManager.isRunnable(_:)` checks both downloaded files and the current macOS runtime requirement.
 - `SpeechRuntimeResourceManager.runnableRuntime(preferredID:)` is the runtime selection gate used by playback code.
 - Runtime installs write `.leafreader-install-manifest.json`; manifest write failure aborts install and rolls back, Kokoro cache replacement is transactional, and deletion uses that manifest to remove only Leaf Reader-installed FluidAudio cache directories, with legacy fallback for older installs.
+- Runtime download URLs point at `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag`, not the app version, so regular app releases do not need to re-upload unchanged model archives. Only update that tag and publish speech runtime assets when the runtime/model archive changes.
 - The runtime picker shows why unavailable runtimes cannot be selected, such as missing downloads, incomplete files, or macOS version requirements.
 - Download attempts carry an active task ID so stale callbacks from cancelled or superseded downloads cannot update current progress or completion state.
 - Download failures are stored per runtime and shown in the settings status, including unsupported macOS states, until the next successful download, cancellation, or delete.
@@ -52,8 +53,8 @@ Short vocabulary and AI-panel speech can fall back to `NSSpeechSynthesizer` thro
 
 - `scripts/build_espeak_ng_runtime.sh`: builds the lower deployment target `espeak-ng` and `pcaudiolib` runtime used by KittenTTS.
 - `scripts/build_app.sh`: copies speech runtimes into the app bundle and verifies bundled runtime layout.
-- `scripts/package_speech_runtimes.sh`: packages downloadable TTS runtime archives.
-- `scripts/publish_release.sh`: uploads release packages and TTS runtime assets, then updates Sparkle appcast data.
+- `scripts/package_speech_runtimes.sh`: packages downloadable TTS model archives. The native runtime binaries are bundled with the app.
+- `scripts/publish_release.sh`: uploads release packages; pass `--with-speech-runtimes` only when publishing changed model archives.
 
 When changing bundled native runtime binaries, verify their minimum macOS version with `vtool` or `otool` before publishing.
 

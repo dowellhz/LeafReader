@@ -92,12 +92,12 @@ Watch for:
 
 Start with:
 
-- `mac-app/KittenTTSPlayer.swift`
+- `mac-app/SpeechPlaybackCoordinator.swift`
 - `mac-app/SpeechRuntimeResourceManager.swift`
 - `mac-app/AISettingsPanelController+Speech.swift`
 - `mac-app/AISettingsPanelController+Build.swift`
 - `mac-app/ReaderWindowController+ReadAloud.swift`
-- `mac-app/ReaderWindowController+TTSProgress.swift`
+- `mac-app/ReaderWindowController+ReadAloudProgress.swift`
 
 Current model/runtime notes:
 

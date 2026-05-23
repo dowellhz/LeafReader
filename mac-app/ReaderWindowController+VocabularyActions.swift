@@ -125,8 +125,8 @@ extension ReaderWindowController {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         guard !playableTexts.isEmpty else { return }
-        resetTTSReadingPDFProgress()
-        ttsReadingPDFPages = pdfView.currentSelection?.pages ?? []
+        resetReadAloudPDFProgress()
+        readAloudPDFPages = pdfView.currentSelection?.pages ?? []
         shouldClearSelectionOnSpeechStart = true
         if vocabularySpeechSynthesizer.isSpeaking {
             vocabularySpeechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)
@@ -140,9 +140,9 @@ extension ReaderWindowController {
             let shouldResumeReadAloud = isReadAloudActive && !isReadAloudPaused
             if shouldResumeReadAloud {
                 pauseReadAloudForSelectionSpeech()
-                KittenTTSPlayer.shared.speakEnglishInterruption(text) { [weak self] didUseKittenTTS in
+                SpeechPlaybackCoordinator.shared.speakTextInterruption(text) { [weak self] didUseLocalTTS in
                     guard let self else { return }
-                    guard !didUseKittenTTS else {
+                    guard !didUseLocalTTS else {
                         self.clearSelectionForSpeechStartIfNeeded()
                         return
                     }
@@ -158,9 +158,9 @@ extension ReaderWindowController {
                 }
                 return
             }
-            KittenTTSPlayer.shared.speakEnglish(text) { [weak self] didUseKittenTTS in
+            SpeechPlaybackCoordinator.shared.speakText(text) { [weak self] didUseLocalTTS in
                 guard let self else { return }
-                guard !didUseKittenTTS else {
+                guard !didUseLocalTTS else {
                     self.clearSelectionForSpeechStartIfNeeded()
                     return
                 }
@@ -176,14 +176,14 @@ extension ReaderWindowController {
     private func pauseReadAloudForSelectionSpeech() {
         guard isReadAloudActive, !isReadAloudPaused else { return }
         isReadAloudPaused = true
-        KittenTTSPlayer.shared.pauseSpeaking()
+        SpeechPlaybackCoordinator.shared.pauseSpeaking()
         updateReadAloudButton()
     }
 
     private func resumeReadAloudAfterSelectionSpeechIfNeeded(shouldResume: Bool) {
         guard shouldResume, isReadAloudActive, isReadAloudPaused else { return }
         isReadAloudPaused = false
-        KittenTTSPlayer.shared.resumeSpeaking()
+        SpeechPlaybackCoordinator.shared.resumeSpeaking()
         updateReadAloudButton()
     }
 

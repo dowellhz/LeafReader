@@ -1,5 +1,97 @@
 import Foundation
 
+extension SpeechRuntimeResourceManager {
+    static func requiredPathsExist(_ paths: [URL]) -> Bool {
+        paths.allSatisfy { path in
+            var isDirectory: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: path.path, isDirectory: &isDirectory)
+            if path.hasDirectoryPath {
+                return exists && isDirectory.boolValue
+            }
+            return FileManager.default.isExecutableFile(atPath: path.path)
+        }
+    }
+
+    static func kittenRuntimePathsExist(in directory: URL) -> Bool {
+        let server = directory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server")
+        return FileManager.default.isExecutableFile(atPath: server.path)
+    }
+
+    static func bundledRuntimePathsExist(for runtime: Runtime) -> Bool {
+        guard let directory = runtime.bundledInstallDirectory else {
+            return false
+        }
+        switch runtime {
+        case .kitten:
+            return kittenRuntimePathsExist(in: directory)
+        case .kokoro:
+            return requiredPathsExist(runtime.requiredPaths(in: directory))
+        }
+    }
+
+    static func kittenModelPathsExist(in directory: URL) -> Bool {
+        let modelDirectory = directory.appendingPathComponent("kitten-tts-mini", isDirectory: true)
+        let model = modelDirectory.appendingPathComponent("kitten_tts_mini_v0_8.onnx")
+        let voices = modelDirectory.appendingPathComponent("voices.npz")
+        let config = modelDirectory.appendingPathComponent("config.json")
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: modelDirectory.path, isDirectory: &isDirectory)
+            && isDirectory.boolValue
+            && FileManager.default.fileExists(atPath: model.path)
+            && FileManager.default.fileExists(atPath: voices.path)
+            && FileManager.default.fileExists(atPath: config.path)
+    }
+
+    static func kokoroModelCacheDirectories() -> [URL] {
+        let cacheRoot = Runtime.fluidAudioModelCacheRoot
+        return [
+            cacheRoot.appendingPathComponent("kokoro", isDirectory: true),
+            cacheRoot.appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
+        ]
+    }
+
+    static func kokoroAneModelCacheExists() -> Bool {
+        kokoroAneModelCacheExists(in: Runtime.fluidAudioModelCacheRoot)
+    }
+
+    static func kokoroAneModelCacheExists(in cacheRoot: URL) -> Bool {
+        let aneDirectory = cacheRoot
+            .appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
+            .appendingPathComponent("ANE", isDirectory: true)
+        let requiredAneFiles = [
+            "KokoroAlbert.mlmodelc",
+            "KokoroPostAlbert.mlmodelc",
+            "KokoroAlignment.mlmodelc",
+            "KokoroProsody.mlmodelc",
+            "KokoroNoise.mlmodelc",
+            "KokoroVocoder.mlmodelc",
+            "KokoroTail.mlmodelc",
+            "vocab.json"
+        ]
+        guard requiredAneFiles.allSatisfy({
+            FileManager.default.fileExists(atPath: aneDirectory.appendingPathComponent($0).path)
+        }) else {
+            return false
+        }
+
+        let g2pDirectory = cacheRoot.appendingPathComponent("kokoro", isDirectory: true)
+        let requiredG2PFiles = [
+            "G2PEncoder.mlmodelc",
+            "G2PDecoder.mlmodelc",
+            "g2p_vocab.json"
+        ]
+        return requiredG2PFiles.allSatisfy {
+            FileManager.default.fileExists(atPath: g2pDirectory.appendingPathComponent($0).path)
+        }
+    }
+
+    static func removeItemIfExists(at url: URL) throws {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: url.path) else { return }
+        try fileManager.removeItem(at: url)
+    }
+}
+
 extension SpeechRuntimeResourceManager.InstallManifest {
     var cacheDirectories: [URL] {
         cacheDirectoryPaths.compactMap { path in

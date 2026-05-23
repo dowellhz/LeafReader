@@ -216,6 +216,8 @@ enum AISettingsLogicTests {
 
         try expect(kittenURL.hasSuffix("/kitten-tts-rs-macos-arm64.tar.gz"), "KittenTTS should use the release asset archive")
         try expect(kokoroURL.hasSuffix("/kokoro-coreml-macos-arm64.tar.gz"), "Kokoro should use the release asset archive")
+        try expect(kittenURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "KittenTTS should use the stable speech runtime asset release")
+        try expect(kokoroURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Kokoro should use the stable speech runtime asset release")
         try expect(!kittenURL.contains("/v1.4.18/"), "KittenTTS download URL should not be pinned to the old 1.4.18 release")
     }
 
@@ -234,6 +236,76 @@ enum AISettingsLogicTests {
             SpeechRuntimeResourceManager.availabilityText(isSupported: true, downloaded: false, minimumSystemVersionText: "macOS 12.0"),
             AppText.localized("未下载", "Not downloaded"),
             "missing runtimes should show that the model is not downloaded"
+        )
+    }
+
+    static func testSpeechRuntimeInstallManifestFiltersExternalCachePaths() throws {
+        let cacheRoot = SpeechRuntimeResourceManager.Runtime.fluidAudioModelCacheRoot
+        let validCacheDirectory = cacheRoot.appendingPathComponent("kokoro", isDirectory: true)
+        let externalDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("leafreader-external-cache-\(UUID().uuidString)", isDirectory: true)
+        let manifest = SpeechRuntimeResourceManager.InstallManifest(
+            runtimeID: SpeechRuntimeResourceManager.Runtime.kokoro.id,
+            cacheDirectoryPaths: [
+                validCacheDirectory.path,
+                cacheRoot.path,
+                externalDirectory.path
+            ]
+        )
+
+        try expectEqual(
+            manifest.cacheDirectories,
+            [validCacheDirectory],
+            "install manifests should only expose child directories inside the FluidAudio model cache"
+        )
+    }
+
+    static func testKokoroCacheInstallTransactionRollbackAndCommit() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("leafreader-kokoro-cache-transaction-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: root) }
+        try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
+
+        let existing = root.appendingPathComponent("existing", isDirectory: true)
+        let existingMarker = existing.appendingPathComponent("marker.txt")
+        let replacement = root.appendingPathComponent("replacement", isDirectory: true)
+        let replacementMarker = replacement.appendingPathComponent("marker.txt")
+        let backup = root.appendingPathComponent("backup", isDirectory: true)
+        try fileManager.createDirectory(at: existing, withIntermediateDirectories: true)
+        try "old".write(to: existingMarker, atomically: true, encoding: .utf8)
+        try fileManager.createDirectory(at: replacement, withIntermediateDirectories: true)
+        try "new".write(to: replacementMarker, atomically: true, encoding: .utf8)
+
+        var rollbackTransaction = KokoroCacheInstallTransaction(fileManager: fileManager)
+        try rollbackTransaction.replace(source: replacement, destination: existing, backup: backup)
+        rollbackTransaction.rollback()
+        try expectEqual(
+            try String(contentsOf: existingMarker, encoding: .utf8),
+            "old",
+            "rollback should restore the previous cache directory"
+        )
+        try expect(!fileManager.fileExists(atPath: backup.path), "rollback should remove the cache backup")
+
+        let committedReplacement = root.appendingPathComponent("committed-replacement", isDirectory: true)
+        let committedMarker = committedReplacement.appendingPathComponent("marker.txt")
+        let committedBackup = root.appendingPathComponent("committed-backup", isDirectory: true)
+        try fileManager.createDirectory(at: committedReplacement, withIntermediateDirectories: true)
+        try "committed".write(to: committedMarker, atomically: true, encoding: .utf8)
+
+        var commitTransaction = KokoroCacheInstallTransaction(fileManager: fileManager)
+        try commitTransaction.replace(source: committedReplacement, destination: existing, backup: committedBackup)
+        commitTransaction.commit()
+        try expectEqual(
+            try String(contentsOf: existingMarker, encoding: .utf8),
+            "committed",
+            "commit should keep the replacement cache directory"
+        )
+        try expect(!fileManager.fileExists(atPath: committedBackup.path), "commit should remove the cache backup")
+        try expectEqual(
+            commitTransaction.installedDirectories,
+            [existing],
+            "commit should keep installed directory records for manifest writing"
         )
     }
 

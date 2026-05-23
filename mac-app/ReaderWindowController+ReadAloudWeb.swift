@@ -19,13 +19,13 @@ extension ReaderWindowController {
                 }
                 guard self.canReadAloudSegmentsWithAvailableRuntime(segments) else {
                     self.finishReadAloudFromToolbar()
-                    self.openSpeechSettingsForMissingKokoro()
+                    self.openSpeechSettingsForMissingChineseRuntime()
                     return
                 }
-                KittenTTSPlayer.shared.speakEnglish(segments: segments) { [weak self] didUseKittenTTS in
+                SpeechPlaybackCoordinator.shared.speakText(segments: segments) { [weak self] didUseLocalTTS in
                     guard let self else { return }
                     DispatchQueue.main.async {
-                        self.handleReadAloudStartResult(didUseKittenTTS: didUseKittenTTS)
+                        self.handleReadAloudStartResult(didUseLocalTTS: didUseLocalTTS)
                     }
                 } finished: { [weak self] in
                     DispatchQueue.main.async {
@@ -36,13 +36,13 @@ extension ReaderWindowController {
         }
     }
 
-    private static func webReadAloudSegments(from value: Any?) -> [KittenTTSPlayer.ReadAloudSegment] {
+    private static func webReadAloudSegments(from value: Any?) -> [SpeechPlaybackCoordinator.ReadAloudSegment] {
         guard let rows = value as? [[String: Any]] else { return [] }
         return rows.compactMap { row in
             let text = (row["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let speechText = (row["speechText"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? text
             guard !text.isEmpty, !speechText.isEmpty else { return nil }
-            return KittenTTSPlayer.ReadAloudSegment(speechText: speechText, displayText: text)
+            return SpeechPlaybackCoordinator.ReadAloudSegment(speechText: speechText, displayText: text)
         }
     }
 }

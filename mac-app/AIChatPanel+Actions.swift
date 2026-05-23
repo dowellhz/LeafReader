@@ -159,8 +159,8 @@ extension AIChatPanel {
             speechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
             return
         }
-        KittenTTSPlayer.shared.speakEnglish(text) { [weak self] didUseKittenTTS in
-            guard !didUseKittenTTS else { return }
+        SpeechPlaybackCoordinator.shared.speakText(text) { [weak self] didUseLocalTTS in
+            guard !didUseLocalTTS else { return }
             self?.speechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
         }
     }

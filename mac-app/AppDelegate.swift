@@ -34,7 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        KittenTTSPlayer.shared.shutdownForTermination()
+        SpeechPlaybackCoordinator.shared.shutdownForTermination()
     }
 
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {

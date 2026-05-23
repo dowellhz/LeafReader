@@ -44,6 +44,7 @@ swiftc \
   mac-app/ReaderSessionPolicy.swift \
   mac-app/ReaderSessionStore.swift \
   mac-app/ReaderProgressFormatter.swift \
+  mac-app/ReadAloudTextMatcher.swift \
   mac-app/VocabularyTextPolicy.swift \
   mac-app/ReaderAIContextPolicy.swift \
   mac-app/AIResponseParser.swift \
@@ -58,6 +59,12 @@ swiftc \
   mac-app/KokoroWorkerResponseReader.swift \
   mac-app/ProcessRunner.swift \
   mac-app/SpeechTextPolicy.swift \
+  mac-app/SpeechTextNormalization.swift \
+  mac-app/SpeechSentenceBoundary.swift \
+  mac-app/SpeechRuntimeDownloadSupport.swift \
+  mac-app/SpeechRuntimeModel.swift \
+  mac-app/SpeechRuntimeStatus.swift \
+  mac-app/SpeechRuntimeInstaller.swift \
   mac-app/SpeechRuntimeDownloadFailureStore.swift \
   mac-app/SpeechRuntimeInstallHelpers.swift \
   mac-app/SpeechRuntimeResourceManager.swift \

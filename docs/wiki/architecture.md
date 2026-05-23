@@ -23,7 +23,7 @@ AppDelegate
 - `ProcessRunner.swift`: bounded external process execution for archive helpers and other command-line runtimes.
 - `AIChatPanel*.swift`: AI chat UI, request lifecycle, bubble layout, selection handling.
 - `AISettingsPanelController*.swift`: settings window, model configuration, AI analysis cache controls, and TTS runtime download controls.
-- `KittenTTSPlayer.swift`, `SpeechRuntimeResourceManager.swift`, and `RuntimeDownload.swift`: local TTS playback, runtime selection, compatibility, and model downloads.
+- `SpeechPlaybackCoordinator.swift`, `SpeechRuntimeResourceManager.swift`, and `RuntimeDownload.swift`: local TTS playback, runtime selection, compatibility, and model downloads.
 - `RecentDocuments*.swift` and `RecentBookCardView.swift`: bookshelf panel and recent document UI.
 - `WordRecordSQLiteStore.swift` and related stores: persistent word and conversation data.
 
@@ -39,6 +39,6 @@ Large controllers are split by behavior into extensions or focused helper views.
 - `mac-app/DocumentLoading.swift`
 - `mac-app/ProcessRunner.swift`
 - `mac-app/AIChatPanel.swift`
-- `mac-app/KittenTTSPlayer.swift`
+- `mac-app/SpeechPlaybackCoordinator.swift`
 - `mac-app/SpeechRuntimeResourceManager.swift`
 - `mac-app/WordRecordSQLiteStore.swift`

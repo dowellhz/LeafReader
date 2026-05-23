@@ -30,7 +30,7 @@ extension ReaderWindowController {
     private func pauseReadAloudFromToolbar() {
         guard isReadAloudActive else { return }
         isReadAloudPaused = true
-        KittenTTSPlayer.shared.pauseSpeaking()
+        SpeechPlaybackCoordinator.shared.pauseSpeaking()
         vocabularySpeechSynthesizer.pauseSpeaking(at: AVSpeechBoundary.immediate)
         updateReadAloudButton()
     }
@@ -38,7 +38,7 @@ extension ReaderWindowController {
     private func resumeReadAloudFromToolbar() {
         guard isReadAloudActive else { return }
         isReadAloudPaused = false
-        KittenTTSPlayer.shared.resumeSpeaking()
+        SpeechPlaybackCoordinator.shared.resumeSpeaking()
         vocabularySpeechSynthesizer.continueSpeaking()
         updateReadAloudButton()
         resumePendingPDFReadAloudIfNeeded()
@@ -46,16 +46,16 @@ extension ReaderWindowController {
 
     func stopReadAloudImmediately() {
         resetReadAloudState()
-        KittenTTSPlayer.shared.stopSpeaking()
+        SpeechPlaybackCoordinator.shared.stopSpeaking()
         vocabularySpeechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)
         resetReadAloudPDFTracking()
-        clearTemporaryTTSUnderline()
+        clearTemporaryReadAloudUnderline()
     }
 
     func finishReadAloudFromToolbar() {
         resetReadAloudState()
         resetReadAloudPDFTracking()
-        restoreTitleAfterKittenTTS()
+        restoreTitleAfterSpeechPlayback()
     }
 
     func beginReadAloudLoading() {
@@ -81,10 +81,10 @@ extension ReaderWindowController {
         """)
     }
 
-    func handleReadAloudStartResult(didUseKittenTTS: Bool) {
+    func handleReadAloudStartResult(didUseLocalTTS: Bool) {
         isReadAloudLoading = false
         updateReadAloudButton()
-        guard !didUseKittenTTS else { return }
+        guard !didUseLocalTTS else { return }
         finishReadAloudFromToolbar()
         showMissingSpeechRuntimeAlert()
     }
@@ -97,7 +97,7 @@ extension ReaderWindowController {
     }
 
     private func resetReadAloudPDFTracking() {
-        resetTTSReadingPDFProgress()
+        resetReadAloudPDFProgress()
         lastReadAloudAISource = nil
         lastReadAloudLinkedWordID = nil
         lastReadAloudSoftHintKey = nil

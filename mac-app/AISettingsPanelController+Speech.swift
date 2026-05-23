@@ -202,8 +202,8 @@ extension AISettingsPanelController {
         AISettingsStore.saveSelectedSpeechRuntimeID(runtimeID)
 
         let runtimeChanged = runtimeID != previousRuntimeID
-        if runtimeChanged, !KittenTTSPlayer.shared.hasActiveReadAloudWork() {
-            KittenTTSPlayer.shared.shutdown()
+        if runtimeChanged, !SpeechPlaybackCoordinator.shared.hasActiveReadAloudWork() {
+            SpeechPlaybackCoordinator.shared.shutdown()
         }
     }
 
@@ -266,7 +266,7 @@ extension AISettingsPanelController {
               let runtimeID,
               let runtime = SpeechRuntimeResourceManager.Runtime.runtime(for: runtimeID),
               SpeechRuntimeResourceManager.isRunnable(runtime),
-              !KittenTTSPlayer.shared.hasActiveReadAloudWork() else {
+              !SpeechPlaybackCoordinator.shared.hasActiveReadAloudWork() else {
             return
         }
         let voiceTitle = AISettingsStore.speechVoiceTitle(for: voiceID, runtimeID: runtime.id)
@@ -277,10 +277,10 @@ extension AISettingsPanelController {
         let speedID = AISettingsStore.selectedSpeechSpeedID
         speechVoicePreviewWorkItem?.cancel()
         if runtime == .kokoro {
-            KittenTTSPlayer.shared.cancelCurrentSpeechPreview(terminateKokoroWorker: true)
+            SpeechPlaybackCoordinator.shared.cancelCurrentSpeechPreview(terminateKokoroWorker: true)
         }
         let workItem = DispatchWorkItem {
-            KittenTTSPlayer.shared.speakCachedPreviewInterruption(
+            SpeechPlaybackCoordinator.shared.speakCachedPreviewInterruption(
                 text,
                 runtimeID: runtime.id,
                 voiceID: voiceID,
@@ -402,13 +402,13 @@ extension AISettingsPanelController {
         let previousRuntimeID = AISettingsStore.selectedSpeechRuntimeID
         AISettingsStore.saveSelectedSpeechRuntimeID(downloadedRuntime.id)
         guard downloadedRuntime.id != previousRuntimeID else { return }
-        if !KittenTTSPlayer.shared.hasActiveReadAloudWork() {
-            KittenTTSPlayer.shared.shutdown()
+        if !SpeechPlaybackCoordinator.shared.hasActiveReadAloudWork() {
+            SpeechPlaybackCoordinator.shared.shutdown()
         }
     }
 
     private func deleteSpeechRuntime(_ runtime: SpeechRuntimeResourceManager.Runtime) {
-        KittenTTSPlayer.shared.shutdownRuntime(runtime)
+        SpeechPlaybackCoordinator.shared.shutdownRuntime(runtime)
         do {
             try SpeechRuntimeResourceManager.delete(runtime)
             selectRunnableSpeechRuntimeIfNeeded(deletedRuntime: runtime)

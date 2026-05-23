@@ -1,17 +1,13 @@
 import Cocoa
 import AVFoundation
 
-final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
-    static let shared = KittenTTSPlayer()
-    static let readingSegmentDidChangeNotification = Notification.Name("LeafReader.KittenTTS.readingSegmentDidChange")
+final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
+    static let shared = SpeechPlaybackCoordinator()
+    static let readingSegmentDidChangeNotification = Notification.Name("LeafReader.SpeechPlayback.readingSegmentDidChange")
     private static let idleShutdownDelay: TimeInterval = 180
     private static let maxPendingReadAloudSegments = 2
 
-    private enum Runtime {
-        static let backendEnvironmentKey = "LEAFREADER_TTS_BACKEND"
-    }
-
-    private let queue = DispatchQueue(label: "LeafReader.KittenTTS", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "LeafReader.SpeechPlayback", qos: .userInitiated)
     private let kokoroBackend = KokoroTTSBackend()
     private let kittenBackend = KittenServerTTSBackend()
     private var activeBackend: PreferredBackend?
@@ -35,20 +31,6 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
 
     private override init() {}
 
-    struct ReadAloudSegment {
-        let speechText: String
-        let displayText: String
-        let matchText: String
-        let pageIndex: Int?
-
-        init(speechText: String, displayText: String? = nil, matchText: String? = nil, pageIndex: Int? = nil) {
-            self.speechText = speechText
-            self.displayText = displayText ?? speechText
-            self.matchText = matchText ?? displayText ?? speechText
-            self.pageIndex = pageIndex
-        }
-    }
-
     private struct PlaybackSegment {
         let outputURL: URL
         let speechText: String
@@ -59,14 +41,14 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         let pageIndex: Int?
     }
 
-    func speakEnglish(_ text: String, completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
+    func speakText(_ text: String, completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
         let segments = SpeechTextPolicy.readAloudSegments(for: text).map {
             ReadAloudSegment(speechText: $0)
         }
-        speakEnglish(segments: segments, completion: completion, finished: finished)
+        speakText(segments: segments, completion: completion, finished: finished)
     }
 
-    func speakEnglish(segments inputSegments: [ReadAloudSegment], completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
+    func speakText(segments inputSegments: [ReadAloudSegment], completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
         cancelScheduledIdleShutdown()
         let segments = inputSegments.flatMap { segment -> [ReadAloudSegment] in
             let speechText = SpeechTextPolicy.normalizedReadAloudInput(segment.speechText)
@@ -100,7 +82,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
                 guard self.isActiveGeneration(generationID) else { return }
                 guard self.waitForReadAloudBufferCapacity(generationID: generationID) else { return }
                 let outputURL = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("LeafReader-KittenTTS-\(UUID().uuidString).wav")
+                    .appendingPathComponent("LeafReader-SpeechPlayback-\(UUID().uuidString).wav")
                 guard self.generateWAV(text: segment.speechText, outputURL: outputURL) else {
                     try? FileManager.default.removeItem(at: outputURL)
                     continue
@@ -158,7 +140,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
     }
 
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        NSLog("LeafReader KittenTTS: AVAudioPlayer decode error: %@", String(describing: error))
+        NSLog("LeafReader SpeechPlayback: AVAudioPlayer decode error: %@", String(describing: error))
         if player === interruptionPlayer {
             finishInterruptionPlayback()
             return
@@ -184,7 +166,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         }
     }
 
-    func speakEnglishInterruption(_ text: String, completion: @escaping (Bool) -> Void, finished: @escaping () -> Void) {
+    func speakTextInterruption(_ text: String, completion: @escaping (Bool) -> Void, finished: @escaping () -> Void) {
         cancelScheduledIdleShutdown()
         let value = SpeechTextPolicy.normalizedReadAloudInput(text)
         guard SpeechTextPolicy.isLocalTTSCandidate(value) else {
@@ -194,7 +176,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
 
         let segment = SpeechTextPolicy.segments(for: value).joined(separator: " ")
         let outputURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("LeafReader-KittenTTS-Interrupt-\(UUID().uuidString).wav")
+            .appendingPathComponent("LeafReader-SpeechPlayback-Interrupt-\(UUID().uuidString).wav")
         let generationID = UUID()
         beginInterruptionGeneration(generationID)
         queue.async { [weak self] in
@@ -401,7 +383,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         do {
             player = try AVAudioPlayer(contentsOf: segment.outputURL)
         } catch {
-            NSLog("LeafReader KittenTTS: AVAudioPlayer load failed (output=%@, error=%@)", segment.outputURL.path, String(describing: error))
+            NSLog("LeafReader SpeechPlayback: AVAudioPlayer load failed (output=%@, error=%@)", segment.outputURL.path, String(describing: error))
             try? FileManager.default.removeItem(at: segment.outputURL)
             playNextOutputIfNeeded()
             return
@@ -412,7 +394,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         currentSegment = segment
         postReadingSegment(segment)
         if !player.play() {
-            NSLog("LeafReader KittenTTS: AVAudioPlayer playback failed (output=%@)", segment.outputURL.path)
+            NSLog("LeafReader SpeechPlayback: AVAudioPlayer playback failed (output=%@)", segment.outputURL.path)
             try? FileManager.default.removeItem(at: segment.outputURL)
             currentPlayer = nil
             currentSegment = nil
@@ -445,7 +427,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
                 return
             }
             NSLog(
-                "LeafReader KittenTTS: playback watchdog advanced stuck segment (index=%d, total=%d, output=%@)",
+                "LeafReader SpeechPlayback: playback watchdog advanced stuck segment (index=%d, total=%d, output=%@)",
                 segment.index,
                 segment.total,
                 segment.outputURL.path
@@ -494,7 +476,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         do {
             player = try AVAudioPlayer(contentsOf: outputURL)
         } catch {
-            NSLog("LeafReader KittenTTS: interruption AVAudioPlayer load failed (output=%@, error=%@)", outputURL.path, String(describing: error))
+            NSLog("LeafReader SpeechPlayback: interruption AVAudioPlayer load failed (output=%@, error=%@)", outputURL.path, String(describing: error))
             try? FileManager.default.removeItem(at: outputURL)
             finished()
             return
@@ -506,7 +488,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
         player.delegate = self
         player.prepareToPlay()
         if !player.play() {
-            NSLog("LeafReader KittenTTS: interruption AVAudioPlayer playback failed (output=%@)", outputURL.path)
+            NSLog("LeafReader SpeechPlayback: interruption AVAudioPlayer playback failed (output=%@)", outputURL.path)
             finishInterruptionPlayback()
         } else {
             NSLog("LeafReader TTS preview: playback started duration=%.3f output=%@", player.duration, outputURL.path)
@@ -523,7 +505,7 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
                   self.interruptionPlayer === player else {
                 return
             }
-            NSLog("LeafReader KittenTTS: interruption playback watchdog advanced stuck sound (output=%@)", outputURL.path)
+            NSLog("LeafReader SpeechPlayback: interruption playback watchdog advanced stuck sound (output=%@)", outputURL.path)
             player.stop()
             self.finishInterruptionPlayback()
         }
@@ -706,49 +688,6 @@ final class KittenTTSPlayer: NSObject, AVAudioPlayerDelegate {
             stopRuntimeProcesses()
         }
         activeBackend = backend
-    }
-
-    private enum PreferredBackend {
-        case kokoroCoreML
-        case kitten
-        case none
-
-        init(runtime: SpeechRuntimeResourceManager.Runtime) {
-            switch runtime {
-            case .kokoro:
-                self = .kokoroCoreML
-            case .kitten:
-                self = .kitten
-            }
-        }
-    }
-
-    private static func preferredBackend() -> PreferredBackend {
-        preferredBackend(for: "")
-    }
-
-    private static func preferredBackend(for text: String) -> PreferredBackend {
-        if SpeechTextPolicy.prefersChineseTTS(text) {
-            return SpeechRuntimeResourceManager.isRunnable(.kokoro) ? .kokoroCoreML : .none
-        }
-        let value = ProcessInfo.processInfo.environment[Runtime.backendEnvironmentKey]?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        switch value {
-        case "kitten", "kittentts", "kitten-tts", "rust":
-            return .kitten
-        case "kokoro", "kokoro-coreml", "coreml":
-            return .kokoroCoreML
-        default:
-            switch SpeechRuntimeResourceManager.runnableRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) {
-            case .kitten:
-                return .kitten
-            case .kokoro:
-                return .kokoroCoreML
-            case .none:
-                return .none
-            }
-        }
     }
 
     private func stopRuntimeProcesses() {
