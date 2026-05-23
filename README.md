@@ -22,7 +22,7 @@ Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is bu
 
 Download the latest macOS installer:
 
-[Leaf Reader 1.5.11 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.5.11/LeafReader-1.5.11.pkg)
+[Leaf Reader 1.6.0 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.6.0/LeafReader-1.6.0.pkg)
 
 Project website:
 
@@ -390,18 +390,18 @@ Preview and sync the GitHub Wiki copy:
 
 ## Release
 
-Current version: `1.5.11`
+Current version: `1.6.0`
 
-Git tag: `v1.5.11`
+Git tag: `v1.6.0`
 
 Latest installer:
 
-[Leaf Reader-1.5.11.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.5.11/LeafReader-1.5.11.pkg)
+[Leaf Reader-1.6.0.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.6.0/LeafReader-1.6.0.pkg)
 
 Local release artifacts are expected under:
 
 ```text
-release/1.5.11/
+release/1.6.0/
 ```
 
 Sparkle updates use:
@@ -415,13 +415,13 @@ The appcast entry points to the signed and notarized pkg uploaded to GitHub Rele
 Build, sign, notarize, staple, and update the Sparkle appcast for a release:
 
 ```sh
-SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.5.11
+SPARKLE_PRIVATE_KEY_FILE=/path/to/sparkle-ed25519-private-key ./scripts/release_pkg.sh 1.6.0
 ```
 
 Run the full publish flow from a clean working tree:
 
 ```sh
-./scripts/publish_release.sh 1.5.11
+./scripts/publish_release.sh 1.6.0
 ```
 
 The publish script runs tests, builds/signs/notarizes the pkg, commits the version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-models` only when publishing changed speech model archives in `docs/tts/`.
