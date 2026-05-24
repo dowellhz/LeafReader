@@ -225,6 +225,71 @@ enum AISettingsLogicTests {
         }
     }
 
+    static func testPiperWorkerInputLineNormalizesNewlines() throws {
+        let line = PiperTTSBackend.workerInputLine(for: "  Hello\nPiper\rWorker  ")
+        try expectEqual(
+            String(data: line, encoding: .utf8),
+            "Hello Piper Worker\n",
+            "Piper worker input should be a single newline-terminated request line"
+        )
+    }
+
+    static func testPiperWorkerOutputPathValidation() throws {
+        let outputDirectory = URL(fileURLWithPath: "/tmp/leafreader-piper-worker", isDirectory: true)
+        let valid = outputDirectory.appendingPathComponent("123.wav")
+        try expectEqual(
+            PiperTTSBackend.workerOutputURL(from: valid.path, outputDirectory: outputDirectory),
+            valid,
+            "Piper worker output should accept wav files in the worker output directory"
+        )
+        try expectEqual(
+            PiperTTSBackend.workerOutputURL(from: "/tmp/other/123.wav", outputDirectory: outputDirectory),
+            nil,
+            "Piper worker output should reject paths outside the worker output directory"
+        )
+        try expectEqual(
+            PiperTTSBackend.workerOutputURL(from: "not a path", outputDirectory: outputDirectory),
+            nil,
+            "Piper worker output should reject non-wav stdout lines"
+        )
+    }
+
+    static func testKokoroInstalledVoiceCacheKeyUsesVariantVoiceAndPath() throws {
+        let first = KokoroVoiceResourceManager.installedVoiceCacheKey(
+            voiceID: "af_heart",
+            variant: "en",
+            destination: URL(fileURLWithPath: "/tmp/kokoro/af_heart.bin")
+        )
+        let second = KokoroVoiceResourceManager.installedVoiceCacheKey(
+            voiceID: "af_heart",
+            variant: "zh",
+            destination: URL(fileURLWithPath: "/tmp/kokoro/af_heart.bin")
+        )
+        let third = KokoroVoiceResourceManager.installedVoiceCacheKey(
+            voiceID: "af_heart",
+            variant: "en",
+            destination: URL(fileURLWithPath: "/tmp/other/af_heart.bin")
+        )
+        try expect(first != second, "Kokoro voice cache should separate English and Chinese variants")
+        try expect(first != third, "Kokoro voice cache should include the installed destination path")
+        KokoroVoiceResourceManager.invalidateInstalledVoiceCache()
+    }
+
+    static func testSpeechSynthesisErrorMessagesAreActionable() throws {
+        try expect(
+            SpeechSynthesisError.runtimeUnavailable("Piper").localizedDescription.contains("Piper"),
+            "runtime errors should name the failing runtime"
+        )
+        try expect(
+            SpeechSynthesisError.voiceUnavailable("Kokoro").localizedDescription.contains(AppText.localized("重新下载", "Download")),
+            "voice errors should tell the user to download the model again"
+        )
+        try expect(
+            SpeechSynthesisError.workerTimedOut("Kokoro").localizedDescription.contains(AppText.localized("超时", "timed out")),
+            "timeout errors should be distinguishable from missing-model errors"
+        )
+    }
+
     static func testSpeechRuntimeDownloadURLsUseReleaseAssets() throws {
         let kittenURL = SpeechRuntimeResourceManager.Runtime.kitten.downloadURL.absoluteString
         let kokoroURL = SpeechRuntimeResourceManager.Runtime.kokoro.downloadURL.absoluteString

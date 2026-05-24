@@ -28,6 +28,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
     private var shouldPlayNextGeneratedSegmentImmediately = false
     private var isSkippingCurrentSegment = false
     private var playbackFinishHandler: (() -> Void)?
+    private var lastSynthesisError: SpeechSynthesisError?
     var interruptionPlayer: AVAudioPlayer?
     var interruptionOutputURL: URL?
     var interruptionOutputShouldRemove = true
@@ -658,6 +659,8 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         guard !trimmed.isEmpty else { return }
         queue.async {
             self.kokoroBackend.stopIfLanguageDiffers(from: trimmed)
+            guard Self.preferredBackend(for: trimmed) == .kokoroCoreML else { return }
+            self.kokoroBackend.prewarmIfNeeded(text: trimmed)
         }
     }
 
@@ -693,23 +696,58 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         voiceID: String? = nil,
         languageHint: AISettingsStore.SpeechLanguageHint? = nil
     ) -> Bool {
+        generateWAVResult(
+            text: text,
+            outputURL: outputURL,
+            voiceID: voiceID,
+            languageHint: languageHint
+        ).isSuccess
+    }
+
+    func consumeLastSynthesisError() -> SpeechSynthesisError? {
+        if Thread.isMainThread {
+            let error = lastSynthesisError
+            lastSynthesisError = nil
+            return error
+        }
+        var error: SpeechSynthesisError?
+        DispatchQueue.main.sync {
+            error = self.lastSynthesisError
+            self.lastSynthesisError = nil
+        }
+        return error
+    }
+
+    func generateWAVResult(
+        text: String,
+        outputURL: URL,
+        voiceID: String? = nil,
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+    ) -> Result<Void, SpeechSynthesisError> {
         let backend = Self.preferredBackend(for: text, languageHint: languageHint)
         prepareForBackend(backend)
+        let result: Result<Void, SpeechSynthesisError>
         switch backend {
         case .kokoroCoreML:
-            return kokoroBackend.synthesize(
+            result = kokoroBackend.synthesizeResult(
                 text: text,
                 outputURL: outputURL,
                 voiceID: voiceID,
                 languageHint: languageHint
             )
         case .kitten:
-            return kittenBackend.synthesize(text: text, outputURL: outputURL, voiceID: voiceID)
+            result = kittenBackend.synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID)
         case .piper:
-            return piperBackend.synthesize(text: text, outputURL: outputURL, voiceID: voiceID)
+            result = piperBackend.synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID)
         case .none:
-            return false
+            result = .failure(.unsupportedLanguage(AppText.localized("当前朗读引擎", "Selected speech runtime")))
         }
+        if case .failure(let error) = result {
+            DispatchQueue.main.async {
+                self.lastSynthesisError = error
+            }
+        }
+        return result
     }
 
     private static func preferredBackend(

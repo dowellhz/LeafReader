@@ -74,6 +74,7 @@ enum SpeechRuntimeResourceManager {
         try removeItemIfExists(at: runtime.installDirectory)
         SpeechRuntimeDownloadFailureStore.clear(for: runtime)
         if runtime == .kokoro {
+            KokoroVoiceResourceManager.invalidateInstalledVoiceCache()
             let modelCacheDirectories = manifest?.cacheDirectories ?? kokoroModelCacheDirectories()
             for modelCacheDirectory in modelCacheDirectories {
                 try removeItemIfExists(at: modelCacheDirectory)

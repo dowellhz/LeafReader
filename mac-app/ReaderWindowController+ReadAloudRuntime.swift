@@ -66,6 +66,13 @@ extension ReaderWindowController {
         )
     }
 
+    func showSpeechPlaybackFailureAlert(error: SpeechSynthesisError) {
+        showSpeechRuntimeAlert(
+            messageText: AppText.localized("朗读生成失败", "Read Aloud Generation Failed"),
+            informativeText: error.localizedDescription
+        )
+    }
+
     func showMissingChineseSpeechRuntimeAlert() {
         showSpeechRuntimeAlert(
             messageText: AppText.localized("需要 Kokoro 中文朗读模型", "Kokoro Chinese Model Required"),

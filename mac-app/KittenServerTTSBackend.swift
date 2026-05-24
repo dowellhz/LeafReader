@@ -29,17 +29,25 @@ final class KittenServerTTSBackend {
     private var serverErrorPipe: Pipe?
 
     func synthesize(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
+        synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID).isSuccess
+    }
+
+    func synthesizeResult(text: String, outputURL: URL, voiceID: String? = nil) -> Result<Void, SpeechSynthesisError> {
+        guard Self.runtime() != nil else {
+            return .failure(Self.availabilityError())
+        }
         if ensureServer() {
             if Self.synthesizeWithServer(text: text, outputURL: outputURL, voiceID: voiceID) {
-                return true
+                return .success(())
             }
             stop()
             if ensureServer(),
                Self.synthesizeWithServer(text: text, outputURL: outputURL, voiceID: voiceID) {
-                return true
+                return .success(())
             }
+            return .failure(.invalidAudioOutput("KittenTTS"))
         }
-        return false
+        return .failure(.workerStartFailed("KittenTTS"))
     }
 
     func stop() {
@@ -312,5 +320,19 @@ final class KittenServerTTSBackend {
             }
         }
         return nil
+    }
+
+    private static func availabilityError() -> SpeechSynthesisError {
+        let runtime = SpeechRuntimeResourceManager.Runtime.kitten
+        let hasRuntime = runtime.installDirectories.contains {
+            SpeechRuntimeResourceManager.kittenRuntimePathsExist(in: $0)
+        }
+        let hasModel = runtime.installDirectories.contains {
+            SpeechRuntimeResourceManager.kittenModelPathsExist(in: $0)
+        }
+        if hasRuntime, !hasModel {
+            return .voiceUnavailable("KittenTTS")
+        }
+        return .runtimeUnavailable("KittenTTS")
     }
 }

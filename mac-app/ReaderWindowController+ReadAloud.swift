@@ -91,6 +91,8 @@ extension ReaderWindowController {
         finishReadAloudFromToolbar()
         if SpeechRuntimeResourceManager.runnableRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) == nil {
             showMissingSpeechRuntimeAlert()
+        } else if let error = SpeechPlaybackCoordinator.shared.consumeLastSynthesisError() {
+            showSpeechPlaybackFailureAlert(error: error)
         } else {
             showSpeechPlaybackFailureAlert()
         }

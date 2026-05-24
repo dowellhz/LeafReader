@@ -63,6 +63,10 @@ swiftc \
   mac-app/SpeechTextPolicy.swift \
   mac-app/SpeechTextNormalization.swift \
   mac-app/SpeechSentenceBoundary.swift \
+  mac-app/SpeechSynthesisError.swift \
+  mac-app/TTSWaveFile.swift \
+  mac-app/PiperTTSBackend.swift \
+  mac-app/KokoroVoiceResourceManager.swift \
   mac-app/SpeechRuntimeDownloadSupport.swift \
   mac-app/SpeechModelManifest.swift \
   mac-app/SpeechRuntimeModel.swift \

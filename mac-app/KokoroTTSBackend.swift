@@ -21,6 +21,7 @@ final class KokoroTTSBackend {
     private var workerErrorPipe: Pipe?
     private var workerVariant: String?
     private var workerVoiceID: String?
+    private var prewarmedWorkerKey: String?
 
     func synthesize(
         text: String,
@@ -28,20 +29,32 @@ final class KokoroTTSBackend {
         voiceID: String? = nil,
         languageHint: AISettingsStore.SpeechLanguageHint? = nil
     ) -> Bool {
+        synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID, languageHint: languageHint).isSuccess
+    }
+
+    func synthesizeResult(
+        text: String,
+        outputURL: URL,
+        voiceID: String? = nil,
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+    ) -> Result<Void, SpeechSynthesisError> {
         if synthesizeWithWorker(
             text: text,
             outputURL: outputURL,
             voiceID: voiceID,
             languageHint: languageHint
         ) {
-            return true
+            return .success(())
         }
-        return Self.synthesizeWithCLI(
+        if Self.synthesizeWithCLI(
             text: text,
             outputURL: outputURL,
             voiceID: voiceID,
             languageHint: languageHint
-        )
+        ) {
+            return .success(())
+        }
+        return .failure(Self.availabilityError(text: text, voiceID: voiceID, languageHint: languageHint))
     }
 
     func stopIfLanguageDiffers(from text: String) {
@@ -56,6 +69,62 @@ final class KokoroTTSBackend {
         stop()
     }
 
+    func prewarmIfNeeded(
+        text: String,
+        voiceID: String? = nil,
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+    ) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard SpeechRuntimeResourceManager.isRunnable(.kokoro),
+              !trimmed.isEmpty else {
+            return
+        }
+        let variant = Self.variant(for: trimmed, languageHint: languageHint)
+        let voice = voiceID ?? Self.selectedVoiceID(forVariant: variant)
+        let key = Self.workerKey(variant: variant, voiceID: voice, speed: Self.speed())
+        guard prewarmedWorkerKey != key else { return }
+        guard ensureWorker(variant: variant, voiceID: voice),
+              let inputPipe = workerInputPipe,
+              let outputPipe = workerOutputPipe else {
+            return
+        }
+
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LeafReader-KokoroPrewarm-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+        let request = Request(
+            id: UUID().uuidString,
+            text: Self.prewarmText(forVariant: variant),
+            output: outputURL.path,
+            voice: voice,
+            speed: Self.speed()
+        )
+        guard let requestData = try? JSONEncoder().encode(request) else { return }
+        do {
+            var line = requestData
+            line.append(0x0A)
+            try inputPipe.fileHandleForWriting.write(contentsOf: line)
+        } catch {
+            NSLog("LeafReader Kokoro CoreML: failed to write prewarm request (error=%@)", error.localizedDescription)
+            stop()
+            return
+        }
+        guard let response = readWorkerResponse(
+            requestID: request.id,
+            from: outputPipe.fileHandleForReading,
+            timeout: Self.responseTimeout
+        ) else {
+            NSLog("LeafReader Kokoro CoreML: worker prewarm timed out")
+            stop()
+            return
+        }
+        if response.ok {
+            prewarmedWorkerKey = key
+        } else if let error = response.error, !error.isEmpty {
+            NSLog("LeafReader Kokoro CoreML: worker prewarm failed (%@)", error)
+        }
+    }
+
     func stop() {
         workerErrorPipe?.fileHandleForReading.readabilityHandler = nil
         workerInputPipe?.fileHandleForWriting.closeFile()
@@ -68,6 +137,7 @@ final class KokoroTTSBackend {
         workerErrorPipe = nil
         workerVariant = nil
         workerVoiceID = nil
+        prewarmedWorkerKey = nil
     }
 
     private func synthesizeWithWorker(
@@ -174,6 +244,14 @@ final class KokoroTTSBackend {
         workerOutputPipe = outputPipe
         workerErrorPipe = errorPipe
         return true
+    }
+
+    private static func workerKey(variant: String, voiceID: String, speed: Double) -> String {
+        "\(variant)|\(voiceID)|\(String(format: "%.3f", speed))"
+    }
+
+    private static func prewarmText(forVariant variant: String) -> String {
+        variant == "zh" ? "你好。" : "Hello."
     }
 
     private func readWorkerResponse(
@@ -340,5 +418,25 @@ final class KokoroTTSBackend {
         let text = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard text.count > 2400 else { return text }
         return String(text.suffix(2400))
+    }
+
+    private static func availabilityError(
+        text: String,
+        voiceID: String?,
+        languageHint: AISettingsStore.SpeechLanguageHint?
+    ) -> SpeechSynthesisError {
+        guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else {
+            let runtime = SpeechRuntimeResourceManager.Runtime.kokoro
+            let hasRuntime = runtime.installDirectories.contains {
+                FileManager.default.isExecutableFile(atPath: runtime.executableURL(in: $0).path)
+            }
+            return hasRuntime ? .voiceUnavailable("Kokoro") : .runtimeUnavailable("Kokoro")
+        }
+        let variant = variant(for: text, languageHint: languageHint)
+        let voice = voiceID ?? selectedVoiceID(forVariant: variant)
+        guard KokoroVoiceResourceManager.ensureInstalled(voiceID: voice, variant: variant) else {
+            return .voiceUnavailable("Kokoro")
+        }
+        return .processFailed("Kokoro")
     }
 }
