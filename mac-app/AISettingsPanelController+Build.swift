@@ -170,16 +170,22 @@ extension AISettingsPanelController {
         let speechSpeedPopup = speechSection.speedPopup
         let kokoroSpeechStatusLabel = speechSection.kokoroStatusLabel
         let kittenSpeechStatusLabel = speechSection.kittenStatusLabel
+        let piperSpeechStatusLabel = speechSection.piperStatusLabel
         let kokoroSpeechProgressIndicator = speechSection.kokoroProgressIndicator
         let kittenSpeechProgressIndicator = speechSection.kittenProgressIndicator
+        let piperSpeechProgressIndicator = speechSection.piperProgressIndicator
         let kokoroSpeechDownloadButton = speechSection.kokoroDownloadButton
         let kittenSpeechDownloadButton = speechSection.kittenDownloadButton
+        let piperSpeechDownloadButton = speechSection.piperDownloadButton
         let kokoroSpeechPauseButton = speechSection.kokoroPauseButton
         let kittenSpeechPauseButton = speechSection.kittenPauseButton
+        let piperSpeechPauseButton = speechSection.piperPauseButton
         let kokoroSpeechCancelButton = speechSection.kokoroCancelButton
         let kittenSpeechCancelButton = speechSection.kittenCancelButton
+        let piperSpeechCancelButton = speechSection.piperCancelButton
         let kokoroSpeechDeleteButton = speechSection.kokoroDeleteButton
         let kittenSpeechDeleteButton = speechSection.kittenDeleteButton
+        let piperSpeechDeleteButton = speechSection.piperDeleteButton
 
         let testChatButton = settingsActionButton(title: AppText.localized("测试模型连接", "Test Chat"), target: self, action: #selector(testChatConnection(_:)))
         testChatButton.font = AppFont.semibold(ofSize: settingsFontSize)
@@ -457,16 +463,22 @@ extension AISettingsPanelController {
         self.speechSpeedPopup = speechSpeedPopup
         self.kokoroSpeechStatusLabel = kokoroSpeechStatusLabel
         self.kittenSpeechStatusLabel = kittenSpeechStatusLabel
+        self.piperSpeechStatusLabel = piperSpeechStatusLabel
         self.kokoroSpeechProgressIndicator = kokoroSpeechProgressIndicator
         self.kittenSpeechProgressIndicator = kittenSpeechProgressIndicator
+        self.piperSpeechProgressIndicator = piperSpeechProgressIndicator
         self.kokoroSpeechDownloadButton = kokoroSpeechDownloadButton
         self.kittenSpeechDownloadButton = kittenSpeechDownloadButton
+        self.piperSpeechDownloadButton = piperSpeechDownloadButton
         self.kokoroSpeechPauseButton = kokoroSpeechPauseButton
         self.kittenSpeechPauseButton = kittenSpeechPauseButton
+        self.piperSpeechPauseButton = piperSpeechPauseButton
         self.kokoroSpeechCancelButton = kokoroSpeechCancelButton
         self.kittenSpeechCancelButton = kittenSpeechCancelButton
+        self.piperSpeechCancelButton = piperSpeechCancelButton
         self.kokoroSpeechDeleteButton = kokoroSpeechDeleteButton
         self.kittenSpeechDeleteButton = kittenSpeechDeleteButton
+        self.piperSpeechDeleteButton = piperSpeechDeleteButton
         self.cacheStatusLabel = cacheStatusLabel
         self.currentIndexStatusLabel = currentIndexStatusLabel
         refreshSpeechRuntimeStatus()

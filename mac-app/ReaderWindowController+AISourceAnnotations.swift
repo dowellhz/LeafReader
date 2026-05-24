@@ -26,7 +26,7 @@ extension ReaderWindowController {
             aiSourceLocationsByUnderlineKey[key] = source
 
             let annotation = PDFAnnotation(bounds: bounds, forType: .underline, withProperties: nil)
-            annotation.color = NSColor.systemBlue.withAlphaComponent(0.55)
+            annotation.color = ReaderTheme.selected.aiSourceUnderlineColor
             annotation.contents = key
             let border = PDFBorder()
             border.lineWidth = 0.5
@@ -107,6 +107,22 @@ extension ReaderWindowController {
         activeAISourceUnderlines.removeAll()
     }
 
+    func updateAISourceUnderlineTheme(_ theme: ReaderTheme) {
+        if currentDocumentKind != .pdf {
+            updateWebAISourceUnderlineTheme(theme)
+            return
+        }
+        guard let document = pdfView.document else { return }
+        for pageIndex in 0..<document.pageCount {
+            guard let page = document.page(at: pageIndex) else { continue }
+            for annotation in page.annotations where isAISourceUnderline(annotation) {
+                annotation.color = theme.aiSourceUnderlineColor
+            }
+        }
+        pdfView.setNeedsDisplay(pdfView.bounds)
+        pdfView.documentView?.setNeedsDisplay(pdfView.documentView?.bounds ?? .zero)
+    }
+
     func addWebAISourceUnderline(for source: AIConversationSourceLocation) {
         guard currentDocumentKind != .pdf,
               let selectedText = source.selectedText?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -142,6 +158,16 @@ extension ReaderWindowController {
     func clearWebAISourceUnderlines() {
         guard currentDocumentKind != .pdf else { return }
         webView.evaluateJavaScript("window.leafReaderClearAISourceUnderlines && window.leafReaderClearAISourceUnderlines();")
+    }
+
+    func updateWebAISourceUnderlineTheme(_ theme: ReaderTheme) {
+        guard currentDocumentKind != .pdf else { return }
+        webView.evaluateJavaScript("""
+        document.documentElement.style.setProperty(
+          '--leaf-reader-ai-source-underline',
+          \(jsStringLiteral(cssRGBAString(for: theme.aiSourceUnderlineColor)))
+        );
+        """)
     }
 
     func handleWebAISourceClick(key: String) {

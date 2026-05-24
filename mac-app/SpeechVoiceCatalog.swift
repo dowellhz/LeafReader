@@ -4,10 +4,17 @@ import Foundation
 enum SpeechVoiceCatalog {
     static let defaultKittenVoiceID = "Jasper"
     static let defaultKokoroVoiceID = "af_heart"
+    static let defaultPiperVoiceID = "en_US-lessac-high"
 
     private typealias Definition = (zhTitle: String, enTitle: String, id: String)
 
     private static let kittenVoiceIDs = ["Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo"]
+
+    private static let piperVoiceDefinitions: [Definition] = [
+        ("美国女声 Lessac High", "American Female Lessac High", "en_US-lessac-high"),
+        ("美国女声 Lessac Medium", "American Female Lessac Medium", "en_US-lessac-medium"),
+        ("美国男声 Ryan", "American Male Ryan", "en_US-ryan-medium")
+    ]
 
     private static let kokoroEnglishVoiceDefinitions: [Definition] = [
         ("美国女声 Bella", "American Female Bella", "af_bella"),
@@ -44,12 +51,30 @@ enum SpeechVoiceCatalog {
         kokoroEnglishVoiceIDs.contains(id) || kokoroChineseVoiceIDs.contains(id)
     }
 
+    static func isValidPiperVoiceID(_ id: String) -> Bool {
+        piperVoiceDefinitions.contains { $0.id == id }
+    }
+
     static var kittenVoiceOptions: [(title: String, id: String)] {
         kittenVoiceIDs.map { ($0, $0) }
     }
 
     static var kokoroVoiceOptions: [(title: String, id: String)] {
         kokoroVoiceOptions(languageHint: nil)
+    }
+
+    static var piperVoiceOptions: [(title: String, id: String)] {
+        let options = localizedOptions(piperVoiceDefinitions)
+        let availableIDs = availablePiperVoiceIDs()
+        return availableIDs.isEmpty ? options : options.filter { availableIDs.contains($0.id) }
+    }
+
+    static func selectedPiperVoiceID(_ selected: String) -> String {
+        let options = piperVoiceOptions
+        if options.contains(where: { $0.id == selected }) {
+            return selected
+        }
+        return options.first?.id ?? defaultPiperVoiceID
     }
 
     static func kokoroVoiceOptions(languageHint: AISettingsStore.SpeechLanguageHint?) -> [(title: String, id: String)] {
@@ -102,6 +127,24 @@ enum SpeechVoiceCatalog {
                 ids.insert(url.deletingPathExtension().lastPathComponent)
             }
         }
+        return ids
+    }
+
+    private static func availablePiperVoiceIDs() -> Set<String> {
+        var ids = Set<String>()
+        let voiceDirectory = SpeechRuntimeResourceManager.Runtime.piper
+            .modelDirectory(in: SpeechRuntimeResourceManager.Runtime.piper.installDirectory)
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: voiceDirectory,
+            includingPropertiesForKeys: nil
+        ) else {
+            return ids
+        }
+        let modelIDs = Set(contents.filter { $0.pathExtension == "onnx" }.map { $0.deletingPathExtension().lastPathComponent })
+        let configIDs = Set(contents.filter { $0.lastPathComponent.hasSuffix(".onnx.json") }.map {
+            $0.lastPathComponent.replacingOccurrences(of: ".onnx.json", with: "")
+        })
+        ids.formUnion(modelIDs.intersection(configIDs))
         return ids
     }
 }

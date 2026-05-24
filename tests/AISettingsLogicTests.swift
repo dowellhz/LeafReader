@@ -164,53 +164,78 @@ enum AISettingsLogicTests {
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "speech runtime should default to KittenTTS")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Jasper", "KittenTTS voice should default to Jasper")
             try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "af_heart", "Kokoro voice should default to Heart")
+            try expectEqual(AISettingsStore.selectedPiperSpeechVoiceID, "en_US-lessac-high", "Piper voice should default to Lessac High")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "speech speed should default to normal")
             try expect(AISettingsStore.speechVoiceOptions(runtimeID: "kitten").contains { $0.id == "Jasper" }, "KittenTTS voice options should include Jasper")
             try expect(AISettingsStore.speechVoiceOptions(runtimeID: "kokoro").contains { $0.id == "af_heart" }, "Kokoro voice options should include Heart")
+            try expect(AISettingsStore.speechVoiceOptions(runtimeID: "piper").contains { $0.id == "en_US-lessac-high" }, "Piper voice options should include Lessac High")
 
             AISettingsStore.saveSelectedSpeechRuntimeID("kitten")
             AISettingsStore.saveKittenSpeechVoiceID("Bella")
             AISettingsStore.saveKokoroSpeechVoiceID("zf_001")
+            AISettingsStore.savePiperSpeechVoiceID("en_US-lessac-high")
             AISettingsStore.saveSpeechSpeedID("slow")
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "valid speech runtime should save")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Bella", "valid KittenTTS voice should save")
             try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "zf_001", "valid Kokoro voice should save")
+            try expectEqual(AISettingsStore.selectedPiperSpeechVoiceID, "en_US-lessac-high", "valid Piper voice should save")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "slow", "valid speech speed should save")
 
             AISettingsStore.saveSelectedSpeechRuntimeID("missing-runtime")
             AISettingsStore.saveKittenSpeechVoiceID("Dragon")
             AISettingsStore.saveKokoroSpeechVoiceID("Dragon")
+            AISettingsStore.savePiperSpeechVoiceID("Dragon")
             AISettingsStore.saveSpeechSpeedID("warp")
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "invalid speech runtime should be ignored")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Bella", "invalid KittenTTS voice should be ignored")
             try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "zf_001", "invalid Kokoro voice should be ignored")
+            try expectEqual(AISettingsStore.selectedPiperSpeechVoiceID, "en_US-lessac-high", "invalid Piper voice should be ignored")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "slow", "invalid speech speed should be ignored")
 
             AISettingsStore.saveSpeechVoiceID("Luna", runtimeID: "kitten")
             AISettingsStore.saveSpeechVoiceID("zf_002", runtimeID: "kokoro")
+            AISettingsStore.saveSpeechVoiceID("en_US-lessac-high", runtimeID: "piper")
             try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "kitten"), "Luna", "generic KittenTTS voice save should use the KittenTTS list")
             try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "kokoro"), "zf_002", "generic Kokoro voice save should use the Kokoro list")
+            try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "piper"), "en_US-lessac-high", "generic Piper voice save should use the Piper list")
             try expectEqual(AISettingsStore.speechVoiceTitle(for: "zf_002", runtimeID: "kokoro"), AppText.localized("中文女声 2", "Chinese Female 2"), "Kokoro preview should use the display voice title")
 
             defaults.set(" missing-runtime ", forKey: AISettingsStore.selectedSpeechRuntimeKey)
             defaults.set(" Dragon ", forKey: AISettingsStore.kittenSpeechVoiceKey)
             defaults.set(" Dragon ", forKey: AISettingsStore.kokoroSpeechVoiceKey)
+            defaults.set(" Dragon ", forKey: AISettingsStore.piperSpeechVoiceKey)
             defaults.set(" warp ", forKey: AISettingsStore.speechSpeedKey)
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "invalid stored speech runtime should fall back")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Jasper", "invalid stored KittenTTS voice should fall back")
             try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "af_heart", "invalid stored Kokoro voice should fall back")
+            try expectEqual(AISettingsStore.selectedPiperSpeechVoiceID, "en_US-lessac-high", "invalid stored Piper voice should fall back")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "invalid stored speech speed should fall back")
+        }
+    }
+
+    static func testPiperSpeechSpeedLengthScale() throws {
+        try withIsolatedAISettingsDefaults { _ in
+            try expectEqual(AISettingsStore.piperLengthScale, 1.0, "Piper normal speed should use the default length scale")
+            AISettingsStore.saveSpeechSpeedID("fast")
+            try expectEqual(AISettingsStore.piperLengthScale, 0.72, "Piper fast speed should shorten phoneme length")
+            AISettingsStore.saveSpeechSpeedID("slow")
+            try expectEqual(AISettingsStore.piperLengthScale, 1.35, "Piper slow speed should lengthen phonemes")
+            AISettingsStore.saveSpeechSpeedID("verySlow")
+            try expectEqual(AISettingsStore.piperLengthScale, 1.65, "Piper very slow speed should lengthen phonemes further")
         }
     }
 
     static func testSpeechRuntimeDownloadURLsUseReleaseAssets() throws {
         let kittenURL = SpeechRuntimeResourceManager.Runtime.kitten.downloadURL.absoluteString
         let kokoroURL = SpeechRuntimeResourceManager.Runtime.kokoro.downloadURL.absoluteString
+        let piperURL = SpeechRuntimeResourceManager.Runtime.piper.downloadURL.absoluteString
 
         try expect(kittenURL.hasSuffix("/kitten-tts-rs-macos-arm64.tar.gz"), "KittenTTS should use the release asset archive")
         try expect(kokoroURL.hasSuffix("/kokoro-coreml-macos-arm64.tar.gz"), "Kokoro should use the release asset archive")
+        try expect(piperURL.hasSuffix("/piper-tts-macos-arm64.tar.gz"), "Piper should use the release asset archive")
         try expect(kittenURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "KittenTTS should use the stable speech runtime asset release")
         try expect(kokoroURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Kokoro should use the stable speech runtime asset release")
+        try expect(piperURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Piper should use the stable speech runtime asset release")
         try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Speech model manifest should use the same stable asset release")
         try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.hasSuffix("/speech-models-manifest.json"), "Speech model manifest should use the release asset manifest")
         try expect(!kittenURL.contains("/v1.4.18/"), "KittenTTS download URL should not be pinned to the old 1.4.18 release")
@@ -276,9 +301,45 @@ enum AISettingsLogicTests {
         )
     }
 
+    static func testPiperRuntimeRequiresPhonemizeResources() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("leafreader-piper-runtime-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let executable = root.appendingPathComponent("piper/piper")
+        try fileManager.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data().write(to: executable)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        try expect(
+            !SpeechRuntimeResourceManager.piperRuntimePathsExist(in: root),
+            "Piper runtime should not be runnable without phonemize libraries and espeak data"
+        )
+
+        try fileManager.createDirectory(
+            at: root.appendingPathComponent("piper-phonemize/lib", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try expect(
+            !SpeechRuntimeResourceManager.piperRuntimePathsExist(in: root),
+            "Piper runtime should not be runnable without espeak data"
+        )
+
+        try fileManager.createDirectory(
+            at: root.appendingPathComponent("piper-phonemize/share/espeak-ng-data", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try expect(
+            SpeechRuntimeResourceManager.piperRuntimePathsExist(in: root),
+            "Piper runtime should be runnable when executable, phonemize libraries, and espeak data are present"
+        )
+    }
+
     static func testSpeechRuntimeInstallManifestFiltersExternalCachePaths() throws {
         let cacheRoot = SpeechRuntimeResourceManager.Runtime.fluidAudioModelCacheRoot
         let validCacheDirectory = cacheRoot.appendingPathComponent("kokoro", isDirectory: true)
+        let piperCacheRoot = SpeechRuntimeResourceManager.Runtime.piperVoiceCacheRoot
+        let validPiperCacheDirectory = piperCacheRoot.appendingPathComponent("en", isDirectory: true)
         let externalDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("leafreader-external-cache-\(UUID().uuidString)", isDirectory: true)
         let manifest = SpeechRuntimeResourceManager.InstallManifest(
@@ -286,14 +347,16 @@ enum AISettingsLogicTests {
             cacheDirectoryPaths: [
                 validCacheDirectory.path,
                 cacheRoot.path,
+                validPiperCacheDirectory.path,
+                piperCacheRoot.path,
                 externalDirectory.path
             ]
         )
 
         try expectEqual(
             manifest.cacheDirectories,
-            [validCacheDirectory],
-            "install manifests should only expose child directories inside the FluidAudio model cache"
+            [validCacheDirectory, validPiperCacheDirectory],
+            "install manifests should only expose child directories inside known speech model caches"
         )
     }
 

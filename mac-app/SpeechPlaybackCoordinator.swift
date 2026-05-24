@@ -11,6 +11,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
     let queue = DispatchQueue(label: "LeafReader.SpeechPlayback", qos: .userInitiated)
     let kokoroBackend = KokoroTTSBackend()
     let kittenBackend = KittenServerTTSBackend()
+    let piperBackend = PiperTTSBackend()
     var activeBackend: PreferredBackend?
     private var currentPlayer: AVAudioPlayer?
     private var currentSegment: PlaybackSegment?
@@ -583,6 +584,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
     private func forceTerminateRuntimeProcesses() {
         kokoroBackend.stop()
         kittenBackend.stop()
+        piperBackend.stop()
         activeBackend = nil
     }
 
@@ -643,6 +645,8 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
                 self.kokoroBackend.stop()
             case .kitten:
                 self.kittenBackend.stop()
+            case .piper:
+                self.piperBackend.stop()
             case .none:
                 break
             }
@@ -701,6 +705,8 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
             )
         case .kitten:
             return kittenBackend.synthesize(text: text, outputURL: outputURL, voiceID: voiceID)
+        case .piper:
+            return piperBackend.synthesize(text: text, outputURL: outputURL, voiceID: voiceID)
         case .none:
             return false
         }
@@ -721,8 +727,13 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         switch backend {
         case .kokoroCoreML:
             kittenBackend.stop()
+            piperBackend.stop()
         case .kitten:
             kokoroBackend.stop()
+            piperBackend.stop()
+        case .piper:
+            kokoroBackend.stop()
+            kittenBackend.stop()
         case .none:
             stopRuntimeProcesses()
         }
@@ -732,6 +743,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
     private func stopRuntimeProcesses() {
         kokoroBackend.stop()
         kittenBackend.stop()
+        piperBackend.stop()
         activeBackend = nil
     }
 }

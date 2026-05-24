@@ -25,7 +25,33 @@ extension SpeechRuntimeResourceManager {
             return kittenRuntimePathsExist(in: directory)
         case .kokoro:
             return requiredPathsExist(runtime.requiredPaths(in: directory))
+        case .piper:
+            return piperRuntimePathsExist(in: directory)
         }
+    }
+
+    static func piperRuntimePathsExist(in directory: URL) -> Bool {
+        let phonemizeLibraryDirectory = directory
+            .appendingPathComponent("piper-phonemize/lib", isDirectory: true)
+        let eSpeakDataDirectory = directory
+            .appendingPathComponent("piper-phonemize/share/espeak-ng-data", isDirectory: true)
+        return FileManager.default.isExecutableFile(atPath: Runtime.piper.executableURL(in: directory).path)
+            && directoryExists(phonemizeLibraryDirectory)
+            && directoryExists(eSpeakDataDirectory)
+    }
+
+    static func piperVoicePathsExist(voiceID: String = SpeechVoiceCatalog.defaultPiperVoiceID) -> Bool {
+        piperVoicePathsExist(in: Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory), voiceID: voiceID)
+    }
+
+    static func piperVoicePathsExist(in modelDirectory: URL, voiceID: String = SpeechVoiceCatalog.defaultPiperVoiceID) -> Bool {
+        let model = modelDirectory.appendingPathComponent("\(voiceID).onnx")
+        let config = modelDirectory.appendingPathComponent("\(voiceID).onnx.json")
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: modelDirectory.path, isDirectory: &isDirectory)
+            && isDirectory.boolValue
+            && FileManager.default.fileExists(atPath: model.path)
+            && FileManager.default.fileExists(atPath: config.path)
     }
 
     static func kittenModelPathsExist(in directory: URL) -> Bool {
@@ -47,6 +73,10 @@ extension SpeechRuntimeResourceManager {
             cacheRoot.appendingPathComponent("kokoro", isDirectory: true),
             cacheRoot.appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
         ]
+    }
+
+    static func piperVoiceCacheDirectories() -> [URL] {
+        [Runtime.piperVoiceCacheRoot]
     }
 
     static func kokoroAneModelCacheExists() -> Bool {
@@ -89,13 +119,19 @@ extension SpeechRuntimeResourceManager {
         guard fileManager.fileExists(atPath: url.path) else { return }
         try fileManager.removeItem(at: url)
     }
+
+    private static func directoryExists(_ url: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+            && isDirectory.boolValue
+    }
 }
 
 extension SpeechRuntimeResourceManager.InstallManifest {
     var cacheDirectories: [URL] {
         cacheDirectoryPaths.compactMap { path in
             let url = URL(fileURLWithPath: path, isDirectory: true)
-            return url.isInsideFluidAudioModelCache ? url : nil
+            return (url.isInsideFluidAudioModelCache || url.isInsidePiperVoiceCache) ? url : nil
         }
     }
 }
@@ -174,10 +210,15 @@ struct KokoroCacheInstallTransaction {
 
 extension URL {
     var isInsideFluidAudioModelCache: Bool {
-        let rootPath = SpeechRuntimeResourceManager.Runtime.fluidAudioModelCacheRoot
-            .standardizedFileURL
-            .path
-        let path = standardizedFileURL.path
-        return path.hasPrefix(rootPath + "/")
+        isDescendant(of: SpeechRuntimeResourceManager.Runtime.fluidAudioModelCacheRoot)
+    }
+
+    var isInsidePiperVoiceCache: Bool {
+        isDescendant(of: SpeechRuntimeResourceManager.Runtime.piperVoiceCacheRoot)
+    }
+
+    private func isDescendant(of root: URL) -> Bool {
+        let rootPath = root.standardizedFileURL.path
+        return standardizedFileURL.path.hasPrefix(rootPath + "/")
     }
 }

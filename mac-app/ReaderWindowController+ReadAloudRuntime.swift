@@ -55,8 +55,8 @@ extension ReaderWindowController {
         let alert = NSAlert()
         alert.messageText = AppText.localized("需要下载朗读模型", "Read Aloud Model Required")
         alert.informativeText = AppText.localized(
-            "朗读需要先下载 Kokoro 或 KittenTTS 模型。",
-            "Read aloud requires downloading a Kokoro or KittenTTS speech model first."
+            "朗读需要先下载 Kokoro、KittenTTS 或 Piper 模型。",
+            "Read aloud requires downloading a Kokoro, KittenTTS, or Piper speech model first."
         )
         alert.alertStyle = .informational
         alert.addButton(withTitle: AppText.localized("打开朗读设置", "Open Read Aloud Settings"))

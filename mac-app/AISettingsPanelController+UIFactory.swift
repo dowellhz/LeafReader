@@ -206,7 +206,7 @@ extension AISettingsPanelController {
         view.identifier = Identifiers.settingsSpeechRowCard
         let theme = ReaderTheme.selected
         view.layer?.backgroundColor = settingsSpeechRowBackgroundColor(for: theme).cgColor
-        view.layer?.cornerRadius = 9
+        view.layer?.cornerRadius = 7
         view.layer?.borderWidth = 1
         return view
     }

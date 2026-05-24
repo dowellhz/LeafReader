@@ -14,6 +14,11 @@ extension SpeechRuntimeResourceManager {
                 FileManager.default.isExecutableFile(atPath: directory.appendingPathComponent("fluidaudiocli").path)
             } && kokoroAneModelCacheExists()
         }
+        if runtime == .piper {
+            return runtime.installDirectories.contains { directory in
+                piperRuntimePathsExist(in: directory)
+            } && piperVoicePathsExist()
+        }
         return runtime.installDirectories.contains { directory in
             requiredPathsExist(runtime.requiredPaths(in: directory))
         }
@@ -61,6 +66,7 @@ extension SpeechRuntimeResourceManager {
 
     static func statusText(for runtime: Runtime) -> String {
         let size = runtime.downloadSizeText
+        let summary = runtime.summaryText
         if isDownloading(runtime) {
             if isPaused(runtime) {
                 return AppText.localized("已暂停 · \(size)", "Paused · \(size)")
@@ -76,13 +82,13 @@ extension SpeechRuntimeResourceManager {
             }
             if let failure = SpeechRuntimeDownloadFailureStore.failure(for: runtime) {
                 return AppText.localized(
-                    "未下载 · 需要 \(runtime.minimumSystemVersionText) 或更高 · \(size) · 上次失败：\(failure.message)",
-                    "Not downloaded · Requires \(runtime.minimumSystemVersionText) or later · \(size) · Last failed: \(failure.message)"
+                    "未下载 · \(summary) · 需要 \(runtime.minimumSystemVersionText) 或更高 · \(size) · 上次失败：\(failure.message)",
+                    "Not downloaded · \(summary) · Requires \(runtime.minimumSystemVersionText) or later · \(size) · Last failed: \(failure.message)"
                 )
             }
             return AppText.localized(
-                "未下载 · 需要 \(runtime.minimumSystemVersionText) 或更高 · \(size)",
-                "Not downloaded · Requires \(runtime.minimumSystemVersionText) or later · \(size)"
+                "未下载 · \(summary) · 需要 \(runtime.minimumSystemVersionText) 或更高 · \(size)",
+                "Not downloaded · \(summary) · Requires \(runtime.minimumSystemVersionText) or later · \(size)"
             )
         }
         if isRunnable(runtime) {
@@ -90,10 +96,10 @@ extension SpeechRuntimeResourceManager {
         }
         if let failure = SpeechRuntimeDownloadFailureStore.failure(for: runtime) {
             return AppText.localized(
-                "未下载 · \(size) · 上次失败：\(failure.message)",
-                "Not downloaded · \(size) · Last failed: \(failure.message)"
+                "未下载 · \(summary) · \(size) · 上次失败：\(failure.message)",
+                "Not downloaded · \(summary) · \(size) · Last failed: \(failure.message)"
             )
         }
-        return AppText.localized("未下载 · \(size)", "Not downloaded · \(size)")
+        return AppText.localized("未下载 · \(summary) · \(size)", "Not downloaded · \(summary) · \(size)")
     }
 }

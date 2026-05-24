@@ -268,6 +268,9 @@ extension AIChatPanel {
             for button in box.subviews.compactMap({ $0 as? NSButton }) where button.action == #selector(deleteBubble(_:)) {
                 button.contentTintColor = secondaryTextColor
             }
+            for button in box.subviews.compactMap({ $0 as? WordSpeakerButton }) {
+                button.contentTintColor = aiAccentColor
+            }
             if let metadata {
                 restyleSourceLabels(in: box, body: body, sourceLocation: metadata.sourceLocation)
             }

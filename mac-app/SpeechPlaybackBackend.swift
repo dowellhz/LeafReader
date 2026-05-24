@@ -4,6 +4,7 @@ extension SpeechPlaybackCoordinator {
     enum PreferredBackend {
         case kokoroCoreML
         case kitten
+        case piper
         case none
 
         init(runtime: SpeechRuntimeResourceManager.Runtime) {
@@ -12,6 +13,8 @@ extension SpeechPlaybackCoordinator {
                 self = .kokoroCoreML
             case .kitten:
                 self = .kitten
+            case .piper:
+                self = .piper
             }
         }
     }
@@ -32,12 +35,16 @@ extension SpeechPlaybackCoordinator {
         switch value {
         case "kitten", "kittentts", "kitten-tts", "rust":
             return .kitten
+        case "piper", "piper-tts":
+            return .piper
         case "kokoro", "kokoro-coreml", "coreml":
             return .kokoroCoreML
         default:
             switch SpeechRuntimeResourceManager.runnableRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) {
             case .kitten:
                 return .kitten
+            case .piper:
+                return .piper
             case .kokoro:
                 return .kokoroCoreML
             case .none:

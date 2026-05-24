@@ -54,6 +54,17 @@ extension ReaderTheme {
         }
     }
 
+    var aiSourceUnderlineColor: NSColor {
+        switch self {
+        case .original:
+            return accentColor.withAlphaComponent(0.72)
+        case .eyeCare:
+            return strongAccentColor.withAlphaComponent(0.78)
+        case .dark:
+            return NSColor(red: 0.58, green: 0.72, blue: 1.0, alpha: 0.82)
+        }
+    }
+
     var primaryActionTextColor: NSColor {
         switch self {
         case .original, .dark:

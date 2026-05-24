@@ -152,6 +152,7 @@ extension ReaderWindowController {
         pdfDimOverlay.layer?.backgroundColor = pdfDimmingColor(for: theme, strength: dimming).cgColor
         pdfView.documentView?.needsDisplay = true
         pdfView.setNeedsDisplay(pdfView.bounds)
+        updateAISourceUnderlineTheme(theme)
     }
 
     func clearPDFContentFilters() {
@@ -252,6 +253,7 @@ extension ReaderWindowController {
         }
         """
         let cssLiteral = jsStringLiteral(themeCSS)
+        let aiSourceUnderlineColor = jsStringLiteral(cssRGBAString(for: theme.aiSourceUnderlineColor))
         let darkEnabled = theme == .dark ? "true" : "false"
         let eyeCareEnabled = theme == .eyeCare ? "true" : "false"
         webView.evaluateJavaScript("""
@@ -267,7 +269,17 @@ extension ReaderWindowController {
           style.textContent = \(cssLiteral);
           document.documentElement.classList.toggle('leaf-reader-dark', darkEnabled);
           document.documentElement.classList.toggle('leaf-reader-eye-care', eyeCareEnabled);
+          document.documentElement.style.setProperty('--leaf-reader-ai-source-underline', \(aiSourceUnderlineColor));
         })();
         """)
+    }
+
+    func cssRGBAString(for color: NSColor) -> String {
+        let rgba = color.usingColorSpace(.sRGB) ?? color
+        let red = Int((rgba.redComponent * 255).rounded())
+        let green = Int((rgba.greenComponent * 255).rounded())
+        let blue = Int((rgba.blueComponent * 255).rounded())
+        let alpha = Double(rgba.alphaComponent)
+        return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
     }
 }

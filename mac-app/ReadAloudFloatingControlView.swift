@@ -30,12 +30,14 @@ final class ReadAloudFloatingControlView: NSView {
 
     let previousButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let playPauseButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
+    let stopButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let nextButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let nextPageButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
+    let settingsButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let modeButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
 
     private var controlButtons: [ReadAloudFloatingControlButton] {
-        [previousButton, playPauseButton, nextButton, nextPageButton, modeButton]
+        [previousButton, playPauseButton, stopButton, nextButton, nextPageButton, settingsButton, modeButton]
     }
 
     override init(frame frameRect: NSRect) {
@@ -45,7 +47,7 @@ final class ReadAloudFloatingControlView: NSView {
         layer?.borderWidth = 1
         translatesAutoresizingMaskIntoConstraints = false
 
-        let stack = NSStackView(views: [previousButton, playPauseButton, nextButton, nextPageButton, modeButton])
+        let stack = NSStackView(views: [previousButton, playPauseButton, stopButton, nextButton, nextPageButton, settingsButton, modeButton])
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 6
@@ -72,10 +74,14 @@ final class ReadAloudFloatingControlView: NSView {
             previousButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
             playPauseButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
             playPauseButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
+            stopButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
+            stopButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
             nextButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
             nextButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
             nextPageButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
             nextPageButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
+            settingsButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
+            settingsButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
             modeButton.widthAnchor.constraint(equalToConstant: Metrics.modeButtonWidth),
             modeButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight)
         ])
@@ -122,7 +128,12 @@ final class ReadAloudFloatingControlView: NSView {
         applyModeButtonTitleColor(text)
     }
 
-    func update(isPaused: Bool, isLoading: Bool, mode: ReadAloudAdvanceMode, canGoPrevious: Bool) {
+    func update(
+        isPaused: Bool,
+        isLoading: Bool,
+        mode: ReadAloudAdvanceMode,
+        canGoPrevious: Bool
+    ) {
         configureIconButton(
             previousButton,
             symbolName: "chevron.left",
@@ -136,6 +147,12 @@ final class ReadAloudFloatingControlView: NSView {
             isEnabled: !isLoading
         )
         configureIconButton(
+            stopButton,
+            symbolName: "stop.fill",
+            label: AppText.localized("停止朗读", "Stop reading"),
+            isEnabled: true
+        )
+        configureIconButton(
             nextButton,
             symbolName: "chevron.right",
             label: AppText.localized("下一句", "Next sentence"),
@@ -146,6 +163,12 @@ final class ReadAloudFloatingControlView: NSView {
             symbolName: "chevron.right.2",
             label: AppText.localized("朗读下一页", "Read next page"),
             isEnabled: !isLoading
+        )
+        configureIconButton(
+            settingsButton,
+            symbolName: "gearshape",
+            label: AppText.localized("朗读设置", "Speech settings"),
+            isEnabled: true
         )
         modeButton.title = mode.title
         modeButton.toolTip = mode.tooltip

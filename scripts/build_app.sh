@@ -12,6 +12,7 @@ KITTEN_RUNTIME_ARCHIVE="${KITTEN_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kitten-tts-
 KOKORO_RUNTIME="${KOKORO_RUNTIME:-$HOME/.local/share/leafreader/kokoro-coreml/fluidaudiocli}"
 KOKORO_RUNTIME_ARCHIVE="${KOKORO_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kokoro-coreml-macos-arm64.tar.gz}"
 KOKORO_MODEL_CACHE_ROOT="${KOKORO_MODEL_CACHE_ROOT:-$HOME/.cache/fluidaudio/Models}"
+PIPER_RUNTIME_DIR="${PIPER_RUNTIME_DIR:-$HOME/.local/share/leafreader/piper-tts-runtime}"
 ESPEAK_NG_ROOT="${ESPEAK_NG_ROOT:-$HOME/.local/share/leafreader/espeak-ng-macos12}"
 PCAUDIOLIB_ROOT="${PCAUDIOLIB_ROOT:-$ESPEAK_NG_ROOT}"
 export COPYFILE_DISABLE=1
@@ -99,6 +100,21 @@ elif [[ -f "$KITTEN_RUNTIME_ARCHIVE" ]]; then
   strip -x "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server" || true
 else
   echo "Warning: KittenTTS runtime not bundled; missing $KITTEN_RUNTIME_DIR and $KITTEN_RUNTIME_ARCHIVE" >&2
+fi
+if [[ -x "$PIPER_RUNTIME_DIR/piper/piper" \
+      && -d "$PIPER_RUNTIME_DIR/piper-phonemize/lib" \
+      && -d "$PIPER_RUNTIME_DIR/piper-phonemize/share/espeak-ng-data" ]]; then
+  PIPER_BUNDLE_DIR="$APP_PATH/Contents/Resources/SpeechRuntimes/piper-tts-runtime"
+  mkdir -p "$PIPER_BUNDLE_DIR"
+  cp -R "$PIPER_RUNTIME_DIR/piper" "$PIPER_BUNDLE_DIR/piper"
+  cp -R "$PIPER_RUNTIME_DIR/piper-phonemize" "$PIPER_BUNDLE_DIR/piper-phonemize"
+  find "$PIPER_BUNDLE_DIR" -type d -name '*.dSYM' -prune -exec rm -rf {} +
+  chmod 755 "$PIPER_BUNDLE_DIR/piper/piper"
+  find "$PIPER_BUNDLE_DIR/piper-phonemize/lib" -type f -name '*.dylib' -exec chmod 755 {} +
+  strip -x "$PIPER_BUNDLE_DIR/piper/piper" || true
+  find "$PIPER_BUNDLE_DIR/piper-phonemize/lib" -type f -name '*.dylib' -exec strip -x {} \; || true
+else
+  echo "Warning: Piper runtime not bundled; missing $PIPER_RUNTIME_DIR" >&2
 fi
 if [[ -x "$ESPEAK_NG_ROOT/bin/espeak-ng" \
       && -f "$ESPEAK_NG_ROOT/lib/libespeak-ng.1.dylib" \
@@ -190,6 +206,10 @@ xattr -crs "$APP_PATH"
 
 RUNTIME_EXECUTABLES=(
   "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
+  "$APP_PATH/Contents/Resources/SpeechRuntimes/piper-tts-runtime/piper/piper"
+  "$APP_PATH/Contents/Resources/SpeechRuntimes/piper-tts-runtime/piper-phonemize/lib/libespeak-ng.1.52.0.1.dylib"
+  "$APP_PATH/Contents/Resources/SpeechRuntimes/piper-tts-runtime/piper-phonemize/lib/libonnxruntime.1.14.1.dylib"
+  "$APP_PATH/Contents/Resources/SpeechRuntimes/piper-tts-runtime/piper-phonemize/lib/libpiper_phonemize.1.2.0.dylib"
   "$APP_PATH/Contents/Resources/SpeechRuntimes/espeak-ng/bin/espeak-ng"
   "$APP_PATH/Contents/Resources/SpeechRuntimes/espeak-ng/lib/libespeak-ng.1.dylib"
   "$APP_PATH/Contents/Resources/SpeechRuntimes/espeak-ng/lib/libpcaudio.0.dylib"

@@ -78,6 +78,16 @@ enum SpeechRuntimeResourceManager {
             for modelCacheDirectory in modelCacheDirectories {
                 try removeItemIfExists(at: modelCacheDirectory)
             }
+        } else if runtime == .piper {
+            let voiceCacheDirectories = manifest?.cacheDirectories ?? piperVoiceCacheDirectories()
+            for voiceCacheDirectory in voiceCacheDirectories {
+                try removeItemIfExists(at: voiceCacheDirectory)
+            }
+            if voiceCacheDirectories.isEmpty {
+                for voiceCacheDirectory in piperVoiceCacheDirectories() {
+                    try removeItemIfExists(at: voiceCacheDirectory)
+                }
+            }
         }
     }
 

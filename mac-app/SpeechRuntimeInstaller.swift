@@ -58,6 +58,9 @@ extension SpeechRuntimeResourceManager {
             if runtime == .kokoro {
                 let cacheDirectories = try installBundledKokoroModelCache(from: runtime.installDirectory)
                 try writeInstallManifest(runtime: runtime, cacheDirectories: cacheDirectories)
+            } else if runtime == .piper {
+                let cacheDirectories = try installBundledPiperVoiceCache(from: runtime.installDirectory)
+                try writeInstallManifest(runtime: runtime, cacheDirectories: cacheDirectories)
             } else {
                 try writeInstallManifest(runtime: runtime, cacheDirectories: [])
             }
@@ -77,6 +80,10 @@ extension SpeechRuntimeResourceManager {
             let modelCacheRoot = runtime.modelDirectory(in: directory)
             isValid = (requiredPathsExist(runtime.requiredPaths(in: directory)) || bundledRuntimePathsExist(for: runtime))
                 && kokoroAneModelCacheExists(in: modelCacheRoot)
+        case .piper:
+            let voiceDirectory = directory.appendingPathComponent("Voices", isDirectory: true)
+            isValid = (requiredPathsExist(runtime.requiredPaths(in: directory)) || bundledRuntimePathsExist(for: runtime))
+                && (piperVoicePathsExist(in: voiceDirectory) || piperVoicePathsExist())
         }
         guard isValid else {
             throw NSError(
@@ -109,6 +116,25 @@ extension SpeechRuntimeResourceManager {
                 .appendingPathComponent(".\(name)-backup-\(UUID().uuidString)", isDirectory: true)
             try transaction.replace(source: source, destination: destination, backup: backup)
         }
+        transaction.commit()
+        return transaction.installedDirectories
+    }
+
+    static func installBundledPiperVoiceCache(from installDirectory: URL) throws -> [URL] {
+        let fileManager = FileManager.default
+        let source = installDirectory.appendingPathComponent("Voices", isDirectory: true)
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: source.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return []
+        }
+
+        let cacheRoot = Runtime.piperVoiceCacheRoot
+        try fileManager.createDirectory(at: cacheRoot.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let backup = cacheRoot
+            .deletingLastPathComponent()
+            .appendingPathComponent(".piper-voices-backup-\(UUID().uuidString)", isDirectory: true)
+        var transaction = KokoroCacheInstallTransaction(fileManager: fileManager)
+        try transaction.replace(source: source, destination: cacheRoot, backup: backup)
         transaction.commit()
         return transaction.installedDirectories
     }

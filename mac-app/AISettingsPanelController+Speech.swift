@@ -28,12 +28,20 @@ extension AISettingsPanelController {
         downloadSpeechRuntime(.kitten, button: sender)
     }
 
+    @objc func downloadPiperSpeechRuntime(_ sender: NSButton) {
+        downloadSpeechRuntime(.piper, button: sender)
+    }
+
     @objc func deleteKokoroSpeechRuntime(_ sender: NSButton) {
         deleteSpeechRuntime(.kokoro)
     }
 
     @objc func deleteKittenSpeechRuntime(_ sender: NSButton) {
         deleteSpeechRuntime(.kitten)
+    }
+
+    @objc func deletePiperSpeechRuntime(_ sender: NSButton) {
+        deleteSpeechRuntime(.piper)
     }
 
     @objc func pauseKokoroSpeechRuntimeDownload(_ sender: NSButton) {
@@ -44,12 +52,20 @@ extension AISettingsPanelController {
         toggleSpeechRuntimeDownloadPaused(.kitten)
     }
 
+    @objc func pausePiperSpeechRuntimeDownload(_ sender: NSButton) {
+        toggleSpeechRuntimeDownloadPaused(.piper)
+    }
+
     @objc func cancelKokoroSpeechRuntimeDownload(_ sender: NSButton) {
         cancelSpeechRuntimeDownload(.kokoro)
     }
 
     @objc func cancelKittenSpeechRuntimeDownload(_ sender: NSButton) {
         cancelSpeechRuntimeDownload(.kitten)
+    }
+
+    @objc func cancelPiperSpeechRuntimeDownload(_ sender: NSButton) {
+        cancelSpeechRuntimeDownload(.piper)
     }
 
     @objc func speechRuntimeChanged(_ sender: NSPopUpButton) {
@@ -81,20 +97,25 @@ extension AISettingsPanelController {
     }
 
     @objc func speechSpeedChanged(_ sender: NSPopUpButton) {
+        let runtimeID = speechRuntimePopup?.selectedItem?.representedObject as? String
+        let voiceID = speechVoicePopup?.selectedItem?.representedObject as? String
         saveSelectedSpeechSettings(
-            runtimeID: speechRuntimePopup?.selectedItem?.representedObject as? String,
-            voiceID: speechVoicePopup?.selectedItem?.representedObject as? String,
+            runtimeID: runtimeID,
+            voiceID: voiceID,
             speedID: sender.selectedItem?.representedObject as? String
         )
+        previewSelectedSpeechVoice(voiceID, runtimeID: runtimeID)
     }
 
     func refreshSpeechRuntimeStatus() {
         let kokoro = runtimeStatus(.kokoro)
         let kitten = runtimeStatus(.kitten)
+        let piper = runtimeStatus(.piper)
         updateRuntimeControls(runtime: .kokoro, status: kokoro, controls: kokoroRuntimeControls)
         updateRuntimeControls(runtime: .kitten, status: kitten, controls: kittenRuntimeControls)
+        updateRuntimeControls(runtime: .piper, status: piper, controls: piperRuntimeControls)
         refreshSpeechRuntimePopup()
-        updateSpeechDownloadRefreshTimer(isDownloading: kokoro.downloading || kitten.downloading)
+        updateSpeechDownloadRefreshTimer(isDownloading: kokoro.downloading || kitten.downloading || piper.downloading)
     }
 
     private var kokoroRuntimeControls: RuntimeControls {
@@ -116,6 +137,17 @@ extension AISettingsPanelController {
             pauseButton: kittenSpeechPauseButton,
             cancelButton: kittenSpeechCancelButton,
             deleteButton: kittenSpeechDeleteButton
+        )
+    }
+
+    private var piperRuntimeControls: RuntimeControls {
+        RuntimeControls(
+            statusLabel: piperSpeechStatusLabel,
+            progressIndicator: piperSpeechProgressIndicator,
+            downloadButton: piperSpeechDownloadButton,
+            pauseButton: piperSpeechPauseButton,
+            cancelButton: piperSpeechCancelButton,
+            deleteButton: piperSpeechDeleteButton
         )
     }
 
@@ -323,7 +355,7 @@ extension AISettingsPanelController {
         _ runtime: SpeechRuntimeResourceManager.Runtime,
         languageHint: AISettingsStore.SpeechLanguageHint?
     ) -> Bool {
-        languageHint == .chinese && runtime == .kitten
+        languageHint == .chinese && (runtime == .kitten || runtime == .piper)
     }
 
     private func downloadSpeechRuntime(_ runtime: SpeechRuntimeResourceManager.Runtime, button: NSButton) {
@@ -361,6 +393,8 @@ extension AISettingsPanelController {
                     self.kokoroSpeechStatusLabel?.stringValue = AppText.localized("下载失败", "Download failed")
                 case .kitten:
                     self.kittenSpeechStatusLabel?.stringValue = AppText.localized("下载失败", "Download failed")
+                case .piper:
+                    self.piperSpeechStatusLabel?.stringValue = AppText.localized("下载失败", "Download failed")
                 }
                 self.showSpeechDownloadError(error)
             }

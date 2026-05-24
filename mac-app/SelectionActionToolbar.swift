@@ -52,7 +52,7 @@ final class SelectionActionToolbar: NSView {
     private var showsSpeakButton = true
 
     private var actionButtons: [SelectionActionButton] {
-        [translateButton, explainButton, contextButton, speakButton, copyButton]
+        [explainButton, translateButton, contextButton, speakButton, copyButton]
     }
 
     enum ContextAction {
@@ -73,8 +73,8 @@ final class SelectionActionToolbar: NSView {
         configureStack()
         addSubview(stack)
 
-        configureButton(translateButton, action: #selector(translateTapped))
         configureButton(explainButton, action: #selector(explainTapped))
+        configureButton(translateButton, action: #selector(translateTapped))
         configureButton(contextButton, action: #selector(contextTapped))
         configureButton(speakButton, action: #selector(speakTapped))
         configureButton(copyButton, action: #selector(copyTapped))
@@ -125,7 +125,7 @@ final class SelectionActionToolbar: NSView {
         translateButton.title = AppText.localized("翻译", "Translate")
         explainButton.title = AppText.localized("解释", "Explain")
         contextButton.title = contextAction == .addWord
-            ? AppText.localized("加入单词本", "Add Word")
+            ? AppText.localized("单词", "Word")
             : AppText.localized("总结", "Summarize")
         contextButton.symbolName = contextAction == .addWord
             ? "text.badge.plus"
@@ -266,12 +266,14 @@ final class SelectionActionButton: NSButton {
         guard let symbolName else {
             image = nil
             imagePosition = .noImage
+            imageHugsTitle = false
             return
         }
         image = NSImage(systemSymbolName: symbolName, accessibilityDescription: title)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: Metrics.symbolPointSize, weight: .semibold))
         image?.isTemplate = true
         imagePosition = .imageLeft
+        imageHugsTitle = true
         imageScaling = .scaleProportionallyDown
     }
 }

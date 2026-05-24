@@ -8,6 +8,7 @@ MANIFEST_PATH="$OUT_DIR/speech-models-manifest.json"
 
 KOKORO_MODEL_CACHE_ROOT="${KOKORO_MODEL_CACHE_ROOT:-$HOME/.cache/fluidaudio/Models}"
 KITTEN_RUNTIME_DIR="${KITTEN_RUNTIME_DIR:-$HOME/.local/share/leafreader/kittentts-rs-runtime}"
+PIPER_VOICE_CACHE_ROOT="${PIPER_VOICE_CACHE_ROOT:-$HOME/.cache/leafreader/piper-voices}"
 
 mkdir -p "$OUT_DIR"
 rm -rf "$WORK_DIR"
@@ -42,6 +43,19 @@ if [[ -d "$KITTEN_RUNTIME_DIR/kitten-tts-mini" ]]; then
   PACKAGED_ASSETS+=("$OUT_DIR/kitten-tts-rs-macos-arm64.tar.gz")
 else
   echo "Skipping Kitten package; missing model directory." >&2
+fi
+
+if [[ -f "$PIPER_VOICE_CACHE_ROOT/en_US-lessac-high.onnx" \
+      && -f "$PIPER_VOICE_CACHE_ROOT/en_US-lessac-high.onnx.json" ]]; then
+  PIPER_STAGE="$WORK_DIR/piper-tts"
+  mkdir -p "$PIPER_STAGE/Voices"
+  cp "$PIPER_VOICE_CACHE_ROOT/en_US-lessac-high.onnx" "$PIPER_STAGE/Voices/"
+  cp "$PIPER_VOICE_CACHE_ROOT/en_US-lessac-high.onnx.json" "$PIPER_STAGE/Voices/"
+  tar -C "$PIPER_STAGE" -czf "$OUT_DIR/piper-tts-macos-arm64.tar.gz" .
+  echo "Packaged $OUT_DIR/piper-tts-macos-arm64.tar.gz"
+  PACKAGED_ASSETS+=("$OUT_DIR/piper-tts-macos-arm64.tar.gz")
+else
+  echo "Skipping Piper package; missing voice cache." >&2
 fi
 
 {
