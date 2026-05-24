@@ -23,7 +23,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 
 ![Leaf Reader 设置](assets/reader-settings.png)
 
-![Leaf Reader 深色模式 AI 阅读](assets/reader-dark-ai.png)
+![Leaf Reader 深色模式设置](assets/reader-dark-ai.png)
 
 ![Leaf Reader 背单词复习](assets/reader-dark-vocabulary.png)
 
@@ -104,7 +104,7 @@ The website automatically follows the browser language and also provides a manua
 
 ![Leaf Reader settings](assets/reader-settings.png)
 
-![Leaf Reader passage explanation in dark mode](assets/reader-dark-ai.png)
+![Leaf Reader settings in dark mode](assets/reader-dark-ai.png)
 
 ![Leaf Reader vocabulary review](assets/reader-dark-vocabulary.png)
 
