@@ -4,7 +4,9 @@ import Foundation
 extension SpeechRuntimeResourceManager {
     static let downloadErrorDomain = "LeafReader.SpeechRuntime.Download"
     static let resumeRangeMismatchCode = 417
+    static let insufficientDiskSpaceCode = -10
     private static let maxDownloadAttempts = 4
+    private static let minimumInstallSafetyMarginBytes: Int64 = 200 * 1024 * 1024
 
     struct PartialDownloadMetadata: Codable, Equatable {
         let downloadURL: String
@@ -25,6 +27,51 @@ extension SpeechRuntimeResourceManager {
             return error.code != NSURLErrorCancelled
         }
         return false
+    }
+
+    static func downloadSessionConfiguration() -> URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 60 * 60
+        configuration.waitsForConnectivity = true
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return configuration
+    }
+
+    static func expectedDownloadTotalBytes(asset: SpeechModelManifest.Asset?) -> Int64? {
+        guard let size = asset?.size, size > 0 else { return nil }
+        return size
+    }
+
+    static func requiredInstallFreeSpaceBytes(archiveSize: Int64) -> Int64 {
+        max(0, archiveSize) * 3 + minimumInstallSafetyMarginBytes
+    }
+
+    static func hasEnoughFreeSpace(availableBytes: Int64?, requiredBytes: Int64) -> Bool {
+        guard let availableBytes else { return true }
+        return availableBytes >= requiredBytes
+    }
+
+    static func validateAvailableDiskSpace(
+        for runtime: Runtime,
+        archiveURL: URL,
+        asset: SpeechModelManifest.Asset?
+    ) throws {
+        let archiveSize = asset?.size ?? partialDownloadSize(at: archiveURL)
+        let requiredBytes = requiredInstallFreeSpaceBytes(archiveSize: archiveSize)
+        let availableBytes = availableDiskSpaceBytes(for: runtime.installDirectory.deletingLastPathComponent())
+        guard hasEnoughFreeSpace(availableBytes: availableBytes, requiredBytes: requiredBytes) else {
+            throw NSError(
+                domain: downloadErrorDomain,
+                code: insufficientDiskSpaceCode,
+                userInfo: [
+                    NSLocalizedDescriptionKey: AppText.localized(
+                        "磁盘空间不足，无法安装朗读模型。请清理空间后重试。",
+                        "Not enough disk space to install the speech model. Free up space and try again."
+                    )
+                ]
+            )
+        }
     }
 
     static func shouldRestartWithoutPartialDownload(error: NSError) -> Bool {
@@ -136,6 +183,29 @@ extension SpeechRuntimeResourceManager {
             return 0
         }
         return size.int64Value
+    }
+
+    private static func availableDiskSpaceBytes(for directory: URL) -> Int64? {
+        let existingDirectory = existingAncestorDirectory(for: directory)
+        if let values = try? existingDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]),
+           let capacity = values.volumeAvailableCapacityForImportantUsage {
+            return capacity
+        }
+        if let attributes = try? FileManager.default.attributesOfFileSystem(forPath: existingDirectory.path),
+           let freeSize = attributes[.systemFreeSize] as? NSNumber {
+            return freeSize.int64Value
+        }
+        return nil
+    }
+
+    private static func existingAncestorDirectory(for url: URL) -> URL {
+        var candidate = url
+        while !FileManager.default.fileExists(atPath: candidate.path) {
+            let parent = candidate.deletingLastPathComponent()
+            guard parent.path != candidate.path else { break }
+            candidate = parent
+        }
+        return candidate
     }
 
     static func validateArchive(at archiveURL: URL) throws {

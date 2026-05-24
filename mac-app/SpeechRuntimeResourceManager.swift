@@ -180,6 +180,7 @@ enum SpeechRuntimeResourceManager {
     ) {
         let partialURL = partialDownloadURL(for: runtime)
         let existingSize = retryingWithoutResume ? 0 : resumablePartialDownloadSize(for: runtime, asset: expectedAsset)
+        let expectedTotalBytes = expectedDownloadTotalBytes(asset: expectedAsset)
         var request = URLRequest(url: runtime.downloadURL, cachePolicy: .reloadIgnoringLocalCacheData)
         if existingSize > 0 {
             request.setValue("bytes=\(existingSize)-", forHTTPHeaderField: "Range")
@@ -195,7 +196,8 @@ enum SpeechRuntimeResourceManager {
             partialURL: partialURL,
             existingSize: existingSize,
             retryingWithoutResume: retryingWithoutResume,
-            expectedAsset: expectedAsset
+            expectedAsset: expectedAsset,
+            expectedTotalBytes: expectedTotalBytes
         ) { result in
             guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
             do {
@@ -203,6 +205,7 @@ enum SpeechRuntimeResourceManager {
                 case .success:
                     try validateArchive(at: partialURL)
                     try validateArchiveManifest(partialURL, asset: expectedAsset)
+                    try validateAvailableDiskSpace(for: runtime, archiveURL: partialURL, asset: expectedAsset)
                     guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
                     try installArchiveIfIdle(partialURL, for: runtime)
                     removePartialDownload(for: runtime)
@@ -232,7 +235,7 @@ enum SpeechRuntimeResourceManager {
             }
         }
 
-        let session = URLSession(configuration: .default, delegate: downloader, delegateQueue: nil)
+        let session = URLSession(configuration: downloadSessionConfiguration(), delegate: downloader, delegateQueue: nil)
         downloader.session = session
         let task = session.dataTask(with: request)
         downloader.task = task

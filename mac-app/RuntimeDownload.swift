@@ -9,6 +9,7 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
     private let existingSize: Int64
     private let retryingWithoutResume: Bool
     private let expectedAsset: SpeechModelManifest.Asset?
+    private let expectedTotalBytes: Int64?
     private let completion: (Result<Void, Error>) -> Void
     private var fileHandle: FileHandle?
     private var expectedBytes: Int64?
@@ -26,6 +27,7 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
         existingSize: Int64,
         retryingWithoutResume: Bool,
         expectedAsset: SpeechModelManifest.Asset?,
+        expectedTotalBytes: Int64?,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         self.runtime = runtime
@@ -34,6 +36,7 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
         self.existingSize = existingSize
         self.retryingWithoutResume = retryingWithoutResume
         self.expectedAsset = expectedAsset
+        self.expectedTotalBytes = expectedTotalBytes
         self.completion = completion
         self.completedBytes = existingSize
     }
@@ -130,7 +133,7 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
             fileHandle = try FileHandle(forWritingTo: partialURL)
             try fileHandle?.seekToEnd()
             completedBytes = existingSize
-            expectedBytes = expectedContentLength(from: response).map { existingSize + $0 }
+            expectedBytes = expectedDownloadBytes(from: response, existingSize: existingSize)
             return
         }
 
@@ -143,12 +146,15 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
         )
         fileHandle = try FileHandle(forWritingTo: partialURL)
         completedBytes = 0
-        expectedBytes = expectedContentLength(from: response)
+        expectedBytes = expectedDownloadBytes(from: response, existingSize: 0)
     }
 
-    private func expectedContentLength(from response: URLResponse) -> Int64? {
+    private func expectedDownloadBytes(from response: URLResponse, existingSize: Int64) -> Int64? {
+        if let expectedTotalBytes, expectedTotalBytes > 0 {
+            return expectedTotalBytes
+        }
         let length = response.expectedContentLength
-        return length > 0 ? length : nil
+        return length > 0 ? existingSize + length : nil
     }
 
     private func makeError(code: Int, message: String) -> NSError {

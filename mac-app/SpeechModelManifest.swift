@@ -28,6 +28,24 @@ extension SpeechRuntimeResourceManager {
         return try? decodeModelManifest(data)
     }
 
+    static func modelManifestDecodeResult(
+        data: Data,
+        bundledManifest: SpeechModelManifest?
+    ) -> Result<SpeechModelManifest?, Error> {
+        do {
+            return .success(try decodeModelManifest(data))
+        } catch {
+            if let bundledManifest {
+                NSLog(
+                    "LeafReader speech model manifest: invalid remote manifest, using bundled manifest (%@)",
+                    String(describing: error)
+                )
+                return .success(bundledManifest)
+            }
+            return .failure(error)
+        }
+    }
+
     static func fetchModelManifest(completion: @escaping (Result<SpeechModelManifest?, Error>) -> Void) {
         let task = URLSession.shared.dataTask(with: Runtime.modelManifestURL) { data, response, error in
             if let error {
@@ -55,11 +73,7 @@ extension SpeechRuntimeResourceManager {
                 return
             }
 
-            do {
-                completion(.success(try decodeModelManifest(data)))
-            } catch {
-                completion(.failure(error))
-            }
+            completion(modelManifestDecodeResult(data: data, bundledManifest: bundledModelManifest()))
         }
         task.resume()
     }

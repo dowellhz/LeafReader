@@ -394,6 +394,96 @@ enum AISettingsLogicTests {
         )
     }
 
+    static func testSpeechRuntimeDownloadConfigurationAndProgressTotals() throws {
+        let configuration = SpeechRuntimeResourceManager.downloadSessionConfiguration()
+        try expectEqual(
+            configuration.timeoutIntervalForRequest,
+            30,
+            "speech model downloads should have a bounded per-request timeout"
+        )
+        try expectEqual(
+            configuration.timeoutIntervalForResource,
+            60 * 60,
+            "speech model downloads should allow large archives enough total download time"
+        )
+        try expect(
+            configuration.waitsForConnectivity,
+            "speech model downloads should wait for connectivity on transient offline states"
+        )
+
+        let asset = SpeechModelManifest.Asset(
+            name: "piper-tts-macos-arm64.tar.gz",
+            size: 105541145,
+            sha256: "b752a7e93456c9b9eab397960976667153bee8c999ab497685fddb82562458b5"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.expectedDownloadTotalBytes(asset: asset),
+            105541145,
+            "progress should use manifest size when available"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.expectedDownloadTotalBytes(asset: nil),
+            nil,
+            "progress should fall back to response length without manifest size"
+        )
+    }
+
+    static func testSpeechModelManifestDecodeFallsBackToBundledManifest() throws {
+        let bundled = SpeechModelManifest(
+            generatedAt: "2026-05-25T00:00:00Z",
+            assets: [
+                SpeechModelManifest.Asset(
+                    name: "kitten-tts-rs-macos-arm64.tar.gz",
+                    size: 77638385,
+                    sha256: "90d917517468f93e5c31b17184d777cba9fee51fd90197deeaa5bd2f406d0e81"
+                )
+            ]
+        )
+        let fallbackResult = SpeechRuntimeResourceManager.modelManifestDecodeResult(
+            data: Data("not json".utf8),
+            bundledManifest: bundled
+        )
+        switch fallbackResult {
+        case .success(let manifest):
+            try expectEqual(
+                manifest?.asset(named: "kitten-tts-rs-macos-arm64.tar.gz")?.size,
+                77638385,
+                "invalid remote manifest should fall back to the bundled manifest"
+            )
+        case .failure(let error):
+            throw TestFailure(description: "invalid remote manifest should not fail when bundled manifest exists: \(error)")
+        }
+
+        let failureResult = SpeechRuntimeResourceManager.modelManifestDecodeResult(
+            data: Data("not json".utf8),
+            bundledManifest: nil
+        )
+        if case .success = failureResult {
+            throw TestFailure(description: "invalid remote manifest should fail when no bundled manifest exists")
+        }
+    }
+
+    static func testSpeechRuntimeInstallDiskSpacePolicy() throws {
+        let required = SpeechRuntimeResourceManager.requiredInstallFreeSpaceBytes(archiveSize: 100)
+        try expectEqual(
+            required,
+            200 * 1024 * 1024 + 300,
+            "install disk-space policy should reserve room for archive, extraction, and a safety margin"
+        )
+        try expect(
+            SpeechRuntimeResourceManager.hasEnoughFreeSpace(availableBytes: required, requiredBytes: required),
+            "exactly enough free space should be accepted"
+        )
+        try expect(
+            !SpeechRuntimeResourceManager.hasEnoughFreeSpace(availableBytes: required - 1, requiredBytes: required),
+            "insufficient free space should be rejected before install"
+        )
+        try expect(
+            SpeechRuntimeResourceManager.hasEnoughFreeSpace(availableBytes: nil, requiredBytes: required),
+            "unknown free space should not block installation"
+        )
+    }
+
     static func testBundledSpeechModelManifestParses() throws {
         let manifestURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent("mac-app/Resources/speech-models-manifest.json")
