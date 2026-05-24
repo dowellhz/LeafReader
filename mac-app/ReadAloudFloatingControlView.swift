@@ -123,24 +123,44 @@ final class ReadAloudFloatingControlView: NSView {
     }
 
     func update(isPaused: Bool, isLoading: Bool, mode: ReadAloudAdvanceMode, canGoPrevious: Bool) {
-        previousButton.image = TemplateSymbolImage.make("chevron.left", accessibilityDescription: AppText.localized("上一句", "Previous sentence"))
-        previousButton.isEnabled = !isLoading && canGoPrevious
-        previousButton.toolTip = AppText.localized("上一句", "Previous sentence")
-        playPauseButton.image = TemplateSymbolImage.make(
-            isLoading ? "hourglass" : (isPaused ? "play.fill" : "pause.fill"),
-            accessibilityDescription: isPaused ? AppText.localized("继续朗读", "Resume reading") : AppText.localized("暂停朗读", "Pause reading")
+        configureIconButton(
+            previousButton,
+            symbolName: "chevron.left",
+            label: AppText.localized("上一句", "Previous sentence"),
+            isEnabled: !isLoading && canGoPrevious
         )
-        playPauseButton.isEnabled = !isLoading
-        playPauseButton.toolTip = isPaused ? AppText.localized("继续朗读", "Resume reading") : AppText.localized("暂停朗读", "Pause reading")
-        nextButton.image = TemplateSymbolImage.make("chevron.right", accessibilityDescription: AppText.localized("下一句", "Next sentence"))
-        nextButton.isEnabled = !isLoading
-        nextButton.toolTip = AppText.localized("下一句", "Next sentence")
-        nextPageButton.image = TemplateSymbolImage.make("chevron.right.2", accessibilityDescription: AppText.localized("朗读下一页", "Read next page"))
-        nextPageButton.isEnabled = !isLoading
-        nextPageButton.toolTip = AppText.localized("朗读下一页", "Read next page")
+        configureIconButton(
+            playPauseButton,
+            symbolName: isLoading ? "hourglass" : (isPaused ? "play.fill" : "pause.fill"),
+            label: isPaused ? AppText.localized("继续朗读", "Resume reading") : AppText.localized("暂停朗读", "Pause reading"),
+            isEnabled: !isLoading
+        )
+        configureIconButton(
+            nextButton,
+            symbolName: "chevron.right",
+            label: AppText.localized("下一句", "Next sentence"),
+            isEnabled: !isLoading
+        )
+        configureIconButton(
+            nextPageButton,
+            symbolName: "chevron.right.2",
+            label: AppText.localized("朗读下一页", "Read next page"),
+            isEnabled: !isLoading
+        )
         modeButton.title = mode.title
         modeButton.toolTip = mode.tooltip
         applyModeButtonTitleColor(modeButton.contentTintColor)
+    }
+
+    private func configureIconButton(
+        _ button: ReadAloudFloatingControlButton,
+        symbolName: String,
+        label: String,
+        isEnabled: Bool
+    ) {
+        button.image = TemplateSymbolImage.make(symbolName, accessibilityDescription: label)
+        button.isEnabled = isEnabled
+        button.toolTip = label
     }
 
     private func applyModeButtonTitleColor(_ color: NSColor?) {

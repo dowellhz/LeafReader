@@ -155,10 +155,11 @@ extension ReaderWindowController {
            expectedPageIndex < document.pageCount,
            let page = document.page(at: expectedPageIndex) {
             NSLog("LeafReader read aloud: forcing PDF page after delayed page change (target=%d)", expectedPageIndex + 1)
-            _ = preparePDFReadAloudPageTop(page)
-            lastPageIndex = expectedPageIndex
-            updatePageLabel()
-            saveSession()
+            if preparePDFReadAloudPageTop(page) {
+                lastPageIndex = expectedPageIndex
+                updatePageLabel()
+                saveSession()
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
                 guard let self, self.isReadAloudActive else { return }
                 guard !self.isReadAloudPaused else {

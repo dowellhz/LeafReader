@@ -284,9 +284,10 @@ final class CapsuleChromeButton: NSButton {
         ]
         let textRect = bounds.insetBy(dx: 8, dy: 0)
         let titleSize = title.size(withAttributes: attrs)
+        let hasLeadingSymbol = leadingSymbolName != nil
         let symbolSize = NSSize(width: 14, height: 14)
-        let symbolSpacing: CGFloat = leadingSymbolName == nil ? 0 : 6
-        let contentWidth = titleSize.width + (leadingSymbolName == nil ? 0 : symbolSize.width + symbolSpacing)
+        let symbolSpacing: CGFloat = hasLeadingSymbol ? 6 : 0
+        let contentWidth = titleSize.width + (hasLeadingSymbol ? symbolSize.width + symbolSpacing : 0)
         var contentX = max(textRect.minX, bounds.midX - contentWidth / 2)
         if let leadingSymbolName,
            let image = NSImage(systemSymbolName: leadingSymbolName, accessibilityDescription: leadingSymbolDescription)?
@@ -304,7 +305,7 @@ final class CapsuleChromeButton: NSButton {
         let drawRect = NSRect(
             x: contentX,
             y: max(0, (bounds.height - titleSize.height) / 2),
-            width: min(titleSize.width + 1, textRect.maxX - contentX),
+            width: max(0, min(titleSize.width + 1, textRect.maxX - contentX)),
             height: titleSize.height
         )
         (title as NSString).draw(in: drawRect, withAttributes: attrs)
