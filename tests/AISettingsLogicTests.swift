@@ -283,6 +283,60 @@ enum AISettingsLogicTests {
         }
     }
 
+    static func testSpeechRuntimeResumeContentRangeValidation() throws {
+        try expectEqual(
+            SpeechRuntimeResourceManager.contentRangeStart("bytes 1024-2047/4096"),
+            1024,
+            "resume validation should parse the Content-Range start byte"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.contentRangeStart(" bytes 0-99/100 "),
+            0,
+            "resume validation should tolerate Content-Range whitespace"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.contentRangeStart("bytes 1024-2047/*"),
+            1024,
+            "resume validation should allow unknown total sizes"
+        )
+        try expect(
+            SpeechRuntimeResourceManager.contentRangeStart("bytes */4096") == nil,
+            "unsatisfied Content-Range responses should not look resumable"
+        )
+        try expect(
+            SpeechRuntimeResourceManager.contentRangeStart("items 1024-2047/4096") == nil,
+            "non-byte Content-Range responses should be rejected"
+        )
+    }
+
+    static func testSpeechRuntimePartialRestartPolicy() throws {
+        let resumeExpired = NSError(domain: SpeechRuntimeResourceManager.downloadErrorDomain, code: 416)
+        let resumeMismatch = NSError(domain: SpeechRuntimeResourceManager.downloadErrorDomain, code: SpeechRuntimeResourceManager.resumeRangeMismatchCode)
+        let checksumMismatch = NSError(domain: SpeechRuntimeResourceManager.downloadErrorDomain, code: -7)
+        let networkFailure = NSError(domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost)
+
+        try expect(
+            SpeechRuntimeResourceManager.shouldRetryDownload(error: resumeMismatch, attempt: 1),
+            "mismatched resume responses should retry from a clean download"
+        )
+        try expect(
+            SpeechRuntimeResourceManager.shouldRestartWithoutPartialDownload(error: resumeExpired),
+            "expired resume ranges should discard the partial archive"
+        )
+        try expect(
+            SpeechRuntimeResourceManager.shouldRestartWithoutPartialDownload(error: resumeMismatch),
+            "mismatched resume ranges should discard the partial archive"
+        )
+        try expect(
+            SpeechRuntimeResourceManager.shouldRestartWithoutPartialDownload(error: checksumMismatch),
+            "checksum failures should discard the corrupt partial archive"
+        )
+        try expect(
+            !SpeechRuntimeResourceManager.shouldRestartWithoutPartialDownload(error: networkFailure),
+            "transient network failures should keep the partial archive for resume"
+        )
+    }
+
     static func testSpeechRuntimeAvailabilityText() throws {
         try expectEqual(
             SpeechRuntimeResourceManager.availabilityText(isSupported: true, downloaded: true, minimumSystemVersionText: "macOS 14.0"),
@@ -352,6 +406,127 @@ enum AISettingsLogicTests {
         try expect(
             !SpeechRuntimeResourceManager.piperVoicePathsExist(in: voiceDirectory),
             "default Piper voice checks should remain voice-specific"
+        )
+    }
+
+    static func testPiperModelDownloadMakesBundledRuntimeAvailable() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("leafreader-piper-availability-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let runtimeDirectory = root.appendingPathComponent("piper-tts-runtime", isDirectory: true)
+        let voiceDirectory = root.appendingPathComponent("piper-voices", isDirectory: true)
+        let executable = runtimeDirectory.appendingPathComponent("piper/piper")
+        try fileManager.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: runtimeDirectory.appendingPathComponent("piper-phonemize/lib", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try fileManager.createDirectory(
+            at: runtimeDirectory.appendingPathComponent("piper-phonemize/share/espeak-ng-data", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try Data().write(to: executable)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+
+        try expect(
+            !SpeechRuntimeResourceManager.piperRuntimeAndVoicePathsExist(
+                installDirectories: [runtimeDirectory],
+                voiceDirectory: voiceDirectory
+            ),
+            "Piper should remain unavailable after runtime install until a voice model is downloaded"
+        )
+
+        try fileManager.createDirectory(at: voiceDirectory, withIntermediateDirectories: true)
+        try Data().write(to: voiceDirectory.appendingPathComponent("en_US-lessac-high.onnx"))
+        try Data("{}".utf8).write(to: voiceDirectory.appendingPathComponent("en_US-lessac-high.onnx.json"))
+        try expect(
+            SpeechRuntimeResourceManager.piperRuntimeAndVoicePathsExist(
+                installDirectories: [runtimeDirectory],
+                voiceDirectory: voiceDirectory
+            ),
+            "Piper should become available once the downloaded voice model and config are in the voice cache"
+        )
+    }
+
+    static func testKokoroModelDownloadMakesBundledRuntimeAvailable() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("leafreader-kokoro-availability-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let runtimeDirectory = root.appendingPathComponent("kokoro-coreml", isDirectory: true)
+        let modelCacheRoot = root.appendingPathComponent("Models", isDirectory: true)
+        let executable = runtimeDirectory.appendingPathComponent("fluidaudiocli")
+        try fileManager.createDirectory(at: runtimeDirectory, withIntermediateDirectories: true)
+        try Data().write(to: executable)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+
+        try expect(
+            !SpeechRuntimeResourceManager.kokoroRuntimeAndModelPathsExist(
+                installDirectories: [runtimeDirectory],
+                modelCacheRoot: modelCacheRoot
+            ),
+            "Kokoro should remain unavailable after runtime install until model cache files are downloaded"
+        )
+
+        let aneDirectory = modelCacheRoot
+            .appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
+            .appendingPathComponent("ANE", isDirectory: true)
+        let g2pDirectory = modelCacheRoot.appendingPathComponent("kokoro", isDirectory: true)
+        try fileManager.createDirectory(at: aneDirectory, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: g2pDirectory, withIntermediateDirectories: true)
+        for fileName in [
+            "KokoroAlbert.mlmodelc",
+            "KokoroPostAlbert.mlmodelc",
+            "KokoroAlignment.mlmodelc",
+            "KokoroProsody.mlmodelc",
+            "KokoroNoise.mlmodelc",
+            "KokoroVocoder.mlmodelc",
+            "KokoroTail.mlmodelc",
+            "vocab.json"
+        ] {
+            try Data().write(to: aneDirectory.appendingPathComponent(fileName))
+        }
+        for fileName in ["G2PEncoder.mlmodelc", "G2PDecoder.mlmodelc", "g2p_vocab.json"] {
+            try Data().write(to: g2pDirectory.appendingPathComponent(fileName))
+        }
+
+        try expect(
+            SpeechRuntimeResourceManager.kokoroRuntimeAndModelPathsExist(
+                installDirectories: [runtimeDirectory],
+                modelCacheRoot: modelCacheRoot
+            ),
+            "Kokoro should become available once the downloaded model cache contains all required files"
+        )
+    }
+
+    static func testKittenModelDownloadMakesBundledRuntimeAvailable() throws {
+        let fileManager = FileManager.default
+        let runtimeDirectory = fileManager.temporaryDirectory
+            .appendingPathComponent("leafreader-kitten-availability-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: runtimeDirectory) }
+
+        let executable = runtimeDirectory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server")
+        try fileManager.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data().write(to: executable)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+
+        try expect(
+            !SpeechRuntimeResourceManager.kittenRuntimeAndModelPathsExist(installDirectories: [runtimeDirectory]),
+            "KittenTTS should remain unavailable after runtime install until model files are downloaded"
+        )
+
+        let modelDirectory = runtimeDirectory.appendingPathComponent("kitten-tts-mini", isDirectory: true)
+        try fileManager.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
+        try Data().write(to: modelDirectory.appendingPathComponent("kitten_tts_mini_v0_8.onnx"))
+        try Data().write(to: modelDirectory.appendingPathComponent("voices.npz"))
+        try Data("{}".utf8).write(to: modelDirectory.appendingPathComponent("config.json"))
+
+        try expect(
+            SpeechRuntimeResourceManager.kittenRuntimeAndModelPathsExist(installDirectories: [runtimeDirectory]),
+            "KittenTTS should become available once the downloaded model directory contains all required files"
         )
     }
 

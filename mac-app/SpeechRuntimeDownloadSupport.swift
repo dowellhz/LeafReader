@@ -3,17 +3,43 @@ import Foundation
 
 extension SpeechRuntimeResourceManager {
     static let downloadErrorDomain = "LeafReader.SpeechRuntime.Download"
+    static let resumeRangeMismatchCode = 417
     private static let maxDownloadAttempts = 4
 
     static func shouldRetryDownload(error: NSError, attempt: Int) -> Bool {
         guard attempt < maxDownloadAttempts else { return false }
-        if error.domain == downloadErrorDomain, error.code == 416 {
+        if error.domain == downloadErrorDomain,
+           error.code == 416 || error.code == resumeRangeMismatchCode {
             return true
         }
         if error.domain == NSURLErrorDomain {
             return error.code != NSURLErrorCancelled
         }
         return false
+    }
+
+    static func shouldRestartWithoutPartialDownload(error: NSError) -> Bool {
+        guard error.domain == downloadErrorDomain else { return false }
+        return error.code == 416
+            || error.code == resumeRangeMismatchCode
+            || error.code == -3
+            || error.code == -7
+            || error.code == -8
+    }
+
+    static func contentRangeStart(_ value: String?) -> Int64? {
+        guard let value else { return nil }
+        let pattern = #"(?i)^\s*bytes\s+(\d+)-\d+/(\d+|\*)\s*$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(
+                in: value,
+                range: NSRange(value.startIndex..<value.endIndex, in: value)
+              ),
+              match.numberOfRanges > 1,
+              let range = Range(match.range(at: 1), in: value) else {
+            return nil
+        }
+        return Int64(value[range])
     }
 
     static func partialDownloadURL(for runtime: Runtime) -> URL {

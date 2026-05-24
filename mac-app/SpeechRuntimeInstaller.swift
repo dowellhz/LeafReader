@@ -64,9 +64,25 @@ extension SpeechRuntimeResourceManager {
             } else {
                 try writeInstallManifest(runtime: runtime, cacheDirectories: [])
             }
+            try validateInstalledRuntimeIsUsable(runtime)
         } catch {
             restoreRuntimeInstall(runtime, from: backupDirectory)
             throw error
+        }
+    }
+
+    static func validateInstalledRuntimeIsUsable(_ runtime: Runtime) throws {
+        guard isDownloaded(runtime) else {
+            throw NSError(
+                domain: "LeafReader.SpeechRuntime",
+                code: -9,
+                userInfo: [
+                    NSLocalizedDescriptionKey: AppText.localized(
+                        "模型安装完成但仍不可用，请重新下载。",
+                        "The model was installed but is still unavailable. Please download it again."
+                    )
+                ]
+            )
         }
     }
 

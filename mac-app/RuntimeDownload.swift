@@ -109,6 +109,16 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
         }
 
         if existingSize > 0, statusCode == 206 {
+            let contentRange = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Range")
+            guard SpeechRuntimeResourceManager.contentRangeStart(contentRange) == existingSize else {
+                throw makeError(
+                    code: SpeechRuntimeResourceManager.resumeRangeMismatchCode,
+                    message: AppText.localized(
+                        "续传响应不匹配，正在重新下载。",
+                        "Resume response did not match the partial file; restarting download."
+                    )
+                )
+            }
             fileHandle = try FileHandle(forWritingTo: partialURL)
             try fileHandle?.seekToEnd()
             completedBytes = existingSize

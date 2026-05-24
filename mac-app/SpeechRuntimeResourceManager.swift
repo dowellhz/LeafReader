@@ -206,18 +206,24 @@ enum SpeechRuntimeResourceManager {
                 case .failure(let error):
                     let nsError = error as NSError
                     if shouldRetryDownload(error: nsError, attempt: attempt) {
-                        if nsError.domain == downloadErrorDomain, nsError.code == 416 {
+                        if shouldRestartWithoutPartialDownload(error: nsError) {
                             try? fileManager.removeItem(at: partialURL)
                             download(runtime, downloadID: downloadID, expectedAsset: expectedAsset, retryingWithoutResume: true, attempt: attempt + 1, completion: completion)
                         } else {
                             download(runtime, downloadID: downloadID, expectedAsset: expectedAsset, retryingWithoutResume: false, attempt: attempt + 1, completion: completion)
                         }
                     } else {
+                        if shouldRestartWithoutPartialDownload(error: nsError) {
+                            try? fileManager.removeItem(at: partialURL)
+                        }
                         DispatchQueue.main.async { completion(.failure(error)) }
                     }
                     return
                 }
             } catch {
+                if shouldRestartWithoutPartialDownload(error: error as NSError) {
+                    try? fileManager.removeItem(at: partialURL)
+                }
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
         }

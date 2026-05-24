@@ -3,21 +3,13 @@ import Foundation
 extension SpeechRuntimeResourceManager {
     static func isDownloaded(_ runtime: Runtime) -> Bool {
         if runtime == .kitten {
-            return runtime.installDirectories.contains { directory in
-                kittenRuntimePathsExist(in: directory)
-            } && runtime.installDirectories.contains { directory in
-                kittenModelPathsExist(in: directory)
-            }
+            return kittenRuntimeAndModelPathsExist(installDirectories: runtime.installDirectories)
         }
         if runtime == .kokoro {
-            return runtime.installDirectories.contains { directory in
-                FileManager.default.isExecutableFile(atPath: directory.appendingPathComponent("fluidaudiocli").path)
-            } && kokoroAneModelCacheExists()
+            return kokoroRuntimeAndModelPathsExist(installDirectories: runtime.installDirectories)
         }
         if runtime == .piper {
-            return runtime.installDirectories.contains { directory in
-                piperRuntimePathsExist(in: directory)
-            } && piperAnyVoicePathsExist()
+            return piperRuntimeAndVoicePathsExist(installDirectories: runtime.installDirectories)
         }
         return runtime.installDirectories.contains { directory in
             requiredPathsExist(runtime.requiredPaths(in: directory))

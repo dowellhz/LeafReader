@@ -16,6 +16,32 @@ extension SpeechRuntimeResourceManager {
         FileManager.default.isExecutableFile(atPath: Runtime.kitten.executableURL(in: directory).path)
     }
 
+    static func kittenRuntimeAndModelPathsExist(installDirectories: [URL]) -> Bool {
+        installDirectories.contains { directory in
+            kittenRuntimePathsExist(in: directory)
+        } && installDirectories.contains { directory in
+            kittenModelPathsExist(in: directory)
+        }
+    }
+
+    static func kokoroRuntimeAndModelPathsExist(
+        installDirectories: [URL],
+        modelCacheRoot: URL = Runtime.fluidAudioModelCacheRoot
+    ) -> Bool {
+        installDirectories.contains { directory in
+            FileManager.default.isExecutableFile(atPath: Runtime.kokoro.executableURL(in: directory).path)
+        } && kokoroAneModelCacheExists(in: modelCacheRoot)
+    }
+
+    static func piperRuntimeAndVoicePathsExist(
+        installDirectories: [URL],
+        voiceDirectory: URL = Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory)
+    ) -> Bool {
+        installDirectories.contains { directory in
+            piperRuntimePathsExist(in: directory)
+        } && piperAnyVoicePathsExist(in: voiceDirectory)
+    }
+
     static func bundledRuntimePathsExist(for runtime: Runtime) -> Bool {
         guard let directory = runtime.bundledInstallDirectory else {
             return false
