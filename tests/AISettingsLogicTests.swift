@@ -335,6 +335,53 @@ enum AISettingsLogicTests {
         )
     }
 
+    static func testPiperAnyVoiceAcceptsNonDefaultVoice() throws {
+        let fileManager = FileManager.default
+        let voiceDirectory = fileManager.temporaryDirectory
+            .appendingPathComponent("leafreader-piper-voices-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: voiceDirectory) }
+
+        try fileManager.createDirectory(at: voiceDirectory, withIntermediateDirectories: true)
+        try Data().write(to: voiceDirectory.appendingPathComponent("en_US-ryan-medium.onnx"))
+        try Data("{}".utf8).write(to: voiceDirectory.appendingPathComponent("en_US-ryan-medium.onnx.json"))
+
+        try expect(
+            SpeechRuntimeResourceManager.piperAnyVoicePathsExist(in: voiceDirectory),
+            "Piper should be available when any complete voice model and config pair exists"
+        )
+        try expect(
+            !SpeechRuntimeResourceManager.piperVoicePathsExist(in: voiceDirectory),
+            "default Piper voice checks should remain voice-specific"
+        )
+    }
+
+    static func testPiperArchiveValidationRequiresPackagedVoice() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("leafreader-piper-archive-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let executable = root.appendingPathComponent("piper/piper")
+        try fileManager.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data().write(to: executable)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+
+        do {
+            try SpeechRuntimeResourceManager.validateExtractedRuntime(.piper, in: root)
+            throw TestFailure(description: "Piper archive validation should reject archives without a packaged voice")
+        } catch let error as NSError {
+            try expectEqual(error.domain, "LeafReader.SpeechRuntime", "Piper archive validation should use the speech runtime domain")
+            try expectEqual(error.code, -4, "Piper archive validation should report missing required files")
+        }
+
+        let voiceDirectory = root.appendingPathComponent("Voices", isDirectory: true)
+        try fileManager.createDirectory(at: voiceDirectory, withIntermediateDirectories: true)
+        try Data().write(to: voiceDirectory.appendingPathComponent("en_US-ryan-medium.onnx"))
+        try Data("{}".utf8).write(to: voiceDirectory.appendingPathComponent("en_US-ryan-medium.onnx.json"))
+
+        try SpeechRuntimeResourceManager.validateExtractedRuntime(.piper, in: root)
+    }
+
     static func testSpeechRuntimeInstallManifestFiltersExternalCachePaths() throws {
         let cacheRoot = SpeechRuntimeResourceManager.Runtime.fluidAudioModelCacheRoot
         let validCacheDirectory = cacheRoot.appendingPathComponent("kokoro", isDirectory: true)

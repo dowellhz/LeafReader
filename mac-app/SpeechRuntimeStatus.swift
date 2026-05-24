@@ -17,7 +17,7 @@ extension SpeechRuntimeResourceManager {
         if runtime == .piper {
             return runtime.installDirectories.contains { directory in
                 piperRuntimePathsExist(in: directory)
-            } && piperVoicePathsExist()
+            } && piperAnyVoicePathsExist()
         }
         return runtime.installDirectories.contains { directory in
             requiredPathsExist(runtime.requiredPaths(in: directory))

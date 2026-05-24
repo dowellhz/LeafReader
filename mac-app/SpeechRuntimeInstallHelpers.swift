@@ -44,6 +44,10 @@ extension SpeechRuntimeResourceManager {
         piperVoicePathsExist(in: Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory), voiceID: voiceID)
     }
 
+    static func piperAnyVoicePathsExist() -> Bool {
+        piperAnyVoicePathsExist(in: Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory))
+    }
+
     static func piperVoicePathsExist(in modelDirectory: URL, voiceID: String = SpeechVoiceCatalog.defaultPiperVoiceID) -> Bool {
         let model = modelDirectory.appendingPathComponent("\(voiceID).onnx")
         let config = modelDirectory.appendingPathComponent("\(voiceID).onnx.json")
@@ -52,6 +56,23 @@ extension SpeechRuntimeResourceManager {
             && isDirectory.boolValue
             && FileManager.default.fileExists(atPath: model.path)
             && FileManager.default.fileExists(atPath: config.path)
+    }
+
+    static func piperAnyVoicePathsExist(in modelDirectory: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: modelDirectory.path, isDirectory: &isDirectory),
+              isDirectory.boolValue,
+              let contents = try? FileManager.default.contentsOfDirectory(
+                at: modelDirectory,
+                includingPropertiesForKeys: nil
+              ) else {
+            return false
+        }
+        let modelIDs = Set(contents.filter { $0.pathExtension == "onnx" }.map { $0.deletingPathExtension().lastPathComponent })
+        let configIDs = Set(contents.filter { $0.lastPathComponent.hasSuffix(".onnx.json") }.map {
+            $0.lastPathComponent.replacingOccurrences(of: ".onnx.json", with: "")
+        })
+        return !modelIDs.intersection(configIDs).isEmpty
     }
 
     static func kittenModelPathsExist(in directory: URL) -> Bool {

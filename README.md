@@ -185,6 +185,12 @@ Earlier versions are listed in [GitHub Releases](https://github.com/dowellhz/Lea
 
 Leaf Reader is licensed under the [Apache License 2.0](LICENSE).
 
+## What's New in 1.6.4
+
+- Added Piper as a local English read-aloud model option with bundled runtime support.
+- Improved read-aloud controls with stop and settings actions in the floating player.
+- Tightened TTS model download rows, Piper speed handling, and release asset publishing.
+
 ## What's New in 1.6.3
 
 - The floating read-aloud player now includes a next-page button.

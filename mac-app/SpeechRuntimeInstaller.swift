@@ -83,7 +83,7 @@ extension SpeechRuntimeResourceManager {
         case .piper:
             let voiceDirectory = directory.appendingPathComponent("Voices", isDirectory: true)
             isValid = (requiredPathsExist(runtime.requiredPaths(in: directory)) || bundledRuntimePathsExist(for: runtime))
-                && (piperVoicePathsExist(in: voiceDirectory) || piperVoicePathsExist())
+                && piperAnyVoicePathsExist(in: voiceDirectory)
         }
         guard isValid else {
             throw NSError(
