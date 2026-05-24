@@ -6,6 +6,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
     static let readingSegmentDidChangeNotification = Notification.Name("LeafReader.SpeechPlayback.readingSegmentDidChange")
     private static let idleShutdownDelay: TimeInterval = 180
     private static let maxPendingReadAloudSegments = 2
+    private static let maxRecentPlaybackWAVSegments = 2
 
     let queue = DispatchQueue(label: "LeafReader.SpeechPlayback", qos: .userInitiated)
     let kokoroBackend = KokoroTTSBackend()
@@ -14,11 +15,17 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
     private var currentPlayer: AVAudioPlayer?
     private var currentSegment: PlaybackSegment?
     private var pendingSegments: [PlaybackSegment] = []
+    private var recentPlaybackCache: [PlaybackSegment] = []
     private var activeSpeechSegments: [ReadAloudSegment] = []
+    private var lastPlayedSegmentIndex = 0
     private var activeGenerationID = UUID()
     private var isGeneratingSegments = false
     private var isPlaybackPaused = false
     private var isStoppingPlayback = false
+    private var manualAdvanceEnabled = false
+    private var manualAdvanceSegmentsRemaining = 0
+    private var shouldPlayNextGeneratedSegmentImmediately = false
+    private var isSkippingCurrentSegment = false
     private var playbackFinishHandler: (() -> Void)?
     var interruptionPlayer: AVAudioPlayer?
     var interruptionOutputURL: URL?
@@ -72,11 +79,34 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
             return
         }
 
+        generateAndPlay(segments: segments, allSegments: segments, completion: completion, finished: finished)
+    }
+
+    private func generateAndPlay(
+        segments: [ReadAloudSegment],
+        allSegments: [ReadAloudSegment],
+        indexOffset: Int = 0,
+        initialPlaybackSegments: [PlaybackSegment] = [],
+        completion: @escaping (Bool) -> Void,
+        finished: (() -> Void)?
+    ) {
         let generationID = UUID()
-        beginGeneration(generationID, segments: segments, finished: finished)
+        beginGeneration(
+            generationID,
+            allSegments: allSegments,
+            indexOffset: indexOffset,
+            preservingOutputURLs: Set(initialPlaybackSegments.map(\.outputURL)),
+            keepRecentPlaybackCache: !initialPlaybackSegments.isEmpty,
+            finished: finished
+        )
+        if !initialPlaybackSegments.isEmpty {
+            pendingSegments.append(contentsOf: initialPlaybackSegments)
+            playNextOutputIfNeeded()
+            completion(true)
+        }
         queue.async { [weak self] in
             guard let self else { return }
-            var didReportSuccess = false
+            var didReportSuccess = !initialPlaybackSegments.isEmpty
             var didGenerateAnySegment = false
             for (segmentIndex, segment) in segments.enumerated() {
                 guard self.isActiveGeneration(generationID) else { return }
@@ -106,8 +136,8 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
                         speechText: segment.speechText,
                         text: segment.displayText,
                         matchText: segment.matchText,
-                        index: segmentIndex + 1,
-                        total: segments.count,
+                        index: segmentIndex + 1 + indexOffset,
+                        total: allSegments.count,
                         pageIndex: segment.pageIndex
                     ))
                     if shouldReportSuccess {
@@ -196,6 +226,84 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         }
     }
 
+    func setManualAdvanceEnabled(_ enabled: Bool) {
+        let work = {
+            self.manualAdvanceEnabled = enabled
+            if !enabled {
+                self.manualAdvanceSegmentsRemaining = 0
+            }
+            if !enabled, self.isPlaybackPaused, self.currentPlayer == nil {
+                self.isPlaybackPaused = false
+                self.playNextOutputIfNeeded()
+            }
+        }
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.async(execute: work)
+        }
+    }
+
+    func advanceToNextSegment() {
+        let work = {
+            self.shouldPlayNextGeneratedSegmentImmediately = true
+            self.isSkippingCurrentSegment = self.currentPlayer != nil
+            self.allowOneManualAdvanceSegmentIfNeeded()
+            self.isPlaybackPaused = false
+            if let player = self.currentPlayer {
+                player.stop()
+                self.finishCurrentPlaybackIfMatching(player)
+            } else {
+                self.playNextOutputIfNeeded()
+            }
+        }
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.async(execute: work)
+        }
+    }
+
+    func replayPreviousSegment() {
+        let work = {
+            guard !self.activeSpeechSegments.isEmpty else { return }
+            let currentIndex = self.currentSegment?.index ?? self.lastPlayedSegmentIndex
+            let targetOffset = max(0, currentIndex - 2)
+            let replaySegments = Array(self.activeSpeechSegments.dropFirst(targetOffset))
+            guard !replaySegments.isEmpty else { return }
+            let finished = self.playbackFinishHandler
+            let targetIndex = targetOffset + 1
+            let cachedPrefix = self.cachedReplayPrefix(startingAt: targetIndex, through: currentIndex)
+            if !cachedPrefix.isEmpty {
+                let remainingOffset = targetOffset + cachedPrefix.count
+                let remainingSegments = Array(self.activeSpeechSegments.dropFirst(remainingOffset))
+                self.allowOneManualAdvanceSegmentIfNeeded()
+                self.generateAndPlay(
+                    segments: remainingSegments,
+                    allSegments: self.activeSpeechSegments,
+                    indexOffset: remainingOffset,
+                    initialPlaybackSegments: cachedPrefix,
+                    completion: { _ in },
+                    finished: finished
+                )
+                return
+            }
+            self.allowOneManualAdvanceSegmentIfNeeded()
+            self.generateAndPlay(
+                segments: replaySegments,
+                allSegments: self.activeSpeechSegments,
+                indexOffset: targetOffset,
+                completion: { _ in },
+                finished: finished
+            )
+        }
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.async(execute: work)
+        }
+    }
+
     func hasActiveReadAloudWork() -> Bool {
         if Thread.isMainThread {
             return currentPlayer != nil || !pendingSegments.isEmpty || isGeneratingSegments
@@ -207,14 +315,30 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         return active
     }
 
-    private func beginGeneration(_ generationID: UUID, segments: [ReadAloudSegment], finished: (() -> Void)?) {
+    private func allowOneManualAdvanceSegmentIfNeeded() {
+        guard manualAdvanceEnabled else { return }
+        manualAdvanceSegmentsRemaining = 1
+    }
+
+    private func beginGeneration(
+        _ generationID: UUID,
+        allSegments: [ReadAloudSegment],
+        indexOffset: Int,
+        preservingOutputURLs: Set<URL> = [],
+        keepRecentPlaybackCache: Bool = false,
+        finished: (() -> Void)?
+    ) {
         let work = {
             self.activeGenerationID = generationID
-            self.activeSpeechSegments = segments
+            self.activeSpeechSegments = allSegments
             self.isGeneratingSegments = true
             self.isPlaybackPaused = false
+            self.lastPlayedSegmentIndex = indexOffset
             self.playbackFinishHandler = finished
-            self.stopAndClearPlayback()
+            self.stopAndClearPlayback(
+                preservingOutputURLs: preservingOutputURLs,
+                keepRecentPlaybackCache: keepRecentPlaybackCache
+            )
         }
         if Thread.isMainThread {
             work()
@@ -250,6 +374,16 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
 
     private func enqueueSegment(_ segment: PlaybackSegment) {
         pendingSegments.append(segment)
+        if shouldPlayNextGeneratedSegmentImmediately, currentPlayer == nil {
+            shouldPlayNextGeneratedSegmentImmediately = false
+            isPlaybackPaused = false
+            playNextOutputIfNeeded()
+            return
+        }
+        if manualAdvanceEnabled, isPlaybackPaused, currentPlayer == nil {
+            postWaitingForManualAdvance()
+            return
+        }
         playNextOutputIfNeeded()
     }
 
@@ -266,7 +400,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
             player = try AVAudioPlayer(contentsOf: segment.outputURL)
         } catch {
             NSLog("LeafReader SpeechPlayback: AVAudioPlayer load failed (output=%@, error=%@)", segment.outputURL.path, String(describing: error))
-            try? FileManager.default.removeItem(at: segment.outputURL)
+            discardPlaybackSegment(segment)
             playNextOutputIfNeeded()
             return
         }
@@ -274,10 +408,11 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         player.prepareToPlay()
         currentPlayer = player
         currentSegment = segment
+        lastPlayedSegmentIndex = segment.index
         postReadingSegment(segment)
         if !player.play() {
             NSLog("LeafReader SpeechPlayback: AVAudioPlayer playback failed (output=%@)", segment.outputURL.path)
-            try? FileManager.default.removeItem(at: segment.outputURL)
+            discardPlaybackSegment(segment)
             currentPlayer = nil
             currentSegment = nil
             playNextOutputIfNeeded()
@@ -291,11 +426,27 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         playbackWatchdogWorkItem?.cancel()
         playbackWatchdogWorkItem = nil
         if let currentSegment {
-            try? FileManager.default.removeItem(at: currentSegment.outputURL)
+            cacheCompletedPlaybackSegment(currentSegment)
         }
         player.delegate = nil
         currentPlayer = nil
         currentSegment = nil
+        let didSkipCurrentSegment = isSkippingCurrentSegment
+        isSkippingCurrentSegment = false
+        if manualAdvanceEnabled, manualAdvanceSegmentsRemaining > 0, !didSkipCurrentSegment {
+            manualAdvanceSegmentsRemaining -= 1
+        }
+        let shouldPauseForManualMode = manualAdvanceEnabled
+            && manualAdvanceSegmentsRemaining == 0
+            && (!pendingSegments.isEmpty || isGeneratingSegments)
+        if shouldPauseForManualMode {
+            isPlaybackPaused = true
+            postWaitingForManualAdvance()
+            return
+        }
+        manualAdvanceSegmentsRemaining = 0
+        shouldPlayNextGeneratedSegmentImmediately = false
+        isSkippingCurrentSegment = false
         playNextOutputIfNeeded()
     }
 
@@ -330,7 +481,10 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         scheduleIdleShutdown()
     }
 
-    private func stopAndClearPlayback() {
+    private func stopAndClearPlayback(
+        preservingOutputURLs: Set<URL> = [],
+        keepRecentPlaybackCache: Bool = false
+    ) {
         isStoppingPlayback = true
         let player = currentPlayer
         let segmentToRemove = currentSegment
@@ -340,16 +494,85 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         currentPlayer = nil
         currentSegment = nil
         pendingSegments.removeAll()
+        shouldPlayNextGeneratedSegmentImmediately = false
+        isSkippingCurrentSegment = false
         player?.delegate = nil
         player?.stop()
         if let segmentToRemove {
-            try? FileManager.default.removeItem(at: segmentToRemove.outputURL)
+            removePlaybackFile(for: segmentToRemove, preserving: preservingOutputURLs)
         }
         for segment in pendingToRemove {
-            try? FileManager.default.removeItem(at: segment.outputURL)
+            removePlaybackFile(for: segment, preserving: preservingOutputURLs)
+        }
+        if !keepRecentPlaybackCache {
+            clearRecentPlaybackSegments(preserving: preservingOutputURLs)
         }
         isStoppingPlayback = false
         postReadingEnded()
+    }
+
+    private func cachedReplayPrefix(startingAt startIndex: Int, through endIndex: Int) -> [PlaybackSegment] {
+        guard startIndex <= endIndex else { return [] }
+        var segments: [PlaybackSegment] = []
+        for index in startIndex...endIndex {
+            if let currentSegment, currentSegment.index == index, playbackFileExists(for: currentSegment) {
+                segments.append(currentSegment)
+            } else if let cachedSegment = cachedPlaybackSegment(for: index) {
+                segments.append(cachedSegment)
+            } else {
+                break
+            }
+        }
+        return segments
+    }
+
+    private func cachedPlaybackSegment(for index: Int) -> PlaybackSegment? {
+        recentPlaybackCache.first {
+            $0.index == index && playbackFileExists(for: $0)
+        }
+    }
+
+    private func cacheCompletedPlaybackSegment(_ segment: PlaybackSegment) {
+        guard playbackFileExists(for: segment) else { return }
+        recentPlaybackCache.removeAll {
+            $0.index == segment.index || $0.outputURL == segment.outputURL
+        }
+        recentPlaybackCache.append(segment)
+        while recentPlaybackCache.count > Self.maxRecentPlaybackWAVSegments {
+            let removed = recentPlaybackCache.removeFirst()
+            removePlaybackFile(for: removed)
+        }
+    }
+
+    private func clearRecentPlaybackSegments(preserving preservedOutputURLs: Set<URL> = []) {
+        for segment in recentPlaybackCache {
+            removePlaybackFile(for: segment, preserving: preservedOutputURLs)
+        }
+        recentPlaybackCache.removeAll {
+            !preservedOutputURLs.contains($0.outputURL)
+        }
+    }
+
+    private func discardPlaybackSegment(_ segment: PlaybackSegment) {
+        recentPlaybackCache.removeAll { $0.outputURL == segment.outputURL }
+        removePlaybackFile(for: segment)
+    }
+
+    private func removePlaybackFile(for segment: PlaybackSegment, preserving preservedOutputURLs: Set<URL> = []) {
+        guard !preservedOutputURLs.contains(segment.outputURL) else { return }
+        try? FileManager.default.removeItem(at: segment.outputURL)
+    }
+
+    private func playbackFileExists(for segment: PlaybackSegment) -> Bool {
+        FileManager.default.fileExists(atPath: segment.outputURL.path)
+    }
+
+    private func postWaitingForManualAdvance() {
+        NotificationCenter.default.post(
+            name: Self.readingSegmentDidChangeNotification,
+            object: self,
+            userInfo: ["active": true, "waitingForManualAdvance": true]
+        )
     }
 
     private func forceTerminateRuntimeProcesses() {

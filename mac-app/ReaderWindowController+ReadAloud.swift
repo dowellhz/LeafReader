@@ -19,6 +19,7 @@ extension ReaderWindowController {
 
     private func startReadAloudFromToolbar() {
         guard canStartReadAloudWithLocalTTS() else { return }
+        SpeechPlaybackCoordinator.shared.setManualAdvanceEnabled(readAloudAdvanceMode == .manual)
         guard currentDocumentKind == .pdf else {
             startWebReadAloudFromToolbar()
             return
@@ -63,6 +64,7 @@ extension ReaderWindowController {
         isReadAloudActive = true
         isReadAloudPaused = false
         isReadAloudLoading = true
+        canReadAloudGoPrevious = false
         clearUserSelectionForReadAloudStart()
         updateReadAloudButton()
     }
@@ -94,6 +96,7 @@ extension ReaderWindowController {
         isReadAloudActive = false
         isReadAloudPaused = false
         isReadAloudLoading = false
+        canReadAloudGoPrevious = false
         updateReadAloudButton()
     }
 
@@ -130,6 +133,7 @@ extension ReaderWindowController {
         readAloudStopButton?.isHidden = !isReadAloudActive
         readAloudButton.needsDisplay = true
         readAloudButton.displayIfNeeded()
+        updateReadAloudFloatingControl()
     }
 
 }

@@ -60,6 +60,11 @@ extension ReaderWindowController {
 
     private func continueReadAloudAfterPDFBatch(lastQueuedPage: PDFPage) {
         guard isReadAloudActive else { return }
+        if readAloudAdvanceMode == .manual {
+            pendingReadAloudPDFContinuation = .afterBatch(lastQueuedPage: lastQueuedPage)
+            pauseReadAloudForManualAdvance()
+            return
+        }
         guard !isReadAloudPaused else {
             pendingReadAloudPDFContinuation = .afterBatch(lastQueuedPage: lastQueuedPage)
             return
@@ -79,6 +84,11 @@ extension ReaderWindowController {
 
     private func continueReadAloudAfterCurrentPDFScreen() {
         guard isReadAloudActive else { return }
+        if readAloudAdvanceMode == .manual {
+            pendingReadAloudPDFContinuation = .afterCurrentScreen
+            pauseReadAloudForManualAdvance()
+            return
+        }
         guard !isReadAloudPaused else {
             pendingReadAloudPDFContinuation = .afterCurrentScreen
             return

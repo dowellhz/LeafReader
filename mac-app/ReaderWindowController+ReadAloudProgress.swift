@@ -20,6 +20,10 @@ extension ReaderWindowController {
             restoreTitleAfterSpeechPlayback()
             return
         }
+        if notification.userInfo?["waitingForManualAdvance"] as? Bool == true {
+            pauseReadAloudForManualAdvance()
+            return
+        }
 
         if readAloudOriginalTitle == nil {
             readAloudOriginalTitle = titleLabel.stringValue
@@ -30,6 +34,8 @@ extension ReaderWindowController {
         let matchText = notification.userInfo?["matchText"] as? String ?? text
         let index = notification.userInfo?["index"] as? Int
         let pageIndex = notification.userInfo?["pageIndex"] as? Int
+        canReadAloudGoPrevious = (index ?? 1) > 1
+        updateReadAloudFloatingControl()
         if let pageIndex {
             turnPDFReadAloudPageIfNeeded(to: pageIndex)
         }

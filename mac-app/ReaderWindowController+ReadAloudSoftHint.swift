@@ -12,6 +12,7 @@ extension ReaderWindowController {
         readAloudSoftHintDismissWorkItem?.cancel()
 
         let hintView = readAloudSoftHintView ?? makeReadAloudSoftHintView(in: contentView)
+        updateReadAloudSoftHintPosition()
         hintView.title = title
         hintView.onAction = { [weak self] in
             guard let self else { return }
@@ -55,6 +56,14 @@ extension ReaderWindowController {
 
     func updateReadAloudSoftHintTheme() {
         readAloudSoftHintView?.applyTheme(ReaderTheme.selected)
+        updateReadAloudSoftHintPosition()
+    }
+
+    func updateReadAloudSoftHintPosition() {
+        let shouldShiftRight = isReadAloudActive && readAloudFloatingControlView?.isHidden == false
+        let maxSafeShift = max(0, contentArea.bounds.width * 0.5 - 220)
+        readAloudSoftHintCenterXConstraint?.constant = shouldShiftRight ? min(260, maxSafeShift) : 0
+        readAloudSoftHintView?.superview?.layoutSubtreeIfNeeded()
     }
 
     private func makeReadAloudSoftHintView(in contentView: NSView) -> ReadAloudSoftHintView {
@@ -64,8 +73,10 @@ extension ReaderWindowController {
         hintView.isHidden = true
         contentView.addSubview(hintView, positioned: .above, relativeTo: contentArea)
 
+        let centerX = hintView.centerXAnchor.constraint(equalTo: contentArea.centerXAnchor)
+        readAloudSoftHintCenterXConstraint = centerX
         NSLayoutConstraint.activate([
-            hintView.centerXAnchor.constraint(equalTo: contentArea.centerXAnchor),
+            centerX,
             hintView.bottomAnchor.constraint(equalTo: contentArea.bottomAnchor, constant: -18),
             hintView.leadingAnchor.constraint(greaterThanOrEqualTo: contentArea.leadingAnchor, constant: 24),
             hintView.trailingAnchor.constraint(lessThanOrEqualTo: contentArea.trailingAnchor, constant: -24),

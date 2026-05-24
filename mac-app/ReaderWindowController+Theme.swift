@@ -30,6 +30,7 @@ extension ReaderWindowController {
         aiHandleButton.theme = theme
         aiPanel.setTheme(theme)
         updateReadAloudSoftHintTheme()
+        updateReadAloudFloatingControl()
         searchOverlay.setTheme(theme)
         selectionActionToolbar.applyTheme(theme)
         pdfView.backgroundColor = chromeBackground

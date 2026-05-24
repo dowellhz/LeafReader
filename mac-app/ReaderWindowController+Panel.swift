@@ -280,10 +280,16 @@ extension ReaderWindowController {
         hideSelectionToolbar()
         updateFullScreenButton()
         syncAIPanelLayoutAfterResize()
+        showReadAloudFloatingControlWindow()
     }
 
     func windowDidMove(_ notification: Notification) {
         hideSelectionToolbar()
+        showReadAloudFloatingControlWindow()
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        showReadAloudFloatingControlWindow()
     }
 
     func windowDidResignKey(_ notification: Notification) {
@@ -300,6 +306,7 @@ extension ReaderWindowController {
         windowResizeLayoutTask.cancel()
         syncAIPanelLayoutAfterResize()
         windowResizeLayoutTask.flush()
+        showReadAloudFloatingControlWindow()
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
@@ -308,6 +315,7 @@ extension ReaderWindowController {
         windowResizeLayoutTask.cancel()
         syncAIPanelLayoutAfterResize()
         windowResizeLayoutTask.flush()
+        showReadAloudFloatingControlWindow()
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -316,6 +324,11 @@ extension ReaderWindowController {
             window?.removeChildWindow(selectionActionToolbarWindow)
         }
         selectionActionToolbarWindow = nil
+        readAloudFloatingControlWindow?.orderOut(nil)
+        if let readAloudFloatingControlWindow {
+            window?.removeChildWindow(readAloudFloatingControlWindow)
+        }
+        readAloudFloatingControlWindow = nil
         windowResizeLayoutTask.flush()
         aiPanelResizeLayoutTask.flush()
         preferredAIWidthSaveTask.flush()

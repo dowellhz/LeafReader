@@ -62,7 +62,7 @@ extension AIChatPanel {
         let speakerButton: NSButton?
         if let word = speakerWordForBubble(role: role, text: text, linkID: linkID) {
             let button = WordSpeakerButton(title: "", target: self, action: #selector(playBubbleWord(_:)))
-            button.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: AppText.localized("播放发音", "Play pronunciation"))
+            button.image = TemplateSymbolImage.make("speaker.wave.2.fill", accessibilityDescription: AppText.localized("播放发音", "Play pronunciation"))
             button.isBordered = false
             button.contentTintColor = aiAccentColor
             button.imageScaling = .scaleProportionallyDown

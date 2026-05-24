@@ -29,7 +29,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 
 ### 下载
 
-[下载 Leaf Reader 1.6.1 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.6.1/LeafReader-1.6.1.pkg)
+[下载 Leaf Reader 1.6.2 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.6.2/LeafReader-1.6.2.pkg)
 
 ### 系统要求
 
@@ -62,6 +62,13 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 常规应用版本会复用这些模型文件。只有模型文件变化时才需要重新发布语音模型归档，并同步更新 `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag`。
 
 ### 更新记录
+
+#### 1.6.2
+
+- 增加朗读时的浮动播放器，支持上一句、暂停/继续、下一句，以及自动/手动接续模式。
+- 优化朗读队列，点击下一句会立即停止当前句并播放下一句，手动模式每次只播放一句。
+- 保留最近两句 wav 缓存，让上一句回退更流畅。
+- 修复朗读浮动播放器与 PDF 单词标记、AI 提示气泡和页面点击之间的层级/点击冲突。
 
 #### 1.6.1
 
@@ -103,7 +110,7 @@ The website automatically follows the browser language and also provides a manua
 
 ### Download
 
-[Leaf Reader 1.6.1 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.6.1/LeafReader-1.6.1.pkg)
+[Leaf Reader 1.6.2 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.6.2/LeafReader-1.6.2.pkg)
 
 ### System Requirements
 
@@ -139,6 +146,13 @@ Regular app releases reuse those files. Regenerated speech archives should only 
 
 ### Changelog
 
+#### 1.6.2
+
+- Added an in-reader floating read-aloud controller with previous, pause/resume, next, and auto/manual advance modes.
+- Improved read-aloud queue behavior so Next immediately stops the current sentence and starts the next one, while manual mode plays one sentence at a time.
+- Kept the two most recent wav segments cached to make Previous sentence playback faster.
+- Fixed layering and click handling conflicts between the floating player, PDF word highlights, AI hint bubbles, and page clicks.
+
 #### 1.6.1
 
 - Reduced the bundled speech footprint by keeping only the espeak English dictionary needed by KittenTTS.
@@ -158,6 +172,12 @@ Earlier versions are listed in [GitHub Releases](https://github.com/dowellhz/Lea
 ### License
 
 Leaf Reader is licensed under the [Apache License 2.0](LICENSE).
+
+## What's New in 1.6.2
+
+- Floating read-aloud controls are now available while reading, including previous/next sentence and auto/manual advance.
+- Previous sentence playback is smoother by reusing the two most recent generated wav segments.
+- The floating player now stays above PDF highlights and remains visible when clicking the page during read-aloud.
 
 ## Development
 

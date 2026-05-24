@@ -56,6 +56,11 @@ extension ReaderWindowController {
             finishReadAloudFromToolbar()
             return
         }
+        if readAloudAdvanceMode == .manual {
+            pendingReadAloudWebContinuation = true
+            pauseReadAloudForManualAdvance()
+            return
+        }
         guard !isReadAloudPaused else {
             pendingReadAloudWebContinuation = true
             return

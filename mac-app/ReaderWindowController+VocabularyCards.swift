@@ -28,7 +28,7 @@ extension ReaderWindowController {
 
         let speakerButton: VocabularySpeakerButton? = vocabularySpeakerWord(word).map { spokenWord in
             let button = VocabularySpeakerButton(title: "", target: self, action: #selector(playVocabularyWord(_:)))
-            button.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: AppText.localized("播放发音", "Play pronunciation"))
+            button.image = TemplateSymbolImage.make("speaker.wave.2.fill", accessibilityDescription: AppText.localized("播放发音", "Play pronunciation"))
             button.isBordered = false
             button.contentTintColor = vocabularyAccentColor(for: theme)
             button.imageScaling = .scaleProportionallyDown

@@ -200,11 +200,16 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var readAloudSoftHintView: ReadAloudSoftHintView?
     var readAloudSoftHintDismissWorkItem: DispatchWorkItem?
     var lastReadAloudSoftHintKey: String?
+    var readAloudSoftHintCenterXConstraint: NSLayoutConstraint?
+    var readAloudFloatingControlView: ReadAloudFloatingControlView?
+    var readAloudFloatingControlWindow: NSWindow?
     var pendingReadAloudPDFContinuation: PendingReadAloudPDFContinuation?
     var pendingReadAloudWebContinuation = false
+    var readAloudAdvanceMode = ReadAloudAdvanceMode.load()
     var isReadAloudActive = false
     var isReadAloudPaused = false
     var isReadAloudLoading = false
+    var canReadAloudGoPrevious = false
     var selectionSpeechCompletion: (() -> Void)?
     var shouldClearSelectionOnSpeechStart = false
     var currentVocabularyExportRecords: [VocabularyExportRecord] = []
