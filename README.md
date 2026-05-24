@@ -17,15 +17,15 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 
 ### 截图
 
-![Leaf Reader 亮色模式单词学习](assets/reader-light-ai-word.png)
+![Leaf Reader 亮色模式单词学习](assets/reader-light-ai-word.png?v=20260524)
 
-![Leaf Reader 书架](assets/reader-bookshelf.png)
+![Leaf Reader 书架](assets/reader-bookshelf.png?v=20260524)
 
-![Leaf Reader 设置](assets/reader-settings.png)
+![Leaf Reader 设置](assets/reader-settings.png?v=20260524)
 
-![Leaf Reader 深色模式设置](assets/reader-dark-ai.png)
+![Leaf Reader 深色模式设置](assets/reader-dark-ai.png?v=20260524)
 
-![Leaf Reader 背单词复习](assets/reader-dark-vocabulary.png)
+![Leaf Reader 背单词复习](assets/reader-dark-vocabulary.png?v=20260524)
 
 ### 下载
 
@@ -98,15 +98,15 @@ The website automatically follows the browser language and also provides a manua
 
 ### Screenshots
 
-![Leaf Reader word learning in light mode](assets/reader-light-ai-word.png)
+![Leaf Reader word learning in light mode](assets/reader-light-ai-word.png?v=20260524)
 
-![Leaf Reader bookshelf](assets/reader-bookshelf.png)
+![Leaf Reader bookshelf](assets/reader-bookshelf.png?v=20260524)
 
-![Leaf Reader settings](assets/reader-settings.png)
+![Leaf Reader settings](assets/reader-settings.png?v=20260524)
 
-![Leaf Reader settings in dark mode](assets/reader-dark-ai.png)
+![Leaf Reader settings in dark mode](assets/reader-dark-ai.png?v=20260524)
 
-![Leaf Reader vocabulary review](assets/reader-dark-vocabulary.png)
+![Leaf Reader vocabulary review](assets/reader-dark-vocabulary.png?v=20260524)
 
 ### Download
 
