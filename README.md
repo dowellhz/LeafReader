@@ -63,6 +63,12 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 
 ### 更新记录
 
+#### 1.6.3
+
+- 朗读浮动播放器增加“下一页”按钮，可直接接续朗读下一页内容。
+- 修复 PDF 双页模式下朗读从左页跳到右页时不应翻到下一屏的问题。
+- 底部工具栏“书架”和“背单词”按钮增加与主题一致的 SF Symbol 图标。
+
 #### 1.6.2
 
 - 增加朗读时的浮动播放器，支持上一句、暂停/继续、下一句，以及自动/手动接续模式。
@@ -146,6 +152,12 @@ Regular app releases reuse those files. Regenerated speech archives should only 
 
 ### Changelog
 
+#### 1.6.3
+
+- Added a next-page control to the floating read-aloud player.
+- Fixed PDF two-page read-aloud navigation so moving from the left page to the visible right page does not turn to the next spread.
+- Added theme-matched SF Symbol icons to the bottom toolbar Shelf and Vocab buttons.
+
 #### 1.6.2
 
 - Added an in-reader floating read-aloud controller with previous, pause/resume, next, and auto/manual advance modes.
@@ -173,11 +185,11 @@ Earlier versions are listed in [GitHub Releases](https://github.com/dowellhz/Lea
 
 Leaf Reader is licensed under the [Apache License 2.0](LICENSE).
 
-## What's New in 1.6.2
+## What's New in 1.6.3
 
-- Floating read-aloud controls are now available while reading, including previous/next sentence and auto/manual advance.
-- Previous sentence playback is smoother by reusing the two most recent generated wav segments.
-- The floating player now stays above PDF highlights and remains visible when clicking the page during read-aloud.
+- The floating read-aloud player now includes a next-page button.
+- In PDF two-page mode, next-page read-aloud moves from the left page to the visible right page without turning the spread.
+- The bottom toolbar Shelf and Vocab buttons now include SF Symbol icons.
 
 ## Development
 

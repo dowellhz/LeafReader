@@ -97,6 +97,19 @@ extension ReaderWindowController {
         continueWebReadAloudAfterBatch(hasMore: true)
     }
 
+    func skipReadAloudToNextWebPage() {
+        guard isReadAloudActive else { return }
+        SpeechPlaybackCoordinator.shared.stopSpeaking()
+        pendingReadAloudWebContinuation = false
+        isReadAloudPaused = false
+        beginReadAloudLoading()
+        scrollWebPage(direction: 1)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
+            guard let self, self.isReadAloudActive, self.currentDocumentKind != .pdf else { return }
+            self.readCurrentWebReadAloudBatch()
+        }
+    }
+
     private static func webReadAloudBatch(from value: Any?) -> WebReadAloudBatch {
         if let dictionary = value as? [String: Any] {
             return WebReadAloudBatch(

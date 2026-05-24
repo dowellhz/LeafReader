@@ -38,12 +38,16 @@ extension ReaderWindowController {
         return button
     }
 
-    func capsuleButton(title: String, symbol: String, action: Selector, imageOnRight: Bool = false) -> NSButton {
+    func capsuleButton(title: String, symbol: String, action: Selector, imageOnRight: Bool = false, showsLeadingSymbol: Bool = false) -> NSButton {
         let button = CapsuleChromeButton(title: title, target: self, action: action)
         button.identifier = Self.capsuleButtonIdentifier
         button.controlSize = .regular
         button.font = AppFont.semibold(ofSize: 13)
         button.theme = ReaderTheme.selected
+        if showsLeadingSymbol {
+            button.leadingSymbolName = symbol
+            button.leadingSymbolDescription = title
+        }
         return button
     }
 

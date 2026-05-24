@@ -155,7 +155,7 @@ extension ReaderWindowController {
            expectedPageIndex < document.pageCount,
            let page = document.page(at: expectedPageIndex) {
             NSLog("LeafReader read aloud: forcing PDF page after delayed page change (target=%d)", expectedPageIndex + 1)
-            goToPDFReadAloudPageTop(page)
+            _ = preparePDFReadAloudPageTop(page)
             lastPageIndex = expectedPageIndex
             updatePageLabel()
             saveSession()
@@ -182,16 +182,47 @@ extension ReaderWindowController {
         readCurrentPDFPageRemainderAndContinue(startAtPageTop: startAtPageTop)
     }
 
-    private func goToPDFReadAloudPageTop(_ page: PDFPage) {
+    func skipReadAloudToNextPDFPage() {
+        guard isReadAloudActive,
+              let document = pdfView.document,
+              let current = readAloudPageLockedAtTopIndex ?? currentPageIndex(),
+              current + 1 < document.pageCount else {
+            return
+        }
+        SpeechPlaybackCoordinator.shared.stopSpeaking()
+        pendingReadAloudPDFContinuation = nil
+        isReadAloudPaused = false
+        beginReadAloudLoading()
+        continueReadAloudFromPDFPageTop(at: current + 1, previousPageIndex: current)
+    }
+
+    private func preparePDFReadAloudPageTop(_ page: PDFPage) -> Bool {
+        let pageIndex = pdfView.document?.index(for: page)
+        if let pageIndex,
+           pageIndex != NSNotFound,
+           isPDFPageIndexVisible(pageIndex) {
+            lockPDFReadAloudPage(at: pageIndex, save: true)
+            return false
+        }
+
         let bounds = page.bounds(for: pdfView.displayBox)
         let destination = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY))
         pdfView.go(to: destination)
-        if let pageIndex = pdfView.document?.index(for: page), pageIndex != NSNotFound {
-            readAloudPageLockedAtTopIndex = pageIndex
+        if let pageIndex, pageIndex != NSNotFound {
+            lockPDFReadAloudPage(at: pageIndex, save: false)
         }
+        return true
     }
 
-    private func continueReadAloudFromPDFPageTop(at pageIndex: Int, previousPageIndex: Int?) {
+    private func lockPDFReadAloudPage(at pageIndex: Int, save: Bool) {
+        readAloudPageLockedAtTopIndex = pageIndex
+        guard save else { return }
+        lastPageIndex = pageIndex
+        updatePageLabel()
+        saveSession()
+    }
+
+    func continueReadAloudFromPDFPageTop(at pageIndex: Int, previousPageIndex: Int?) {
         guard let document = pdfView.document,
               pageIndex >= 0,
               pageIndex < document.pageCount,
@@ -199,12 +230,22 @@ extension ReaderWindowController {
             finishReadAloudFromToolbar()
             return
         }
-        goToPDFReadAloudPageTop(page)
-        waitForPDFReadAloudPageChange(
-            expectedPageIndex: pageIndex,
-            previousPageIndex: previousPageIndex,
-            startAtPageTop: true
-        )
+        if preparePDFReadAloudPageTop(page) {
+            waitForPDFReadAloudPageChange(
+                expectedPageIndex: pageIndex,
+                previousPageIndex: previousPageIndex,
+                startAtPageTop: true
+            )
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.isReadAloudActive else { return }
+                guard !self.isReadAloudPaused else {
+                    self.pendingReadAloudPDFContinuation = .currentScreen(startAtPageTop: true)
+                    return
+                }
+                self.readCurrentPDFPageRemainderAndContinue(startAtPageTop: true)
+            }
+        }
     }
 
     private func pdfTextFromVisibleTopToPageEnd(of page: PDFPage) -> String? {
@@ -283,6 +324,14 @@ extension ReaderWindowController {
     }
 
     func pdfReadAloudStartPageForCurrentScreen() -> PDFPage? {
+        if let lockedPageIndex = readAloudPageLockedAtTopIndex,
+           let document = pdfView.document,
+           lockedPageIndex >= 0,
+           lockedPageIndex < document.pageCount,
+           isPDFPageIndexVisible(lockedPageIndex) {
+            return document.page(at: lockedPageIndex)
+        }
+
         guard pdfView.displayMode == .twoUp,
               let document = pdfView.document else {
             return pdfView.currentPage
@@ -291,6 +340,15 @@ extension ReaderWindowController {
             .filter { document.index(for: $0) != NSNotFound }
             .sorted { document.index(for: $0) < document.index(for: $1) }
         return visiblePages.first ?? pdfView.currentPage
+    }
+
+    func isPDFPageIndexVisible(_ pageIndex: Int) -> Bool {
+        guard let document = pdfView.document,
+              pageIndex >= 0,
+              pageIndex < document.pageCount else {
+            return false
+        }
+        return pdfView.visiblePages.contains { document.index(for: $0) == pageIndex }
     }
 
     func pdfReadAloudLanguageProbeText(pageLimit: Int) -> String? {

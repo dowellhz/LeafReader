@@ -115,6 +115,7 @@ extension ReaderWindowController {
               pageIndex >= 0,
               pageIndex < document.pageCount,
               currentPageIndex() != pageIndex,
+              !isPDFPageIndexVisible(pageIndex),
               let page = document.page(at: pageIndex) else {
             return
         }

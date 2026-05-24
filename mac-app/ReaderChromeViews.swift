@@ -202,6 +202,12 @@ final class SideHandleButton: NSButton {
 }
 
 final class CapsuleChromeButton: NSButton {
+    var leadingSymbolName: String? {
+        didSet { invalidateIntrinsicContentSize(); needsDisplay = true }
+    }
+
+    var leadingSymbolDescription: String?
+
     var theme: ReaderTheme = .original {
         didSet { needsDisplay = true }
     }
@@ -236,7 +242,8 @@ final class CapsuleChromeButton: NSButton {
             .font: AppFont.semibold(ofSize: 13)
         ]
         let textWidth = title.size(withAttributes: attrs).width
-        return NSSize(width: max(64, ceil(textWidth) + 28), height: 30)
+        let symbolWidth: CGFloat = leadingSymbolName == nil ? 0 : 20
+        return NSSize(width: max(64, ceil(textWidth + symbolWidth) + 28), height: 30)
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -277,13 +284,42 @@ final class CapsuleChromeButton: NSButton {
         ]
         let textRect = bounds.insetBy(dx: 8, dy: 0)
         let titleSize = title.size(withAttributes: attrs)
+        let symbolSize = NSSize(width: 14, height: 14)
+        let symbolSpacing: CGFloat = leadingSymbolName == nil ? 0 : 6
+        let contentWidth = titleSize.width + (leadingSymbolName == nil ? 0 : symbolSize.width + symbolSpacing)
+        var contentX = max(textRect.minX, bounds.midX - contentWidth / 2)
+        if let leadingSymbolName,
+           let image = NSImage(systemSymbolName: leadingSymbolName, accessibilityDescription: leadingSymbolDescription)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold))?
+            .tintedChrome(with: textColor) {
+            let iconRect = NSRect(
+                x: contentX,
+                y: max(0, (bounds.height - symbolSize.height) / 2),
+                width: symbolSize.width,
+                height: symbolSize.height
+            )
+            image.draw(in: iconRect)
+            contentX += symbolSize.width + symbolSpacing
+        }
         let drawRect = NSRect(
-            x: textRect.minX,
+            x: contentX,
             y: max(0, (bounds.height - titleSize.height) / 2),
-            width: textRect.width,
+            width: min(titleSize.width + 1, textRect.maxX - contentX),
             height: titleSize.height
         )
         (title as NSString).draw(in: drawRect, withAttributes: attrs)
+    }
+}
+
+private extension NSImage {
+    func tintedChrome(with color: NSColor) -> NSImage {
+        let image = copy() as? NSImage ?? self
+        image.lockFocus()
+        color.set()
+        NSRect(origin: .zero, size: image.size).fill(using: .sourceAtop)
+        image.unlockFocus()
+        image.isTemplate = false
+        return image
     }
 }
 

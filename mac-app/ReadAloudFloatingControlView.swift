@@ -22,10 +22,21 @@ final class ReadAloudFloatingControlButton: NSButton {
 }
 
 final class ReadAloudFloatingControlView: NSView {
+    private enum Metrics {
+        static let iconButtonWidth: CGFloat = 32
+        static let buttonHeight: CGFloat = 30
+        static let modeButtonWidth: CGFloat = 58
+    }
+
     let previousButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let playPauseButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let nextButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
+    let nextPageButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let modeButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
+
+    private var controlButtons: [ReadAloudFloatingControlButton] {
+        [previousButton, playPauseButton, nextButton, nextPageButton, modeButton]
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -34,7 +45,7 @@ final class ReadAloudFloatingControlView: NSView {
         layer?.borderWidth = 1
         translatesAutoresizingMaskIntoConstraints = false
 
-        let stack = NSStackView(views: [previousButton, playPauseButton, nextButton, modeButton])
+        let stack = NSStackView(views: [previousButton, playPauseButton, nextButton, nextPageButton, modeButton])
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 6
@@ -42,7 +53,7 @@ final class ReadAloudFloatingControlView: NSView {
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
 
-        for button in [previousButton, playPauseButton, nextButton, modeButton] {
+        for button in controlButtons {
             button.isBordered = false
             button.focusRingType = .none
             button.font = AppFont.semibold(ofSize: 13)
@@ -57,14 +68,16 @@ final class ReadAloudFloatingControlView: NSView {
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor),
-            previousButton.widthAnchor.constraint(equalToConstant: 32),
-            previousButton.heightAnchor.constraint(equalToConstant: 30),
-            playPauseButton.widthAnchor.constraint(equalToConstant: 32),
-            playPauseButton.heightAnchor.constraint(equalToConstant: 30),
-            nextButton.widthAnchor.constraint(equalToConstant: 32),
-            nextButton.heightAnchor.constraint(equalToConstant: 30),
-            modeButton.widthAnchor.constraint(equalToConstant: 58),
-            modeButton.heightAnchor.constraint(equalToConstant: 30)
+            previousButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
+            previousButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
+            playPauseButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
+            playPauseButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
+            nextButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
+            nextButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
+            nextPageButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
+            nextPageButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
+            modeButton.widthAnchor.constraint(equalToConstant: Metrics.modeButtonWidth),
+            modeButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight)
         ])
     }
 
@@ -103,9 +116,10 @@ final class ReadAloudFloatingControlView: NSView {
         }
         layer?.backgroundColor = fill.cgColor
         layer?.borderColor = stroke.cgColor
-        for button in [previousButton, playPauseButton, nextButton, modeButton] {
+        for button in controlButtons {
             button.contentTintColor = text
         }
+        applyModeButtonTitleColor(text)
     }
 
     func update(isPaused: Bool, isLoading: Bool, mode: ReadAloudAdvanceMode, canGoPrevious: Bool) {
@@ -121,7 +135,19 @@ final class ReadAloudFloatingControlView: NSView {
         nextButton.image = TemplateSymbolImage.make("chevron.right", accessibilityDescription: AppText.localized("下一句", "Next sentence"))
         nextButton.isEnabled = !isLoading
         nextButton.toolTip = AppText.localized("下一句", "Next sentence")
+        nextPageButton.image = TemplateSymbolImage.make("chevron.right.2", accessibilityDescription: AppText.localized("朗读下一页", "Read next page"))
+        nextPageButton.isEnabled = !isLoading
+        nextPageButton.toolTip = AppText.localized("朗读下一页", "Read next page")
         modeButton.title = mode.title
         modeButton.toolTip = mode.tooltip
+        applyModeButtonTitleColor(modeButton.contentTintColor)
+    }
+
+    private func applyModeButtonTitleColor(_ color: NSColor?) {
+        guard let color else { return }
+        modeButton.attributedTitle = NSAttributedString(
+            string: modeButton.title,
+            attributes: [.foregroundColor: color, .font: AppFont.semibold(ofSize: 13)]
+        )
     }
 }

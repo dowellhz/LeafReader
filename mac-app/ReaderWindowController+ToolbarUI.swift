@@ -39,8 +39,18 @@ extension ReaderWindowController {
         let navigationStack = NSStackView()
 
         bottomBarView = bottomBar
-        recentButton = capsuleButton(title: AppText.localized("书架", "Shelf"), symbol: "books.vertical", action: #selector(showRecentDocuments))
-        vocabularyButton = capsuleButton(title: AppText.localized("背单词", "Vocab"), symbol: "text.book.closed", action: #selector(showVocabularyBook))
+        recentButton = capsuleButton(
+            title: AppText.localized("书架", "Shelf"),
+            symbol: "books.vertical",
+            action: #selector(showRecentDocuments),
+            showsLeadingSymbol: true
+        )
+        vocabularyButton = capsuleButton(
+            title: AppText.localized("背单词", "Vocab"),
+            symbol: "text.book.closed",
+            action: #selector(showVocabularyBook),
+            showsLeadingSymbol: true
+        )
         farthestPositionButton = capsuleButton(title: AppText.localized("上次位置", "Last"), symbol: "arrow.turn.down.right", action: #selector(goToFarthestReadingPosition))
         farthestPositionButton.toolTip = AppText.localized("跳到本书阅读过的最远位置", "Jump to the farthest read position in this book")
         tocButton = capsuleButton(title: AppText.localized("目录", "TOC"), symbol: "list.bullet", action: #selector(showTableOfContents))
