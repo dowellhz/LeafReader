@@ -13,7 +13,7 @@
 
 Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX。它面向长文档阅读、学习和批注场景，提供阅读进度恢复、文档搜索、浅色/护眼/深色主题、AI 问答、选中文本翻译/解释/总结、背单词和本地朗读。
 
-官网会根据浏览器语言自动显示中文或英文，也可以在页面右上角手动切换：<https://leafreader.space/>
+官网：<https://leafreader.space/>
 
 ### 截图
 
@@ -29,7 +29,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 
 ### 下载
 
-[下载 Leaf Reader 1.6.2 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.6.2/LeafReader-1.6.2.pkg)
+[下载 Leaf Reader 1.6.3 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.6.3/LeafReader-1.6.3.pkg)
 
 ### 系统要求
 
@@ -100,7 +100,7 @@ Leaf Reader 使用 [Apache License 2.0](LICENSE) 许可发布。
 
 Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is built with Swift, PDFKit, and WebKit, and focuses on a quiet reading experience with fast navigation, document search, reading progress restore, light and dark reader themes, and an optional AI panel for working with selected passages.
 
-The website automatically follows the browser language and also provides a manual Chinese/English switch in the header: <https://leafreader.space/>
+Website: <https://leafreader.space/>
 
 ### Screenshots
 
@@ -279,7 +279,7 @@ Latest installer:
 
 Local release package path:
 
-`release/1.6.3/LeafReader-1.6.2.pkg`
+`release/1.6.3/LeafReader-1.6.3.pkg`
 
 Build the signed release package without publishing:
 
