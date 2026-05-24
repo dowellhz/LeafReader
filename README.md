@@ -257,18 +257,28 @@ Regenerate the code map after larger refactors:
 
 ### Release
 
-Current version: `1.6.1`
+Current version: `1.6.2`
 
-Git tag: `v1.6.1`
+Git tag: `v1.6.2`
 
 Latest installer:
 
-[Leaf Reader-1.6.1.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.6.1/LeafReader-1.6.1.pkg)
+[Leaf Reader-1.6.2.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.6.2/LeafReader-1.6.2.pkg)
+
+Local release package path:
+
+`release/1.6.2/LeafReader-1.6.2.pkg`
+
+Build the signed release package without publishing:
+
+```sh
+./scripts/release_pkg.sh 1.6.2
+```
 
 Run the full publish flow from a clean working tree:
 
 ```sh
-./scripts/publish_release.sh 1.6.1
+./scripts/publish_release.sh 1.6.2
 ```
 
 The publish script runs tests, builds/signs/notarizes the pkg, commits version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-models` only when publishing changed speech model archives in `docs/tts/`.
