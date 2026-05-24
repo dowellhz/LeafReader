@@ -97,6 +97,7 @@ extension ReaderWindowController {
         isReadAloudPaused = false
         isReadAloudLoading = false
         canReadAloudGoPrevious = false
+        readAloudSpeechLanguageHint = nil
         updateReadAloudButton()
     }
 

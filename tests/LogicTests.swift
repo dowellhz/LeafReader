@@ -333,6 +333,14 @@ private func testSpeechTextPolicyEnglishCandidate() throws {
         !SpeechTextPolicy.prefersChineseTTS("A long English paragraph can contain a cached 中文 label without switching to Chinese TTS."),
         "mostly English text with a small Chinese label should still use English TTS"
     )
+    try expect(
+        !SpeechTextPolicy.prefersChineseReadAloudDocumentTTS("A long English paragraph can contain a cached 中文 label without switching to Chinese TTS."),
+        "read-aloud document probing should ignore a few Chinese characters in mostly English text"
+    )
+    try expect(
+        SpeechTextPolicy.prefersChineseReadAloudDocumentTTS(String(repeating: "这是一段中文内容。", count: 8)),
+        "read-aloud document probing should detect a substantial Chinese passage"
+    )
     try expect(SpeechTextPolicy.isLocalTTSCandidate("这是一段中文。"), "Chinese text should be accepted for local read aloud")
     try expect(!SpeechTextPolicy.isEnglishCandidate("12345"), "text without letters should be rejected")
 }

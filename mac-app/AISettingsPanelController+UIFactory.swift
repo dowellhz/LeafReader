@@ -25,6 +25,7 @@ extension AISettingsPanelController {
         let imageView = NSImageView()
         imageView.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: metrics.titleIconSymbolSize, weight: .regular))
+        imageView.identifier = Identifiers.settingsTitleIcon
         imageView.contentTintColor = settingsTitleIconColor(for: ReaderTheme.selected, fallback: primaryText)
         imageView.imageScaling = .scaleNone
         imageView.translatesAutoresizingMaskIntoConstraints = false
@@ -41,6 +42,7 @@ extension AISettingsPanelController {
 
     func themedPage(backgroundColor: NSColor) -> NSView {
         let view = NSView()
+        view.identifier = Identifiers.settingsFormSurface
         view.wantsLayer = true
         view.layer?.backgroundColor = backgroundColor.cgColor
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -138,7 +140,8 @@ extension AISettingsPanelController {
         let theme = ReaderTheme.selected
         let button = ThemedSettingsActionButton(title: title, target: target, action: action)
         button.leadingSymbolName = symbol
-        button.leadingSymbolColor = tint
+        button.leadingSymbolBaseColor = tint
+        button.leadingSymbolColor = settingsActionIconColor(tint, for: theme)
         styleSettingsActionButton(
             button,
             backgroundColor: settingsButtonBackgroundColor(for: theme),
@@ -147,6 +150,10 @@ extension AISettingsPanelController {
         )
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
+    }
+
+    func settingsActionIconColor(_ tint: NSColor, for theme: ReaderTheme) -> NSColor {
+        settingsPrimaryTextColor(for: theme)
     }
 
     func settingsActionButton(title: String, target: AnyObject, action: Selector, isPrimary: Bool = false) -> ThemedSettingsActionButton {
@@ -182,6 +189,7 @@ extension AISettingsPanelController {
 
     func settingsCard() -> NSView {
         let view = NSView()
+        view.identifier = Identifiers.settingsCard
         view.wantsLayer = true
         let theme = ReaderTheme.selected
         view.layer?.backgroundColor = settingsCardBackgroundColor(for: theme).cgColor
@@ -195,6 +203,7 @@ extension AISettingsPanelController {
 
     func settingsSpeechRowCard() -> NSView {
         let view = settingsCard()
+        view.identifier = Identifiers.settingsSpeechRowCard
         let theme = ReaderTheme.selected
         view.layer?.backgroundColor = settingsSpeechRowBackgroundColor(for: theme).cgColor
         view.layer?.cornerRadius = 9

@@ -63,6 +63,7 @@ extension AISettingsPanelController {
         sidebarControl.translatesAutoresizingMaskIntoConstraints = false
 
         let scrollView = NonScrollingSettingsScrollView()
+        scrollView.identifier = Identifiers.settingsFormSurface
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = false
@@ -83,6 +84,7 @@ extension AISettingsPanelController {
         scrollView.contentView.backgroundColor = formBackground
 
         let formContent = NSView()
+        formContent.identifier = Identifiers.settingsFormSurface
         formContent.wantsLayer = true
         formContent.layer?.backgroundColor = formBackground.cgColor
         formContent.translatesAutoresizingMaskIntoConstraints = false

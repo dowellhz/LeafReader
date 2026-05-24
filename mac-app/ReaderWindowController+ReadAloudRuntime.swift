@@ -2,13 +2,15 @@ import Cocoa
 
 extension ReaderWindowController {
     func canStartReadAloudWithLocalTTS() -> Bool {
+        readAloudSpeechLanguageHint = nil
         if let probeText = currentReadAloudProbeText(),
-           SpeechTextPolicy.prefersChineseTTS(probeText) {
+           SpeechTextPolicy.prefersChineseReadAloudDocumentTTS(probeText) {
             guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else {
                 openSpeechSettingsForMissingChineseRuntime()
                 return false
             }
             AISettingsStore.saveSelectedSpeechRuntimeID(SpeechRuntimeResourceManager.Runtime.kokoro.id)
+            readAloudSpeechLanguageHint = .chinese
             return true
         }
         guard let runtime = SpeechRuntimeResourceManager.runnableRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) else {
@@ -21,17 +23,27 @@ extension ReaderWindowController {
 
     func currentReadAloudProbeText() -> String? {
         if currentDocumentKind == .pdf {
-            return pdfView.currentPage?.string
+            return pdfReadAloudLanguageProbeText(pageLimit: Self.readAloudLanguageProbePageLimit)
         }
         return currentWebSelectedText.isEmpty ? currentWebPlainText : currentWebSelectedText
     }
 
     func canReadAloudSegmentsWithAvailableRuntime(_ segments: [SpeechPlaybackCoordinator.ReadAloudSegment]) -> Bool {
+        guard readAloudSpeechLanguageHint != .chinese else {
+            return SpeechRuntimeResourceManager.isRunnable(.kokoro)
+        }
         let text = segments.map(\.speechText).joined(separator: " ")
         guard SpeechTextPolicy.prefersChineseTTS(text) else { return true }
         guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
         AISettingsStore.saveSelectedSpeechRuntimeID(SpeechRuntimeResourceManager.Runtime.kokoro.id)
         return true
+    }
+
+    func readAloudSegmentsWithCurrentLanguageHint(
+        _ segments: [SpeechPlaybackCoordinator.ReadAloudSegment]
+    ) -> [SpeechPlaybackCoordinator.ReadAloudSegment] {
+        guard let hint = readAloudSpeechLanguageHint else { return segments }
+        return segments.map { $0.withSpeechLanguageHint(hint) }
     }
 
     func openSpeechSettingsForMissingChineseRuntime() {

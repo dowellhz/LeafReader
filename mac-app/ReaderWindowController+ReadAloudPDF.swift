@@ -19,7 +19,8 @@ extension ReaderWindowController {
         readAloudPDFCandidatePageIndex = 0
         readAloudPDFSearchLocation = 0
 
-        SpeechPlaybackCoordinator.shared.speakText(segments: batch.segments) { [weak self] didUseLocalTTS in
+        let segments = readAloudSegmentsWithCurrentLanguageHint(batch.segments)
+        SpeechPlaybackCoordinator.shared.speakText(segments: segments) { [weak self] didUseLocalTTS in
             guard let self else { return }
             DispatchQueue.main.async {
                 self.handleReadAloudStartResult(didUseLocalTTS: didUseLocalTTS)
@@ -245,7 +246,7 @@ extension ReaderWindowController {
     }
 
     private func pdfReadAloudBatchFromCurrentScreen(startAtPageTop: Bool) -> PDFReadAloudBatch? {
-        guard let page = pdfView.currentPage,
+        guard let page = pdfReadAloudStartPageForCurrentScreen(),
               let pageIndex = pdfView.document?.index(for: page),
               pageIndex != NSNotFound else {
             return nil
@@ -279,6 +280,33 @@ extension ReaderWindowController {
             segments: segments,
             lastPage: pages.last ?? page
         )
+    }
+
+    func pdfReadAloudStartPageForCurrentScreen() -> PDFPage? {
+        guard pdfView.displayMode == .twoUp,
+              let document = pdfView.document else {
+            return pdfView.currentPage
+        }
+        let visiblePages = pdfView.visiblePages
+            .filter { document.index(for: $0) != NSNotFound }
+            .sorted { document.index(for: $0) < document.index(for: $1) }
+        return visiblePages.first ?? pdfView.currentPage
+    }
+
+    func pdfReadAloudLanguageProbeText(pageLimit: Int) -> String? {
+        guard pageLimit > 0,
+              let document = pdfView.document,
+              let startPage = pdfReadAloudStartPageForCurrentScreen() else {
+            return pdfView.currentPage?.string
+        }
+        let startIndex = document.index(for: startPage)
+        guard startIndex != NSNotFound else { return pdfView.currentPage?.string }
+        let endIndex = min(document.pageCount, startIndex + pageLimit)
+        let text = (startIndex..<endIndex)
+            .compactMap { document.page(at: $0)?.string }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
     }
 
     private struct PDFReadAloudPageText {

@@ -45,6 +45,7 @@ extension AISettingsPanelController {
         panel?.appearance = theme == .dark ? NSAppearance(named: .darkAqua) : NSAppearance(named: .aqua)
         panel?.contentView?.layer?.backgroundColor = settingsPanelBackgroundColor(for: theme).cgColor
         panel?.contentView?.layer?.borderColor = settingsPanelBorderColor(for: theme).cgColor
+        panel?.contentView?.layer?.shadowOpacity = theme == .dark ? 0.42 : 0.24
         applySettingsTheme(to: panel?.contentView, theme: theme)
     }
 
@@ -68,6 +69,12 @@ extension AISettingsPanelController {
             slider.theme = theme
         } else if let checkbox = view as? ThemedSettingsCheckbox {
             checkbox.theme = theme
+        } else if let imageView = view as? NSImageView {
+            applySettingsImageTheme(imageView, theme: theme)
+        } else if let progressIndicator = view as? NSProgressIndicator {
+            progressIndicator.appearance = theme == .dark
+                ? NSAppearance(named: .darkAqua)
+                : NSAppearance(named: .aqua)
         } else if let field = view as? NSTextField {
             applySettingsFieldTheme(field, theme: theme)
         } else if let button = view as? NSButton {
@@ -84,12 +91,36 @@ extension AISettingsPanelController {
         }
     }
 
+    private func applySettingsImageTheme(_ imageView: NSImageView, theme: ReaderTheme) {
+        guard imageView.identifier == Identifiers.settingsTitleIcon else { return }
+        imageView.contentTintColor = settingsTitleIconColor(
+            for: theme,
+            fallback: settingsPrimaryTextColor(for: theme)
+        )
+    }
+
     private func applySettingsContainerThemeIfNeeded(to view: NSView, theme: ReaderTheme) {
         if let scrollView = view as? NSScrollView {
+            scrollView.layer?.backgroundColor = settingsFormBackgroundColor(for: theme).cgColor
+            scrollView.layer?.borderColor = settingsBorderColor(for: theme).cgColor
             scrollView.contentView.drawsBackground = true
-            scrollView.contentView.backgroundColor = settingsContainerBackgroundColor(for: theme)
+            scrollView.contentView.backgroundColor = settingsFormBackgroundColor(for: theme)
             scrollView.documentView?.wantsLayer = true
-            scrollView.documentView?.layer?.backgroundColor = settingsContainerBackgroundColor(for: theme).cgColor
+            scrollView.documentView?.layer?.backgroundColor = settingsFormBackgroundColor(for: theme).cgColor
+        } else if view.identifier == Identifiers.settingsFormSurface {
+            view.wantsLayer = true
+            view.layer?.backgroundColor = settingsFormBackgroundColor(for: theme).cgColor
+            if (view.layer?.borderWidth ?? 0) > 0 {
+                view.layer?.borderColor = settingsBorderColor(for: theme).cgColor
+            }
+        } else if view.identifier == Identifiers.settingsSpeechRowCard {
+            view.wantsLayer = true
+            view.layer?.backgroundColor = settingsSpeechRowBackgroundColor(for: theme).cgColor
+            view.layer?.borderColor = settingsBorderColor(for: theme).cgColor
+        } else if view.identifier == Identifiers.settingsCard {
+            view.wantsLayer = true
+            view.layer?.backgroundColor = settingsCardBackgroundColor(for: theme).cgColor
+            view.layer?.borderColor = settingsBorderColor(for: theme).cgColor
         } else if shouldThemeSettingsContainer(view) {
             view.wantsLayer = true
             view.layer?.backgroundColor = settingsContainerBackgroundColor(for: theme).cgColor
@@ -117,6 +148,13 @@ extension AISettingsPanelController {
                 backgroundColor: settingsButtonBackgroundColor(for: theme),
                 titleColor: settingsPrimaryTextColor(for: theme),
                 borderColor: settingsBorderColor(for: theme)
+            )
+        }
+        if let actionButton = button as? ThemedSettingsActionButton,
+           actionButton.leadingSymbolName != nil {
+            actionButton.leadingSymbolColor = settingsActionIconColor(
+                actionButton.leadingSymbolBaseColor,
+                for: theme
             )
         }
     }

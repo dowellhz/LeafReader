@@ -74,6 +74,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     static let embeddingControlStateDefaultsKey = "embeddingControlState"
     static let minimumReadablePDFScale: CGFloat = 1.0
     static let capsuleButtonIdentifier = NSUserInterfaceItemIdentifier("leafReaderCapsuleButton")
+    static let readAloudLanguageProbePageLimit = 3
 
     var pdfView: EdgePagingPDFView!
     var webView: ReaderWebView!
@@ -205,6 +206,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var readAloudFloatingControlWindow: NSWindow?
     var pendingReadAloudPDFContinuation: PendingReadAloudPDFContinuation?
     var pendingReadAloudWebContinuation = false
+    var readAloudSpeechLanguageHint: AISettingsStore.SpeechLanguageHint?
     var readAloudAdvanceMode = ReadAloudAdvanceMode.load()
     var isReadAloudActive = false
     var isReadAloudPaused = false

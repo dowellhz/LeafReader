@@ -36,7 +36,8 @@ extension ReaderWindowController {
                     self.openSpeechSettingsForMissingChineseRuntime()
                     return
                 }
-                SpeechPlaybackCoordinator.shared.speakText(segments: batch.segments) { [weak self] didUseLocalTTS in
+                let segments = self.readAloudSegmentsWithCurrentLanguageHint(batch.segments)
+                SpeechPlaybackCoordinator.shared.speakText(segments: segments) { [weak self] didUseLocalTTS in
                     guard let self else { return }
                     DispatchQueue.main.async {
                         self.handleReadAloudStartResult(didUseLocalTTS: didUseLocalTTS)

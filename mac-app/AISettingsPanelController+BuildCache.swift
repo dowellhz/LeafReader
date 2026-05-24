@@ -91,6 +91,7 @@ extension AISettingsPanelController {
         let currentIndexCard = settingsCard()
         let vectorCacheCard = settingsCard()
         for card in [currentIndexCard, vectorCacheCard] {
+            card.identifier = Identifiers.settingsFormSurface
             card.layer?.backgroundColor = NSColor.clear.cgColor
             card.layer?.borderWidth = 0
         }

@@ -19,6 +19,10 @@ final class AISettingsPanelController {
         static let embeddingEndpointField = NSUserInterfaceItemIdentifier("embeddingEndpointField")
         static let embeddingModelField = NSUserInterfaceItemIdentifier("embeddingModelField")
         static let embeddingKeyField = NSUserInterfaceItemIdentifier("embeddingKeyField")
+        static let settingsTitleIcon = NSUserInterfaceItemIdentifier("settingsTitleIcon")
+        static let settingsFormSurface = NSUserInterfaceItemIdentifier("settingsFormSurface")
+        static let settingsCard = NSUserInterfaceItemIdentifier("settingsCard")
+        static let settingsSpeechRowCard = NSUserInterfaceItemIdentifier("settingsSpeechRowCard")
     }
 
     var onSaved: (() -> Void)?

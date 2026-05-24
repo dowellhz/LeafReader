@@ -30,6 +30,13 @@ extension SpeechTextPolicy {
         return counts.cjk >= 8 && counts.cjk * 4 >= counts.latin
     }
 
+    static func prefersChineseReadAloudDocumentTTS(_ text: String) -> Bool {
+        let counts = languageSignalCounts(in: text)
+        guard counts.cjk >= 40 else { return false }
+        guard counts.latin > 0 else { return true }
+        return counts.cjk * 2 >= counts.latin
+    }
+
     static func isLocalTTSCandidate(_ text: String) -> Bool {
         isEnglishCandidate(text) || isChineseCandidate(text)
     }

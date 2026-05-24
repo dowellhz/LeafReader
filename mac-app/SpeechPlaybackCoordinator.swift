@@ -68,7 +68,8 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
                     speechText: $0,
                     displayText: speechSegments.count == 1 && !displayText.isEmpty ? displayText : $0,
                     matchText: speechSegments.count == 1 && !matchText.isEmpty ? matchText : $0,
-                    pageIndex: segment.pageIndex
+                    pageIndex: segment.pageIndex,
+                    speechLanguageHint: segment.speechLanguageHint
                 )
             }
         }
@@ -113,7 +114,11 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
                 guard self.waitForReadAloudBufferCapacity(generationID: generationID) else { return }
                 let outputURL = FileManager.default.temporaryDirectory
                     .appendingPathComponent("LeafReader-SpeechPlayback-\(UUID().uuidString).wav")
-                guard self.generateWAV(text: segment.speechText, outputURL: outputURL) else {
+                guard self.generateWAV(
+                    text: segment.speechText,
+                    outputURL: outputURL,
+                    languageHint: segment.speechLanguageHint
+                ) else {
                     try? FileManager.default.removeItem(at: outputURL)
                     continue
                 }
@@ -678,17 +683,37 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.idleShutdownDelay, execute: workItem)
     }
 
-    func generateWAV(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
-        let backend = Self.preferredBackend(for: text)
+    func generateWAV(
+        text: String,
+        outputURL: URL,
+        voiceID: String? = nil,
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+    ) -> Bool {
+        let backend = Self.preferredBackend(for: text, languageHint: languageHint)
         prepareForBackend(backend)
         switch backend {
         case .kokoroCoreML:
-            return kokoroBackend.synthesize(text: text, outputURL: outputURL, voiceID: voiceID)
+            return kokoroBackend.synthesize(
+                text: text,
+                outputURL: outputURL,
+                voiceID: voiceID,
+                languageHint: languageHint
+            )
         case .kitten:
             return kittenBackend.synthesize(text: text, outputURL: outputURL, voiceID: voiceID)
         case .none:
             return false
         }
+    }
+
+    private static func preferredBackend(
+        for text: String,
+        languageHint: AISettingsStore.SpeechLanguageHint?
+    ) -> PreferredBackend {
+        if languageHint == .chinese, SpeechRuntimeResourceManager.isRunnable(.kokoro) {
+            return .kokoroCoreML
+        }
+        return preferredBackend(for: text)
     }
 
     private func prepareForBackend(_ backend: PreferredBackend) {

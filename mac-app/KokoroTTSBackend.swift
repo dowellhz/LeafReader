@@ -22,11 +22,26 @@ final class KokoroTTSBackend {
     private var workerVariant: String?
     private var workerVoiceID: String?
 
-    func synthesize(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
-        if synthesizeWithWorker(text: text, outputURL: outputURL, voiceID: voiceID) {
+    func synthesize(
+        text: String,
+        outputURL: URL,
+        voiceID: String? = nil,
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+    ) -> Bool {
+        if synthesizeWithWorker(
+            text: text,
+            outputURL: outputURL,
+            voiceID: voiceID,
+            languageHint: languageHint
+        ) {
             return true
         }
-        return Self.synthesizeWithCLI(text: text, outputURL: outputURL, voiceID: voiceID)
+        return Self.synthesizeWithCLI(
+            text: text,
+            outputURL: outputURL,
+            voiceID: voiceID,
+            languageHint: languageHint
+        )
     }
 
     func stopIfLanguageDiffers(from text: String) {
@@ -55,12 +70,17 @@ final class KokoroTTSBackend {
         workerVoiceID = nil
     }
 
-    private func synthesizeWithWorker(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
+    private func synthesizeWithWorker(
+        text: String,
+        outputURL: URL,
+        voiceID: String? = nil,
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+    ) -> Bool {
         guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else {
             stop()
             return false
         }
-        let variant = Self.variant(for: text)
+        let variant = Self.variant(for: text, languageHint: languageHint)
         let voice = voiceID ?? Self.selectedVoiceID(forVariant: variant)
         guard KokoroVoiceResourceManager.ensureInstalled(voiceID: voice, variant: variant),
               ensureWorker(variant: variant, voiceID: voice),
@@ -196,10 +216,15 @@ final class KokoroTTSBackend {
         return matchedResponse
     }
 
-    private static func synthesizeWithCLI(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
+    private static func synthesizeWithCLI(
+        text: String,
+        outputURL: URL,
+        voiceID: String? = nil,
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+    ) -> Bool {
         guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
         guard let cliURL = runtimeURL() else { return false }
-        let variant = variant(for: text)
+        let variant = variant(for: text, languageHint: languageHint)
         let voice = voiceID ?? selectedVoiceID(forVariant: variant)
         guard KokoroVoiceResourceManager.ensureInstalled(voiceID: voice, variant: variant) else {
             return false
@@ -290,8 +315,16 @@ final class KokoroTTSBackend {
         return min(max(value, 0.5), 2.0)
     }
 
-    private static func variant(for text: String) -> String {
-        SpeechTextPolicy.prefersChineseTTS(text) ? "zh" : "en"
+    private static func variant(for text: String, languageHint: AISettingsStore.SpeechLanguageHint? = nil) -> String {
+        switch languageHint {
+        case .chinese:
+            return "zh"
+        case .english:
+            return "en"
+        case .none:
+            break
+        }
+        return SpeechTextPolicy.prefersChineseTTS(text) ? "zh" : "en"
     }
 
     private static func processOutputText(stdout: Data, stderr: Data) -> String {

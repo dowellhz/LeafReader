@@ -13,6 +13,7 @@ final class ThemedSettingsActionButton: NSButton {
     var leadingSymbolName: String? {
         didSet { needsDisplay = true }
     }
+    var leadingSymbolBaseColor: NSColor = .labelColor
     var leadingSymbolColor: NSColor = .labelColor {
         didSet { needsDisplay = true }
     }
@@ -95,9 +96,8 @@ final class ThemedSettingsActionButton: NSButton {
                 width: max(0, bounds.width - 72),
                 height: titleHeight
             )
-            symbol.isTemplate = true
-            leadingSymbolColor.set()
-            symbol.draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: isEnabled ? 1 : 0.45, respectFlipped: true, hints: nil)
+            let tintedSymbol = symbol.tinted(with: leadingSymbolColor)
+            tintedSymbol.draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: isEnabled ? 1 : 0.45, respectFlipped: true, hints: nil)
             displayTitle.draw(in: titleRect, withAttributes: attrs)
             return
         }
@@ -141,5 +141,17 @@ final class ThemedSettingsActionButton: NSButton {
             return true
         }
         return super.performKeyEquivalent(with: event)
+    }
+}
+
+private extension NSImage {
+    func tinted(with color: NSColor) -> NSImage {
+        let image = copy() as? NSImage ?? self
+        image.lockFocus()
+        color.set()
+        NSRect(origin: .zero, size: image.size).fill(using: .sourceAtop)
+        image.unlockFocus()
+        image.isTemplate = false
+        return image
     }
 }
