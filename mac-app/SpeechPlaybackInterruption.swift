@@ -21,8 +21,20 @@ extension SpeechPlaybackCoordinator {
                 try? FileManager.default.removeItem(at: outputURL)
                 return
             }
-            guard self.generateWAVResult(text: segment, outputURL: outputURL).isSuccess else {
+            let result = self.generateWAVResult(text: segment, outputURL: outputURL, recordFailure: false)
+            guard result.isSuccess else {
                 try? FileManager.default.removeItem(at: outputURL)
+                if self.isActiveInterruptionGeneration(generationID),
+                   case .failure(let error) = result {
+                    self.recordSynthesisFailure(
+                        error,
+                        text: segment,
+                        outputURL: outputURL,
+                        voiceID: nil,
+                        languageHint: nil,
+                        context: "selection"
+                    )
+                }
                 DispatchQueue.main.async {
                     guard self.activeInterruptionGenerationID == generationID else { return }
                     completion(false)
@@ -78,9 +90,31 @@ extension SpeechPlaybackCoordinator {
             )
             let tempURL = cacheURL.deletingLastPathComponent()
                 .appendingPathComponent("pending-\(UUID().uuidString).wav")
-            guard self.generateWAVResult(text: segment, outputURL: tempURL, voiceID: voiceID).isSuccess,
+            let result = self.generateWAVResult(
+                text: segment,
+                outputURL: tempURL,
+                voiceID: voiceID,
+                recordFailure: false
+            )
+            guard result.isSuccess,
                   TTSWaveFile.isUsable(at: tempURL) else {
-                let error = self.consumeLastSynthesisError()
+                let error: SpeechSynthesisError?
+                if case .failure(let value) = result {
+                    error = value
+                } else {
+                    error = .invalidAudioOutput(SpeechRuntimeResourceManager.Runtime.runtime(for: runtimeID)?.title ?? runtimeID)
+                }
+                if self.isActiveInterruptionGeneration(generationID),
+                   let error {
+                    self.recordSynthesisFailure(
+                        error,
+                        text: segment,
+                        outputURL: tempURL,
+                        voiceID: voiceID,
+                        languageHint: nil,
+                        context: "preview"
+                    )
+                }
                 NSLog(
                     "LeafReader TTS preview: generation failed runtime=%@ voice=%@ speed=%@ textLength=%d output=%@ error=%@",
                     runtimeID,

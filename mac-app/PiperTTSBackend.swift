@@ -35,11 +35,13 @@ final class PiperTTSBackend {
         }
 
         stop()
-        guard runPiperOneShot(text: trimmed, outputURL: outputURL, runtime: runtime) else {
+        switch runPiperOneShot(text: trimmed, outputURL: outputURL, runtime: runtime) {
+        case .success:
+            return TTSWaveFile.isUsable(at: outputURL) ? .success(()) : .failure(.invalidAudioOutput("Piper"))
+        case .failure(let error):
             try? FileManager.default.removeItem(at: outputURL)
-            return .failure(.processFailed("Piper"))
+            return .failure(error)
         }
-        return TTSWaveFile.isUsable(at: outputURL) ? .success(()) : .failure(.invalidAudioOutput("Piper"))
     }
 
     func stop() {
@@ -170,7 +172,11 @@ final class PiperTTSBackend {
         return true
     }
 
-    private func runPiperOneShot(text: String, outputURL: URL, runtime: PiperRuntime) -> Bool {
+    private func runPiperOneShot(
+        text: String,
+        outputURL: URL,
+        runtime: PiperRuntime
+    ) -> Result<Void, SpeechSynthesisError> {
         var arguments = [
             "--model", runtime.modelURL.path,
             "--output_file", outputURL.path,
@@ -317,7 +323,11 @@ final class PiperTTSBackend {
         return url
     }
 
-    private func runPiper(_ executableURL: URL, arguments: [String], input: String) -> Bool {
+    private func runPiper(
+        _ executableURL: URL,
+        arguments: [String],
+        input: String
+    ) -> Result<Void, SpeechSynthesisError> {
         let process = Process()
         process.executableURL = executableURL
         process.arguments = arguments
@@ -343,7 +353,7 @@ final class PiperTTSBackend {
         } catch {
             try? stdinPipe.fileHandleForWriting.close()
             NSLog("LeafReader PiperTTS: failed to launch %@: %@", executableURL.path, String(describing: error))
-            return false
+            return .failure(.classifiedProcessFailure(runtime: "Piper", diagnostic: error.localizedDescription))
         }
 
         let timedOut = finished.wait(timeout: .now() + timeout) == .timedOut
@@ -364,8 +374,9 @@ final class PiperTTSBackend {
                 timedOut,
                 stderr
             )
+            return .failure(.classifiedProcessFailure(runtime: "Piper", diagnostic: stderr, timedOut: timedOut))
         }
-        return ok
+        return .success(())
     }
 
     private func piperEnvironment(for executableURL: URL) -> [String: String] {

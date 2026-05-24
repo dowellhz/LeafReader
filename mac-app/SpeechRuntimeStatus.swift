@@ -85,9 +85,11 @@ extension SpeechRuntimeResourceManager {
         }
         if isRunnable(runtime) {
             if let failure = SpeechRuntimeInferenceFailureStore.failure(for: runtime) {
+                let context = SpeechRuntimeInferenceFailureStore.contextTitle(failure.context)
+                let time = SpeechRuntimeInferenceFailureStore.relativeTimeText(since: failure.timestamp)
                 return AppText.localized(
-                    "已安装 · \(size) · 上次朗读失败：\(failure.message)",
-                    "Installed · \(size) · Last read-aloud failed: \(failure.message)"
+                    "已安装 · \(size) · \(context)：\(failure.message) · \(time)",
+                    "Installed · \(size) · \(context): \(failure.message) · \(time)"
                 )
             }
             return AppText.localized("已安装 · \(size)", "Installed · \(size)")

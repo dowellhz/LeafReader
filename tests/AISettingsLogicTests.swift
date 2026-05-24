@@ -288,6 +288,38 @@ enum AISettingsLogicTests {
             SpeechSynthesisError.workerTimedOut("Kokoro").localizedDescription.contains(AppText.localized("超时", "timed out")),
             "timeout errors should be distinguishable from missing-model errors"
         )
+        try expectEqual(
+            SpeechSynthesisError.classifiedProcessFailure(
+                runtime: "Piper",
+                diagnostic: "dyld: Library not loaded: @rpath/libonnxruntime.dylib"
+            ),
+            .dependencyMissing("Piper"),
+            "dynamic-library failures should be classified as missing dependencies"
+        )
+        try expectEqual(
+            SpeechSynthesisError.classifiedProcessFailure(
+                runtime: "Kokoro",
+                diagnostic: "failed to load onnx model config"
+            ),
+            .modelLoadFailed("Kokoro"),
+            "model/config failures should be classified as model load failures"
+        )
+        try expectEqual(
+            SpeechSynthesisError.classifiedProcessFailure(
+                runtime: "KittenTTS",
+                diagnostic: "address already in use"
+            ),
+            .portUnavailable("KittenTTS"),
+            "local server port failures should be classified separately"
+        )
+        try expect(
+            SpeechSynthesisError.modelLoadFailed("Piper").supportsRedownload,
+            "model load failures should support one-click redownload"
+        )
+        try expect(
+            !SpeechSynthesisError.dependencyMissing("Piper").supportsRedownload,
+            "dependency failures should point users to app/runtime repair instead of model redownload"
+        )
     }
 
     static func testSpeechRuntimeInferenceFailureStore() throws {
@@ -297,13 +329,20 @@ enum AISettingsLogicTests {
             .workerTimedOut("Piper"),
             for: runtime,
             voiceID: "en_US-lessac-high",
+            context: "preview",
             text: "Hello",
             outputURL: URL(fileURLWithPath: "/tmp/leafreader-piper.wav")
         )
         let failure = SpeechRuntimeInferenceFailureStore.failure(for: runtime)
         try expectEqual(failure?.runtimeID, "piper", "inference failure should store the runtime id")
         try expectEqual(failure?.voiceID, "en_US-lessac-high", "inference failure should store the voice id")
+        try expectEqual(failure?.context, "preview", "inference failure should store the failure context")
         try expectEqual(failure?.textLength, 5, "inference failure should store text length for diagnostics")
+        try expectEqual(
+            SpeechRuntimeInferenceFailureStore.relativeTimeText(since: 100, now: 220),
+            AppText.localized("2分钟前", "2m ago"),
+            "inference failure status should format a relative failure time"
+        )
         SpeechRuntimeInferenceFailureStore.clear(for: runtime)
     }
 

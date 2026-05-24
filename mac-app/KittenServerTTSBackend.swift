@@ -37,13 +37,16 @@ final class KittenServerTTSBackend {
             return .failure(Self.availabilityError())
         }
         if ensureServer() {
-            if Self.synthesizeWithServer(text: text, outputURL: outputURL, voiceID: voiceID) {
+            if Self.synthesizeWithServerResult(text: text, outputURL: outputURL, voiceID: voiceID).isSuccess {
                 return .success(())
             }
             stop()
-            if ensureServer(),
-               Self.synthesizeWithServer(text: text, outputURL: outputURL, voiceID: voiceID) {
+            if ensureServer() {
+               let retryResult = Self.synthesizeWithServerResult(text: text, outputURL: outputURL, voiceID: voiceID)
+               if retryResult.isSuccess {
                 return .success(())
+               }
+               return retryResult
             }
             return .failure(.invalidAudioOutput("KittenTTS"))
         }
@@ -179,6 +182,14 @@ final class KittenServerTTSBackend {
     }
 
     private static func synthesizeWithServer(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
+        synthesizeWithServerResult(text: text, outputURL: outputURL, voiceID: voiceID).isSuccess
+    }
+
+    private static func synthesizeWithServerResult(
+        text: String,
+        outputURL: URL,
+        voiceID: String? = nil
+    ) -> Result<Void, SpeechSynthesisError> {
         var request = URLRequest(url: serverURL(path: "/v1/audio/speech"))
         request.httpMethod = "POST"
         request.timeoutInterval = 30
@@ -191,7 +202,7 @@ final class KittenServerTTSBackend {
             "response_format": "wav"
         ]
         guard let body = try? JSONSerialization.data(withJSONObject: payload) else {
-            return false
+            return .failure(.invalidAudioOutput("KittenTTS"))
         }
         request.httpBody = body
 
@@ -201,6 +212,7 @@ final class KittenServerTTSBackend {
               !data.isEmpty else {
             if result.timedOut {
                 NSLog("LeafReader KittenTTS: server synthesis timed out (port=%d)", serverPort())
+                return .failure(.workerTimedOut("KittenTTS"))
             } else {
                 NSLog(
                     "LeafReader KittenTTS: server synthesis failed (status=%d, bytes=%d, port=%d)",
@@ -208,15 +220,21 @@ final class KittenServerTTSBackend {
                     result.data?.count ?? 0,
                     serverPort()
                 )
+                if result.statusCode == 409 || result.statusCode == 503 {
+                    return .failure(.portUnavailable("KittenTTS"))
+                }
+                return .failure(.classifiedProcessFailure(
+                    runtime: "KittenTTS",
+                    diagnostic: "HTTP \(result.statusCode)"
+                ))
             }
-            return false
         }
         do {
             try data.write(to: outputURL, options: .atomic)
-            return true
+            return TTSWaveFile.isUsable(at: outputURL) ? .success(()) : .failure(.invalidAudioOutput("KittenTTS"))
         } catch {
             NSLog("LeafReader KittenTTS: failed to write server audio (error=%@)", error.localizedDescription)
-            return false
+            return .failure(.outputWriteFailed("KittenTTS"))
         }
     }
 

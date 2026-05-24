@@ -116,12 +116,24 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
                 guard self.waitForReadAloudBufferCapacity(generationID: generationID) else { return }
                 let outputURL = FileManager.default.temporaryDirectory
                     .appendingPathComponent("LeafReader-SpeechPlayback-\(UUID().uuidString).wav")
-                guard self.generateWAV(
+                let result = self.generateWAVResult(
                     text: segment.speechText,
                     outputURL: outputURL,
-                    languageHint: segment.speechLanguageHint
-                ) else {
+                    languageHint: segment.speechLanguageHint,
+                    recordFailure: false
+                )
+                guard result.isSuccess else {
                     try? FileManager.default.removeItem(at: outputURL)
+                    if self.isActiveGeneration(generationID),
+                       case .failure(let error) = result {
+                        self.recordSynthesisFailure(
+                            error,
+                            text: segment.speechText,
+                            outputURL: outputURL,
+                            voiceID: nil,
+                            languageHint: segment.speechLanguageHint
+                        )
+                    }
                     continue
                 }
                 guard self.isActiveGeneration(generationID) else {
@@ -722,15 +734,13 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         text: String,
         outputURL: URL,
         voiceID: String? = nil,
-        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil,
+        recordFailure: Bool = true
     ) -> Result<Void, SpeechSynthesisError> {
         let backend = Self.preferredBackend(for: text, languageHint: languageHint)
         prepareForBackend(backend)
         let result: Result<Void, SpeechSynthesisError>
         let runtime = backend.runtime
-        let effectiveVoiceID = runtime.map {
-            voiceID ?? AISettingsStore.selectedSpeechVoiceID(runtimeID: $0.id)
-        }
         switch backend {
         case .kokoroCoreML:
             result = kokoroBackend.synthesizeResult(
@@ -752,27 +762,52 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
                 SpeechRuntimeInferenceFailureStore.clear(for: runtime)
             }
         case .failure(let error):
-            if let runtime {
-                SpeechRuntimeInferenceFailureStore.record(
+            if recordFailure {
+                recordSynthesisFailure(
                     error,
-                    for: runtime,
-                    voiceID: effectiveVoiceID,
                     text: text,
-                    outputURL: outputURL
+                    outputURL: outputURL,
+                    voiceID: voiceID,
+                    languageHint: languageHint
                 )
-            }
-            logSynthesisFailure(
-                error,
-                runtime: runtime,
-                voiceID: effectiveVoiceID,
-                text: text,
-                outputURL: outputURL
-            )
-            DispatchQueue.main.async {
-                self.lastSynthesisError = error
             }
         }
         return result
+    }
+
+    func recordSynthesisFailure(
+        _ error: SpeechSynthesisError,
+        text: String,
+        outputURL: URL,
+        voiceID: String?,
+        languageHint: AISettingsStore.SpeechLanguageHint?,
+        context: String = "readAloud"
+    ) {
+        let backend = Self.preferredBackend(for: text, languageHint: languageHint)
+        let runtime = backend.runtime
+        let effectiveVoiceID = runtime.map {
+            voiceID ?? AISettingsStore.selectedSpeechVoiceID(runtimeID: $0.id)
+        }
+        if let runtime {
+            SpeechRuntimeInferenceFailureStore.record(
+                error,
+                for: runtime,
+                voiceID: effectiveVoiceID,
+                context: context,
+                text: text,
+                outputURL: outputURL
+            )
+        }
+        logSynthesisFailure(
+            error,
+            runtime: runtime,
+            voiceID: effectiveVoiceID,
+            text: text,
+            outputURL: outputURL
+        )
+        DispatchQueue.main.async {
+            self.lastSynthesisError = error
+        }
     }
 
     private func logSynthesisFailure(

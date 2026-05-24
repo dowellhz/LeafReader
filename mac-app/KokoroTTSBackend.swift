@@ -46,15 +46,17 @@ final class KokoroTTSBackend {
         ) {
             return .success(())
         }
-        if Self.synthesizeWithCLI(
+        switch Self.synthesizeWithCLIResult(
             text: text,
             outputURL: outputURL,
             voiceID: voiceID,
             languageHint: languageHint
         ) {
+        case .success:
             return .success(())
+        case .failure(let error):
+            return .failure(error)
         }
-        return .failure(Self.availabilityError(text: text, voiceID: voiceID, languageHint: languageHint))
     }
 
     func stopIfLanguageDiffers(from text: String) {
@@ -300,12 +302,30 @@ final class KokoroTTSBackend {
         voiceID: String? = nil,
         languageHint: AISettingsStore.SpeechLanguageHint? = nil
     ) -> Bool {
-        guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else { return false }
-        guard let cliURL = runtimeURL() else { return false }
+        synthesizeWithCLIResult(
+            text: text,
+            outputURL: outputURL,
+            voiceID: voiceID,
+            languageHint: languageHint
+        ).isSuccess
+    }
+
+    private static func synthesizeWithCLIResult(
+        text: String,
+        outputURL: URL,
+        voiceID: String? = nil,
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+    ) -> Result<Void, SpeechSynthesisError> {
+        guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else {
+            return .failure(availabilityError(text: text, voiceID: voiceID, languageHint: languageHint))
+        }
+        guard let cliURL = runtimeURL() else {
+            return .failure(.runtimeUnavailable("Kokoro"))
+        }
         let variant = variant(for: text, languageHint: languageHint)
         let voice = voiceID ?? selectedVoiceID(forVariant: variant)
         guard KokoroVoiceResourceManager.ensureInstalled(voiceID: voice, variant: variant) else {
-            return false
+            return .failure(.voiceUnavailable("Kokoro"))
         }
 
         let arguments = [
@@ -333,15 +353,15 @@ final class KokoroTTSBackend {
             )
         } catch {
             NSLog("LeafReader Kokoro CoreML: failed to run FluidAudio CLI (error=%@)", error.localizedDescription)
-            return false
+            return .failure(.classifiedProcessFailure(runtime: "Kokoro", diagnostic: error.localizedDescription))
         }
         if result.timedOut {
             NSLog("LeafReader Kokoro CoreML: FluidAudio CLI timed out after %.0fs", fallbackTimeout)
-            return false
+            return .failure(.workerTimedOut("Kokoro"))
         }
         let outputExists = TTSWaveFile.isUsable(at: outputURL)
         if result.terminationStatus == 0, outputExists {
-            return true
+            return .success(())
         }
 
         if outputExists {
@@ -350,7 +370,7 @@ final class KokoroTTSBackend {
                 result.terminationStatus,
                 outputURL.path
             )
-            return true
+            return .success(())
         }
 
         let message = diagnosticTail(processOutputText(stdout: result.stdout, stderr: result.stderr))
@@ -361,7 +381,7 @@ final class KokoroTTSBackend {
             outputURL.path,
             message
         )
-        return false
+        return .failure(.classifiedProcessFailure(runtime: "Kokoro", diagnostic: message))
     }
 
     private static func runtimeURL() -> URL? {

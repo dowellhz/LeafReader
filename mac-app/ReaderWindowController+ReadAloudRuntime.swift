@@ -67,10 +67,30 @@ extension ReaderWindowController {
     }
 
     func showSpeechPlaybackFailureAlert(error: SpeechSynthesisError) {
-        showSpeechRuntimeAlert(
-            messageText: AppText.localized("朗读生成失败", "Read Aloud Generation Failed"),
-            informativeText: error.localizedDescription
-        )
+        guard let window else { return }
+        let runtime = SpeechRuntimeResourceManager.Runtime.runtime(for: AISettingsStore.selectedSpeechRuntimeID)
+        let alert = NSAlert()
+        alert.messageText = AppText.localized("朗读生成失败", "Read Aloud Generation Failed")
+        alert.informativeText = error.localizedDescription
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: error.primaryActionTitle)
+        alert.addButton(withTitle: AppText.localized("复制诊断", "Copy Diagnostics"))
+        alert.addButton(withTitle: AppText.cancel)
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self else { return }
+            switch response {
+            case .alertFirstButtonReturn:
+                if error.supportsRedownload, let runtime {
+                    self.redownloadSpeechRuntime(runtime)
+                } else {
+                    self.openSettingsPanel(tab: .speech)
+                }
+            case .alertSecondButtonReturn:
+                self.copySpeechDiagnostics(error: error, runtime: runtime)
+            default:
+                break
+            }
+        }
     }
 
     func showMissingChineseSpeechRuntimeAlert() {
@@ -95,6 +115,47 @@ extension ReaderWindowController {
             guard response == .alertFirstButtonReturn else { return }
             self?.openSettingsPanel(tab: .speech)
         }
+    }
+
+    private func redownloadSpeechRuntime(_ runtime: SpeechRuntimeResourceManager.Runtime) {
+        SpeechPlaybackCoordinator.shared.shutdownRuntime(runtime)
+        do {
+            try SpeechRuntimeResourceManager.delete(runtime)
+        } catch {
+            NSLog("LeafReader TTS: failed to delete runtime before redownload runtime=%@ error=%@", runtime.id, error.localizedDescription)
+        }
+        SpeechRuntimeResourceManager.download(runtime) { result in
+            if case .failure(let error) = result {
+                NSLog("LeafReader TTS: redownload failed runtime=%@ error=%@", runtime.id, error.localizedDescription)
+            }
+        }
+        openSettingsPanel(tab: .speech)
+    }
+
+    private func copySpeechDiagnostics(error: SpeechSynthesisError, runtime: SpeechRuntimeResourceManager.Runtime?) {
+        let text = speechDiagnosticText(error: error, runtime: runtime)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func speechDiagnosticText(error: SpeechSynthesisError, runtime: SpeechRuntimeResourceManager.Runtime?) -> String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let runtimeID = runtime?.id ?? AISettingsStore.selectedSpeechRuntimeID
+        let voiceID = runtime.map { AISettingsStore.selectedSpeechVoiceID(runtimeID: $0.id) } ?? "unknown"
+        let failure = runtime.flatMap { SpeechRuntimeInferenceFailureStore.failure(for: $0) }
+        return [
+            "Leaf Reader TTS Diagnostic",
+            "version: \(version)",
+            "runtime: \(runtimeID)",
+            "voice: \(voiceID)",
+            "errorType: \(error.diagnosticKind)",
+            "message: \(error.localizedDescription)",
+            "lastFailureContext: \(failure?.context ?? "none")",
+            "lastFailureTextLength: \(failure.map { String($0.textLength) } ?? "none")",
+            "lastFailureOutput: \(failure?.outputPath ?? "none")",
+            "runtimeDownloaded: \(runtime.map { SpeechRuntimeResourceManager.isDownloaded($0) } ?? false)",
+            "runtimeRunnable: \(runtime.map { SpeechRuntimeResourceManager.isRunnable($0) } ?? false)"
+        ].joined(separator: "\n")
     }
 
     private func missingSpeechRuntimeInformativeText() -> String {
