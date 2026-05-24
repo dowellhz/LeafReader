@@ -290,6 +290,23 @@ enum AISettingsLogicTests {
         )
     }
 
+    static func testSpeechRuntimeInferenceFailureStore() throws {
+        let runtime = SpeechRuntimeResourceManager.Runtime.piper
+        SpeechRuntimeInferenceFailureStore.clear(for: runtime)
+        SpeechRuntimeInferenceFailureStore.record(
+            .workerTimedOut("Piper"),
+            for: runtime,
+            voiceID: "en_US-lessac-high",
+            text: "Hello",
+            outputURL: URL(fileURLWithPath: "/tmp/leafreader-piper.wav")
+        )
+        let failure = SpeechRuntimeInferenceFailureStore.failure(for: runtime)
+        try expectEqual(failure?.runtimeID, "piper", "inference failure should store the runtime id")
+        try expectEqual(failure?.voiceID, "en_US-lessac-high", "inference failure should store the voice id")
+        try expectEqual(failure?.textLength, 5, "inference failure should store text length for diagnostics")
+        SpeechRuntimeInferenceFailureStore.clear(for: runtime)
+    }
+
     static func testSpeechRuntimeDownloadURLsUseReleaseAssets() throws {
         let kittenURL = SpeechRuntimeResourceManager.Runtime.kitten.downloadURL.absoluteString
         let kokoroURL = SpeechRuntimeResourceManager.Runtime.kokoro.downloadURL.absoluteString

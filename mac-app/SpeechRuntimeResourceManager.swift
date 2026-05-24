@@ -73,6 +73,7 @@ enum SpeechRuntimeResourceManager {
         removePartialDownload(for: runtime)
         try removeItemIfExists(at: runtime.installDirectory)
         SpeechRuntimeDownloadFailureStore.clear(for: runtime)
+        SpeechRuntimeInferenceFailureStore.clear(for: runtime)
         if runtime == .kokoro {
             KokoroVoiceResourceManager.invalidateInstalledVoiceCache()
             let modelCacheDirectories = manifest?.cacheDirectories ?? kokoroModelCacheDirectories()
@@ -142,6 +143,7 @@ enum SpeechRuntimeResourceManager {
         switch result {
         case .success:
             SpeechRuntimeDownloadFailureStore.clear(for: runtime)
+            SpeechRuntimeInferenceFailureStore.clear(for: runtime)
         case .failure(let error):
             if (error as NSError).code != NSUserCancelledError {
                 SpeechRuntimeDownloadFailureStore.record(error, for: runtime)

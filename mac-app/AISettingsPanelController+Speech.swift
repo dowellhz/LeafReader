@@ -317,7 +317,8 @@ extension AISettingsPanelController {
                 runtimeID: runtime.id,
                 voiceID: voiceID,
                 speedID: speedID
-            ) { _ in
+            ) { [weak self] _ in
+                self?.refreshSpeechRuntimeStatus()
             } finished: {
             }
         }

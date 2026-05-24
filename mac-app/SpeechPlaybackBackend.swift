@@ -17,6 +17,19 @@ extension SpeechPlaybackCoordinator {
                 self = .piper
             }
         }
+
+        var runtime: SpeechRuntimeResourceManager.Runtime? {
+            switch self {
+            case .kokoroCoreML:
+                return .kokoro
+            case .kitten:
+                return .kitten
+            case .piper:
+                return .piper
+            case .none:
+                return nil
+            }
+        }
     }
 
     static let backendEnvironmentKey = "LEAFREADER_TTS_BACKEND"

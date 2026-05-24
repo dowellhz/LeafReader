@@ -73,6 +73,7 @@ swiftc \
   mac-app/SpeechRuntimeStatus.swift \
   mac-app/SpeechRuntimeInstaller.swift \
   mac-app/SpeechRuntimeDownloadFailureStore.swift \
+  mac-app/SpeechRuntimeInferenceFailureStore.swift \
   mac-app/SpeechRuntimeInstallHelpers.swift \
   mac-app/SpeechRuntimeResourceManager.swift \
   mac-app/RuntimeDownload.swift \

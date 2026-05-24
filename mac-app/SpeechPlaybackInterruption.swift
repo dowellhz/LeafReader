@@ -21,7 +21,7 @@ extension SpeechPlaybackCoordinator {
                 try? FileManager.default.removeItem(at: outputURL)
                 return
             }
-            guard self.generateWAV(text: segment, outputURL: outputURL) else {
+            guard self.generateWAVResult(text: segment, outputURL: outputURL).isSuccess else {
                 try? FileManager.default.removeItem(at: outputURL)
                 DispatchQueue.main.async {
                     guard self.activeInterruptionGenerationID == generationID else { return }
@@ -78,9 +78,18 @@ extension SpeechPlaybackCoordinator {
             )
             let tempURL = cacheURL.deletingLastPathComponent()
                 .appendingPathComponent("pending-\(UUID().uuidString).wav")
-            guard self.generateWAV(text: segment, outputURL: tempURL, voiceID: voiceID),
+            guard self.generateWAVResult(text: segment, outputURL: tempURL, voiceID: voiceID).isSuccess,
                   TTSWaveFile.isUsable(at: tempURL) else {
-                NSLog("LeafReader TTS preview: generation failed runtime=%@ voice=%@ speed=%@ output=%@", runtimeID, voiceID, speedID, tempURL.path)
+                let error = self.consumeLastSynthesisError()
+                NSLog(
+                    "LeafReader TTS preview: generation failed runtime=%@ voice=%@ speed=%@ textLength=%d output=%@ error=%@",
+                    runtimeID,
+                    voiceID,
+                    speedID,
+                    segment.count,
+                    tempURL.path,
+                    error?.localizedDescription ?? "unknown"
+                )
                 try? FileManager.default.removeItem(at: tempURL)
                 DispatchQueue.main.async {
                     guard self.activeInterruptionGenerationID == generationID else { return }

@@ -727,6 +727,10 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         let backend = Self.preferredBackend(for: text, languageHint: languageHint)
         prepareForBackend(backend)
         let result: Result<Void, SpeechSynthesisError>
+        let runtime = backend.runtime
+        let effectiveVoiceID = runtime.map {
+            voiceID ?? AISettingsStore.selectedSpeechVoiceID(runtimeID: $0.id)
+        }
         switch backend {
         case .kokoroCoreML:
             result = kokoroBackend.synthesizeResult(
@@ -742,12 +746,50 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         case .none:
             result = .failure(.unsupportedLanguage(AppText.localized("当前朗读引擎", "Selected speech runtime")))
         }
-        if case .failure(let error) = result {
+        switch result {
+        case .success:
+            if let runtime {
+                SpeechRuntimeInferenceFailureStore.clear(for: runtime)
+            }
+        case .failure(let error):
+            if let runtime {
+                SpeechRuntimeInferenceFailureStore.record(
+                    error,
+                    for: runtime,
+                    voiceID: effectiveVoiceID,
+                    text: text,
+                    outputURL: outputURL
+                )
+            }
+            logSynthesisFailure(
+                error,
+                runtime: runtime,
+                voiceID: effectiveVoiceID,
+                text: text,
+                outputURL: outputURL
+            )
             DispatchQueue.main.async {
                 self.lastSynthesisError = error
             }
         }
         return result
+    }
+
+    private func logSynthesisFailure(
+        _ error: SpeechSynthesisError,
+        runtime: SpeechRuntimeResourceManager.Runtime?,
+        voiceID: String?,
+        text: String,
+        outputURL: URL
+    ) {
+        NSLog(
+            "LeafReader TTS inference failed runtime=%@ voice=%@ textLength=%d output=%@ error=%@",
+            runtime?.id ?? "none",
+            voiceID ?? "none",
+            text.count,
+            outputURL.path,
+            error.localizedDescription
+        )
     }
 
     private static func preferredBackend(
