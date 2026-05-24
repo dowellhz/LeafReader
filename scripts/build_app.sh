@@ -7,6 +7,7 @@ SPARKLE_HOME="${SPARKLE_HOME:-/opt/homebrew/Caskroom/sparkle/2.9.2}"
 APP_SIGN_IDENTITY="${APP_SIGN_IDENTITY:--}"
 MACOS_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET:-12.0}"
 ARCHS="${ARCHS:-arm64 x86_64}"
+REQUIRE_BUNDLED_SPEECH_RUNTIMES="${REQUIRE_BUNDLED_SPEECH_RUNTIMES:-0}"
 KITTEN_RUNTIME_DIR="${KITTEN_RUNTIME_DIR:-$HOME/.local/share/leafreader/kittentts-rs-runtime}"
 KITTEN_RUNTIME_ARCHIVE="${KITTEN_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kitten-tts-rs-macos-arm64.tar.gz}"
 KOKORO_RUNTIME="${KOKORO_RUNTIME:-$HOME/.local/share/leafreader/kokoro-coreml/fluidaudiocli}"
@@ -38,6 +39,15 @@ prune_espeak_data() {
       rm -f "$dict_path"
     fi
   done
+}
+
+missing_runtime() {
+  local message="$1"
+  if [[ "$REQUIRE_BUNDLED_SPEECH_RUNTIMES" == "1" ]]; then
+    echo "Error: $message" >&2
+    exit 1
+  fi
+  echo "Warning: $message" >&2
 }
 
 if [[ ! -d "$SPARKLE_HOME/Sparkle.framework" ]]; then
@@ -99,7 +109,7 @@ elif [[ -f "$KITTEN_RUNTIME_ARCHIVE" ]]; then
     "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
   strip -x "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server" || true
 else
-  echo "Warning: KittenTTS runtime not bundled; missing $KITTEN_RUNTIME_DIR and $KITTEN_RUNTIME_ARCHIVE" >&2
+  missing_runtime "KittenTTS runtime not bundled; missing $KITTEN_RUNTIME_DIR and $KITTEN_RUNTIME_ARCHIVE"
 fi
 if [[ -x "$PIPER_RUNTIME_DIR/piper/piper" \
       && -d "$PIPER_RUNTIME_DIR/piper-phonemize/lib" \
@@ -112,9 +122,11 @@ if [[ -x "$PIPER_RUNTIME_DIR/piper/piper" \
   chmod 755 "$PIPER_BUNDLE_DIR/piper/piper"
   find "$PIPER_BUNDLE_DIR/piper-phonemize/lib" -type f -name '*.dylib' -exec chmod 755 {} +
   strip -x "$PIPER_BUNDLE_DIR/piper/piper" || true
+  install_name_tool -delete_rpath "@executable_path/../piper-phonemize/lib" "$PIPER_BUNDLE_DIR/piper/piper" 2>/dev/null || true
+  install_name_tool -add_rpath "@executable_path/../piper-phonemize/lib" "$PIPER_BUNDLE_DIR/piper/piper"
   find "$PIPER_BUNDLE_DIR/piper-phonemize/lib" -type f -name '*.dylib' -exec strip -x {} \; || true
 else
-  echo "Warning: Piper runtime not bundled; missing $PIPER_RUNTIME_DIR" >&2
+  missing_runtime "Piper runtime not bundled; missing $PIPER_RUNTIME_DIR"
 fi
 if [[ -x "$ESPEAK_NG_ROOT/bin/espeak-ng" \
       && -f "$ESPEAK_NG_ROOT/lib/libespeak-ng.1.dylib" \
@@ -166,7 +178,7 @@ elif [[ -f "$KOKORO_RUNTIME_ARCHIVE" ]]; then
   chmod 755 "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
   strip -x "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli" || true
 else
-  echo "Warning: Kokoro runtime not bundled; missing $KOKORO_RUNTIME and $KOKORO_RUNTIME_ARCHIVE" >&2
+  missing_runtime "Kokoro runtime not bundled; missing $KOKORO_RUNTIME and $KOKORO_RUNTIME_ARCHIVE"
 fi
 cp -R "$SPARKLE_HOME/Sparkle.framework" "$APP_PATH/Contents/Frameworks/"
 find "$APP_PATH" -name '._*' -type f -delete

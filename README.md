@@ -29,7 +29,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 
 ### 下载
 
-[下载 Leaf Reader 1.6.3 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.6.3/LeafReader-1.6.3.pkg)
+[下载 Leaf Reader 1.6.5 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.6.5/LeafReader-1.6.5.pkg)
 
 ### 系统要求
 
@@ -62,6 +62,18 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 常规应用版本会复用这些模型文件。只有模型文件变化时才需要重新发布语音模型归档，并同步更新 `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag`。
 
 ### 更新记录
+
+#### 1.6.5
+
+- 修复安装版 Piper 朗读 runtime 缺少动态库搜索路径导致启动失败的问题。
+- 细分朗读错误提示，区分模型未下载、中文内容需要 Kokoro，以及 runtime 启动失败。
+- 发布检查增加 Piper runtime bundle 校验，避免缺失 `LC_RPATH` 的包进入发布流程。
+
+#### 1.6.4
+
+- 增加 Piper 作为本地英文朗读模型选项，并随安装包提供 Piper runtime。
+- 朗读浮动控制器增加停止和设置入口。
+- 优化朗读模型下载列表、Piper 语速处理和发布资源上传流程。
 
 #### 1.6.3
 
@@ -116,7 +128,7 @@ Website: <https://leafreader.space/>
 
 ### Download
 
-[Leaf Reader 1.6.4 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.6.4/LeafReader-1.6.4.pkg)
+[Leaf Reader 1.6.5 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.6.5/LeafReader-1.6.5.pkg)
 
 ### System Requirements
 
@@ -152,6 +164,18 @@ Regular app releases reuse those files. Regenerated speech archives should only 
 
 ### Changelog
 
+#### 1.6.5
+
+- Fixed the installed Piper runtime so its bundled dynamic libraries are found at launch.
+- Split read-aloud error messages between missing models, Chinese text requiring Kokoro, and runtime launch failures.
+- Added a release-time Piper bundle check so packages missing the required `LC_RPATH` fail before publishing.
+
+#### 1.6.4
+
+- Added Piper as a local English read-aloud model option with bundled runtime support.
+- Improved read-aloud controls with stop and settings actions in the floating player.
+- Tightened TTS model download rows, Piper speed handling, and release asset publishing.
+
 #### 1.6.3
 
 - Added a next-page control to the floating read-aloud player.
@@ -184,6 +208,12 @@ Earlier versions are listed in [GitHub Releases](https://github.com/dowellhz/Lea
 ### License
 
 Leaf Reader is licensed under the [Apache License 2.0](LICENSE).
+
+## What's New in 1.6.5
+
+- Fixed Piper read-aloud startup in installed builds by bundling the required dynamic library search path.
+- Improved read-aloud error messages for missing models, Chinese-only Kokoro requirements, and runtime launch failures.
+- Added release checks that catch malformed Piper runtime bundles before publishing.
 
 ## What's New in 1.6.4
 

@@ -36,6 +36,9 @@ if [[ "$RUN_BUILD" -eq 1 ]]; then
 
   echo "==> Building app"
   ./scripts/build_app.sh
+
+  echo "==> Checking app bundle"
+  ./tests/PiperRuntimeBundleTests.sh "Leaf Reader.app"
 else
   echo "==> Skipping app build"
 fi

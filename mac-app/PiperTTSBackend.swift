@@ -44,18 +44,36 @@ final class PiperTTSBackend {
                FileManager.default.fileExists(atPath: modelURL.path) {
                 return PiperRuntime(executableURL: executableURL, modelURL: modelURL)
             }
+            NSLog(
+                "LeafReader PiperTTS: environment runtime incomplete executable=%@ model=%@",
+                executablePath,
+                modelPath
+            )
         }
 
+        var sawExecutable = false
+        var sawModel = false
         for directory in SpeechRuntimeResourceManager.Runtime.piper.installDirectories {
             let executableURL = SpeechRuntimeResourceManager.Runtime.piper.executableURL(in: directory)
             let modelURL = SpeechRuntimeResourceManager.Runtime.piper
                 .modelDirectory(in: SpeechRuntimeResourceManager.Runtime.piper.installDirectory)
                 .appendingPathComponent(modelFileName)
-            if FileManager.default.isExecutableFile(atPath: executableURL.path),
-               FileManager.default.fileExists(atPath: modelURL.path) {
+            let hasExecutable = FileManager.default.isExecutableFile(atPath: executableURL.path)
+            let hasModel = FileManager.default.fileExists(atPath: modelURL.path)
+            sawExecutable = sawExecutable || hasExecutable
+            sawModel = sawModel || hasModel
+            if hasExecutable, hasModel {
                 return PiperRuntime(executableURL: executableURL, modelURL: modelURL)
             }
         }
+        NSLog(
+            "LeafReader PiperTTS: runtime unavailable executable=%d model=%d voice=%@ modelDirectory=%@",
+            sawExecutable,
+            sawModel,
+            selectedVoiceID,
+            SpeechRuntimeResourceManager.Runtime.piper
+                .modelDirectory(in: SpeechRuntimeResourceManager.Runtime.piper.installDirectory).path
+        )
         return nil
     }
 
@@ -84,6 +102,7 @@ final class PiperTTSBackend {
             try? stdinPipe.fileHandleForWriting.close()
         } catch {
             try? stdinPipe.fileHandleForWriting.close()
+            NSLog("LeafReader PiperTTS: failed to launch %@: %@", executableURL.path, String(describing: error))
             return false
         }
 
@@ -94,8 +113,19 @@ final class PiperTTSBackend {
                 kill(process.processIdentifier, SIGKILL)
             }
         }
-        _ = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-        return !timedOut && !process.isRunning && process.terminationStatus == 0
+        let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        let ok = !timedOut && !process.isRunning && process.terminationStatus == 0
+        if !ok {
+            let stderr = String(data: stderrData, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            NSLog(
+                "LeafReader PiperTTS: process failed status=%d timedOut=%d stderr=%@",
+                process.terminationStatus,
+                timedOut,
+                stderr
+            )
+        }
+        return ok
     }
 
     private func piperEnvironment(for executableURL: URL) -> [String: String] {

@@ -33,7 +33,7 @@ extension ReaderWindowController {
                 }
                 guard self.canReadAloudSegmentsWithAvailableRuntime(batch.segments) else {
                     self.finishReadAloudFromToolbar()
-                    self.openSpeechSettingsForMissingChineseRuntime()
+                    self.showMissingChineseSpeechRuntimeAlert()
                     return
                 }
                 let segments = self.readAloudSegmentsWithCurrentLanguageHint(batch.segments)

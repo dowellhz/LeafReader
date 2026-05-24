@@ -89,3 +89,6 @@ swiftc \
   -framework Cocoa \
   -o /tmp/leafreader-logic-tests
 /tmp/leafreader-logic-tests
+if [[ -n "${LEAFREADER_TEST_APP_BUNDLE:-}" ]]; then
+  tests/PiperRuntimeBundleTests.sh "$LEAFREADER_TEST_APP_BUNDLE"
+fi

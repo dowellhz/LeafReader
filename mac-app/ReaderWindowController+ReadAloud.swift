@@ -89,7 +89,11 @@ extension ReaderWindowController {
         updateReadAloudButton()
         guard !didUseLocalTTS else { return }
         finishReadAloudFromToolbar()
-        showMissingSpeechRuntimeAlert()
+        if SpeechRuntimeResourceManager.runnableRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) == nil {
+            showMissingSpeechRuntimeAlert()
+        } else {
+            showSpeechPlaybackFailureAlert()
+        }
     }
 
     private func resetReadAloudState() {
