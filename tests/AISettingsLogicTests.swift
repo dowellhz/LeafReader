@@ -337,6 +337,84 @@ enum AISettingsLogicTests {
         )
     }
 
+    static func testSpeechRuntimePartialMetadataValidationAndIfRange() throws {
+        let asset = SpeechModelManifest.Asset(
+            name: "piper-tts-macos-arm64.tar.gz",
+            size: 105541145,
+            sha256: "b752a7e93456c9b9eab397960976667153bee8c999ab497685fddb82562458b5"
+        )
+        let metadata = SpeechRuntimeResourceManager.PartialDownloadMetadata(
+            downloadURL: SpeechRuntimeResourceManager.Runtime.piper.downloadURL.absoluteString,
+            assetName: asset.name,
+            expectedSize: asset.size,
+            sha256: asset.sha256,
+            eTag: " \"abc\" ",
+            lastModified: "Wed, 24 May 2026 00:00:00 GMT"
+        )
+        try expect(
+            SpeechRuntimeResourceManager.partialDownloadMetadataMatches(
+                metadata,
+                runtime: .piper,
+                asset: asset
+            ),
+            "partial metadata should match the same URL and manifest asset"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.ifRangeHeaderValue(for: metadata),
+            "\"abc\"",
+            "If-Range should prefer a trimmed ETag"
+        )
+
+        let changedAsset = SpeechModelManifest.Asset(
+            name: asset.name,
+            size: asset.size,
+            sha256: String(repeating: "0", count: 64)
+        )
+        try expect(
+            !SpeechRuntimeResourceManager.partialDownloadMetadataMatches(
+                metadata,
+                runtime: .piper,
+                asset: changedAsset
+            ),
+            "partial metadata should reject changed asset checksums"
+        )
+
+        let lastModifiedOnly = SpeechRuntimeResourceManager.PartialDownloadMetadata(
+            downloadURL: metadata.downloadURL,
+            assetName: metadata.assetName,
+            expectedSize: metadata.expectedSize,
+            sha256: metadata.sha256,
+            eTag: " ",
+            lastModified: "Wed, 24 May 2026 00:00:00 GMT"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.ifRangeHeaderValue(for: lastModifiedOnly),
+            "Wed, 24 May 2026 00:00:00 GMT",
+            "If-Range should fall back to Last-Modified when ETag is missing"
+        )
+    }
+
+    static func testBundledSpeechModelManifestParses() throws {
+        let manifestURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("mac-app/Resources/speech-models-manifest.json")
+        let manifest = try SpeechRuntimeResourceManager.decodeModelManifest(Data(contentsOf: manifestURL))
+        try expectEqual(
+            manifest.asset(named: "kitten-tts-rs-macos-arm64.tar.gz")?.sha256,
+            "90d917517468f93e5c31b17184d777cba9fee51fd90197deeaa5bd2f406d0e81",
+            "bundled manifest should include the KittenTTS model archive"
+        )
+        try expectEqual(
+            manifest.asset(named: "kokoro-coreml-macos-arm64.tar.gz")?.size,
+            694363430,
+            "bundled manifest should include Kokoro model size"
+        )
+        try expectEqual(
+            manifest.asset(named: "piper-tts-macos-arm64.tar.gz")?.sha256,
+            "b752a7e93456c9b9eab397960976667153bee8c999ab497685fddb82562458b5",
+            "bundled manifest should include Piper model checksum"
+        )
+    }
+
     static func testSpeechRuntimeAvailabilityText() throws {
         try expectEqual(
             SpeechRuntimeResourceManager.availabilityText(isSupported: true, downloaded: true, minimumSystemVersionText: "macOS 14.0"),

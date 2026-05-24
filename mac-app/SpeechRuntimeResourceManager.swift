@@ -42,7 +42,7 @@ enum SpeechRuntimeResourceManager {
 
     static func cancel(_ runtime: Runtime) {
         let completions = stopActiveDownload(for: runtime)
-        try? FileManager.default.removeItem(at: partialDownloadURL(for: runtime))
+        removePartialDownload(for: runtime)
         SpeechRuntimeDownloadFailureStore.clear(for: runtime)
         let error = NSError(
             domain: NSCocoaErrorDomain,
@@ -70,7 +70,7 @@ enum SpeechRuntimeResourceManager {
         _ = stopActiveDownload(for: runtime)
         try ensureNotInstalling(runtime)
         let manifest = installManifest(for: runtime)
-        try removeItemIfExists(at: partialDownloadURL(for: runtime))
+        removePartialDownload(for: runtime)
         try removeItemIfExists(at: runtime.installDirectory)
         SpeechRuntimeDownloadFailureStore.clear(for: runtime)
         if runtime == .kokoro {
@@ -178,12 +178,15 @@ enum SpeechRuntimeResourceManager {
         attempt: Int,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        let fileManager = FileManager.default
         let partialURL = partialDownloadURL(for: runtime)
-        let existingSize = retryingWithoutResume ? 0 : partialDownloadSize(at: partialURL)
+        let existingSize = retryingWithoutResume ? 0 : resumablePartialDownloadSize(for: runtime, asset: expectedAsset)
         var request = URLRequest(url: runtime.downloadURL, cachePolicy: .reloadIgnoringLocalCacheData)
         if existingSize > 0 {
             request.setValue("bytes=\(existingSize)-", forHTTPHeaderField: "Range")
+            if let metadata = readPartialDownloadMetadata(for: runtime),
+               let ifRange = ifRangeHeaderValue(for: metadata) {
+                request.setValue(ifRange, forHTTPHeaderField: "If-Range")
+            }
         }
 
         let downloader = RuntimeDownload(
@@ -191,7 +194,8 @@ enum SpeechRuntimeResourceManager {
             downloadID: downloadID,
             partialURL: partialURL,
             existingSize: existingSize,
-            retryingWithoutResume: retryingWithoutResume
+            retryingWithoutResume: retryingWithoutResume,
+            expectedAsset: expectedAsset
         ) { result in
             guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
             do {
@@ -201,20 +205,20 @@ enum SpeechRuntimeResourceManager {
                     try validateArchiveManifest(partialURL, asset: expectedAsset)
                     guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
                     try installArchiveIfIdle(partialURL, for: runtime)
-                    try? fileManager.removeItem(at: partialURL)
+                    removePartialDownload(for: runtime)
                     DispatchQueue.main.async { completion(.success(())) }
                 case .failure(let error):
                     let nsError = error as NSError
                     if shouldRetryDownload(error: nsError, attempt: attempt) {
                         if shouldRestartWithoutPartialDownload(error: nsError) {
-                            try? fileManager.removeItem(at: partialURL)
+                            removePartialDownload(for: runtime)
                             download(runtime, downloadID: downloadID, expectedAsset: expectedAsset, retryingWithoutResume: true, attempt: attempt + 1, completion: completion)
                         } else {
                             download(runtime, downloadID: downloadID, expectedAsset: expectedAsset, retryingWithoutResume: false, attempt: attempt + 1, completion: completion)
                         }
                     } else {
                         if shouldRestartWithoutPartialDownload(error: nsError) {
-                            try? fileManager.removeItem(at: partialURL)
+                            removePartialDownload(for: runtime)
                         }
                         DispatchQueue.main.async { completion(.failure(error)) }
                     }
@@ -222,7 +226,7 @@ enum SpeechRuntimeResourceManager {
                 }
             } catch {
                 if shouldRestartWithoutPartialDownload(error: error as NSError) {
-                    try? fileManager.removeItem(at: partialURL)
+                    removePartialDownload(for: runtime)
                 }
                 DispatchQueue.main.async { completion(.failure(error)) }
             }

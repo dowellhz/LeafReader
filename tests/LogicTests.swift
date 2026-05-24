@@ -433,6 +433,8 @@ private let tests: [(String, () throws -> Void)] = [
     ("Speech model manifest checksum validation", AISettingsLogicTests.testSpeechModelManifestParsingAndChecksumValidation),
     ("Speech runtime resume range validation", AISettingsLogicTests.testSpeechRuntimeResumeContentRangeValidation),
     ("Speech runtime partial restart policy", AISettingsLogicTests.testSpeechRuntimePartialRestartPolicy),
+    ("Speech runtime partial metadata validation", AISettingsLogicTests.testSpeechRuntimePartialMetadataValidationAndIfRange),
+    ("Bundled speech model manifest parsing", AISettingsLogicTests.testBundledSpeechModelManifestParses),
     ("Speech runtime availability text", AISettingsLogicTests.testSpeechRuntimeAvailabilityText),
     ("Piper runtime resource validation", AISettingsLogicTests.testPiperRuntimeRequiresPhonemizeResources),
     ("Piper non-default voice validation", AISettingsLogicTests.testPiperAnyVoiceAcceptsNonDefaultVoice),

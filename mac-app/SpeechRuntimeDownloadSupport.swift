@@ -6,6 +6,15 @@ extension SpeechRuntimeResourceManager {
     static let resumeRangeMismatchCode = 417
     private static let maxDownloadAttempts = 4
 
+    struct PartialDownloadMetadata: Codable, Equatable {
+        let downloadURL: String
+        let assetName: String?
+        let expectedSize: Int64?
+        let sha256: String?
+        let eTag: String?
+        let lastModified: String?
+    }
+
     static func shouldRetryDownload(error: NSError, attempt: Int) -> Bool {
         guard attempt < maxDownloadAttempts else { return false }
         if error.domain == downloadErrorDomain,
@@ -46,6 +55,79 @@ extension SpeechRuntimeResourceManager {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".local/share/leafreader/downloads", isDirectory: true)
             .appendingPathComponent(runtime.downloadURL.lastPathComponent + ".part")
+    }
+
+    static func partialDownloadMetadataURL(for runtime: Runtime) -> URL {
+        partialDownloadURL(for: runtime).appendingPathExtension("meta")
+    }
+
+    static func partialDownloadMetadataMatches(
+        _ metadata: PartialDownloadMetadata,
+        runtime: Runtime,
+        asset: SpeechModelManifest.Asset?
+    ) -> Bool {
+        metadata.downloadURL == runtime.downloadURL.absoluteString
+            && metadata.assetName == asset?.name
+            && metadata.expectedSize == asset?.size
+            && metadata.sha256 == asset?.sha256
+    }
+
+    static func ifRangeHeaderValue(for metadata: PartialDownloadMetadata) -> String? {
+        if let eTag = metadata.eTag?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !eTag.isEmpty {
+            return eTag
+        }
+        if let lastModified = metadata.lastModified?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !lastModified.isEmpty {
+            return lastModified
+        }
+        return nil
+    }
+
+    static func readPartialDownloadMetadata(for runtime: Runtime) -> PartialDownloadMetadata? {
+        guard let data = try? Data(contentsOf: partialDownloadMetadataURL(for: runtime)) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(PartialDownloadMetadata.self, from: data)
+    }
+
+    static func writePartialDownloadMetadata(
+        for runtime: Runtime,
+        asset: SpeechModelManifest.Asset?,
+        response: URLResponse
+    ) {
+        let httpResponse = response as? HTTPURLResponse
+        let metadata = PartialDownloadMetadata(
+            downloadURL: runtime.downloadURL.absoluteString,
+            assetName: asset?.name,
+            expectedSize: asset?.size,
+            sha256: asset?.sha256,
+            eTag: httpResponse?.value(forHTTPHeaderField: "ETag"),
+            lastModified: httpResponse?.value(forHTTPHeaderField: "Last-Modified")
+        )
+        do {
+            let metadataURL = partialDownloadMetadataURL(for: runtime)
+            try FileManager.default.createDirectory(at: metadataURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try JSONEncoder().encode(metadata).write(to: metadataURL, options: .atomic)
+        } catch {
+            NSLog("LeafReader speech download: failed to write partial metadata (%@)", String(describing: error))
+        }
+    }
+
+    static func removePartialDownload(for runtime: Runtime) {
+        try? FileManager.default.removeItem(at: partialDownloadURL(for: runtime))
+        try? FileManager.default.removeItem(at: partialDownloadMetadataURL(for: runtime))
+    }
+
+    static func resumablePartialDownloadSize(for runtime: Runtime, asset: SpeechModelManifest.Asset?) -> Int64 {
+        let size = partialDownloadSize(at: partialDownloadURL(for: runtime))
+        guard size > 0,
+              let metadata = readPartialDownloadMetadata(for: runtime),
+              partialDownloadMetadataMatches(metadata, runtime: runtime, asset: asset) else {
+            removePartialDownload(for: runtime)
+            return 0
+        }
+        return size
     }
 
     static func partialDownloadSize(at url: URL) -> Int64 {

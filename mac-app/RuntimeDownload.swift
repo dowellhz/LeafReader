@@ -8,6 +8,7 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
     private let partialURL: URL
     private let existingSize: Int64
     private let retryingWithoutResume: Bool
+    private let expectedAsset: SpeechModelManifest.Asset?
     private let completion: (Result<Void, Error>) -> Void
     private var fileHandle: FileHandle?
     private var expectedBytes: Int64?
@@ -24,6 +25,7 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
         partialURL: URL,
         existingSize: Int64,
         retryingWithoutResume: Bool,
+        expectedAsset: SpeechModelManifest.Asset?,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         self.runtime = runtime
@@ -31,6 +33,7 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
         self.partialURL = partialURL
         self.existingSize = existingSize
         self.retryingWithoutResume = retryingWithoutResume
+        self.expectedAsset = expectedAsset
         self.completion = completion
         self.completedBytes = existingSize
     }
@@ -119,6 +122,11 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
                     )
                 )
             }
+            SpeechRuntimeResourceManager.writePartialDownloadMetadata(
+                for: runtime,
+                asset: expectedAsset,
+                response: response
+            )
             fileHandle = try FileHandle(forWritingTo: partialURL)
             try fileHandle?.seekToEnd()
             completedBytes = existingSize
@@ -128,6 +136,11 @@ final class RuntimeDownload: NSObject, URLSessionDataDelegate {
 
         try? fileManager.removeItem(at: partialURL)
         fileManager.createFile(atPath: partialURL.path, contents: nil)
+        SpeechRuntimeResourceManager.writePartialDownloadMetadata(
+            for: runtime,
+            asset: expectedAsset,
+            response: response
+        )
         fileHandle = try FileHandle(forWritingTo: partialURL)
         completedBytes = 0
         expectedBytes = expectedContentLength(from: response)
