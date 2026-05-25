@@ -64,6 +64,12 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 
 ### 更新记录
 
+#### 1.6.6
+
+- 降低 Piper runtime 的最低 macOS 标记到 macOS 12.0，并加强发布前 bundle 校验。
+- 修复朗读模型状态判断，区分缺少运行时和缺少模型。
+- 同步本地与远端语音模型清单，并明确本地 TTS runtime 的 Apple Silicon 要求。
+
 #### 1.6.5
 
 - 修复安装版 Piper 朗读 runtime 缺少动态库搜索路径导致启动失败的问题。
@@ -166,6 +172,12 @@ Regular app releases reuse those files. Regenerated speech archives should only 
 
 ### Changelog
 
+#### 1.6.6
+
+- Lowered the Piper runtime minimum macOS marker to macOS 12.0 and strengthened release-time bundle checks.
+- Improved speech runtime status detection so missing runtimes and missing models are reported separately.
+- Synced local and remote speech model manifests and clarified the Apple Silicon requirement for local TTS runtimes.
+
 #### 1.6.5
 
 - Fixed the installed Piper runtime so its bundled dynamic libraries are found at launch.
@@ -210,6 +222,12 @@ Earlier versions are listed in [GitHub Releases](https://github.com/dowellhz/Lea
 ### License
 
 Leaf Reader is licensed under the [Apache License 2.0](LICENSE).
+
+## What's New in 1.6.6
+
+- Lowered the Piper runtime minimum macOS marker to macOS 12.0 and added checks to prevent mismatched bundles.
+- Improved speech model status text for missing runtime versus missing model cases.
+- Synced speech model manifests and clarified local TTS compatibility.
 
 ## What's New in 1.6.5
 

@@ -13,29 +13,10 @@ extension SpeechRuntimeResourceManager {
     }
 
     static func runtimeInstallState(for runtime: Runtime) -> RuntimeInstallState {
-        let hasRuntime: Bool
-        let hasModel: Bool
-        switch runtime {
-        case .kitten:
-            hasRuntime = runtime.installDirectories.contains { directory in
-                kittenRuntimePathsExist(in: directory)
-            }
-            hasModel = runtime.installDirectories.contains { directory in
-                kittenModelPathsExist(in: directory)
-            }
-        case .kokoro:
-            hasRuntime = runtime.installDirectories.contains { directory in
-                FileManager.default.isExecutableFile(atPath: Runtime.kokoro.executableURL(in: directory).path)
-            }
-            hasModel = kokoroAneModelCacheExists()
-        case .piper:
-            hasRuntime = runtime.installDirectories.contains { directory in
-                piperRuntimePathsExist(in: directory)
-            }
-            hasModel = piperAnyVoicePathsExist()
-        }
-
-        return runtimeInstallState(hasRuntime: hasRuntime, hasModel: hasModel)
+        runtimeInstallState(
+            hasRuntime: installedRuntimePathsExist(for: runtime),
+            hasModel: installedModelPathsExist(for: runtime)
+        )
     }
 
     static func runtimeInstallState(hasRuntime: Bool, hasModel: Bool) -> RuntimeInstallState {
@@ -150,11 +131,7 @@ extension SpeechRuntimeResourceManager {
                 "缺少运行时 · 模型已安装 · \(size)",
                 "Missing runtime · Model installed · \(size)"
             )
-        case .missingModel:
-            return nil
-        case .missingRuntimeAndModel:
-            return nil
-        case .complete:
+        case .complete, .missingModel, .missingRuntimeAndModel:
             return nil
         }
     }
