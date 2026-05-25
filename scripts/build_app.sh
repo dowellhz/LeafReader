@@ -19,26 +19,61 @@ PCAUDIOLIB_ROOT="${PCAUDIOLIB_ROOT:-$ESPEAK_NG_ROOT}"
 export COPYFILE_DISABLE=1
 
 ESPEAK_BUNDLED_DICTS=(en_dict)
+PIPER_ESPEAK_LANG_DIRS=(gmw)
+PIPER_ESPEAK_GMW_LANGS=(en en-US en-GB-x-rp)
+PIPER_ESPEAK_VOICE_VARIANTS=(f1 f2 f3 f4 f5 m1 m2 m3 m4 m5 m6 m7 m8)
+
+array_contains() {
+  local needle="$1"
+  shift
+
+  local item
+  for item in "$@"; do
+    if [[ "$item" == "$needle" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+prune_directory_entries_except() {
+  local directory="$1"
+  shift
+
+  [[ -d "$directory" ]] || return 0
+
+  find "$directory" -mindepth 1 -maxdepth 1 | while IFS= read -r entry; do
+    local entry_name
+    entry_name="$(basename "$entry")"
+    if ! array_contains "$entry_name" "$@"; then
+      rm -rf "$entry"
+    fi
+  done
+}
 
 prune_espeak_data() {
   local data_dir="$1"
 
   find "$data_dir" -maxdepth 1 -type f -name '*_dict' | while IFS= read -r dict_path; do
     local dict_name
-    local keep_dict=false
 
     dict_name="$(basename "$dict_path")"
-    for bundled_dict in "${ESPEAK_BUNDLED_DICTS[@]}"; do
-      if [[ "$dict_name" == "$bundled_dict" ]]; then
-        keep_dict=true
-        break
-      fi
-    done
-
-    if [[ "$keep_dict" == false ]]; then
+    if ! array_contains "$dict_name" "${ESPEAK_BUNDLED_DICTS[@]}"; then
       rm -f "$dict_path"
     fi
   done
+}
+
+prune_piper_espeak_data() {
+  local data_dir="$1"
+
+  prune_espeak_data "$data_dir"
+  rm -rf "$(dirname "$data_dir")/vim"
+  prune_directory_entries_except "$data_dir/lang" "${PIPER_ESPEAK_LANG_DIRS[@]}"
+  prune_directory_entries_except "$data_dir/lang/gmw" "${PIPER_ESPEAK_GMW_LANGS[@]}"
+  prune_directory_entries_except "$data_dir/voices" '!v'
+  prune_directory_entries_except "$data_dir/voices/!v" "${PIPER_ESPEAK_VOICE_VARIANTS[@]}"
 }
 
 missing_runtime() {
@@ -50,11 +85,44 @@ missing_runtime() {
   echo "Warning: $message" >&2
 }
 
+piper_runtime_complete() {
+  local runtime_dir="$1"
+  [[ -x "$runtime_dir/piper/piper" \
+    && -d "$runtime_dir/piper-phonemize/lib" \
+    && -d "$runtime_dir/piper-phonemize/share/espeak-ng-data" \
+    && -f "$runtime_dir/piper-phonemize/lib/libespeak-ng.1.52.0.1.dylib" \
+    && -f "$runtime_dir/piper-phonemize/lib/libonnxruntime.1.14.1.dylib" \
+    && -f "$runtime_dir/piper-phonemize/lib/libpiper_phonemize.1.2.0.dylib" ]]
+}
+
+validate_piper_runtime() {
+  if [[ ! -d "$PIPER_RUNTIME_DIR" ]]; then
+    missing_runtime "Piper runtime not bundled; missing $PIPER_RUNTIME_DIR"
+    return
+  fi
+
+  if ! piper_runtime_complete "$PIPER_RUNTIME_DIR"; then
+    echo "Error: Piper runtime directory exists but is incomplete: $PIPER_RUNTIME_DIR" >&2
+    echo "Expected piper/piper plus piper-phonemize lib and espeak-ng-data resources." >&2
+    exit 1
+  fi
+
+  local piper_file_output
+  piper_file_output="$(file "$PIPER_RUNTIME_DIR/piper/piper")"
+  if [[ "$piper_file_output" != *"arm64"* ]]; then
+    echo "Error: Piper runtime must include arm64: $PIPER_RUNTIME_DIR/piper/piper" >&2
+    echo "$piper_file_output" >&2
+    exit 1
+  fi
+}
+
 if [[ ! -d "$SPARKLE_HOME/Sparkle.framework" ]]; then
   echo "Sparkle.framework not found at $SPARKLE_HOME" >&2
   echo "Install Sparkle with: brew install --cask sparkle" >&2
   exit 1
 fi
+
+validate_piper_runtime
 
 mkdir -p \
   "$APP_PATH/Contents/MacOS" \
@@ -111,13 +179,13 @@ elif [[ -f "$KITTEN_RUNTIME_ARCHIVE" ]]; then
 else
   missing_runtime "KittenTTS runtime not bundled; missing $KITTEN_RUNTIME_DIR and $KITTEN_RUNTIME_ARCHIVE"
 fi
-if [[ -x "$PIPER_RUNTIME_DIR/piper/piper" \
-      && -d "$PIPER_RUNTIME_DIR/piper-phonemize/lib" \
-      && -d "$PIPER_RUNTIME_DIR/piper-phonemize/share/espeak-ng-data" ]]; then
+if piper_runtime_complete "$PIPER_RUNTIME_DIR"; then
   PIPER_BUNDLE_DIR="$APP_PATH/Contents/Resources/SpeechRuntimes/piper-tts-runtime"
   mkdir -p "$PIPER_BUNDLE_DIR"
   cp -R "$PIPER_RUNTIME_DIR/piper" "$PIPER_BUNDLE_DIR/piper"
   cp -R "$PIPER_RUNTIME_DIR/piper-phonemize" "$PIPER_BUNDLE_DIR/piper-phonemize"
+  find "$PIPER_BUNDLE_DIR" -type f \( -name '*.backup-*' -o -name '*.bak' -o -name '*~' \) -delete
+  prune_piper_espeak_data "$PIPER_BUNDLE_DIR/piper-phonemize/share/espeak-ng-data"
   find "$PIPER_BUNDLE_DIR" -type d -name '*.dSYM' -prune -exec rm -rf {} +
   chmod 755 "$PIPER_BUNDLE_DIR/piper/piper"
   find "$PIPER_BUNDLE_DIR/piper-phonemize/lib" -type f -name '*.dylib' -exec chmod 755 {} +

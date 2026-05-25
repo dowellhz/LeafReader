@@ -1,18 +1,53 @@
 import Foundation
 
 extension SpeechRuntimeResourceManager {
+    enum RuntimeInstallState: Equatable {
+        case complete
+        case missingRuntime
+        case missingModel
+        case missingRuntimeAndModel
+    }
+
     static func isDownloaded(_ runtime: Runtime) -> Bool {
-        if runtime == .kitten {
-            return kittenRuntimeAndModelPathsExist(installDirectories: runtime.installDirectories)
+        runtimeInstallState(for: runtime) == .complete
+    }
+
+    static func runtimeInstallState(for runtime: Runtime) -> RuntimeInstallState {
+        let hasRuntime: Bool
+        let hasModel: Bool
+        switch runtime {
+        case .kitten:
+            hasRuntime = runtime.installDirectories.contains { directory in
+                kittenRuntimePathsExist(in: directory)
+            }
+            hasModel = runtime.installDirectories.contains { directory in
+                kittenModelPathsExist(in: directory)
+            }
+        case .kokoro:
+            hasRuntime = runtime.installDirectories.contains { directory in
+                FileManager.default.isExecutableFile(atPath: Runtime.kokoro.executableURL(in: directory).path)
+            }
+            hasModel = kokoroAneModelCacheExists()
+        case .piper:
+            hasRuntime = runtime.installDirectories.contains { directory in
+                piperRuntimePathsExist(in: directory)
+            }
+            hasModel = piperAnyVoicePathsExist()
         }
-        if runtime == .kokoro {
-            return kokoroRuntimeAndModelPathsExist(installDirectories: runtime.installDirectories)
-        }
-        if runtime == .piper {
-            return piperRuntimeAndVoicePathsExist(installDirectories: runtime.installDirectories)
-        }
-        return runtime.installDirectories.contains { directory in
-            requiredPathsExist(runtime.requiredPaths(in: directory))
+
+        return runtimeInstallState(hasRuntime: hasRuntime, hasModel: hasModel)
+    }
+
+    static func runtimeInstallState(hasRuntime: Bool, hasModel: Bool) -> RuntimeInstallState {
+        switch (hasRuntime, hasModel) {
+        case (true, true):
+            return .complete
+        case (false, true):
+            return .missingRuntime
+        case (true, false):
+            return .missingModel
+        case (false, false):
+            return .missingRuntimeAndModel
         }
     }
 
@@ -59,6 +94,7 @@ extension SpeechRuntimeResourceManager {
     static func statusText(for runtime: Runtime) -> String {
         let size = runtime.downloadSizeText
         let summary = runtime.summaryText
+        let installState = runtimeInstallState(for: runtime)
         if isDownloading(runtime) {
             if isPaused(runtime) {
                 return AppText.localized("已暂停 · \(size)", "Paused · \(size)")
@@ -66,7 +102,7 @@ extension SpeechRuntimeResourceManager {
             return AppText.localized("下载中 · \(size)", "Downloading · \(size)")
         }
         if !runtime.isSupportedOnCurrentSystem {
-            if isDownloaded(runtime) {
+            if installState == .complete {
                 return AppText.localized(
                     "已下载 · 需要 \(runtime.minimumSystemVersionText) 或更高",
                     "Downloaded · Requires \(runtime.minimumSystemVersionText) or later"
@@ -83,7 +119,7 @@ extension SpeechRuntimeResourceManager {
                 "Not downloaded · \(summary) · Requires \(runtime.minimumSystemVersionText) or later · \(size)"
             )
         }
-        if isRunnable(runtime) {
+        if installState == .complete {
             if let failure = SpeechRuntimeInferenceFailureStore.failure(for: runtime) {
                 let context = SpeechRuntimeInferenceFailureStore.contextTitle(failure.context)
                 let time = SpeechRuntimeInferenceFailureStore.relativeTimeText(since: failure.timestamp)
@@ -94,6 +130,9 @@ extension SpeechRuntimeResourceManager {
             }
             return AppText.localized("已安装 · \(size)", "Installed · \(size)")
         }
+        if let text = incompleteInstallStatusText(for: runtime, installState: installState) {
+            return text
+        }
         if let failure = SpeechRuntimeDownloadFailureStore.failure(for: runtime) {
             return AppText.localized(
                 "未下载 · \(summary) · \(size) · 上次失败：\(failure.message)",
@@ -101,5 +140,22 @@ extension SpeechRuntimeResourceManager {
             )
         }
         return AppText.localized("未下载 · \(summary) · \(size)", "Not downloaded · \(summary) · \(size)")
+    }
+
+    static func incompleteInstallStatusText(for runtime: Runtime, installState: RuntimeInstallState) -> String? {
+        let size = runtime.downloadSizeText
+        switch installState {
+        case .missingRuntime:
+            return AppText.localized(
+                "缺少运行时 · 模型已安装 · \(size)",
+                "Missing runtime · Model installed · \(size)"
+            )
+        case .missingModel:
+            return nil
+        case .missingRuntimeAndModel:
+            return nil
+        case .complete:
+            return nil
+        }
     }
 }

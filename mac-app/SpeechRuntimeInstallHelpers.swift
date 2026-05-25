@@ -131,6 +131,11 @@ extension SpeechRuntimeResourceManager {
     }
 
     static func kokoroAneModelCacheExists(in cacheRoot: URL) -> Bool {
+        kokoroAneEnglishModelCacheExists(in: cacheRoot)
+            || kokoroAneMandarinModelCacheExists(in: cacheRoot)
+    }
+
+    static func kokoroAneEnglishModelCacheExists(in cacheRoot: URL) -> Bool {
         let aneDirectory = cacheRoot
             .appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
             .appendingPathComponent("ANE", isDirectory: true)
@@ -158,6 +163,27 @@ extension SpeechRuntimeResourceManager {
         ]
         return requiredG2PFiles.allSatisfy {
             FileManager.default.fileExists(atPath: g2pDirectory.appendingPathComponent($0).path)
+        }
+    }
+
+    static func kokoroAneMandarinModelCacheExists(in cacheRoot: URL) -> Bool {
+        let aneDirectory = cacheRoot
+            .appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
+            .appendingPathComponent("ANE-zh", isDirectory: true)
+        let requiredAneFiles = [
+            "KokoroAlbert.mlmodelc",
+            "KokoroPostAlbert.mlmodelc",
+            "KokoroAlignment.mlmodelc",
+            "KokoroProsody.mlmodelc",
+            "KokoroNoise.mlmodelc",
+            "KokoroVocoder.mlmodelc",
+            "KokoroTail.mlmodelc",
+            "vocab.json",
+            "assets/pinyin_phrases.bin",
+            "assets/pinyin_single.bin"
+        ]
+        return requiredAneFiles.allSatisfy {
+            FileManager.default.fileExists(atPath: aneDirectory.appendingPathComponent($0).path)
         }
     }
 

@@ -225,6 +225,18 @@ enum AISettingsLogicTests {
         }
     }
 
+    static func testKokoroSpeechSpeedMultiplier() throws {
+        try withIsolatedAISettingsDefaults { _ in
+            try expectEqual(AISettingsStore.kokoroSpeechSpeedMultiplier, 1.0, "Kokoro normal speed should use the model default")
+            AISettingsStore.saveSpeechSpeedID("fast")
+            try expectEqual(AISettingsStore.kokoroSpeechSpeedMultiplier, 1.25, "Kokoro fast speed should use the original faster model speed")
+            AISettingsStore.saveSpeechSpeedID("slow")
+            try expectEqual(AISettingsStore.kokoroSpeechSpeedMultiplier, 0.82, "Kokoro slow speed should use the original lower model speed")
+            AISettingsStore.saveSpeechSpeedID("verySlow")
+            try expectEqual(AISettingsStore.kokoroSpeechSpeedMultiplier, 0.7, "Kokoro very slow speed should use the original lower model speed")
+        }
+    }
+
     static func testPiperWorkerInputLineNormalizesNewlines() throws {
         let line = PiperTTSBackend.workerInputLine(for: "  Hello\nPiper\rWorker  ")
         try expectEqual(
@@ -773,6 +785,40 @@ enum AISettingsLogicTests {
         )
     }
 
+    static func testSpeechRuntimeInstallStateDistinguishesRuntimeAndModel() throws {
+        try expectEqual(
+            SpeechRuntimeResourceManager.runtimeInstallState(hasRuntime: true, hasModel: true),
+            .complete,
+            "complete runtime state should require both runtime and model files"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.runtimeInstallState(hasRuntime: false, hasModel: true),
+            .missingRuntime,
+            "runtime state should report missing runtime separately from missing model"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.runtimeInstallState(hasRuntime: true, hasModel: false),
+            .missingModel,
+            "runtime state should report missing model separately from missing runtime"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.runtimeInstallState(hasRuntime: false, hasModel: false),
+            .missingRuntimeAndModel,
+            "runtime state should report when both runtime and model files are missing"
+        )
+
+        try expectEqual(
+            SpeechRuntimeResourceManager.incompleteInstallStatusText(for: .piper, installState: .missingRuntime),
+            "缺少运行时 · 模型已安装 · 约 112 MB",
+            "missing runtime should surface the new repair-oriented status copy"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.incompleteInstallStatusText(for: .piper, installState: .missingModel),
+            nil,
+            "missing model should keep the existing not-downloaded status copy"
+        )
+    }
+
     static func testKokoroModelDownloadMakesBundledRuntimeAvailable() throws {
         let fileManager = FileManager.default
         let root = fileManager.temporaryDirectory
@@ -822,6 +868,50 @@ enum AISettingsLogicTests {
                 modelCacheRoot: modelCacheRoot
             ),
             "Kokoro should become available once the downloaded model cache contains all required files"
+        )
+    }
+
+    static func testKokoroMandarinModelDownloadMakesBundledRuntimeAvailable() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("leafreader-kokoro-zh-availability-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let runtimeDirectory = root.appendingPathComponent("kokoro-coreml", isDirectory: true)
+        let modelCacheRoot = root.appendingPathComponent("Models", isDirectory: true)
+        let executable = runtimeDirectory.appendingPathComponent("fluidaudiocli")
+        try fileManager.createDirectory(at: runtimeDirectory, withIntermediateDirectories: true)
+        try Data().write(to: executable)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+
+        let aneDirectory = modelCacheRoot
+            .appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
+            .appendingPathComponent("ANE-zh", isDirectory: true)
+        try fileManager.createDirectory(
+            at: aneDirectory.appendingPathComponent("assets", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        for fileName in [
+            "KokoroAlbert.mlmodelc",
+            "KokoroPostAlbert.mlmodelc",
+            "KokoroAlignment.mlmodelc",
+            "KokoroProsody.mlmodelc",
+            "KokoroNoise.mlmodelc",
+            "KokoroVocoder.mlmodelc",
+            "KokoroTail.mlmodelc",
+            "vocab.json",
+            "assets/pinyin_phrases.bin",
+            "assets/pinyin_single.bin"
+        ] {
+            try Data().write(to: aneDirectory.appendingPathComponent(fileName))
+        }
+
+        try expect(
+            SpeechRuntimeResourceManager.kokoroRuntimeAndModelPathsExist(
+                installDirectories: [runtimeDirectory],
+                modelCacheRoot: modelCacheRoot
+            ),
+            "Kokoro should become available when the Mandarin ANE model cache is complete"
         )
     }
 

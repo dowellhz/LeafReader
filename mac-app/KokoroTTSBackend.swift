@@ -83,7 +83,8 @@ final class KokoroTTSBackend {
         }
         let variant = Self.variant(for: trimmed, languageHint: languageHint)
         let voice = voiceID ?? Self.selectedVoiceID(forVariant: variant)
-        let key = Self.workerKey(variant: variant, voiceID: voice, speed: Self.speed())
+        let speed = Self.speed()
+        let key = Self.workerKey(variant: variant, voiceID: voice, speed: speed)
         guard prewarmedWorkerKey != key else { return }
         guard ensureWorker(variant: variant, voiceID: voice),
               let inputPipe = workerInputPipe,
@@ -99,7 +100,7 @@ final class KokoroTTSBackend {
             text: Self.prewarmText(forVariant: variant),
             output: outputURL.path,
             voice: voice,
-            speed: Self.speed()
+            speed: speed
         )
         guard let requestData = try? JSONEncoder().encode(request) else { return }
         do {
@@ -154,6 +155,7 @@ final class KokoroTTSBackend {
         }
         let variant = Self.variant(for: text, languageHint: languageHint)
         let voice = voiceID ?? Self.selectedVoiceID(forVariant: variant)
+        let speed = Self.speed()
         guard KokoroVoiceResourceManager.ensureInstalled(voiceID: voice, variant: variant),
               ensureWorker(variant: variant, voiceID: voice),
               let inputPipe = workerInputPipe,
@@ -166,7 +168,7 @@ final class KokoroTTSBackend {
             text: text,
             output: outputURL.path,
             voice: voice,
-            speed: Self.speed()
+            speed: speed
         )
         guard let requestData = try? JSONEncoder().encode(request) else {
             return false

@@ -35,7 +35,7 @@ if [[ "$RUN_BUILD" -eq 1 ]]; then
   ./scripts/check_docs_visual.sh
 
   echo "==> Building app"
-  ./scripts/build_app.sh
+  REQUIRE_BUNDLED_SPEECH_RUNTIMES=1 ./scripts/build_app.sh
 
   echo "==> Checking app bundle"
   ./tests/PiperRuntimeBundleTests.sh "Leaf Reader.app"

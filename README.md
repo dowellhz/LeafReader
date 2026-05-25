@@ -34,10 +34,10 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 ### 系统要求
 
 - macOS 12.0 Monterey 或更高版本。
-- 支持 Apple Silicon 和 Intel Mac。
+- 阅读器支持 Apple Silicon 和 Intel Mac；本地 TTS runtime 当前仅支持 Apple Silicon。
 - AI 功能需要用户自行配置模型服务和 API Key；普通阅读不需要。
-- KittenTTS 本地朗读支持 macOS 12.0 Monterey 或更高版本。
-- Kokoro 本地朗读需要 macOS 14.0 或更高版本。
+- KittenTTS 和 Piper 本地朗读支持 Apple Silicon Mac 上的 macOS 12.0 Monterey 或更高版本。
+- Kokoro 本地朗读需要 Apple Silicon Mac 上的 macOS 14.0 或更高版本。
 
 ### 主要功能
 
@@ -50,7 +50,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 
 ### 可选朗读模型
 
-Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) 或 [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs) 进行本地朗读。Kokoro 提供英文和中文声音，KittenTTS 用于英文朗读。小型运行时已经随安装包提供，大模型文件按需下载。打开“设置 -> AI 分析 -> 朗读”即可下载 Kokoro 或 KittenTTS。
+Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml)、[kitten_tts_rs](https://github.com/second-state/kitten_tts_rs) 或 Piper 进行本地朗读。Kokoro 提供英文和中文声音，KittenTTS 和 Piper 用于英文朗读。小型运行时已经随安装包提供，大模型文件按需下载。打开“设置 -> AI 分析 -> 朗读”即可下载 Kokoro、KittenTTS 或 Piper。
 
 朗读模型优先级会自动处理：KittenTTS 优先，其次 Kokoro。短词或短句会直接使用 Apple 系统语音。
 
@@ -58,6 +58,7 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 
 - `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/kokoro-coreml-macos-arm64.tar.gz`
 - `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/kitten-tts-rs-macos-arm64.tar.gz`
+- `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/piper-tts-macos-arm64.tar.gz`
 
 常规应用版本会复用这些模型文件。只有模型文件变化时才需要重新发布语音模型归档，并同步更新 `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag`。
 
@@ -133,10 +134,10 @@ Website: <https://leafreader.space/>
 ### System Requirements
 
 - macOS 12.0 Monterey or later.
-- Apple Silicon or Intel Mac.
+- The reader supports Apple Silicon and Intel Mac; local TTS runtimes currently require Apple Silicon.
 - An API key is optional and only needed for AI features.
-- KittenTTS local speech supports macOS 12.0 Monterey or later.
-- Kokoro local speech requires macOS 14.0 or later.
+- KittenTTS and Piper local speech support macOS 12.0 Monterey or later on Apple Silicon Macs.
+- Kokoro local speech requires macOS 14.0 or later on Apple Silicon Macs.
 
 ### Highlights
 
@@ -151,7 +152,7 @@ Website: <https://leafreader.space/>
 
 ### Optional Speech Runtimes
 
-Leaf Reader can use [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) or [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs) for local text-to-speech. Kokoro provides English and Chinese voices; KittenTTS is used for English read aloud. Small speech runtime executables are bundled in the installer; large model files are downloaded on demand. Open Settings -> AI Analysis -> Speech to download Kokoro or KittenTTS.
+Leaf Reader can use [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml), [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs), or Piper for local text-to-speech. Kokoro provides English and Chinese voices; KittenTTS and Piper are used for English read aloud. Small speech runtime executables are bundled in the installer; large model files are downloaded on demand. Open Settings -> AI Analysis -> Speech to download Kokoro, KittenTTS, or Piper.
 
 Runtime priority is automatic: KittenTTS first, then Kokoro. Short word or phrase selections use Apple TTS directly.
 
@@ -159,6 +160,7 @@ Speech model downloads currently point to the stable `v1.5.10` speech asset rele
 
 - `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/kokoro-coreml-macos-arm64.tar.gz`
 - `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/kitten-tts-rs-macos-arm64.tar.gz`
+- `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/piper-tts-macos-arm64.tar.gz`
 
 Regular app releases reuse those files. Regenerated speech archives should only be published when model files change, then `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag` should be updated to the new asset tag.
 
