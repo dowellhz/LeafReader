@@ -7,6 +7,8 @@ final class PiperTTSBackend {
     private let modelEnvironmentKey = "LEAFREADER_PIPER_MODEL"
     private let timeout: TimeInterval = 90
     private let workerResponseTimeout: TimeInterval = 30
+    private let workerIdleShutdownDelay: TimeInterval = 45
+    private let maxWorkerSynthesisCount = 24
 
     private var workerProcess: Process?
     private var workerInputPipe: Pipe?
@@ -15,12 +17,23 @@ final class PiperTTSBackend {
     private var workerOutputBuffer = Data()
     private var workerRuntime: PiperRuntime?
     private var workerOutputDirectory: URL?
+    private var workerDisablesCoreML = false
+    private var workerSynthesisCount = 0
+    private var workerIdleShutdownWorkItem: DispatchWorkItem?
+    private var workerIdleShutdownToken = 0
+    private let workerStateLock = NSRecursiveLock()
+    private let coreMLFallbackLock = NSLock()
+    private var shouldDisableCoreML = false
+    private var coreMLFallbackDiagnostic: String?
 
     func synthesize(text: String, outputURL: URL, voiceID: String?) -> Bool {
         synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID).isSuccess
     }
 
     func synthesizeResult(text: String, outputURL: URL, voiceID: String?) -> Result<Void, SpeechSynthesisError> {
+        workerStateLock.lock()
+        defer { workerStateLock.unlock() }
+        cancelWorkerIdleShutdown()
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return .failure(.invalidAudioOutput("Piper"))
@@ -45,11 +58,14 @@ final class PiperTTSBackend {
     }
 
     func stop() {
+        workerStateLock.lock()
+        defer { workerStateLock.unlock() }
+        cancelWorkerIdleShutdown()
         workerOutputPipe?.fileHandleForReading.readabilityHandler = nil
         workerErrorPipe?.fileHandleForReading.readabilityHandler = nil
         workerInputPipe?.fileHandleForWriting.closeFile()
-        if workerProcess?.isRunning == true {
-            workerProcess?.terminate()
+        if let workerProcess, workerProcess.isRunning {
+            terminateWorkerProcess(workerProcess)
         }
         workerProcess = nil
         workerInputPipe = nil
@@ -57,10 +73,53 @@ final class PiperTTSBackend {
         workerErrorPipe = nil
         workerOutputBuffer.removeAll()
         workerRuntime = nil
+        workerSynthesisCount = 0
         if let workerOutputDirectory {
             try? FileManager.default.removeItem(at: workerOutputDirectory)
         }
         workerOutputDirectory = nil
+    }
+
+    private func cancelWorkerIdleShutdown() {
+        workerIdleShutdownWorkItem?.cancel()
+        workerIdleShutdownWorkItem = nil
+        workerIdleShutdownToken += 1
+    }
+
+    private func scheduleWorkerIdleShutdownIfNeeded() {
+        guard workerProcess?.isRunning == true else { return }
+        cancelWorkerIdleShutdown()
+        let token = workerIdleShutdownToken
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.stopWorkerIfIdleShutdownTokenMatches(token)
+        }
+        workerIdleShutdownWorkItem = workItem
+        DispatchQueue.global(qos: .utility).asyncAfter(
+            deadline: .now() + workerIdleShutdownDelay,
+            execute: workItem
+        )
+    }
+
+    private func stopWorkerIfIdleShutdownTokenMatches(_ token: Int) {
+        workerStateLock.lock()
+        defer { workerStateLock.unlock() }
+        guard workerIdleShutdownToken == token else { return }
+        NSLog("LeafReader PiperTTS: stopping idle worker")
+        stop()
+    }
+
+    private func terminateWorkerProcess(_ process: Process) {
+        let finished = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in
+            finished.signal()
+        }
+        process.terminate()
+        guard finished.wait(timeout: .now() + 1) == .timedOut,
+              process.isRunning else {
+            return
+        }
+        kill(process.processIdentifier, SIGKILL)
+        _ = finished.wait(timeout: .now() + 1)
     }
 
     private func synthesizeWithWorker(text: String, outputURL: URL, runtime: PiperRuntime) -> Bool {
@@ -109,12 +168,25 @@ final class PiperTTSBackend {
             try? FileManager.default.removeItem(at: outputURL)
             return false
         }
+        workerSynthesisCount += 1
+        scheduleWorkerIdleShutdownIfNeeded()
         return true
     }
 
     private func ensureWorker(runtime: PiperRuntime) -> Bool {
+        if Self.shouldRestartWorker(
+            synthesisCount: workerSynthesisCount,
+            maxSynthesisCount: maxWorkerSynthesisCount
+        ) {
+            NSLog(
+                "LeafReader PiperTTS: restarting worker after %d synthesis request(s)",
+                workerSynthesisCount
+            )
+            stop()
+        }
         if workerProcess?.isRunning == true,
-           workerRuntime == runtime {
+           workerRuntime == runtime,
+           workerDisablesCoreML == isCoreMLDisabled() {
             return true
         }
         stop()
@@ -142,15 +214,21 @@ final class PiperTTSBackend {
         let inputPipe = Pipe()
         let outputPipe = Pipe()
         let errorPipe = Pipe()
+        let disablesCoreML = isCoreMLDisabled()
         process.executableURL = runtime.executableURL
         process.arguments = arguments
         process.currentDirectoryURL = runtime.executableURL.deletingLastPathComponent()
-        process.environment = piperEnvironment(for: runtime.executableURL)
+        process.environment = piperEnvironment(for: runtime.executableURL, disableCoreML: disablesCoreML)
         process.standardInput = inputPipe
         process.standardOutput = outputPipe
         process.standardError = errorPipe
-        errorPipe.fileHandleForReading.readabilityHandler = { handle in
-            _ = handle.availableData
+        errorPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let data = handle.availableData
+            guard let diagnostic = String(data: data, encoding: .utf8),
+                  !diagnostic.isEmpty else {
+                return
+            }
+            self?.recordCoreMLFallbackIfNeeded(diagnostic)
         }
 
         do {
@@ -169,6 +247,8 @@ final class PiperTTSBackend {
         workerOutputBuffer.removeAll()
         workerRuntime = runtime
         workerOutputDirectory = outputDirectory
+        workerDisablesCoreML = disablesCoreML
+        workerSynthesisCount = 0
         return true
     }
 
@@ -332,7 +412,7 @@ final class PiperTTSBackend {
         process.executableURL = executableURL
         process.arguments = arguments
         process.currentDirectoryURL = executableURL.deletingLastPathComponent()
-        process.environment = piperEnvironment(for: executableURL)
+        process.environment = piperEnvironment(for: executableURL, disableCoreML: isCoreMLDisabled())
 
         let stdinPipe = Pipe()
         let stderrPipe = Pipe()
@@ -364,10 +444,11 @@ final class PiperTTSBackend {
             }
         }
         let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        let stderr = String(data: stderrData, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        recordCoreMLFallbackIfNeeded(stderr)
         let ok = !timedOut && !process.isRunning && process.terminationStatus == 0
         if !ok {
-            let stderr = String(data: stderrData, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             NSLog(
                 "LeafReader PiperTTS: process failed status=%d timedOut=%d stderr=%@",
                 process.terminationStatus,
@@ -379,8 +460,11 @@ final class PiperTTSBackend {
         return .success(())
     }
 
-    private func piperEnvironment(for executableURL: URL) -> [String: String] {
+    private func piperEnvironment(for executableURL: URL, disableCoreML: Bool) -> [String: String] {
         var environment = ProcessInfo.processInfo.environment
+        if disableCoreML {
+            environment["PIPER_DISABLE_COREML"] = "1"
+        }
         let runtimeDirectory = runtimeDirectory(for: executableURL)
         let libraryDirectory = runtimeDirectory
             .appendingPathComponent("piper-phonemize/lib", isDirectory: true)
@@ -396,6 +480,40 @@ final class PiperTTSBackend {
             }
             .joined(separator: ":")
         return environment
+    }
+
+    private func isCoreMLDisabled() -> Bool {
+        coreMLFallbackLock.lock()
+        defer { coreMLFallbackLock.unlock() }
+        return shouldDisableCoreML
+    }
+
+    private func recordCoreMLFallbackIfNeeded(_ diagnostic: String) {
+        guard Self.shouldDisableCoreML(forDiagnostic: diagnostic) else { return }
+        coreMLFallbackLock.lock()
+        defer { coreMLFallbackLock.unlock() }
+        guard !shouldDisableCoreML else { return }
+        shouldDisableCoreML = true
+        coreMLFallbackDiagnostic = diagnostic
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        NSLog(
+            "LeafReader PiperTTS: disabling CoreML execution provider for this session (%@)",
+            coreMLFallbackDiagnostic ?? "unsupported CoreML graph"
+        )
+    }
+
+    static func shouldDisableCoreML(forDiagnostic diagnostic: String) -> Bool {
+        let value = diagnostic.lowercased()
+        return value.contains("dynamic shape is not supported")
+            || value.contains("coreml does not support")
+            || value.contains("failed to enable coreml execution provider")
+            || value.contains("number of partitions supported by coreml: 0")
+            || value.contains("number of nodes supported by coreml: 0")
+    }
+
+    static func shouldRestartWorker(synthesisCount: Int, maxSynthesisCount: Int) -> Bool {
+        maxSynthesisCount > 0 && synthesisCount >= maxSynthesisCount
     }
 
     private func eSpeakDataURL(for executableURL: URL) -> URL? {
