@@ -87,6 +87,7 @@ swiftc \
   mac-app/ReaderDocumentKind.swift \
   mac-app/VocabularyExporter.swift \
   mac-app/ReaderAIContextBuilder.swift \
+  mac-app/ReaderAIContextBuilder+PDF.swift \
   mac-app/EPUBPackageParser.swift \
   mac-app/EPUBPathResolver.swift \
   mac-app/EPUBHTMLSanitizer.swift \

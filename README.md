@@ -29,7 +29,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 
 ### 下载
 
-[下载 Leaf Reader 1.6.5 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.6.5/LeafReader-1.6.5.pkg)
+[下载 Leaf Reader 1.7.0 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.7.0/LeafReader-1.7.0.pkg)
 
 ### 系统要求
 
@@ -45,7 +45,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 - 支持文档搜索、PDF 翻页、书架、最近阅读、浅色/护眼/深色主题。
 - 选中文本后可让 AI 解释、总结、翻译或继续追问上下文。
 - 支持保存单词、复习新词、导出词表。
-- 支持 KittenTTS 和 Kokoro 本地朗读；短词和短句可回退到 macOS 系统语音。
+- 支持 KittenTTS、Piper 和 Kokoro 本地朗读；短词和短句可回退到 macOS 系统语音。
 - 文档保存在本机；只有使用 AI 功能时，相关文本才会发送到用户配置的模型服务。
 
 ### 可选朗读模型
@@ -63,6 +63,12 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 常规应用版本会复用这些模型文件。只有模型文件变化时才需要重新发布语音模型归档，并同步更新 `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag`。
 
 ### 更新记录
+
+#### 1.7.0
+
+- 增加阅读笔记入口，并改进笔记编辑、Ask AI、粘贴和右键菜单行为。
+- 优化朗读控制状态、停止图标、语速滑块和浮动播放器布局。
+- 增加词汇复习优先级选项，并整理词汇复习/列表结构，让每日复习更稳定。
 
 #### 1.6.6
 
@@ -115,6 +121,12 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 
 Leaf Reader 使用 [Apache License 2.0](LICENSE) 许可发布。
 
+第三方朗读模型和运行时版权归各自项目所有：
+
+- [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) / Kokoro 模型：Apache License 2.0。
+- [KittenTTS](https://github.com/KittenML/KittenTTS) 与 [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs)：KittenTTS 模型为 Apache License 2.0；Rust runtime 版权归 `kitten_tts_rs` 项目贡献者所有。
+- [Piper](https://github.com/rhasspy/piper)：MIT License；Piper 语音模型资源版权和许可遵循上游模型包随附的元数据。
+
 ## English
 
 Leaf Reader is a native macOS reader for PDF, EPUB, and DOCX documents. It is built with Swift, PDFKit, and WebKit, and focuses on a quiet reading experience with fast navigation, document search, reading progress restore, light and dark reader themes, and an optional AI panel for working with selected passages.
@@ -153,7 +165,7 @@ Website: <https://leafreader.space/>
 - Search documents with `Command+F`, next and previous result controls, and visible result positioning.
 - Switch between light and dark reader themes for the document area, search overlay, recent files panel, and AI chat panel.
 - Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
-- Read selected English or Chinese text with optional downloadable Kokoro or KittenTTS output where supported; otherwise Leaf Reader falls back to macOS system voices.
+- Read selected English or Chinese text with optional downloadable KittenTTS, Piper, or Kokoro output where supported; otherwise Leaf Reader falls back to macOS system voices.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
 
 ### Optional Speech Runtimes
@@ -228,6 +240,12 @@ Earlier versions are listed in [GitHub Releases](https://github.com/dowellhz/Lea
 ### License
 
 Leaf Reader is licensed under the [Apache License 2.0](LICENSE).
+
+Third-party speech models and runtimes remain copyrighted by their respective projects:
+
+- [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) / Kokoro model: Apache License 2.0.
+- [KittenTTS](https://github.com/KittenML/KittenTTS) and [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs): KittenTTS model under Apache License 2.0; Rust runtime copyright belongs to the `kitten_tts_rs` project contributors.
+- [Piper](https://github.com/rhasspy/piper): MIT License; Piper voice model assets follow the metadata shipped with the upstream model package.
 
 ## What's New in 1.7.0
 
@@ -347,7 +365,7 @@ Latest installer:
 
 Local release package path:
 
-`release/1.7.0/LeafReader-1.6.3.pkg`
+`release/1.7.0/LeafReader-1.7.0.pkg`
 
 Build the signed release package without publishing:
 
