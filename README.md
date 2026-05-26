@@ -172,6 +172,12 @@ Regular app releases reuse those files. Regenerated speech archives should only 
 
 ### Changelog
 
+#### 1.7.0
+
+- Added Reading Notes access from the reader toolbar and refined note editing, Ask AI, paste, and context-menu behavior.
+- Improved read-aloud controls with clearer toolbar states, stop icons, a speed slider, and better floating control layout.
+- Added vocabulary review priority options and tightened the vocabulary review/list architecture for more reliable daily review.
+
 #### 1.6.6
 
 - Lowered the Piper runtime minimum macOS marker to macOS 12.0 and strengthened release-time bundle checks.
@@ -222,6 +228,12 @@ Earlier versions are listed in [GitHub Releases](https://github.com/dowellhz/Lea
 ### License
 
 Leaf Reader is licensed under the [Apache License 2.0](LICENSE).
+
+## What's New in 1.7.0
+
+- Added easier access to Reading Notes, with improved note editing, Ask AI prompts, paste handling, and disabled note-editor context menus.
+- Improved read-aloud controls with clearer loading/pause/stop icons, a speech-speed slider, and better floating player layout.
+- Added vocabulary review priority choices and refined the review UI, scoring, and speech playback internals.
 
 ## What's New in 1.6.6
 
