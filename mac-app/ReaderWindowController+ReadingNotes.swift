@@ -93,8 +93,14 @@ extension ReaderWindowController {
             self?.exportSingleReadingNoteMarkdown(note)
         } onDeleteNote: { [weak self] note in
             self?.deleteReadingNoteWithConfirmation(note)
-        } onDocumentQuestionPrompt: { [weak self] question, context, completion in
-            self?.documentAgentPrompt(question: question, context: context, completion: completion)
+        } onDocumentQuestionPrompt: { [weak self] request, completion in
+            self?.documentAgentPrompt(
+                question: request.question,
+                questionSubject: request.questionSubject,
+                context: request.context,
+                showsEvidenceBubbles: false,
+                completion: completion
+            )
         }
         readingNotePanelControllers[note.id] = controller
         presentReadingNotePanel(controller)

@@ -6,16 +6,6 @@ import UniformTypeIdentifiers
 import WebKit
 
 final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate, WKScriptMessageHandler, WKNavigationDelegate {
-    struct VocabularyExportRecord {
-        let ids: [String]
-        let word: String
-        let answer: String
-        let location: String
-        let context: String
-        let createdAt: Date
-        let srs: VocabularySRSState
-    }
-
     struct PendingPDFWordRecord {
         let id: String
         let word: String
@@ -60,6 +50,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let loadingLabel = NSTextField(labelWithString: "")
     let aiPanel = AIChatPanel()
     let vocabularySpeechSynthesizer = AVSpeechSynthesizer()
+    lazy var vocabularySpeechCoordinator = VocabularySpeechCoordinator(
+        synthesizer: vocabularySpeechSynthesizer,
+        owner: self
+    )
     let aiHandleButton = SideHandleButton(title: "", target: nil, action: nil)
     let resizeHandle = ResizeHandleView()
     let titleLabel = WindowDragTextField(labelWithString: "Leaf Reader")
@@ -73,6 +67,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var coverButton: NSButton!
     var tocButton: NSButton!
     var recentButton: NSButton!
+    var notesButton: NSButton!
     var vocabularyButton: NSButton!
     var farthestPositionButton: NSButton!
     var prevButton: NSButton!
@@ -161,7 +156,6 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let preferredAIWidthSaveTask = DebouncedTask(delay: 0.4)
     let windowResizeLayoutTask = DebouncedTask(delay: 0.08)
     let aiPanelResizeLayoutTask = DebouncedTask(delay: 0.05)
-    let vocabularyPanelReloadTask = DebouncedTask(delay: 0.04)
     var pendingAIPanelExpansionAction: (() -> Void)?
     var pendingAISourceClickWorkItem: DispatchWorkItem?
     var readAloudOriginalTitle: String?
@@ -188,8 +182,6 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var isReadAloudPaused = false
     var isReadAloudLoading = false
     var canReadAloudGoPrevious = false
-    var selectionSpeechCompletion: (() -> Void)?
-    var shouldClearSelectionOnSpeechStart = false
     var currentVocabularyExportRecords: [VocabularyExportRecord] = []
     var didRegisterSelectionObserver = false
     var isRestoringSession = false
@@ -200,26 +192,15 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var aiSettingsPanelController: AISettingsPanelController?
     var recentDocumentsPanelController: RecentDocumentsPanelController?
     var readingNotesPanelController: ReadingNotesPanelController?
-    weak var vocabularyPanel: NSWindow?
-    var vocabularyPanelActivationObserver: NSObjectProtocol?
-    var vocabularyReviewFilter: VocabularyFilter = .due
-    var vocabularyReviewIndex = 0
-    var vocabularyListPageIndex = 0
-    var vocabularyReviewContextShown = false
-    var vocabularyReviewAnswerShown = false
-    var vocabularyListModeEnabled = false
-    var vocabularyReviewCardKey: String?
-    var vocabularyReviewCardShownAt = Date()
-    var vocabularyReviewAnswerShownAt: Date?
-    var vocabularyReviewDidScoreCurrentCard = false
-    var vocabularyReviewBatchKeys: [String] = []
-    var vocabularyReviewUndoSRSByID: [String: VocabularySRSState] = [:]
+    var vocabularyPanelController: VocabularyPanelController!
+    let vocabularyReviewSession = VocabularyReviewSession()
     var aiHandleLeadingConstraint: NSLayoutConstraint!
     var aiPanelWidthConstraint: NSLayoutConstraint!
     var localEventMonitor: Any?
 
     override init(window: NSWindow?) {
         super.init(window: window)
+        vocabularyPanelController = VocabularyPanelController(owner: self)
     }
 
     required init?(coder: NSCoder) {
@@ -249,7 +230,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         window.delegate = self
         buildUI()
         installSpeechProgressObserver()
-        vocabularySpeechSynthesizer.delegate = self
+        _ = vocabularySpeechCoordinator
     }
 
     deinit {
@@ -261,12 +242,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         preferredAIWidthSaveTask.cancel()
         windowResizeLayoutTask.cancel()
         aiPanelResizeLayoutTask.cancel()
-        vocabularyPanelReloadTask.cancel()
         pendingAISourceClickWorkItem?.cancel()
         retrievalQueryTask?.cancel()
         pdfWordRecordsSaveTask.cancel()
         webWordRecordsSaveTask.cancel()
-        removeVocabularyPanelActivationObserver()
+        vocabularyPanelController.close()
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "selectionChanged")
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "scrollChanged")
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "webWordClicked")

@@ -1,9 +1,6 @@
 import Cocoa
 
 extension ReaderWindowController {
-    private static let vocabularyContextSelectionInset = CGSize(width: -120, height: -36)
-    private static let vocabularyContextFallbackInset = CGSize(width: -80, height: -24)
-
     func findView(identifier: String, in view: NSView) -> NSView? {
         if view.identifier?.rawValue == identifier {
             return view
@@ -18,34 +15,12 @@ extension ReaderWindowController {
 
     @objc func closeVocabularyBook(_ sender: NSButton) {
         guard sender.identifier?.rawValue == "closeVocabularyBook",
-              let panel = sender.window else { return }
-        closeVocabularyPanel(panel)
+              sender.window != nil else { return }
+        closeVocabularyPanel()
     }
 
-    func closeVocabularyPanel(_ panel: NSWindow) {
-        commitPendingVocabularyAnswerIfNeeded()
-        removeVocabularyPanelActivationObserver()
-        ModalOverlayManager.shared.dismiss(panel, attachedTo: window)
-        vocabularyPanel = nil
-    }
-
-    func installVocabularyPanelActivationObserver() {
-        removeVocabularyPanelActivationObserver()
-        vocabularyPanelActivationObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.didBecomeActiveNotification,
-            object: NSApp,
-            queue: .main
-        ) { [weak self] _ in
-            guard let panel = self?.vocabularyPanel else { return }
-            ModalOverlayManager.shared.reactivate(panel)
-        }
-    }
-
-    func removeVocabularyPanelActivationObserver() {
-        if let vocabularyPanelActivationObserver {
-            NotificationCenter.default.removeObserver(vocabularyPanelActivationObserver)
-            self.vocabularyPanelActivationObserver = nil
-        }
+    func closeVocabularyPanel() {
+        vocabularyPanelController.close()
     }
 
     @objc func exportVocabularyMarkdown(_ sender: NSButton) {
@@ -118,7 +93,7 @@ extension ReaderWindowController {
     }
 
     func currentVocabularyExportRecordsForActiveFilter() -> [VocabularyExportRecord] {
-        let filter = selectedVocabularyListFilter(in: vocabularyPanel?.contentView)
+        let filter = selectedVocabularyListFilter(in: vocabularyPanelController.rootView)
         return vocabularyRecords(currentVocabularyExportRecords, matching: filter)
     }
 
@@ -142,31 +117,6 @@ extension ReaderWindowController {
         VocabularyExporter.csv(records: records) { record in
             vocabularyAnswerBody(record.answer, word: record.word)
         }
-    }
-
-    func pdfWordContext(for record: StoredPDFWordRecord) -> String {
-        if let context = VocabularyExporter.nonEmptyText(record.context) {
-            return context
-        }
-        guard let page = pdfView.document?.page(at: record.pageIndex) else { return "" }
-        let pageText = page.string ?? ""
-        let selectedText = VocabularyExporter.trimmed(record.word)
-        if let context = ReaderAIContextBuilder.selectedTextContext(selectedText: selectedText, sourceText: pageText, radius: 24) {
-            return context
-        }
-        let expandedBounds = record.bounds.cgRect.insetBy(
-            dx: Self.vocabularyContextSelectionInset.width,
-            dy: Self.vocabularyContextSelectionInset.height
-        )
-        if let nearbyText = page.selection(for: expandedBounds)?.string,
-           let context = ReaderAIContextBuilder.selectedTextContext(selectedText: selectedText, sourceText: nearbyText, radius: 24) {
-            return context
-        }
-        let fallbackBounds = record.bounds.cgRect.insetBy(
-            dx: Self.vocabularyContextFallbackInset.width,
-            dy: Self.vocabularyContextFallbackInset.height
-        )
-        return ReaderAIContextBuilder.normalizeWhitespace(page.selection(for: fallbackBounds)?.string ?? "")
     }
 
     func safeExportFileName(_ name: String) -> String {

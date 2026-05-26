@@ -26,6 +26,8 @@ enum ReaderUILayout {
     static let settingsButtonSize: CGFloat = 32
     static let shelfButtonLeading: CGFloat = 18
     static let shelfButtonWidth: CGFloat = 88
+    static let notesButtonLeading: CGFloat = 10
+    static let notesButtonWidth: CGFloat = 86
     static let vocabularyButtonLeading: CGFloat = 10
     static let vocabularyButtonWidth: CGFloat = 92
     static let bottomButtonHeight: CGFloat = 30
@@ -72,6 +74,7 @@ enum ReaderUILayout {
     static let coverButtonWidth: CGFloat = 100
     static let readerNavButtonWidth: CGFloat = 84
     static let navigationStackSpacing: CGFloat = 20
+    static let navigationStackCenterOffset: CGFloat = 104
 
     static let embeddingTrailing: CGFloat = -18
     static let embeddingButtonWidth: CGFloat = 58
@@ -163,6 +166,11 @@ extension ReaderWindowController {
             vocabularyButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.vocabularyButtonWidth),
             vocabularyButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
 
+            notesButton.leadingAnchor.constraint(equalTo: vocabularyButton.trailingAnchor, constant: ReaderUILayout.notesButtonLeading),
+            notesButton.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
+            notesButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.notesButtonWidth),
+            notesButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
+
             coverImageView.leadingAnchor.constraint(equalTo: toolbar.leadingAnchor, constant: ReaderUILayout.coverLeading),
             coverImageView.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
             coverImageView.widthAnchor.constraint(equalToConstant: ReaderUILayout.coverSize.width),
@@ -253,7 +261,7 @@ extension ReaderWindowController {
             loadingLabel.leadingAnchor.constraint(greaterThanOrEqualTo: loadingOverlay.leadingAnchor, constant: ReaderUILayout.loadingLabelHorizontalInset),
             loadingLabel.trailingAnchor.constraint(lessThanOrEqualTo: loadingOverlay.trailingAnchor, constant: -ReaderUILayout.loadingLabelHorizontalInset),
 
-            navigationStack.centerXAnchor.constraint(equalTo: bottomBar.centerXAnchor),
+            navigationStack.centerXAnchor.constraint(equalTo: bottomBar.centerXAnchor, constant: ReaderUILayout.navigationStackCenterOffset),
             navigationStack.centerYAnchor.constraint(equalTo: bottomBar.centerYAnchor),
             navigationStack.heightAnchor.constraint(equalToConstant: ReaderUILayout.bottomButtonHeight),
 

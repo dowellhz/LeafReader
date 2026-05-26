@@ -40,7 +40,12 @@ final class AITextActionRunner {
         }
     }
 
-    func runQuestion(question: String, selectedText: String, completion: @escaping (Result<String, Error>) -> Void) {
+    func runQuestion(
+        question: String,
+        selectedText: String,
+        systemPrompt: String = AIPromptStore.systemPrompt(),
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
         cancel()
         let trimmedQuestion = question.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedSelection = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -49,7 +54,7 @@ final class AITextActionRunner {
             return
         }
         let messages = [
-            ChatMessage(role: "system", content: AIPromptStore.systemPrompt()),
+            ChatMessage(role: "system", content: systemPrompt),
             ChatMessage(role: "user", content: questionPrompt(question: trimmedQuestion, selectedText: trimmedSelection))
         ]
         task = client.send(messages: messages) { [weak self] result in
@@ -60,7 +65,11 @@ final class AITextActionRunner {
         }
     }
 
-    func runPrompt(_ prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+    func runPrompt(
+        _ prompt: String,
+        systemPrompt: String = AIPromptStore.systemPrompt(),
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
         cancel()
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -68,7 +77,7 @@ final class AITextActionRunner {
             return
         }
         let messages = [
-            ChatMessage(role: "system", content: AIPromptStore.systemPrompt()),
+            ChatMessage(role: "system", content: systemPrompt),
             ChatMessage(role: "user", content: trimmed)
         ]
         task = client.send(messages: messages) { [weak self] result in
@@ -90,21 +99,23 @@ final class AITextActionRunner {
         case .polish:
             if AppText.isChinese {
                 return """
-                请润色下面这段阅读笔记文字，使表达更自然、清晰、流畅。
+                请整理下面这段阅读笔记文字，输出结构清晰的 Markdown。
                 要求：
-                - 保留原意，不扩写事实。
+                - 保留原意，不扩写事实，不添加原文没有的信息。
                 - 保持原文语言，不要翻译。英文仍输出英文，中文仍输出中文，中英混合时保留各自语言。
-                - 不加标题，不解释修改过程，只输出润色后的文字。
+                - 可以使用标题、列表、引用、粗体、任务列表等 Markdown 结构，让笔记更易读。
+                - 不要包裹在代码块里，不解释整理过程，只输出 Markdown 正文。
 
                 【原文】
                 \(text)
                 """
             }
             return """
-            Polish the following reading-note text so it reads more naturally, clearly, and fluently.
-            Preserve the original meaning and original language. Do not translate; English should remain English, Chinese should remain Chinese, and mixed-language text should keep each language as-is.
-            Do not add facts, headings, or explanations.
-            Output only the polished text.
+            Organize the following reading-note text into clear Markdown.
+            Preserve the original meaning, but output the organized note in English regardless of the source text language.
+            Do not add facts that are not in the original text.
+            You may use headings, bullet lists, blockquotes, bold text, and task lists to make the note easier to read.
+            Do not wrap the output in a code block. Output only the Markdown body, with no explanation of your process.
 
             [Original text]
             \(text)

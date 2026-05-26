@@ -38,17 +38,25 @@ extension ReaderWindowController {
         return button
     }
 
-    func capsuleButton(title: String, symbol: String, action: Selector, imageOnRight: Bool = false, showsLeadingSymbol: Bool = false) -> NSButton {
+    func capsuleButton(title: String, symbol: String, action: Selector, showsLeadingSymbol: Bool = false) -> NSButton {
         let button = CapsuleChromeButton(title: title, target: self, action: action)
         button.identifier = Self.capsuleButtonIdentifier
         button.controlSize = .regular
         button.font = AppFont.semibold(ofSize: 13)
         button.theme = ReaderTheme.selected
         if showsLeadingSymbol {
-            button.leadingSymbolName = symbol
-            button.leadingSymbolDescription = title
+            setCapsuleButtonSymbol(symbol, on: button, accessibilityDescription: title)
         }
         return button
+    }
+
+    func setCapsuleButtonSymbol(_ symbol: String, on button: NSButton, accessibilityDescription: String) {
+        if let capsule = button as? CapsuleChromeButton {
+            capsule.leadingSymbolName = symbol
+            capsule.leadingSymbolDescription = accessibilityDescription
+        } else {
+            setSystemImage(symbol, on: button, accessibilityDescription: accessibilityDescription)
+        }
     }
 
     func setSystemImage(_ symbol: String, on button: NSButton, accessibilityDescription: String? = nil) {
@@ -72,6 +80,7 @@ extension ReaderWindowController {
         coverButton.title = AppText.cover
         tocButton.title = AppText.localized("目录", "TOC")
         recentButton.title = AppText.localized("书架", "Shelf")
+        notesButton.title = AppText.localized("笔记", "Notes")
         vocabularyButton.title = AppText.localized("背单词", "Vocab")
         prevButton.title = AppText.prev
         nextButton.title = AppText.next
@@ -81,7 +90,7 @@ extension ReaderWindowController {
         refreshEmbeddingStatusLanguage()
         updatePDFPageLayoutButton()
         updatePDFMarginCropButton()
-        for button in [coverButton, tocButton, recentButton, vocabularyButton, prevButton, nextButton, farthestPositionButton, pageLayoutButton, cropButton] {
+        for button in [coverButton, tocButton, recentButton, notesButton, vocabularyButton, prevButton, nextButton, farthestPositionButton, pageLayoutButton, cropButton] {
             if let capsule = button as? CapsuleChromeButton {
                 capsule.theme = ReaderTheme.selected
             }

@@ -6,19 +6,20 @@ extension ReaderWindowController {
             view.removeFromSuperview()
         }
         let visibleRecords = vocabularyReviewRecords(records)
-        if (vocabularyReviewContextShown || vocabularyReviewAnswerShown),
-           let key = vocabularyReviewCardKey,
-           let preservedRecord = records.first(where: { vocabularyReviewKey(for: $0) == key }) {
-            let selectedPosition = visibleRecords.firstIndex(where: { vocabularyReviewKey(for: $0) == key }).map { $0 + 1 } ?? min(vocabularyReviewIndex + 1, max(1, visibleRecords.count))
+        if (vocabularyReviewSession.contextShown || vocabularyReviewSession.answerShown),
+           let key = vocabularyReviewSession.cardKey,
+           let preservedRecord = records.first(where: { vocabularyReviewSession.key(for: $0) == key }) {
+            let selectedPosition = visibleRecords.firstIndex(where: { vocabularyReviewSession.key(for: $0) == key }).map { $0 + 1 } ?? min(vocabularyReviewSession.reviewIndex + 1, max(1, visibleRecords.count))
             prepareVocabularyReviewTiming(for: preservedRecord, autoPlay: autoPlayNewCard)
             updateVocabularySummaryWithProgress(position: selectedPosition, total: max(visibleRecords.count, selectedPosition))
-            let card = vocabularyReviewCard(
+            let card = VocabularyReviewCardBuilder(owner: self).build(
                 record: preservedRecord,
                 position: selectedPosition,
                 total: max(visibleRecords.count, selectedPosition),
-                contextShown: vocabularyReviewContextShown,
-                answerShown: vocabularyReviewAnswerShown,
-                isDark: isDark
+                contextShown: vocabularyReviewSession.contextShown,
+                answerShown: vocabularyReviewSession.answerShown,
+                didScore: vocabularyReviewSession.didScoreCurrentCard,
+                canUndoScore: !vocabularyReviewSession.undoSRSByID.isEmpty
             )
             container.addSubview(card)
             NSLayoutConstraint.activate([
@@ -38,28 +39,29 @@ extension ReaderWindowController {
             ])
             return
         }
-        vocabularyReviewIndex = min(max(0, vocabularyReviewIndex), visibleRecords.count - 1)
+        vocabularyReviewSession.reviewIndex = min(max(0, vocabularyReviewSession.reviewIndex), visibleRecords.count - 1)
         let selectedRecord: VocabularyExportRecord
         let selectedPosition: Int
-        if (vocabularyReviewContextShown || vocabularyReviewAnswerShown),
-           let key = vocabularyReviewCardKey,
-           let preservedIndex = visibleRecords.firstIndex(where: { vocabularyReviewKey(for: $0) == key }) {
+        if (vocabularyReviewSession.contextShown || vocabularyReviewSession.answerShown),
+           let key = vocabularyReviewSession.cardKey,
+           let preservedIndex = visibleRecords.firstIndex(where: { vocabularyReviewSession.key(for: $0) == key }) {
             selectedRecord = visibleRecords[preservedIndex]
             selectedPosition = preservedIndex + 1
-            vocabularyReviewIndex = preservedIndex
+            vocabularyReviewSession.reviewIndex = preservedIndex
         } else {
-            selectedRecord = visibleRecords[vocabularyReviewIndex]
-            selectedPosition = vocabularyReviewIndex + 1
+            selectedRecord = visibleRecords[vocabularyReviewSession.reviewIndex]
+            selectedPosition = vocabularyReviewSession.reviewIndex + 1
         }
         prepareVocabularyReviewTiming(for: selectedRecord, autoPlay: autoPlayNewCard)
         updateVocabularySummaryWithProgress(position: selectedPosition, total: visibleRecords.count)
-        let card = vocabularyReviewCard(
+        let card = VocabularyReviewCardBuilder(owner: self).build(
             record: selectedRecord,
             position: selectedPosition,
             total: visibleRecords.count,
-            contextShown: vocabularyReviewContextShown,
-            answerShown: vocabularyReviewAnswerShown,
-            isDark: isDark
+            contextShown: vocabularyReviewSession.contextShown,
+            answerShown: vocabularyReviewSession.answerShown,
+            didScore: vocabularyReviewSession.didScoreCurrentCard,
+            canUndoScore: !vocabularyReviewSession.undoSRSByID.isEmpty
         )
         container.addSubview(card)
         NSLayoutConstraint.activate([
@@ -70,201 +72,37 @@ extension ReaderWindowController {
         ])
     }
 
-    func vocabularyReviewCard(record: VocabularyExportRecord, position: Int, total: Int, contextShown: Bool, answerShown: Bool, isDark: Bool) -> NSView {
-        let theme = ReaderTheme.selected
-        let card = NSView()
-        card.wantsLayer = true
-        card.layer?.cornerRadius = 14
-        card.layer?.backgroundColor = vocabularyCardBackgroundColor(for: theme).cgColor
-        card.layer?.borderWidth = 1
-        card.layer?.borderColor = vocabularyCardBorderColor(for: theme).cgColor
-        card.translatesAutoresizingMaskIntoConstraints = false
-
-        let wordLabel = NSTextField(labelWithString: record.word)
-        wordLabel.font = AppFont.semibold(ofSize: 36)
-        wordLabel.textColor = vocabularyPrimaryTextColor(for: theme)
-        wordLabel.maximumNumberOfLines = 2
-        wordLabel.lineBreakMode = .byWordWrapping
-        wordLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        wordLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        let contentArea = NSView()
-        contentArea.translatesAutoresizingMaskIntoConstraints = false
-
-        let footerArea = NSView()
-        footerArea.translatesAutoresizingMaskIntoConstraints = false
-
-        card.addSubview(wordLabel)
-        card.addSubview(contentArea)
-        card.addSubview(footerArea)
-
-        if let spokenWord = vocabularySpeakerWord(record.word) {
-            let button = VocabularySpeakerButton(title: "", target: self, action: #selector(playVocabularyWord(_:)))
-            button.image = TemplateSymbolImage.make("speaker.wave.2.fill", accessibilityDescription: AppText.localized("播放发音", "Play pronunciation"))
-            button.isBordered = false
-            button.contentTintColor = vocabularyAccentColor(for: theme)
-            button.imageScaling = .scaleProportionallyDown
-            button.imagePosition = .imageOnly
-            button.spokenWord = spokenWord
-            button.toolTip = AppText.localized("播放单词发音", "Play word pronunciation")
-            button.translatesAutoresizingMaskIntoConstraints = false
-            card.addSubview(button)
-            NSLayoutConstraint.activate([
-                button.leadingAnchor.constraint(equalTo: wordLabel.trailingAnchor, constant: 12),
-                button.centerYAnchor.constraint(equalTo: wordLabel.centerYAnchor),
-                button.widthAnchor.constraint(equalToConstant: 30),
-                button.heightAnchor.constraint(equalToConstant: 30)
-            ])
+    func vocabularyReviewPriorityPopup() -> NSPopUpButton {
+        let popup = ThemedSettingsPopUpButton(frame: .zero, pullsDown: false)
+        popup.controlSize = .large
+        popup.font = AppFont.semibold(ofSize: 13)
+        popup.isBordered = false
+        popup.translatesAutoresizingMaskIntoConstraints = false
+        popup.addItem(withTitle: AppText.localized("老单词优先", "Old Words First"))
+        popup.lastItem?.representedObject = VocabularyReviewPriority.oldWordsFirst.rawValue
+        popup.addItem(withTitle: AppText.localized("新单词优先", "New Words First"))
+        popup.lastItem?.representedObject = VocabularyReviewPriority.newWordsFirst.rawValue
+        popup.menu?.autoenablesItems = false
+        popup.target = self
+        popup.action = #selector(changeVocabularyReviewPriority(_:))
+        popup.theme = ReaderTheme.selected
+        if let index = popup.itemArray.firstIndex(where: { item in
+            (item.representedObject as? String) == vocabularyReviewSession.priority.rawValue
+        }) {
+            popup.selectItem(at: index)
         }
-
-        NSLayoutConstraint.activate([
-            wordLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 18),
-            wordLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 34),
-            wordLabel.trailingAnchor.constraint(lessThanOrEqualTo: card.trailingAnchor, constant: -82),
-
-            contentArea.topAnchor.constraint(equalTo: wordLabel.bottomAnchor, constant: 20),
-            contentArea.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 34),
-            contentArea.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -34),
-            contentArea.bottomAnchor.constraint(equalTo: footerArea.topAnchor, constant: -14),
-
-            footerArea.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 34),
-            footerArea.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -34),
-            footerArea.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -18),
-            footerArea.heightAnchor.constraint(equalToConstant: 44)
-        ])
-
-        if answerShown {
-            let contextText = record.context.trimmingCharacters(in: .whitespacesAndNewlines)
-            let answerText = vocabularyAnswerBody(record.answer, word: record.word)
-            let meaningfulContext = isMeaningfulVocabularyContext(contextText) ? contextText : ""
-            let body = [
-                meaningfulContext.isEmpty ? "" : AppText.localized("原文上下文：\(meaningfulContext)", "Context: \(meaningfulContext)"),
-                answerText
-            ].filter { !$0.isEmpty }.joined(separator: "\n\n")
-
-            let scrollView = VocabularyDetailScrollView()
-            scrollView.contentView = VocabularyDetailClipView()
-            scrollView.hasVerticalScroller = true
-            scrollView.hasHorizontalScroller = false
-            scrollView.autohidesScrollers = true
-            scrollView.drawsBackground = false
-            scrollView.borderType = .noBorder
-            scrollView.horizontalScrollElasticity = .none
-            scrollView.verticalScrollElasticity = .allowed
-            scrollView.translatesAutoresizingMaskIntoConstraints = false
-
-            let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: max(1, contentArea.bounds.width), height: 600))
-            textView.isEditable = false
-            textView.isSelectable = true
-            textView.drawsBackground = false
-            textView.textContainerInset = NSSize(width: 0, height: 0)
-            textView.textContainer?.lineFragmentPadding = 0
-            textView.textContainer?.widthTracksTextView = true
-            textView.textContainer?.heightTracksTextView = false
-            textView.isVerticallyResizable = true
-            textView.isHorizontallyResizable = false
-            textView.minSize = NSSize(width: 0, height: 0)
-            textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-            textView.autoresizingMask = [.width]
-            textView.textContainer?.containerSize = NSSize(width: max(1, contentArea.bounds.width), height: CGFloat.greatestFiniteMagnitude)
-            textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            textView.setContentHuggingPriority(.defaultLow, for: .horizontal)
-            let answerAttributedText = MarkdownRenderer.render(
-                body,
-                fontSize: 16,
-                textColor: vocabularyBodyTextColor(for: theme)
-            )
-            textView.textStorage?.setAttributedString(
-                emphasizedVocabularyWord(in: answerAttributedText, word: record.word, boldFontSize: 16)
-            )
-            textView.selectedTextAttributes = [
-                .backgroundColor: vocabularySelectionBackgroundColor(for: theme),
-                .foregroundColor: vocabularyBodyTextColor(for: theme)
-            ]
-            if let layoutManager = textView.layoutManager,
-               let textContainer = textView.textContainer {
-                layoutManager.ensureLayout(for: textContainer)
-                textView.frame.size.height = max(280, ceil(layoutManager.usedRect(for: textContainer).height) + 16)
-            }
-            scrollView.documentView = textView
-            contentArea.addSubview(scrollView)
-            NSLayoutConstraint.activate([
-                scrollView.topAnchor.constraint(equalTo: contentArea.topAnchor),
-                scrollView.leadingAnchor.constraint(equalTo: contentArea.leadingAnchor),
-                scrollView.trailingAnchor.constraint(equalTo: contentArea.trailingAnchor),
-                scrollView.bottomAnchor.constraint(equalTo: contentArea.bottomAnchor),
-                textView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor)
-            ])
-
-            let nextButton = vocabularyReviewActionButton(title: AppText.localized("下一个", "Next"), action: #selector(nextVocabularyReviewCard(_:)), width: vocabularyReviewButtonWidth, isPrimary: true)
-            let footerButtons: NSView
-            if vocabularyReviewDidScoreCurrentCard, !vocabularyReviewUndoSRSByID.isEmpty {
-                let undoButton = vocabularyReviewActionButton(title: AppText.localized("撤销", "Undo"), action: #selector(undoVocabularyReviewScore(_:)), width: vocabularyReviewButtonWidth)
-                footerButtons = vocabularyReviewButtonRow([undoButton, nextButton])
-            } else {
-                footerButtons = nextButton
-            }
-            footerArea.addSubview(footerButtons)
-            NSLayoutConstraint.activate([
-                footerButtons.trailingAnchor.constraint(equalTo: footerArea.trailingAnchor),
-                footerButtons.centerYAnchor.constraint(equalTo: footerArea.centerYAnchor)
-            ])
-        } else if contextShown {
-            let contextText = record.context.trimmingCharacters(in: .whitespacesAndNewlines)
-            let meaningfulContext = isMeaningfulVocabularyContext(contextText) ? contextText : AppText.localized("没有可用的原文句子。", "No source sentence available.")
-            let contextColor = vocabularyBodyTextColor(for: theme)
-            let contextLabel = NSTextField(labelWithAttributedString: vocabularyExampleAttributedString(meaningfulContext, word: record.word, fontSize: 19, textColor: contextColor))
-            contextLabel.maximumNumberOfLines = 0
-            contextLabel.lineBreakMode = .byWordWrapping
-            contextLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            contextLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
-            contextLabel.translatesAutoresizingMaskIntoConstraints = false
-            contentArea.addSubview(contextLabel)
-            NSLayoutConstraint.activate([
-                contextLabel.topAnchor.constraint(equalTo: contentArea.topAnchor),
-                contextLabel.leadingAnchor.constraint(equalTo: contentArea.leadingAnchor),
-                contextLabel.trailingAnchor.constraint(equalTo: contentArea.trailingAnchor),
-                contextLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentArea.bottomAnchor)
-            ])
-
-            let rememberedButton = vocabularyReviewActionButton(title: AppText.localized("想起来了", "Remembered"), action: #selector(rememberedAfterContextVocabularyCard(_:)), width: vocabularyReviewButtonWidth, isPrimary: true)
-            let forgotButton = vocabularyReviewActionButton(title: AppText.localized("没想起来", "Forgot"), action: #selector(showVocabularyAnswer(_:)), width: vocabularyReviewButtonWidth)
-            let buttons = vocabularyReviewButtonRow([rememberedButton, forgotButton])
-            footerArea.addSubview(buttons)
-            NSLayoutConstraint.activate([
-                buttons.trailingAnchor.constraint(equalTo: footerArea.trailingAnchor),
-                buttons.centerYAnchor.constraint(equalTo: footerArea.centerYAnchor)
-            ])
-        } else {
-            let rememberedButton = vocabularyReviewActionButton(title: AppText.localized("认识", "Know"), action: #selector(rememberedVocabularyCard(_:)), width: vocabularyReviewButtonWidth, isPrimary: true)
-            let forgotButton = vocabularyReviewActionButton(title: AppText.localized("不认识", "Do not know"), action: #selector(showVocabularyContext(_:)), width: vocabularyReviewButtonWidth)
-            let buttons = vocabularyReviewButtonRow([rememberedButton, forgotButton])
-            footerArea.addSubview(buttons)
-            NSLayoutConstraint.activate([
-                buttons.trailingAnchor.constraint(equalTo: footerArea.trailingAnchor),
-                buttons.centerYAnchor.constraint(equalTo: footerArea.centerYAnchor)
-            ])
-        }
-
-        return card
+        return popup
     }
 
-    func vocabularyReviewActionButton(title: String, action: Selector, width: CGFloat, isPrimary: Bool = false) -> NSButton {
-        let button = vocabularyActionButton(title: title, target: self, action: action, fontSize: 15, isPrimary: isPrimary)
-        NSLayoutConstraint.activate([
-            button.widthAnchor.constraint(equalToConstant: width),
-            button.heightAnchor.constraint(equalToConstant: 42)
-        ])
-        return button
-    }
-
-    func vocabularyReviewButtonRow(_ buttons: [NSButton]) -> NSStackView {
-        let row = NSStackView(views: buttons)
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = 12
-        row.translatesAutoresizingMaskIntoConstraints = false
-        return row
+    @objc func changeVocabularyReviewPriority(_ sender: NSPopUpButton) {
+        guard let rawValue = sender.selectedItem?.representedObject as? String,
+              let priority = VocabularyReviewPriority(rawValue: rawValue),
+              priority != vocabularyReviewSession.priority,
+              let root = vocabularyPanelController.rootView else { return }
+        commitPendingVocabularyAnswerIfNeeded()
+        vocabularyReviewSession.priority = priority
+        vocabularyReviewSession.resetForReviewMode()
+        showVocabularyReviewMode(in: root, autoPlay: true)
     }
 
     func vocabularyExampleAttributedString(_ text: String, word: String, fontSize: CGFloat, textColor: NSColor) -> NSAttributedString {

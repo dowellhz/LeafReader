@@ -45,6 +45,12 @@ extension ReaderWindowController {
             action: #selector(showRecentDocuments),
             showsLeadingSymbol: true
         )
+        notesButton = capsuleButton(
+            title: AppText.localized("笔记", "Notes"),
+            symbol: "note.text",
+            action: #selector(showReadingNotesPanel(_:)),
+            showsLeadingSymbol: true
+        )
         vocabularyButton = capsuleButton(
             title: AppText.localized("背单词", "Vocab"),
             symbol: "text.book.closed",
@@ -56,7 +62,7 @@ extension ReaderWindowController {
         tocButton = capsuleButton(title: AppText.localized("目录", "TOC"), symbol: "list.bullet", action: #selector(showTableOfContents))
         coverButton = capsuleButton(title: AppText.cover, symbol: "book.closed", action: #selector(goToCover))
         prevButton = capsuleButton(title: AppText.prev, symbol: "chevron.left", action: #selector(prevPage))
-        nextButton = capsuleButton(title: AppText.next, symbol: "chevron.right", action: #selector(nextPage), imageOnRight: true)
+        nextButton = capsuleButton(title: AppText.next, symbol: "chevron.right", action: #selector(nextPage))
         embeddingPauseButton = capsuleButton(title: AppText.localized("暂停", "Pause"), symbol: "pause.fill", action: #selector(toggleEmbeddingBackfillPaused))
         embeddingPauseButton.toolTip = AppText.localized("暂停/继续 AI 分析", "Pause/resume AI analysis")
         embeddingCancelButton = capsuleButton(title: AppText.localized("取消", "Cancel"), symbol: "xmark", action: #selector(cancelEmbeddingBackfill))
@@ -81,7 +87,7 @@ extension ReaderWindowController {
             navigationStack.addArrangedSubview(button)
         }
 
-        for view in [settingsButton, recentButton!, vocabularyButton!, navigationStack, embeddingStatusLabel, embeddingPauseButton!, embeddingCancelButton!] {
+        for view in [settingsButton, recentButton!, notesButton!, vocabularyButton!, navigationStack, embeddingStatusLabel, embeddingPauseButton!, embeddingCancelButton!] {
             view.translatesAutoresizingMaskIntoConstraints = false
             bottomBar.addSubview(view)
         }
@@ -136,13 +142,15 @@ extension ReaderWindowController {
         readAloudButton = capsuleButton(
             title: AppText.localized("朗读", "Read"),
             symbol: "speaker.wave.2",
-            action: #selector(toggleReadAloudFromToolbar)
+            action: #selector(toggleReadAloudFromToolbar),
+            showsLeadingSymbol: true
         )
         readAloudButton.toolTip = AppText.localized("从当前屏幕顶部开始朗读", "Read from the top of the current screen")
         readAloudStopButton = capsuleButton(
             title: AppText.localized("停止", "Stop"),
             symbol: "stop.fill",
-            action: #selector(stopReadAloudFromToolbarAction)
+            action: #selector(stopReadAloudFromToolbarAction),
+            showsLeadingSymbol: true
         )
         readAloudStopButton.toolTip = AppText.localized("停止朗读", "Stop reading")
         readAloudStopButton.isHidden = true

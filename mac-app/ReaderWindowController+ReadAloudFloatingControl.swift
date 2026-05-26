@@ -1,7 +1,7 @@
 import Cocoa
 
 extension ReaderWindowController {
-    private static let readAloudFloatingControlSize = NSSize(width: 282, height: 40)
+    private static let readAloudFloatingControlSize = NSSize(width: 424, height: 40)
     private static let readAloudFloatingControlBottomInset: CGFloat = 14
 
     func installReadAloudFloatingControlIfNeeded() {
@@ -38,6 +38,8 @@ extension ReaderWindowController {
         control.settingsButton.action = #selector(openReadAloudSettingsFromFloatingControl)
         control.modeButton.target = self
         control.modeButton.action = #selector(toggleReadAloudAdvanceModeFromFloatingControl)
+        control.speedSlider.target = self
+        control.speedSlider.action = #selector(changeReadAloudSpeedFromFloatingControl(_:))
     }
 
     private func configureReadAloudFloatingControlWindow(_ controlWindow: NSWindow, contentView: NSView) {
@@ -62,7 +64,8 @@ extension ReaderWindowController {
             isPaused: isReadAloudPaused,
             isLoading: isReadAloudLoading,
             mode: readAloudAdvanceMode,
-            canGoPrevious: canReadAloudGoPrevious
+            canGoPrevious: canReadAloudGoPrevious,
+            speedID: AISettingsStore.selectedSpeechSpeedID
         )
         updateReadAloudFloatingControlWindowFrame()
         if isReadAloudActive {
@@ -152,6 +155,12 @@ extension ReaderWindowController {
         }
         updateReadAloudButton()
         updateReadAloudFloatingControl()
+    }
+
+    @objc func changeReadAloudSpeedFromFloatingControl(_ sender: NSSlider) {
+        let speedID = AISettingsStore.speechSpeedID(forSliderValue: sender.doubleValue)
+        AISettingsStore.saveSpeechSpeedID(speedID)
+        readAloudFloatingControlView?.updateSpeedSlider(speedID: speedID)
     }
 
     func pauseReadAloudForManualAdvance() {

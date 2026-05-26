@@ -2,45 +2,41 @@ import Cocoa
 
 extension ReaderWindowController {
     func prepareVocabularyReviewTiming(for record: VocabularyExportRecord, autoPlay: Bool = true) {
-        let key = vocabularyReviewKey(for: record)
-        guard vocabularyReviewCardKey != key else { return }
-        vocabularyReviewCardKey = key
-        vocabularyReviewCardShownAt = Date()
-        vocabularyReviewAnswerShownAt = nil
-        vocabularyReviewDidScoreCurrentCard = false
-        vocabularyReviewUndoSRSByID = [:]
+        let key = vocabularyReviewSession.key(for: record)
+        guard vocabularyReviewSession.cardKey != key else { return }
+        vocabularyReviewSession.cardKey = key
+        vocabularyReviewSession.cardShownAt = Date()
+        vocabularyReviewSession.answerShownAt = nil
+        vocabularyReviewSession.didScoreCurrentCard = false
+        vocabularyReviewSession.undoSRSByID = [:]
         if autoPlay {
             autoPlayVocabularyWordIfNeeded(record.word)
         }
     }
 
-    func vocabularyReviewKey(for record: VocabularyExportRecord) -> String {
-        record.ids.sorted().joined(separator: "|")
-    }
-
     func scoreCurrentVocabularyCardIfNeeded(grade: Int) {
-        guard !vocabularyReviewDidScoreCurrentCard else { return }
+        guard !vocabularyReviewSession.didScoreCurrentCard else { return }
         let visibleRecords = vocabularyReviewRecords(currentVocabularyExportRecords)
         let record: VocabularyExportRecord?
-        if let key = vocabularyReviewCardKey {
-            record = visibleRecords.first { vocabularyReviewKey(for: $0) == key }
-        } else if visibleRecords.indices.contains(vocabularyReviewIndex) {
-            record = visibleRecords[vocabularyReviewIndex]
+        if let key = vocabularyReviewSession.cardKey {
+            record = visibleRecords.first { vocabularyReviewSession.key(for: $0) == key }
+        } else if visibleRecords.indices.contains(vocabularyReviewSession.reviewIndex) {
+            record = visibleRecords[vocabularyReviewSession.reviewIndex]
         } else {
             record = nil
         }
         guard let record else { return }
-        vocabularyReviewUndoSRSByID = vocabularySRSSnapshot(ids: record.ids)
-        vocabularyReviewDidScoreCurrentCard = true
+        vocabularyReviewSession.undoSRSByID = vocabularySRSSnapshot(ids: record.ids)
+        vocabularyReviewSession.didScoreCurrentCard = true
         updateVocabularySRS(ids: record.ids, grade: grade)
     }
 
     @objc func rememberedVocabularyCard(_ sender: NSButton) {
         let currentRecord = currentVocabularyReviewRecord()
         scoreCurrentVocabularyCardIfNeeded(grade: 3)
-        vocabularyReviewContextShown = false
-        vocabularyReviewAnswerShown = true
-        vocabularyReviewAnswerShownAt = Date()
+        vocabularyReviewSession.contextShown = false
+        vocabularyReviewSession.answerShown = true
+        vocabularyReviewSession.answerShownAt = Date()
         if let currentRecord {
             autoPlayVocabularyAnswerIfNeeded(record: currentRecord)
         }
@@ -50,10 +46,10 @@ extension ReaderWindowController {
     @objc func rememberedAfterContextVocabularyCard(_ sender: NSButton) {
         let currentRecord = currentVocabularyReviewRecord()
         scoreCurrentVocabularyCardIfNeeded(grade: 2)
-        vocabularyReviewUndoSRSByID = [:]
-        vocabularyReviewContextShown = false
-        vocabularyReviewAnswerShown = true
-        vocabularyReviewAnswerShownAt = Date()
+        vocabularyReviewSession.undoSRSByID = [:]
+        vocabularyReviewSession.contextShown = false
+        vocabularyReviewSession.answerShown = true
+        vocabularyReviewSession.answerShownAt = Date()
         if let currentRecord {
             autoPlayVocabularyAnswerIfNeeded(record: currentRecord)
         }
@@ -62,8 +58,8 @@ extension ReaderWindowController {
 
     @objc func showVocabularyContext(_ sender: NSButton) {
         let currentRecord = currentVocabularyReviewRecord()
-        vocabularyReviewContextShown = true
-        vocabularyReviewAnswerShown = false
+        vocabularyReviewSession.contextShown = true
+        vocabularyReviewSession.answerShown = false
         if let currentRecord {
             autoPlayVocabularyContextIfNeeded(record: currentRecord)
         }
@@ -72,9 +68,9 @@ extension ReaderWindowController {
 
     @objc func showVocabularyAnswer(_ sender: NSButton) {
         let currentRecord = currentVocabularyReviewRecord()
-        vocabularyReviewContextShown = false
-        vocabularyReviewAnswerShown = true
-        vocabularyReviewAnswerShownAt = Date()
+        vocabularyReviewSession.contextShown = false
+        vocabularyReviewSession.answerShown = true
+        vocabularyReviewSession.answerShownAt = Date()
         if let currentRecord {
             autoPlayVocabularyAnswerIfNeeded(record: currentRecord)
         }
@@ -83,12 +79,12 @@ extension ReaderWindowController {
 
     func currentVocabularyReviewRecord() -> VocabularyExportRecord? {
         let visibleRecords = vocabularyReviewRecords(currentVocabularyExportRecords)
-        if let key = vocabularyReviewCardKey,
-           let record = visibleRecords.first(where: { vocabularyReviewKey(for: $0) == key }) {
+        if let key = vocabularyReviewSession.cardKey,
+           let record = visibleRecords.first(where: { vocabularyReviewSession.key(for: $0) == key }) {
             return record
         }
-        guard visibleRecords.indices.contains(vocabularyReviewIndex) else { return nil }
-        return visibleRecords[vocabularyReviewIndex]
+        guard visibleRecords.indices.contains(vocabularyReviewSession.reviewIndex) else { return nil }
+        return visibleRecords[vocabularyReviewSession.reviewIndex]
     }
 
     @objc func nextVocabularyReviewCard(_ sender: NSButton) {
@@ -96,140 +92,87 @@ extension ReaderWindowController {
     }
 
     @objc func undoVocabularyReviewScore(_ sender: NSButton) {
-        guard !vocabularyReviewUndoSRSByID.isEmpty else { return }
-        let currentKey = vocabularyReviewCardKey
-        restoreVocabularySRS(snapshot: vocabularyReviewUndoSRSByID)
+        guard !vocabularyReviewSession.undoSRSByID.isEmpty else { return }
+        let currentKey = vocabularyReviewSession.cardKey
+        restoreVocabularySRS(snapshot: vocabularyReviewSession.undoSRSByID)
         if let currentKey {
-            vocabularyReviewBatchKeys.removeAll { $0 == currentKey }
-            vocabularyReviewBatchKeys.append(currentKey)
+            vocabularyReviewSession.batchKeys.removeAll { $0 == currentKey }
+            vocabularyReviewSession.batchKeys.append(currentKey)
         }
         resetVocabularyReviewCardState(clearCardKey: true)
         scheduleVocabularyPanelReload()
     }
 
     func commitPendingVocabularyAnswerIfNeeded() {
-        guard vocabularyReviewAnswerShown, !vocabularyReviewDidScoreCurrentCard else { return }
+        guard vocabularyReviewSession.answerShown, !vocabularyReviewSession.didScoreCurrentCard else { return }
         scoreCurrentVocabularyCardIfNeeded(grade: 1)
     }
 
     func moveToNextVocabularyCard() {
-        let currentKey = vocabularyReviewCardKey
+        let currentKey = vocabularyReviewSession.cardKey
         commitPendingVocabularyAnswerIfNeeded()
         let visibleCount = vocabularyReviewRecords(currentVocabularyExportRecords).count
         guard visibleCount > 0 else { return }
         var recordsByKey: [String: VocabularyExportRecord] = [:]
         for record in currentVocabularyExportRecords {
-            recordsByKey[vocabularyReviewKey(for: record)] = record
+            recordsByKey[vocabularyReviewSession.key(for: record)] = record
         }
         if let currentKey,
            let record = recordsByKey[currentKey],
-           !vocabularyRecordIsDoneForToday(record) {
-            vocabularyReviewBatchKeys.removeAll { $0 == currentKey }
-            vocabularyReviewBatchKeys.append(currentKey)
+           !vocabularyReviewSession.isDoneForToday(record) {
+            vocabularyReviewSession.batchKeys.removeAll { $0 == currentKey }
+            vocabularyReviewSession.batchKeys.append(currentKey)
         }
-        vocabularyReviewIndex = min(vocabularyReviewIndex, visibleCount - 1)
+        vocabularyReviewSession.reviewIndex = min(vocabularyReviewSession.reviewIndex, visibleCount - 1)
         resetVocabularyReviewCardState(clearCardKey: true)
         scheduleVocabularyPanelReload()
     }
 
     func resetVocabularyReviewCardState(clearCardKey: Bool) {
-        vocabularyReviewContextShown = false
-        vocabularyReviewAnswerShown = false
-        if clearCardKey {
-            vocabularyReviewCardKey = nil
-        }
-        vocabularyReviewAnswerShownAt = nil
-        vocabularyReviewDidScoreCurrentCard = false
-        vocabularyReviewUndoSRSByID = [:]
+        vocabularyReviewSession.resetCard(clearCardKey: clearCardKey)
     }
 
     func vocabularySRSSnapshot(ids: [String]) -> [String: VocabularySRSState] {
-        let idSet = Set(ids)
-        if currentDocumentKind == .pdf {
-            var snapshot: [String: VocabularySRSState] = [:]
-            for record in storedWordRecords where idSet.contains(record.id) {
-                snapshot[record.id] = record.srs ?? VocabularySRSState.initial(createdAt: record.createdAt)
-            }
-            return snapshot
-        }
-        var snapshot: [String: VocabularySRSState] = [:]
-        for record in storedWebWordRecords where idSet.contains(record.id) {
-            snapshot[record.id] = record.srs ?? VocabularySRSState.initial(createdAt: record.createdAt)
-        }
-        return snapshot
+        VocabularyReviewScoringService.snapshot(
+            ids: ids,
+            documentKind: currentDocumentKind,
+            pdfRecords: storedWordRecords,
+            webRecords: storedWebWordRecords
+        )
     }
 
     func restoreVocabularySRS(snapshot: [String: VocabularySRSState]) {
-        let idSet = Set(snapshot.keys)
-        if currentDocumentKind == .pdf {
-            for index in storedWordRecords.indices where idSet.contains(storedWordRecords[index].id) {
-                storedWordRecords[index].srs = snapshot[storedWordRecords[index].id]
-                saveStoredWordRecord(storedWordRecords[index])
-            }
-        } else {
-            for index in storedWebWordRecords.indices where idSet.contains(storedWebWordRecords[index].id) {
-                storedWebWordRecords[index].srs = snapshot[storedWebWordRecords[index].id]
-                saveStoredWebWordRecord(storedWebWordRecords[index])
-            }
-        }
-
-        for index in currentVocabularyExportRecords.indices where !Set(currentVocabularyExportRecords[index].ids).isDisjoint(with: idSet) {
-            let old = currentVocabularyExportRecords[index]
-            let restoredSRS = old.ids.compactMap { snapshot[$0] }.min { $0.dueDate < $1.dueDate } ?? old.srs
-            currentVocabularyExportRecords[index] = VocabularyExportRecord(
-                ids: old.ids,
-                word: old.word,
-                answer: old.answer,
-                location: old.location,
-                context: old.context,
-                createdAt: old.createdAt,
-                srs: restoredSRS
-            )
-        }
+        VocabularyReviewScoringService.restore(
+            snapshot: snapshot,
+            documentKind: currentDocumentKind,
+            pdfRecords: &storedWordRecords,
+            webRecords: &storedWebWordRecords,
+            exportRecords: &currentVocabularyExportRecords,
+            savePDFRecord: { [weak self] in self?.saveStoredWordRecord($0) },
+            saveWebRecord: { [weak self] in self?.saveStoredWebWordRecord($0) }
+        )
     }
 
     func updateVocabularySRS(ids: [String], grade: Int) {
-        let idSet = Set(ids)
-        if currentDocumentKind == .pdf {
-            for index in storedWordRecords.indices where idSet.contains(storedWordRecords[index].id) {
-                let current = storedWordRecords[index].srs ?? VocabularySRSState.initial(createdAt: storedWordRecords[index].createdAt)
-                storedWordRecords[index].srs = current.reviewed(grade: grade)
-                saveStoredWordRecord(storedWordRecords[index])
-            }
-        } else {
-            for index in storedWebWordRecords.indices where idSet.contains(storedWebWordRecords[index].id) {
-                let current = storedWebWordRecords[index].srs ?? VocabularySRSState.initial(createdAt: storedWebWordRecords[index].createdAt)
-                storedWebWordRecords[index].srs = current.reviewed(grade: grade)
-                saveStoredWebWordRecord(storedWebWordRecords[index])
-            }
-        }
-
-        if let index = currentVocabularyExportRecords.firstIndex(where: { !Set($0.ids).isDisjoint(with: idSet) }) {
-            let old = currentVocabularyExportRecords[index]
-            currentVocabularyExportRecords[index] = VocabularyExportRecord(
-                ids: old.ids,
-                word: old.word,
-                answer: old.answer,
-                location: old.location,
-                context: old.context,
-                createdAt: old.createdAt,
-                srs: vocabularySRSState(ids: old.ids, fallback: old.srs)
-            )
-        }
+        VocabularyReviewScoringService.update(
+            ids: ids,
+            grade: grade,
+            documentKind: currentDocumentKind,
+            pdfRecords: &storedWordRecords,
+            webRecords: &storedWebWordRecords,
+            exportRecords: &currentVocabularyExportRecords,
+            savePDFRecord: { [weak self] in self?.saveStoredWordRecord($0) },
+            saveWebRecord: { [weak self] in self?.saveStoredWebWordRecord($0) }
+        )
     }
 
     func vocabularySRSState(ids: [String], fallback: VocabularySRSState) -> VocabularySRSState {
-        let idSet = Set(ids)
-        let states: [VocabularySRSState]
-        if currentDocumentKind == .pdf {
-            states = storedWordRecords
-                .filter { idSet.contains($0.id) }
-                .map { $0.srs ?? VocabularySRSState.initial(createdAt: $0.createdAt) }
-        } else {
-            states = storedWebWordRecords
-                .filter { idSet.contains($0.id) }
-                .map { $0.srs ?? VocabularySRSState.initial(createdAt: $0.createdAt) }
-        }
-        return states.min { $0.dueDate < $1.dueDate } ?? fallback
+        VocabularyReviewScoringService.state(
+            ids: ids,
+            fallback: fallback,
+            documentKind: currentDocumentKind,
+            pdfRecords: storedWordRecords,
+            webRecords: storedWebWordRecords
+        )
     }
 }

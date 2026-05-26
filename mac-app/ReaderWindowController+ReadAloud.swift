@@ -119,17 +119,16 @@ extension ReaderWindowController {
 
     func updateReadAloudButton() {
         guard let readAloudButton else { return }
+        let symbolName = isReadAloudLoading
+            ? "hourglass"
+            : (isReadAloudPaused ? "play.fill" : (isReadAloudActive ? "pause.fill" : "speaker.wave.2"))
         readAloudButton.title = isReadAloudLoading
             ? AppText.localized("加载中", "Loading")
             : (isReadAloudPaused
             ? AppText.localized("继续", "Resume")
             : (isReadAloudActive ? AppText.localized("暂停", "Pause") : AppText.localized("朗读", "Read")))
         readAloudButton.isEnabled = !isReadAloudLoading
-        setSystemImage(
-            isReadAloudLoading ? "hourglass" : (isReadAloudPaused ? "play.fill" : (isReadAloudActive ? "pause.fill" : "speaker.wave.2")),
-            on: readAloudButton,
-            accessibilityDescription: readAloudButton.title
-        )
+        setCapsuleButtonSymbol(symbolName, on: readAloudButton, accessibilityDescription: readAloudButton.title)
         readAloudButton.toolTip = isReadAloudLoading
             ? AppText.localized("正在加载朗读模型", "Loading read aloud model")
             : (isReadAloudPaused

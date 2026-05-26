@@ -3,7 +3,13 @@ import PDFKit
 import WebKit
 
 extension ReaderWindowController {
-    func documentAgentPrompt(question: String, context: String, completion: @escaping (String?) -> Void) {
+    func documentAgentPrompt(
+        question: String,
+        questionSubject: String = "",
+        context: String,
+        showsEvidenceBubbles: Bool = true,
+        completion: @escaping (String?) -> Void
+    ) {
         documentPromptGeneration += 1
         let generation = documentPromptGeneration
         currentReadingContextSnapshot(preserveLineBreaks: true) { [weak self] snapshot in
@@ -13,10 +19,26 @@ extension ReaderWindowController {
                     return
                 }
                 if self.currentDocumentKind == .pdf {
-                    self.pdfDocumentAgentPrompt(question: question, context: context, snapshot: snapshot, generation: generation, completion: completion)
+                    self.pdfDocumentAgentPrompt(
+                        question: question,
+                        questionSubject: questionSubject,
+                        context: context,
+                        showsEvidenceBubbles: showsEvidenceBubbles,
+                        snapshot: snapshot,
+                        generation: generation,
+                        completion: completion
+                    )
                     return
                 }
-                self.webDocumentAgentPrompt(question: question, context: context, snapshot: snapshot, generation: generation, completion: completion)
+                self.webDocumentAgentPrompt(
+                    question: question,
+                    questionSubject: questionSubject,
+                    context: context,
+                    showsEvidenceBubbles: showsEvidenceBubbles,
+                    snapshot: snapshot,
+                    generation: generation,
+                    completion: completion
+                )
             }
         }
     }
@@ -29,7 +51,9 @@ extension ReaderWindowController {
 
     func pdfDocumentAgentPrompt(
         question: String,
+        questionSubject: String,
         context: String,
+        showsEvidenceBubbles: Bool,
         snapshot: ReadingContextSnapshot,
         generation: Int,
         completion: @escaping (String?) -> Void
@@ -75,14 +99,14 @@ extension ReaderWindowController {
                                     currentPageIndex: self.currentPageIndex(),
                                     queryEmbedding: queryEmbedding
                                 ) ?? []
-                                self.appendEvidenceBubbles(evidence)
-                                var searchResults = PDFDocumentAgentIndex.evidenceText(evidence, locationName: self.evidenceLocationName())
-                                if let coverageText = self.embeddingCoveragePromptText() {
-                                    searchResults = searchResults.isEmpty ? coverageText : "\(coverageText)\n\n\(searchResults)"
-                                }
+                                let searchResults = self.documentAgentSearchResults(
+                                    from: evidence,
+                                    showsEvidenceBubbles: showsEvidenceBubbles
+                                )
                                 completion(AIPromptStore.documentAgentPrompt(
                                     title: self.documentTitleForAI(),
                                     question: question,
+                                    questionSubject: questionSubject,
                                     currentPageText: ReaderAIContextPolicy.prefix(currentPageText, limit: ReaderAIContextPolicy.documentAgentCurrentPageLimit),
                                     chapterText: ReaderAIContextPolicy.prefix(chapterText, limit: ReaderAIContextPolicy.documentAgentNearbyTextLimit),
                                     searchResults: searchResults,
@@ -98,7 +122,9 @@ extension ReaderWindowController {
 
     func webDocumentAgentPrompt(
         question: String,
+        questionSubject: String,
         context: String,
+        showsEvidenceBubbles: Bool,
         snapshot: ReadingContextSnapshot,
         generation: Int,
         completion: @escaping (String?) -> Void
@@ -137,14 +163,14 @@ extension ReaderWindowController {
                                     currentPageIndex: self.currentEmbeddingPriorityIndex(),
                                     queryEmbedding: queryEmbedding
                                 ) ?? []
-                                self.appendEvidenceBubbles(evidence)
-                                var searchResults = PDFDocumentAgentIndex.evidenceText(evidence, locationName: self.evidenceLocationName())
-                                if let coverageText = self.embeddingCoveragePromptText() {
-                                    searchResults = searchResults.isEmpty ? coverageText : "\(coverageText)\n\n\(searchResults)"
-                                }
+                                let searchResults = self.documentAgentSearchResults(
+                                    from: evidence,
+                                    showsEvidenceBubbles: showsEvidenceBubbles
+                                )
                                 completion(AIPromptStore.documentAgentPrompt(
                                     title: snapshot.title,
                                     question: question,
+                                    questionSubject: questionSubject,
                                     currentPageText: ReaderAIContextPolicy.prefix(snapshot.visibleText, limit: ReaderAIContextPolicy.documentAgentCurrentPageLimit),
                                     chapterText: ReaderAIContextPolicy.prefix(snapshot.nearbyText, limit: ReaderAIContextPolicy.documentAgentNearbyTextLimit),
                                     searchResults: searchResults,
@@ -158,6 +184,20 @@ extension ReaderWindowController {
                 }
             }
         }
+    }
+
+    func documentAgentSearchResults(
+        from evidence: [PDFDocumentAgentEvidence],
+        showsEvidenceBubbles: Bool
+    ) -> String {
+        if showsEvidenceBubbles {
+            appendEvidenceBubbles(evidence)
+        }
+        let evidenceText = PDFDocumentAgentIndex.evidenceText(evidence, locationName: evidenceLocationName())
+        guard let coverageText = embeddingCoveragePromptText() else {
+            return evidenceText
+        }
+        return evidenceText.isEmpty ? coverageText : "\(coverageText)\n\n\(evidenceText)"
     }
 
     func appendEvidenceBubbles(_ evidence: [PDFDocumentAgentEvidence]) {

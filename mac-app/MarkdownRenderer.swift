@@ -99,6 +99,7 @@ enum MarkdownRenderer {
             || normalized == "解析"
             || normalized == "翻译"
             || normalized == "总结"
+            || normalized == "整理"
             || normalized == "润色"
             || normalized == "notes"
             || normalized == "note"
@@ -108,6 +109,7 @@ enum MarkdownRenderer {
             || normalized == "translation"
             || normalized == "summary"
             || normalized == "summarize"
+            || normalized == "organize"
             || normalized == "polish"
     }
 

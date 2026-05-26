@@ -15,8 +15,8 @@ enum ReaderDocumentImportCoordinator {
     static func openSingleDroppedDocument(_ url: URL, controller: ReaderWindowController) {
         controller.aiSettingsPanelController?.closeWithoutSaving()
         controller.aiSettingsPanelController = nil
-        if let vocabularyPanel = controller.vocabularyPanel {
-            controller.closeVocabularyPanel(vocabularyPanel)
+        if controller.vocabularyPanelController.panel != nil {
+            controller.closeVocabularyPanel()
         }
         if let recentDocumentsPanelController = controller.recentDocumentsPanelController {
             recentDocumentsPanelController.closeThenOpen(path: url.path)

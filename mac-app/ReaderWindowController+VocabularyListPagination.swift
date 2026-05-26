@@ -6,25 +6,17 @@ extension ReaderWindowController {
             stack.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
-        let visibleRecords = vocabularyRecords(records, matching: filter)
-        if visibleRecords.isEmpty {
+        let page = vocabularyReviewSession.currentListPageRecords(records, matching: filter)
+        if page.total == 0 {
             stack.addArrangedSubview(emptyVocabularyState(filter: filter, isDark: isDark))
             return
         }
-        let pageCount = vocabularyListPageCount(total: visibleRecords.count)
-        vocabularyListPageIndex = min(max(0, vocabularyListPageIndex), pageCount - 1)
-        let start = vocabularyListPageIndex * vocabularyListPageSize
-        let end = min(start + vocabularyListPageSize, visibleRecords.count)
-        for record in visibleRecords[start..<end] {
+        for record in page.records {
             stack.addArrangedSubview(vocabularyCard(record: record, isDark: isDark))
         }
-        if pageCount > 1 {
-            stack.addArrangedSubview(vocabularyPaginationView(currentPage: vocabularyListPageIndex, pageCount: pageCount, total: visibleRecords.count, isDark: isDark))
+        if page.pageCount > 1 {
+            stack.addArrangedSubview(vocabularyPaginationView(currentPage: page.pageIndex, pageCount: page.pageCount, total: page.total, isDark: isDark))
         }
-    }
-
-    func vocabularyListPageCount(total: Int) -> Int {
-        max(1, Int(ceil(Double(total) / Double(vocabularyListPageSize))))
     }
 
     func vocabularyPaginationView(currentPage: Int, pageCount: Int, total: Int, isDark: Bool) -> NSView {
@@ -65,13 +57,12 @@ extension ReaderWindowController {
     }
 
     @objc func previousVocabularyListPage(_ sender: NSButton) {
-        guard vocabularyListPageIndex > 0 else { return }
-        vocabularyListPageIndex -= 1
+        guard vocabularyReviewSession.goToPreviousListPage() else { return }
         reloadVocabularyPanelContent()
     }
 
     @objc func nextVocabularyListPage(_ sender: NSButton) {
-        vocabularyListPageIndex += 1
+        vocabularyReviewSession.goToNextListPage()
         reloadVocabularyPanelContent()
     }
 

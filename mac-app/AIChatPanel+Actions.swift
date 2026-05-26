@@ -191,7 +191,8 @@ extension AIChatPanel {
         let context = followUpContextIncludingSelection()
         if let onDocumentQuestionPrompt {
             setBusy(true, text: AppText.thinking)
-            onDocumentQuestionPrompt(question, context) { [weak self] prompt in
+            let request = DocumentQuestionPromptRequest(question: question, context: context)
+            onDocumentQuestionPrompt(request) { [weak self] prompt in
                 DispatchQueue.main.async {
                     guard let self else { return }
                     self.setBusy(false, text: "")

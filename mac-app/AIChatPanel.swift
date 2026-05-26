@@ -201,7 +201,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var onSummarizeCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onTranslateCurrentContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
     var onCurrentReadingContent: ((@escaping ((title: String, text: String)?) -> Void) -> Void)?
-    var onDocumentQuestionPrompt: ((String, String, @escaping (String?) -> Void) -> Void)?
+    var onDocumentQuestionPrompt: DocumentQuestionPromptHandler?
     var onDocumentQuestionCancelled: (() -> Void)?
     var onSettingsRequired: (() -> Void)?
     var onConversationChanged: ((SavedAIConversation) -> Void)?

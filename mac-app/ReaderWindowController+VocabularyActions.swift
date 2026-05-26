@@ -1,23 +1,20 @@
-import AVFoundation
 import Cocoa
 
 extension ReaderWindowController {
     func reloadVocabularyPanelContent() {
-        guard let panel = vocabularyPanel,
+        guard let panel = vocabularyPanelController.panel,
               let root = panel.contentView else { return }
         let filter = selectedVocabularyListFilter(in: root)
         let isDark = ReaderTheme.selected == .dark
         refreshVocabularyListContent(in: root, filter: filter)
-        if !vocabularyListModeEnabled,
+        if !vocabularyReviewSession.listModeEnabled,
            let reviewContainer = findView(identifier: "vocabularyReviewContainer", in: root) {
-            populateVocabularyReviewContainer(reviewContainer, records: currentVocabularyExportRecords, filter: filter, isDark: isDark, autoPlayNewCard: !vocabularyListModeEnabled)
+            populateVocabularyReviewContainer(reviewContainer, records: currentVocabularyExportRecords, filter: filter, isDark: isDark, autoPlayNewCard: !vocabularyReviewSession.listModeEnabled)
         }
     }
 
     func scheduleVocabularyPanelReload() {
-        vocabularyPanelReloadTask.schedule { [weak self] in
-            self?.reloadVocabularyPanelContent()
-        }
+        vocabularyPanelController.scheduleReload()
     }
 
     @objc func markVocabularyRecordMastered(_ sender: NSButton) {
@@ -36,11 +33,11 @@ extension ReaderWindowController {
             !Set(record.ids).isDisjoint(with: ids)
         }
         if currentVocabularyExportRecords.isEmpty,
-           let panel = vocabularyPanel {
-            closeVocabularyPanel(panel)
+           vocabularyPanelController.panel != nil {
+            closeVocabularyPanel()
         } else {
-            vocabularyReviewIndex = min(vocabularyReviewIndex, max(0, vocabularyReviewRecords(currentVocabularyExportRecords).count - 1))
-            vocabularyReviewAnswerShown = false
+            vocabularyReviewSession.reviewIndex = min(vocabularyReviewSession.reviewIndex, max(0, vocabularyReviewRecords(currentVocabularyExportRecords).count - 1))
+            vocabularyReviewSession.answerShown = false
             scheduleVocabularyPanelReload()
         }
     }
@@ -124,83 +121,7 @@ extension ReaderWindowController {
         _ texts: [String],
         options: SpeechPlaybackCoordinator.SynthesisOptions = .default
     ) {
-        let playableTexts = texts
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        guard !playableTexts.isEmpty else { return }
-        resetReadAloudPDFProgress()
-        readAloudPDFPages = pdfView.currentSelection?.pages ?? []
-        shouldClearSelectionOnSpeechStart = true
-        if vocabularySpeechSynthesizer.isSpeaking {
-            vocabularySpeechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)
-        }
-        if playableTexts.count == 1, let text = playableTexts.first {
-            if VocabularyTextPolicy.shouldUseSystemTTSForShortSelection(text) {
-                selectionSpeechCompletion = nil
-                vocabularySpeechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
-                return
-            }
-            let shouldResumeReadAloud = isReadAloudActive && !isReadAloudPaused
-            if shouldResumeReadAloud {
-                pauseReadAloudForSelectionSpeech()
-                SpeechPlaybackCoordinator.shared.speakCachedVocabularyText(text, options: options) { [weak self] didUseLocalTTS in
-                    guard let self else { return }
-                    guard !didUseLocalTTS else {
-                        self.clearSelectionForSpeechStartIfNeeded()
-                        return
-                    }
-                    DispatchQueue.main.async {
-                        self.speakSelectionWithAppleTTS(text) {
-                            self.resumeReadAloudAfterSelectionSpeechIfNeeded(shouldResume: shouldResumeReadAloud)
-                        }
-                    }
-                } finished: { [weak self] in
-                    DispatchQueue.main.async {
-                        self?.resumeReadAloudAfterSelectionSpeechIfNeeded(shouldResume: shouldResumeReadAloud)
-                    }
-                }
-                return
-            }
-            SpeechPlaybackCoordinator.shared.speakCachedVocabularyText(text, options: options) { [weak self] didUseLocalTTS in
-                guard let self else { return }
-                guard !didUseLocalTTS else {
-                    self.clearSelectionForSpeechStartIfNeeded()
-                    return
-                }
-                self.vocabularySpeechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
-            } finished: {
-            }
-        } else {
-            for text in playableTexts {
-                vocabularySpeechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
-            }
-        }
-    }
-
-    private func pauseReadAloudForSelectionSpeech() {
-        guard isReadAloudActive, !isReadAloudPaused else { return }
-        isReadAloudPaused = true
-        SpeechPlaybackCoordinator.shared.pauseSpeaking()
-        updateReadAloudButton()
-    }
-
-    private func resumeReadAloudAfterSelectionSpeechIfNeeded(shouldResume: Bool) {
-        guard shouldResume, isReadAloudActive, isReadAloudPaused else { return }
-        isReadAloudPaused = false
-        SpeechPlaybackCoordinator.shared.resumeSpeaking()
-        updateReadAloudButton()
-    }
-
-    private func speakSelectionWithAppleTTS(_ text: String, finished: @escaping () -> Void) {
-        selectionSpeechCompletion = finished
-        vocabularySpeechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)
-        vocabularySpeechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
-    }
-
-    func clearSelectionForSpeechStartIfNeeded() {
-        guard shouldClearSelectionOnSpeechStart else { return }
-        shouldClearSelectionOnSpeechStart = false
-        clearReaderSelectionForBubbleSelection()
+        vocabularySpeechCoordinator.speak(texts, options: options)
     }
 
     func vocabularyAnswerBody(_ answer: String, word: String) -> String {

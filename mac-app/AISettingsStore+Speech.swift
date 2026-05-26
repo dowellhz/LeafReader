@@ -42,6 +42,32 @@ extension AISettingsStore {
         ]
     }
 
+    static var selectedSpeechSpeedSliderValue: Double {
+        speechSpeedSliderValue(for: selectedSpeechSpeedID)
+    }
+
+    static func speechSpeedID(forSliderValue value: Double) -> String {
+        switch Int(value.rounded()) {
+        case 0: return "verySlow"
+        case 1: return "slow"
+        case 3: return "fast"
+        default: return "normal"
+        }
+    }
+
+    static func speechSpeedSliderValue(for id: String) -> Double {
+        switch id {
+        case "verySlow": return 0
+        case "slow": return 1
+        case "fast": return 3
+        default: return 2
+        }
+    }
+
+    static func speechSpeedTitle(for id: String) -> String {
+        speechSpeedOptions.first { $0.id == id }?.title ?? id
+    }
+
     static var kittenSpeechVoiceOptions: [(title: String, id: String)] {
         SpeechVoiceCatalog.kittenVoiceOptions
     }

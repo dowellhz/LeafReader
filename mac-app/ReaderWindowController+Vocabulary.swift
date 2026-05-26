@@ -42,8 +42,9 @@ final class VocabularyDetailClipView: NSClipView {
 }
 
 extension ReaderWindowController {
-    var vocabularyReviewButtonWidth: CGFloat { 128 }
-    var vocabularyListPageSize: Int { 20 }
+    var vocabularyReviewButtonWidth: CGFloat { 108 }
+    var vocabularyReviewButtonHeight: CGFloat { 36 }
+    var vocabularyReviewButtonFontSize: CGFloat { 14 }
 
     func vocabularyPanelBackgroundColor(for theme: ReaderTheme) -> NSColor {
         switch theme {
@@ -166,214 +167,22 @@ extension ReaderWindowController {
         return button
     }
 
-    enum VocabularyFilter: Int {
-        case due = 0
-        case new = 1
-        case all = 2
-    }
-
     @objc func showVocabularyBook() {
-        let records: [VocabularyExportRecord]
-        if currentDocumentKind == .pdf {
-            records = storedWordRecords
-                .filter { !$0.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                .map {
-                    VocabularyExportRecord(
-                        ids: [$0.id],
-                        word: $0.word,
-                        answer: $0.answer,
-                        location: AppText.localized("第 \($0.pageIndex + 1) 页", "p. \($0.pageIndex + 1)"),
-                        context: pdfWordContext(for: $0),
-                        createdAt: $0.createdAt,
-                        srs: $0.srs ?? VocabularySRSState.initial(createdAt: $0.createdAt)
-                    )
-                }
-        } else {
-            records = storedWebWordRecords
-                .filter { !$0.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                .map {
-                    VocabularyExportRecord(
-                        ids: [$0.id],
-                        word: $0.word,
-                        answer: $0.answer,
-                        location: AppText.localized("进度 \(Int(($0.scrollProgress * 100).rounded()))%", "\(Int(($0.scrollProgress * 100).rounded()))%"),
-                        context: $0.context,
-                        createdAt: $0.createdAt,
-                        srs: $0.srs ?? VocabularySRSState.initial(createdAt: $0.createdAt)
-                    )
-                }
-        }
-        let aggregatedRecords = aggregateVocabularyRecords(records)
+        let aggregatedRecords = VocabularyRecordProvider.records(
+            documentKind: currentDocumentKind,
+            pdfRecords: storedWordRecords,
+            webRecords: storedWebWordRecords,
+            pdfContext: { [weak self] in
+                VocabularyContextProvider.pdfContext(for: $0, document: self?.pdfView.document)
+            }
+        )
         guard !aggregatedRecords.isEmpty else {
             NSSound.beep()
             return
         }
         currentVocabularyExportRecords = aggregatedRecords
-        vocabularyReviewFilter = .due
-        vocabularyReviewIndex = 0
-        vocabularyListModeEnabled = false
-        vocabularyReviewBatchKeys = []
-        resetVocabularyReviewCardState(clearCardKey: true)
-
-        let panel = SettingsPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 620),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        panel.backgroundColor = .clear
-        panel.isOpaque = false
-        panel.hasShadow = true
-        panel.isReleasedWhenClosed = true
-
-        let theme = ReaderTheme.selected
-        let isDark = theme == .dark
-        let panelBackground = vocabularyPanelBackgroundColor(for: theme)
-        let primaryText = vocabularyPrimaryTextColor(for: theme)
-        let secondaryText = vocabularySecondaryTextColor(for: theme)
-        let root = NSView()
-        root.wantsLayer = true
-        root.layer?.backgroundColor = panelBackground.cgColor
-        root.layer?.cornerRadius = 16
-        root.layer?.borderWidth = 1
-        root.layer?.borderColor = vocabularyBorderColor(for: theme).cgColor
-        root.layer?.masksToBounds = false
-        root.layer?.shadowColor = NSColor.black.cgColor
-        root.layer?.shadowOpacity = isDark ? 0.42 : 0.24
-        root.layer?.shadowRadius = 32
-        root.layer?.shadowOffset = CGSize(width: 0, height: -12)
-        root.frame = NSRect(origin: .zero, size: panel.contentRect(forFrameRect: panel.frame).size)
-        root.autoresizingMask = [.width, .height]
-        root.translatesAutoresizingMaskIntoConstraints = true
-        panel.contentView = root
-
-        let title = NSTextField(labelWithString: AppText.localized("背单词", "Vocabulary Trainer"))
-        title.font = AppFont.semibold(ofSize: 20)
-        title.textColor = primaryText
-        title.translatesAutoresizingMaskIntoConstraints = false
-
-        let icon = NSImageView()
-        icon.image = NSImage(systemSymbolName: "text.book.closed", accessibilityDescription: nil)?
-            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 26, weight: .semibold))
-        icon.contentTintColor = vocabularyAccentColor(for: theme)
-        icon.imageScaling = .scaleNone
-        icon.translatesAutoresizingMaskIntoConstraints = false
-
-        let scrollView = NSScrollView()
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = false
-        scrollView.drawsBackground = false
-        scrollView.contentView.drawsBackground = true
-        scrollView.contentView.backgroundColor = panelBackground
-        scrollView.borderType = .noBorder
-        scrollView.identifier = NSUserInterfaceItemIdentifier("vocabularyScrollView")
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-
-        let stack = NSStackView()
-        stack.wantsLayer = true
-        stack.layer?.backgroundColor = panelBackground.cgColor
-        stack.orientation = .vertical
-        stack.alignment = .width
-        stack.spacing = 10
-        stack.edgeInsets = NSEdgeInsets(top: 2, left: 0, bottom: 2, right: 12)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.identifier = NSUserInterfaceItemIdentifier("vocabularyStack")
-        scrollView.documentView = stack
-
-        let filterControl = SettingsTabsView(
-            labels: [
-                AppText.localized("背单词", "Review"),
-                AppText.localized("复习", "Reviewed"),
-                AppText.localized("新词", "New"),
-                AppText.localized("全部", "All")
-            ],
-            selectedIndex: 0
-        )
-        filterControl.onSelectionChanged = { [weak self] index in
-            self?.changeVocabularyTab(index: index)
-        }
-        filterControl.translatesAutoresizingMaskIntoConstraints = false
-
-        let summaryLabel = NSTextField(labelWithString: vocabularySummaryText(records: aggregatedRecords, filter: .due))
-        summaryLabel.font = AppFont.semibold(ofSize: 13)
-        summaryLabel.textColor = secondaryText
-        summaryLabel.translatesAutoresizingMaskIntoConstraints = false
-        summaryLabel.identifier = NSUserInterfaceItemIdentifier("vocabularySummaryLabel")
-
-        let reviewContainer = NSView()
-        reviewContainer.wantsLayer = true
-        reviewContainer.layer?.backgroundColor = panelBackground.cgColor
-        reviewContainer.identifier = NSUserInterfaceItemIdentifier("vocabularyReviewContainer")
-        reviewContainer.translatesAutoresizingMaskIntoConstraints = false
-
-        populateVocabularyStack(stack, records: aggregatedRecords, filter: .due, isDark: isDark)
-        populateVocabularyReviewContainer(reviewContainer, records: aggregatedRecords, filter: .due, isDark: isDark, autoPlayNewCard: false)
-        scrollView.isHidden = true
-
-        let closeButton = vocabularyActionButton(title: AppText.close, target: self, action: #selector(closeVocabularyBook(_:)))
-        closeButton.identifier = NSUserInterfaceItemIdentifier("closeVocabularyBook")
-
-        let exportMarkdownButton = vocabularyActionButton(title: AppText.localized("导出 MD", "Export MD"), target: self, action: #selector(exportVocabularyMarkdown(_:)))
-        exportMarkdownButton.identifier = NSUserInterfaceItemIdentifier("vocabularyExportMarkdownButton")
-
-        let exportCSVButton = vocabularyActionButton(title: AppText.localized("导出 Anki CSV", "Export Anki CSV"), target: self, action: #selector(exportVocabularyCSV(_:)))
-        exportCSVButton.identifier = NSUserInterfaceItemIdentifier("vocabularyExportCSVButton")
-
-        exportMarkdownButton.isHidden = true
-        exportCSVButton.isHidden = true
-
-        for view in [icon, title, filterControl, summaryLabel, reviewContainer, scrollView, exportMarkdownButton, exportCSVButton, closeButton] {
-            root.addSubview(view)
-        }
-
-        NSLayoutConstraint.activate([
-            icon.topAnchor.constraint(equalTo: root.topAnchor, constant: 28),
-            icon.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 34),
-            icon.widthAnchor.constraint(equalToConstant: 30),
-            icon.heightAnchor.constraint(equalToConstant: 30),
-            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 12),
-            title.centerYAnchor.constraint(equalTo: icon.centerYAnchor),
-            title.trailingAnchor.constraint(lessThanOrEqualTo: filterControl.leadingAnchor, constant: -16),
-            filterControl.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -30),
-            filterControl.centerYAnchor.constraint(equalTo: icon.centerYAnchor),
-            filterControl.widthAnchor.constraint(equalToConstant: 360),
-            filterControl.heightAnchor.constraint(equalToConstant: 30),
-            summaryLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 34),
-            summaryLabel.topAnchor.constraint(equalTo: icon.bottomAnchor, constant: 14),
-            summaryLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -34),
-
-            reviewContainer.topAnchor.constraint(equalTo: summaryLabel.bottomAnchor, constant: 12),
-            reviewContainer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 30),
-            reviewContainer.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -30),
-            reviewContainer.bottomAnchor.constraint(equalTo: closeButton.topAnchor, constant: -14),
-
-            scrollView.topAnchor.constraint(equalTo: summaryLabel.bottomAnchor, constant: 12),
-            scrollView.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 30),
-            scrollView.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -30),
-            scrollView.bottomAnchor.constraint(equalTo: closeButton.topAnchor, constant: -14),
-            stack.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
-            stack.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
-
-            exportMarkdownButton.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 30),
-            exportMarkdownButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            exportMarkdownButton.widthAnchor.constraint(equalToConstant: 104),
-            exportMarkdownButton.heightAnchor.constraint(equalToConstant: 36),
-            exportCSVButton.leadingAnchor.constraint(equalTo: exportMarkdownButton.trailingAnchor, constant: 10),
-            exportCSVButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            exportCSVButton.widthAnchor.constraint(equalToConstant: 132),
-            exportCSVButton.heightAnchor.constraint(equalToConstant: 36),
-
-            closeButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -30),
-            closeButton.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -22),
-            closeButton.widthAnchor.constraint(equalToConstant: 104),
-            closeButton.heightAnchor.constraint(equalToConstant: 36)
-        ])
-
-        vocabularyPanel = panel
-        reloadVocabularyPanelContent()
-        installVocabularyPanelActivationObserver()
-        ModalOverlayManager.shared.present(panel, attachedTo: window)
+        vocabularyReviewSession.filter = .due
+        vocabularyReviewSession.resetForReviewMode()
+        vocabularyPanelController.show(records: aggregatedRecords)
     }
 }

@@ -21,11 +21,116 @@ final class ReadAloudFloatingControlButton: NSButton {
     }
 }
 
+final class ReadAloudFloatingSpeedSlider: NSSlider {
+    private let speedCell = ReadAloudFloatingSpeedSliderCell()
+
+    convenience init(value: Double, minValue: Double, maxValue: Double, target: Any?, action: Selector?) {
+        self.init(frame: .zero)
+        self.minValue = minValue
+        self.maxValue = maxValue
+        doubleValue = value
+        self.target = target as AnyObject?
+        self.action = action
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        cell = speedCell
+        isContinuous = true
+        controlSize = .small
+        focusRingType = .none
+        translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var acceptsFirstResponder: Bool { false }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
+
+    func applyTheme(track: NSColor, fill: NSColor, knob: NSColor, knobStroke: NSColor) {
+        speedCell.trackColor = track
+        speedCell.fillColor = fill
+        speedCell.knobColor = knob
+        speedCell.knobStrokeColor = knobStroke
+        needsDisplay = true
+    }
+}
+
+final class ReadAloudFloatingSpeedSliderCell: NSSliderCell {
+    var trackColor = NSColor.controlColor
+    var fillColor = NSColor.labelColor
+    var knobColor = NSColor.labelColor
+    var knobStrokeColor = NSColor.clear
+
+    override func drawBar(inside rect: NSRect, flipped: Bool) {
+        let knobRadius: CGFloat = 7
+        let trackRect = NSRect(
+            x: rect.minX + knobRadius,
+            y: rect.midY - 2,
+            width: max(1, rect.width - knobRadius * 2),
+            height: 4
+        )
+        trackColor.setFill()
+        NSBezierPath(roundedRect: trackRect, xRadius: 2, yRadius: 2).fill()
+
+        let denominator = max(0.001, maxValue - minValue)
+        let fraction = CGFloat((doubleValue - minValue) / denominator)
+        let fillRect = NSRect(
+            x: trackRect.minX,
+            y: trackRect.minY,
+            width: trackRect.width * min(max(fraction, 0), 1),
+            height: trackRect.height
+        )
+        fillColor.setFill()
+        NSBezierPath(roundedRect: fillRect, xRadius: 2, yRadius: 2).fill()
+
+        drawTickDots(in: trackRect)
+    }
+
+    override func drawKnob(_ knobRect: NSRect) {
+        let size = NSSize(width: 14, height: 14)
+        let rect = NSRect(
+            x: knobRect.midX - size.width / 2,
+            y: knobRect.midY - size.height / 2,
+            width: size.width,
+            height: size.height
+        )
+        let path = NSBezierPath(ovalIn: rect)
+        knobColor.setFill()
+        path.fill()
+        knobStrokeColor.setStroke()
+        path.lineWidth = 1
+        path.stroke()
+    }
+
+    private func drawTickDots(in trackRect: NSRect) {
+        guard numberOfTickMarks > 1 else { return }
+        for index in 0..<numberOfTickMarks {
+            let fraction = CGFloat(index) / CGFloat(numberOfTickMarks - 1)
+            let center = NSPoint(x: trackRect.minX + trackRect.width * fraction, y: trackRect.midY)
+            let dotRect = NSRect(x: center.x - 1, y: center.y - 1, width: 2, height: 2)
+            NSColor.white.withAlphaComponent(0.28).setFill()
+            NSBezierPath(ovalIn: dotRect).fill()
+        }
+    }
+}
+
 final class ReadAloudFloatingControlView: NSView {
     private enum Metrics {
         static let iconButtonWidth: CGFloat = 32
         static let buttonHeight: CGFloat = 30
         static let modeButtonWidth: CGFloat = 58
+        static let speedLabelWidth: CGFloat = 30
+        static let speedSliderWidth: CGFloat = 92
     }
 
     let previousButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
@@ -35,6 +140,8 @@ final class ReadAloudFloatingControlView: NSView {
     let nextPageButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let settingsButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let modeButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
+    let speedLabel = NSTextField(labelWithString: AppText.localized("语速", "Speed"))
+    let speedSlider = ReadAloudFloatingSpeedSlider(value: 2, minValue: 0, maxValue: 3, target: nil, action: nil)
 
     private var controlButtons: [ReadAloudFloatingControlButton] {
         [previousButton, playPauseButton, stopButton, nextButton, nextPageButton, settingsButton, modeButton]
@@ -47,7 +154,17 @@ final class ReadAloudFloatingControlView: NSView {
         layer?.borderWidth = 1
         translatesAutoresizingMaskIntoConstraints = false
 
-        let stack = NSStackView(views: [previousButton, playPauseButton, stopButton, nextButton, nextPageButton, settingsButton, modeButton])
+        let stack = NSStackView(views: [
+            previousButton,
+            playPauseButton,
+            stopButton,
+            nextButton,
+            nextPageButton,
+            settingsButton,
+            speedLabel,
+            speedSlider,
+            modeButton
+        ])
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 6
@@ -64,6 +181,11 @@ final class ReadAloudFloatingControlView: NSView {
             button.translatesAutoresizingMaskIntoConstraints = false
         }
         modeButton.imagePosition = .noImage
+        speedLabel.font = AppFont.semibold(ofSize: 12)
+        speedLabel.alignment = .right
+        speedLabel.lineBreakMode = .byClipping
+        speedLabel.translatesAutoresizingMaskIntoConstraints = false
+        speedSlider.numberOfTickMarks = 4
 
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: topAnchor),
@@ -83,7 +205,9 @@ final class ReadAloudFloatingControlView: NSView {
             settingsButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
             settingsButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
             modeButton.widthAnchor.constraint(equalToConstant: Metrics.modeButtonWidth),
-            modeButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight)
+            modeButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
+            speedLabel.widthAnchor.constraint(equalToConstant: Metrics.speedLabelWidth),
+            speedSlider.widthAnchor.constraint(equalToConstant: Metrics.speedSliderWidth)
         ])
     }
 
@@ -125,6 +249,13 @@ final class ReadAloudFloatingControlView: NSView {
         for button in controlButtons {
             button.contentTintColor = text
         }
+        speedLabel.textColor = text.withAlphaComponent(0.86)
+        speedSlider.applyTheme(
+            track: stroke.withAlphaComponent(0.34),
+            fill: text.withAlphaComponent(0.58),
+            knob: text.withAlphaComponent(0.92),
+            knobStroke: fill.withAlphaComponent(0.72)
+        )
         applyModeButtonTitleColor(text)
     }
 
@@ -132,7 +263,8 @@ final class ReadAloudFloatingControlView: NSView {
         isPaused: Bool,
         isLoading: Bool,
         mode: ReadAloudAdvanceMode,
-        canGoPrevious: Bool
+        canGoPrevious: Bool,
+        speedID: String
     ) {
         configureIconButton(
             previousButton,
@@ -172,7 +304,9 @@ final class ReadAloudFloatingControlView: NSView {
         )
         modeButton.title = mode.title
         modeButton.toolTip = mode.tooltip
+        speedLabel.stringValue = AppText.localized("语速", "Speed")
         applyModeButtonTitleColor(modeButton.contentTintColor)
+        updateSpeedSlider(speedID: speedID)
     }
 
     private func configureIconButton(
@@ -191,6 +325,14 @@ final class ReadAloudFloatingControlView: NSView {
         modeButton.attributedTitle = NSAttributedString(
             string: modeButton.title,
             attributes: [.foregroundColor: color, .font: AppFont.semibold(ofSize: 13)]
+        )
+    }
+
+    func updateSpeedSlider(speedID: String) {
+        speedSlider.doubleValue = AISettingsStore.speechSpeedSliderValue(for: speedID)
+        speedSlider.toolTip = AppText.localized(
+            "语速：\(AISettingsStore.speechSpeedTitle(for: speedID))",
+            "Speed: \(AISettingsStore.speechSpeedTitle(for: speedID))"
         )
     }
 }

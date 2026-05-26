@@ -10,44 +10,49 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         static let floatingToolbarInset: CGFloat = 8
         static let topIconPointSize: CGFloat = 17
     }
+    static let askInputForwardedShortcutKeys: Set<String> = ["a", "c", "x", "v"]
 
-    private struct AskRequest {
+    struct AskRequest {
         let question: String
         let selectedText: String
     }
 
-    private let textView = ReadingNoteTextView()
-    private let aiRunner = AITextActionRunner()
-    private let aiToolbarContainer = NSView()
+    let textView = ReadingNoteTextView()
+    let aiRunner = AITextActionRunner()
+    let aiToolbarContainer = NSView()
     private let aiToolbar = NSStackView()
     private let explainButton = NSButton(title: AppText.localized("解析", "Explain"), target: nil, action: nil)
     private let translateButton = NSButton(title: AppText.localized("翻译", "Translate"), target: nil, action: nil)
     private let summarizeButton = NSButton(title: AppText.localized("总结", "Summarize"), target: nil, action: nil)
-    private let polishButton = NSButton(title: AppText.localized("润色", "Polish"), target: nil, action: nil)
+    private let polishButton = NSButton(title: AppText.localized("整理", "Organize"), target: nil, action: nil)
     private let askButton = NSButton(title: AppText.localized("问 AI", "Ask AI"), target: nil, action: nil)
-    private let askInputContainer = NSView()
-    private let askInputField = ReadingNoteAskTextField(string: "")
+    let askInputContainer = NSView()
+    let askInputField = ReadingNoteAskTextField(string: "")
     private let askSendButton = NSButton(title: "", target: nil, action: nil)
-    private let statusLabel = NSTextField(labelWithString: "")
+    let statusLabel = NSTextField(labelWithString: "")
     private let wordCountLabel = NSTextField(labelWithString: "")
     private let rootView = NSView()
     private let titleIconView = NSImageView()
     private let metadataView = NSView()
     private let editorContainer = NSView()
     private var topIconButtons: [NSButton] = []
-    private var aiActionButtons: [NSButton] {
+    var aiActionButtons: [NSButton] {
         [explainButton, translateButton, summarizeButton, polishButton, askButton]
     }
-    private var pendingAskSelectedText = ""
-    private var aiPlaceholderDisplayText: String?
+    var pendingAskSelectedText = ""
+    var aiPlaceholderDisplayText: String?
     private weak var scrollView: NSScrollView?
+    var askInputKeyMonitor: Any?
+    var isAskInputVisible: Bool {
+        !askInputContainer.isHidden
+    }
     private var note: ReadingNote
     private let onSave: (ReadingNote) -> Void
     private let onClose: (String) -> Void
     private let onShowNotes: () -> Void
     private let onExportNote: (ReadingNote) -> Void
     private let onDeleteNote: (ReadingNote) -> Void
-    private let onDocumentQuestionPrompt: ((String, String, @escaping (String?) -> Void) -> Void)?
+    let onDocumentQuestionPrompt: DocumentQuestionPromptHandler?
     private var savesOnClose = true
     private var autoSaveWorkItem: DispatchWorkItem?
 
@@ -58,7 +63,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         onShowNotes: @escaping () -> Void,
         onExportNote: @escaping (ReadingNote) -> Void,
         onDeleteNote: @escaping (ReadingNote) -> Void,
-        onDocumentQuestionPrompt: ((String, String, @escaping (String?) -> Void) -> Void)? = nil
+        onDocumentQuestionPrompt: DocumentQuestionPromptHandler? = nil
     ) {
         self.note = note
         self.onSave = onSave
@@ -89,6 +94,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
             name: .readerThemeDidChange,
             object: nil
         )
+        installAskInputKeyMonitor()
         refreshAIToolbar()
     }
 
@@ -97,6 +103,9 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
     }
 
     deinit {
+        if let askInputKeyMonitor {
+            NSEvent.removeMonitor(askInputKeyMonitor)
+        }
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -375,7 +384,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
     }
 
     private func configureAskInput() {
-        askInputContainer.isHidden = true
+        setAskInputVisible(false)
         askInputContainer.wantsLayer = true
         askInputContainer.layer?.cornerRadius = 9
         askInputContainer.layer?.shadowOpacity = 0.16
@@ -506,115 +515,15 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         }
     }
 
-    private func save() {
+    func save() {
         note.markdown = markdownFromEditor()
         note.updatedAt = Date()
         onSave(note)
     }
 
-    private func updateWordCount() {
+    func updateWordCount() {
         let count = textView.string.trimmingCharacters(in: .whitespacesAndNewlines).count
         wordCountLabel.stringValue = AppText.localized("\(count) 字", "\(count) chars")
-    }
-
-    private func renderMarkdownIntoEditor(_ markdown: String) {
-        let rendered = MarkdownRenderer.render(markdown, fontSize: 15, textColor: ReadingNoteTheme.primaryText(ReaderTheme.selected))
-        textView.textStorage?.setAttributedString(rendered)
-        textView.typingAttributes = [
-            .font: NSFont.systemFont(ofSize: 15),
-            .foregroundColor: ReadingNoteTheme.primaryText(ReaderTheme.selected)
-        ]
-    }
-
-    private func markdownFromEditor() -> String {
-        let attributed = textView.attributedString()
-        let output = NSMutableString()
-        (attributed.string as NSString).enumerateSubstrings(
-            in: NSRange(location: 0, length: attributed.length),
-            options: [.byParagraphs, .substringNotRequired]
-        ) { _, range, _, _ in
-            let line = attributed.attributedSubstring(from: range)
-            output.append(self.markdownLine(from: line))
-            output.append("\n")
-        }
-        return (output as String).trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
-    }
-
-    private func markdownLine(from attributed: NSAttributedString) -> String {
-        if let imageMarkdown = imageMarkdownLine(from: attributed) {
-            return imageMarkdown
-        }
-        let rawLine = attributed.string.trimmingCharacters(in: .newlines)
-        let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return "" }
-        if trimmed.hasPrefix("• ") {
-            return "- " + String(trimmed.dropFirst(2))
-        }
-        if trimmed.hasPrefix("☐ ") {
-            return "- [ ] " + String(trimmed.dropFirst(2))
-        }
-        if trimmed.hasPrefix("☑ ") {
-            return "- [x] " + String(trimmed.dropFirst(2))
-        }
-
-        let fullRange = NSRange(location: 0, length: attributed.length)
-        if let font = attributed.attribute(.font, at: 0, effectiveRange: nil) as? NSFont {
-            if font.pointSize >= 18 {
-                return "# " + trimmed
-            }
-            if font.fontDescriptor.symbolicTraits.contains(.bold), isEntireRange(attributed, matching: .bold) {
-                return "**" + trimmed + "**"
-            }
-        }
-        return inlineMarkdown(from: attributed, range: fullRange)
-    }
-
-    private func imageMarkdownLine(from attributed: NSAttributedString) -> String? {
-        var value: String?
-        attributed.enumerateAttributes(in: NSRange(location: 0, length: attributed.length)) { attributes, _, stop in
-            guard attributes[.attachment] is NSTextAttachment else { return }
-            let urlString = (attributes[.link] as? String) ?? (attributes[.link] as? URL)?.absoluteString
-            guard let urlString,
-                  let url = URL(string: urlString) else { return }
-            let name = url.deletingPathExtension().lastPathComponent
-            value = "![\(name)](\(url.path))"
-            stop.pointee = true
-        }
-        return value
-    }
-
-    private func inlineMarkdown(from attributed: NSAttributedString, range: NSRange) -> String {
-        var output = ""
-        attributed.enumerateAttributes(in: range) { attributes, subrange, _ in
-            let text = attributed.attributedSubstring(from: subrange).string
-            guard !text.isEmpty else { return }
-            guard let font = attributes[.font] as? NSFont else {
-                output += text
-                return
-            }
-            let traits = font.fontDescriptor.symbolicTraits
-            if traits.contains(.bold) {
-                output += "**\(text)**"
-            } else if traits.contains(.italic) {
-                output += "*\(text)*"
-            } else {
-                output += text
-            }
-        }
-        return output.trimmingCharacters(in: .whitespaces)
-    }
-
-    private func isEntireRange(_ attributed: NSAttributedString, matching trait: NSFontDescriptor.SymbolicTraits) -> Bool {
-        var matches = true
-        attributed.enumerateAttribute(.font, in: NSRange(location: 0, length: attributed.length)) { value, _, stop in
-            guard let font = value as? NSFont,
-                  font.fontDescriptor.symbolicTraits.contains(trait) else {
-                matches = false
-                stop.pointee = true
-                return
-            }
-        }
-        return matches
     }
 
     private func noteLocationText() -> String {
@@ -658,63 +567,12 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: workItem)
     }
 
-    private func refreshAIToolbar() {
-        let enabled = !aiRunner.isRunning
-        aiActionButtons.forEach { $0.isEnabled = enabled }
-        if !askInputContainer.isHidden {
-            positionAskInputNearSelection()
-            return
-        }
-        guard !aiRunner.isRunning, selectedText().trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
-            aiToolbarContainer.isHidden = true
-            return
-        }
-        updateAIToolbarPosition()
-        aiToolbarContainer.isHidden = false
-    }
-
     @objc private func scrollBoundsDidChange(_ notification: Notification) {
         refreshAIToolbar()
     }
 
     @objc private func readerThemeDidChange(_ notification: Notification) {
         refreshTheme()
-    }
-
-    @objc private func explainSelection(_ sender: NSButton) {
-        runAIAction(.explain, title: AppText.localized("解析", "Explain"))
-    }
-
-    @objc private func translateSelection(_ sender: NSButton) {
-        runAIAction(.translate, title: AppText.localized("翻译", "Translate"))
-    }
-
-    @objc private func summarizeSelection(_ sender: NSButton) {
-        runAIAction(.summarize, title: AppText.localized("总结", "Summarize"))
-    }
-
-    @objc private func polishSelection(_ sender: NSButton) {
-        runAIAction(.polish, title: AppText.localized("润色", "Polish"), replaceSelection: true)
-    }
-
-    @objc private func showAskInput(_ sender: NSButton) {
-        let selected = selectedText()
-        guard !selected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            NSSound.beep()
-            return
-        }
-        pendingAskSelectedText = selected
-        askInputField.stringValue = ""
-        aiToolbarContainer.isHidden = true
-        positionAskInputNearSelection()
-        askInputContainer.isHidden = false
-        window?.makeFirstResponder(askInputField)
-    }
-
-    @objc private func submitAskQuestion(_ sender: Any?) {
-        let question = askInputField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let request = makeAskRequest(question: question) else { return }
-        runAskQuestion(request)
     }
 
     @objc private func showNotesTapped(_ sender: NSButton) {
@@ -759,288 +617,11 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         onDeleteNote(note)
     }
 
-    @objc private func undoTapped(_ sender: NSButton) {
-        guard textView.undoManager?.canUndo == true else {
-            NSSound.beep()
-            return
-        }
-        textView.undoManager?.undo()
-        save()
-        updateWordCount()
-    }
-
-    @objc private func redoTapped(_ sender: NSButton) {
-        guard textView.undoManager?.canRedo == true else {
-            NSSound.beep()
-            return
-        }
-        textView.undoManager?.redo()
-        save()
-        updateWordCount()
-    }
-
-    @objc private func boldTapped(_ sender: NSButton) {
-        wrapSelection(prefix: "**", suffix: "**")
-    }
-
-    @objc private func italicTapped(_ sender: NSButton) {
-        wrapSelection(prefix: "*", suffix: "*")
-    }
-
-    @objc private func listTapped(_ sender: NSButton) {
-        applyLinePrefix(displayPrefix: "• ")
-    }
-
-    @objc private func checklistTapped(_ sender: NSButton) {
-        applyLinePrefix(displayPrefix: "☐ ")
-    }
-
-    @objc private func imageTapped(_ sender: NSButton) {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [.png, .jpeg, .gif, .tiff, .webP, .heic]
-        panel.beginSheetModal(for: window ?? NSWindow()) { [weak self] response in
-            guard response == .OK, let url = panel.url else { return }
-            self?.insertImage(url: url)
-        }
-    }
-
-    private func runSlashContinuation() {
-        let prefix = textBeforeCursor().trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prefix.isEmpty else { return }
-        runAIAction(.continueLine, title: AppText.localized("补充", "Continue"), sourceText: prefix, replaceSlashLine: true)
-    }
-
-    private func runAIAction(
-        _ action: AITextActionRunner.Action,
-        title: String,
-        sourceText: String? = nil,
-        replaceSlashLine: Bool = false,
-        replaceSelection: Bool = false
-    ) {
-        guard AISettingsStore.hasAPIKeyForSelectedModel else {
-            statusLabel.stringValue = AppText.localized("请先配置 API Key", "Configure API Key first")
-            NSSound.beep()
-            return
-        }
-        let selectionRange = textView.selectedRange()
-        let text = sourceText ?? selectedText(in: selectionRange)
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            statusLabel.stringValue = AppText.localized("请先选中笔记中的文字", "Select text in the note first")
-            NSSound.beep()
-            return
-        }
-        setRunning(true, title: title)
-        aiToolbarContainer.isHidden = true
-        let usesTailPlaceholder = !replaceSlashLine && !replaceSelection
-        if usesTailPlaceholder {
-            appendAIPlaceholder(title: title)
-        }
-        aiRunner.run(action: action, text: text, noteContext: textView.string) { [weak self] result in
-            guard let self else { return }
-            self.setRunning(false, title: "")
-            switch result {
-            case .success(let output):
-                let value = output.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !value.isEmpty else { return }
-                if replaceSlashLine {
-                    self.replaceCurrentSlashLine(with: value)
-                } else if replaceSelection {
-                    self.replaceSelectedText(in: selectionRange, with: value)
-                } else if usesTailPlaceholder {
-                    self.replaceAIPlaceholder(title: title, body: value)
-                } else {
-                    self.appendAISection(title: title, body: value)
-                }
-            case .failure(let error):
-                if usesTailPlaceholder {
-                    self.removeAIPlaceholder()
-                }
-                self.statusLabel.stringValue = self.userFacingError(error)
-            }
-        }
-    }
-
-    private func makeAskRequest(question: String) -> AskRequest? {
-        guard !question.isEmpty else {
-            NSSound.beep()
-            return nil
-        }
-        let selected = pendingAskSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !selected.isEmpty else {
-            statusLabel.stringValue = AppText.localized("请先选中笔记中的文字", "Select text in the note first")
-            NSSound.beep()
-            return nil
-        }
-        return AskRequest(question: question, selectedText: selected)
-    }
-
-    private func runAskQuestion(_ request: AskRequest) {
-        guard AISettingsStore.hasAPIKeyForSelectedModel else {
-            statusLabel.stringValue = AppText.localized("请先配置 API Key", "Configure API Key first")
-            NSSound.beep()
-            return
-        }
-        askInputContainer.isHidden = true
-        askInputField.stringValue = ""
-        window?.makeFirstResponder(textView)
-        setRunning(true, title: AppText.localized("问 AI", "Ask AI"))
-        let context = askDocumentContext(selectedText: request.selectedText)
-        appendAIPlaceholder(title: request.question)
-        if let onDocumentQuestionPrompt {
-            onDocumentQuestionPrompt(request.question, context) { [weak self] prompt in
-                DispatchQueue.main.async {
-                    guard let self else { return }
-                    if let prompt, !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        self.runAskPrompt(prompt, request: request)
-                    } else {
-                        self.runAskFallback(request)
-                    }
-                }
-            }
-            return
-        }
-        runAskFallback(request)
-    }
-
-    private func runAskPrompt(_ prompt: String, request: AskRequest) {
-        aiRunner.runPrompt(prompt) { [weak self] result in
-            self?.finishAskQuestion(result, request: request)
-        }
-    }
-
-    private func runAskFallback(_ request: AskRequest) {
-        aiRunner.runQuestion(question: request.question, selectedText: request.selectedText) { [weak self] result in
-            self?.finishAskQuestion(result, request: request)
-        }
-    }
-
-    private func finishAskQuestion(_ result: Result<String, Error>, request: AskRequest) {
-        setRunning(false, title: "")
-        switch result {
-        case .success(let output):
-            let value = output.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty else { return }
-            replaceAIPlaceholder(title: request.question, body: value)
-            pendingAskSelectedText = ""
-        case .failure(let error):
-            removeAIPlaceholder()
-            statusLabel.stringValue = userFacingError(error)
-        }
-    }
-
-    private func askDocumentContext(selectedText: String) -> String {
-        if AppText.isChinese {
-            return """
-            【阅读笔记选中内容】
-            \(selectedText)
-
-            【当前阅读笔记】
-            \(ReaderAIContextPolicy.prefix(markdownFromEditor(), limit: 2000))
-            """
-        }
-        return """
-        [Selected reading-note text]
-        \(selectedText)
-
-        [Current reading note]
-        \(ReaderAIContextPolicy.prefix(markdownFromEditor(), limit: 2000))
-        """
-    }
-
-    private func setRunning(_ running: Bool, title: String) {
-        statusLabel.stringValue = running ? AppText.localized("\(title)中...", "\(title)...") : ""
-        refreshAIToolbar()
-    }
-
-    private func appendAISection(title: String, body: String) {
-        let suffix = markdownFromEditor().hasSuffix("\n") ? "" : "\n"
-        renderMarkdownIntoEditor(markdownFromEditor() + "\(suffix)\n### \(title)\n\n\(body)\n")
-        textView.scrollToEndOfDocument(nil)
-        save()
-    }
-
-    private func appendAIPlaceholder(title: String) {
-        let placeholderText = AppText.localized(" 正在生成...", " Generating...")
-        let suffix = markdownFromEditor().hasSuffix("\n") ? "" : "\n"
-        let rendered = NSMutableAttributedString(attributedString: MarkdownRenderer.render(
-            markdownFromEditor() + "\(suffix)\n### \(title)\n\n",
-            fontSize: 15,
-            textColor: ReadingNoteTheme.primaryText(ReaderTheme.selected)
-        ))
-        rendered.append(aiPlaceholderAttributedString(text: placeholderText))
-        rendered.append(NSAttributedString(string: "\n"))
-        textView.textStorage?.setAttributedString(rendered)
-        aiPlaceholderDisplayText = "\(title)\n\n\u{fffc}\(placeholderText)"
-        textView.scrollToEndOfDocument(nil)
-    }
-
-    private func replaceAIPlaceholder(title: String, body: String) {
-        let replacement = MarkdownRenderer.render("### \(title)\n\n\(body)\n", fontSize: 15, textColor: ReadingNoteTheme.primaryText(ReaderTheme.selected))
-        guard let range = aiPlaceholderRange() else {
-            appendAISection(title: title, body: body)
-            return
-        }
-        replaceText(in: range, with: replacement)
-        textView.scrollToEndOfDocument(nil)
-        aiPlaceholderDisplayText = nil
-    }
-
-    private func removeAIPlaceholder() {
-        guard let range = aiPlaceholderRange() else {
-            aiPlaceholderDisplayText = nil
-            return
-        }
-        replaceText(in: expandedPlaceholderRemovalRange(range), with: "")
-        aiPlaceholderDisplayText = nil
-    }
-
-    private func aiPlaceholderRange() -> NSRange? {
-        guard let display = aiPlaceholderDisplayText else { return nil }
-        let range = (textView.string as NSString).range(of: display)
-        return range.location == NSNotFound ? nil : range
-    }
-
-    private func expandedPlaceholderRemovalRange(_ range: NSRange) -> NSRange {
-        let nsText = textView.string as NSString
-        var location = range.location
-        var length = range.length
-        while location > 0, nsText.substring(with: NSRange(location: location - 1, length: 1)) == "\n" {
-            location -= 1
-            length += 1
-        }
-        while location + length < nsText.length,
-              nsText.substring(with: NSRange(location: location + length, length: 1)) == "\n" {
-            length += 1
-        }
-        return NSRange(location: location, length: length)
-    }
-
-    private func aiPlaceholderAttributedString(text: String) -> NSAttributedString {
-        let output = NSMutableAttributedString()
-        let attachment = NSTextAttachment()
-        let symbol = NSImage(systemSymbolName: "hourglass", accessibilityDescription: nil)?
-            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 15, weight: .semibold))
-        attachment.image = symbol
-        attachment.bounds = NSRect(x: 0, y: -2, width: 15, height: 15)
-        output.append(NSAttributedString(attachment: attachment))
-        output.append(NSAttributedString(
-            string: text,
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 15),
-                .foregroundColor: ReadingNoteTheme.secondaryText(ReaderTheme.selected)
-            ]
-        ))
-        return output
-    }
-
-    private func selectedText() -> String {
+    func selectedText() -> String {
         selectedText(in: textView.selectedRange())
     }
 
-    private func selectedText(in range: NSRange) -> String {
+    func selectedText(in range: NSRange) -> String {
         guard range.length > 0,
               let valueRange = Range(range, in: textView.string) else {
             return ""
@@ -1048,11 +629,11 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         return String(textView.string[valueRange])
     }
 
-    private func updateAIToolbarPosition() {
+    func updateAIToolbarPosition() {
         positionFloatingView(aiToolbarContainer)
     }
 
-    private func positionAskInputNearSelection() {
+    func positionAskInputNearSelection() {
         positionFloatingView(askInputContainer)
     }
 
@@ -1097,269 +678,4 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         min(max(value, minValue), maxValue)
     }
 
-    private func textBeforeCursor() -> String {
-        let location = textView.selectedRange().location
-        guard location <= (textView.string as NSString).length else { return textView.string }
-        return (textView.string as NSString).substring(to: location)
-    }
-
-    private func replaceCurrentSlashLine(with value: String) {
-        let nsText = textView.string as NSString
-        let location = min(textView.selectedRange().location, nsText.length)
-        let lineRange = nsText.lineRange(for: NSRange(location: max(0, location - 1), length: 0))
-        let replacement = value + "\n"
-        replaceText(in: lineRange, with: replacement)
-    }
-
-    private func replaceSelectedText(in range: NSRange, with value: String) {
-        guard range.length > 0 else { return }
-        replaceText(in: boundedSelectionRange(location: range.location, length: range.length), with: value)
-    }
-
-    private func wrapSelection(prefix: String, suffix: String) {
-        let range = textView.selectedRange()
-        guard range.length > 0 else {
-            NSSound.beep()
-            return
-        }
-        guard let selected = textView.textStorage?.attributedSubstring(from: range).mutableCopy() as? NSMutableAttributedString else { return }
-        let font: NSFont = prefix == "**"
-            ? NSFont.boldSystemFont(ofSize: 15)
-            : NSFontManager.shared.convert(NSFont.systemFont(ofSize: 15), toHaveTrait: .italicFontMask)
-        selected.addAttribute(.font, value: font, range: NSRange(location: 0, length: selected.length))
-        replaceText(in: range, with: selected)
-        textView.setSelectedRange(NSRange(location: range.location, length: selected.length))
-    }
-
-    private func applyLinePrefix(displayPrefix: String) {
-        let selection = textView.selectedRange()
-        guard selection.length > 0 else {
-            insertListPrefixAtInsertionPoint(displayPrefix)
-            return
-        }
-        let nsText = textView.string as NSString
-        let paragraphRange = nsText.paragraphRange(for: selection)
-        let selected = nsText.substring(with: paragraphRange) as NSString
-        let shouldRemovePrefix = selectionAlreadyUsesPrefix(displayPrefix, in: selected)
-        var offset = 0
-        let replacement = NSMutableString()
-        selected.enumerateSubstrings(
-            in: NSRange(location: 0, length: selected.length),
-            options: [.byParagraphs, .substringNotRequired]
-        ) { _, lineRange, enclosingRange, _ in
-            let line = selected.substring(with: lineRange)
-            let enclosing = selected.substring(with: enclosingRange)
-            let newlineSuffix = String(enclosing.dropFirst(line.count))
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty {
-                replacement.append(line + newlineSuffix)
-            } else if shouldRemovePrefix {
-                let updated = self.removingLinePrefix(displayPrefix, from: line)
-                replacement.append(updated + newlineSuffix)
-                offset -= line.count - updated.count
-            } else if trimmed.hasPrefix("• ") || trimmed.hasPrefix("☐ ") || trimmed.hasPrefix("☑ ") {
-                replacement.append(line + newlineSuffix)
-            } else {
-                replacement.append(displayPrefix + line + newlineSuffix)
-                offset += displayPrefix.count
-            }
-        }
-        let oldLocation = selection.location
-        let oldEnd = selection.location + selection.length
-        replaceText(in: paragraphRange, with: replacement as String)
-        let newLocation = oldLocation + (oldLocation == paragraphRange.location ? 0 : displayPrefix.count)
-        let newLength = max(0, oldEnd - oldLocation + offset)
-        textView.setSelectedRange(boundedSelectionRange(location: newLocation, length: newLength))
-    }
-
-    private func selectionAlreadyUsesPrefix(_ displayPrefix: String, in selected: NSString) -> Bool {
-        selectedNonEmptyLines(in: selected).allSatisfy { lineHasPrefix(displayPrefix, $0) }
-    }
-
-    private func selectedNonEmptyLines(in selected: NSString) -> [String] {
-        var lines: [String] = []
-        selected.enumerateSubstrings(
-            in: NSRange(location: 0, length: selected.length),
-            options: [.byParagraphs, .substringNotRequired]
-        ) { _, lineRange, _, _ in
-            let line = selected.substring(with: lineRange)
-            if !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                lines.append(line)
-            }
-        }
-        return lines
-    }
-
-    private func lineHasPrefix(_ displayPrefix: String, _ line: String) -> Bool {
-        line.trimmingCharacters(in: .whitespaces).hasPrefix(displayPrefix)
-    }
-
-    private func removingLinePrefix(_ displayPrefix: String, from line: String) -> String {
-        let leadingWhitespace = line.prefix { $0 == " " || $0 == "\t" }
-        let remainder = line.dropFirst(leadingWhitespace.count)
-        guard remainder.hasPrefix(displayPrefix) else { return line }
-        return String(leadingWhitespace) + String(remainder.dropFirst(displayPrefix.count))
-    }
-
-    private func boundedSelectionRange(location: Int, length: Int) -> NSRange {
-        let textLength = (textView.string as NSString).length
-        let boundedLocation = min(max(0, location), textLength)
-        let boundedLength = min(max(0, length), textLength - boundedLocation)
-        return NSRange(location: boundedLocation, length: boundedLength)
-    }
-
-    private func insertListPrefixAtInsertionPoint(_ displayPrefix: String) {
-        let nsText = textView.string as NSString
-        let location = min(textView.selectedRange().location, nsText.length)
-        let insertPrefix = location == 0 || nsText.substring(to: location).hasSuffix("\n") ? "" : "\n"
-        insertTextAtSelection(insertPrefix + displayPrefix)
-    }
-
-    private func insertTextAtSelection(_ value: String) {
-        let range = textView.selectedRange()
-        replaceText(in: range, with: value)
-    }
-
-    private func insertImage(url: URL) {
-        guard let image = NSImage(contentsOf: url) else {
-            NSSound.beep()
-            return
-        }
-        let attachment = NSTextAttachment()
-        attachment.image = image
-        attachment.bounds = scaledImageBounds(for: image)
-        let value = NSMutableAttributedString(attachment: attachment)
-        value.addAttribute(.link, value: url.absoluteString, range: NSRange(location: 0, length: value.length))
-        value.append(NSAttributedString(string: "\n"))
-        let range = textView.selectedRange()
-        replaceText(in: range, with: value)
-    }
-
-    private func replaceText(in range: NSRange, with value: String) {
-        guard textView.shouldChangeText(in: range, replacementString: value) else { return }
-        textView.textStorage?.replaceCharacters(in: range, with: value)
-        textView.didChangeText()
-        textView.setSelectedRange(NSRange(location: range.location + (value as NSString).length, length: 0))
-        save()
-        updateWordCount()
-    }
-
-    private func replaceText(in range: NSRange, with value: NSAttributedString) {
-        guard textView.shouldChangeText(in: range, replacementString: value.string) else { return }
-        textView.textStorage?.replaceCharacters(in: range, with: value)
-        textView.didChangeText()
-        textView.setSelectedRange(NSRange(location: range.location + value.length, length: 0))
-        save()
-        updateWordCount()
-    }
-
-    private func scaledImageBounds(for image: NSImage) -> NSRect {
-        let maxWidth: CGFloat = 360
-        let size = image.size
-        guard size.width > 0, size.height > 0 else {
-            return NSRect(x: 0, y: -4, width: 180, height: 120)
-        }
-        let scale = min(1, maxWidth / size.width)
-        return NSRect(x: 0, y: -4, width: size.width * scale, height: size.height * scale)
-    }
-
-    private func userFacingError(_ error: Error) -> String {
-        let nsError = error as NSError
-        if nsError.code == -10 {
-            return AppText.localized("请先配置 API Key", "Configure API Key first")
-        }
-        if nsError.domain == NSURLErrorDomain {
-            return AppText.localized("AI 请求失败，请检查网络", "AI request failed. Check the network.")
-        }
-        return AppText.localized("AI 请求失败", "AI request failed")
-    }
-}
-
-final class ReadingNoteTextView: NSTextView {
-    var onSelectionChanged: (() -> Void)?
-    var onSlashCommand: (() -> Void)?
-
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.modifierFlags.intersection([.command, .control]).isEmpty == false,
-              event.modifierFlags.intersection([.option]).isEmpty,
-              let key = event.charactersIgnoringModifiers?.lowercased() else {
-            return super.performKeyEquivalent(with: event)
-        }
-
-        switch key {
-        case "a":
-            selectAll(nil)
-            return true
-        case "c":
-            copy(nil)
-            return true
-        case "x":
-            cut(nil)
-            return true
-        case "v":
-            paste(nil)
-            return true
-        case "z":
-            if event.modifierFlags.contains(.shift) {
-                undoManager?.redo()
-            } else {
-                undoManager?.undo()
-            }
-            return true
-        default:
-            return super.performKeyEquivalent(with: event)
-        }
-    }
-
-    override func setSelectedRange(_ charRange: NSRange) {
-        super.setSelectedRange(charRange)
-        onSelectionChanged?()
-    }
-
-    override func keyDown(with event: NSEvent) {
-        if event.keyCode == 36, currentLineIsSlashCommand() {
-            onSlashCommand?()
-            return
-        }
-        super.keyDown(with: event)
-    }
-
-    private func currentLineIsSlashCommand() -> Bool {
-        let nsText = string as NSString
-        let location = min(selectedRange().location, nsText.length)
-        let lineRange = nsText.lineRange(for: NSRange(location: max(0, location - 1), length: 0))
-        let line = nsText.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
-        return line == "/"
-    }
-}
-
-final class ReadingNoteAskTextField: NSTextField {
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.modifierFlags.intersection([.command, .control]).isEmpty == false,
-              event.modifierFlags.intersection([.option]).isEmpty,
-              let key = event.charactersIgnoringModifiers?.lowercased() else {
-            return super.performKeyEquivalent(with: event)
-        }
-
-        switch key {
-        case "a":
-            currentEditor()?.selectAll(nil)
-            return true
-        case "c":
-            currentEditor()?.copy(nil)
-            return true
-        case "x":
-            currentEditor()?.cut(nil)
-            return true
-        case "v":
-            currentEditor()?.paste(nil)
-            return true
-        default:
-            return super.performKeyEquivalent(with: event)
-        }
-    }
-}
-
-final class ReadingNoteIconButton: NSButton {
-    override var mouseDownCanMoveWindow: Bool { false }
 }

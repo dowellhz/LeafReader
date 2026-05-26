@@ -1,24 +1,28 @@
-import AVFoundation
-
-extension ReaderWindowController: AVSpeechSynthesizerDelegate {
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
-        guard synthesizer === vocabularySpeechSynthesizer else { return }
-        clearSelectionForSpeechStartIfNeeded()
+extension ReaderWindowController: VocabularySpeechCoordinatorOwner {
+    var shouldResumeReadAloudAfterVocabularySpeech: Bool {
+        isReadAloudActive && !isReadAloudPaused
     }
 
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        guard synthesizer === vocabularySpeechSynthesizer else {
-            return
-        }
-        if let completion = selectionSpeechCompletion {
-            selectionSpeechCompletion = nil
-            completion()
-        }
+    func prepareForVocabularySpeechStart() {
+        resetReadAloudPDFProgress()
+        readAloudPDFPages = pdfView.currentSelection?.pages ?? []
     }
 
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        guard synthesizer === vocabularySpeechSynthesizer else { return }
-        shouldClearSelectionOnSpeechStart = false
-        selectionSpeechCompletion = nil
+    func pauseReadAloudForVocabularySpeech() {
+        guard isReadAloudActive, !isReadAloudPaused else { return }
+        isReadAloudPaused = true
+        SpeechPlaybackCoordinator.shared.pauseSpeaking()
+        updateReadAloudButton()
+    }
+
+    func resumeReadAloudAfterVocabularySpeech(shouldResume: Bool) {
+        guard shouldResume, isReadAloudActive, isReadAloudPaused else { return }
+        isReadAloudPaused = false
+        SpeechPlaybackCoordinator.shared.resumeSpeaking()
+        updateReadAloudButton()
+    }
+
+    func clearReaderSelectionForVocabularySpeech() {
+        clearReaderSelectionForBubbleSelection()
     }
 }
