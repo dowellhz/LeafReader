@@ -21,6 +21,15 @@ extension ReaderWindowController {
             selectStoredLinkedWord(linkID: linkID)
             return
         }
+        if message.name == "webNoteClicked" {
+            guard currentDocumentKind != .pdf,
+                  let noteID = message.body as? String,
+                  let note = storedReadingNotes.first(where: { $0.id == noteID }) else {
+                return
+            }
+            openReadingNotePanel(note)
+            return
+        }
         if message.name == "webAISourceClicked" {
             guard currentDocumentKind != .pdf,
                   let key = message.body as? String,
@@ -104,7 +113,9 @@ extension ReaderWindowController {
         guard currentDocumentKind != .pdf else { return }
         applyWebReaderTheme()
         restoreStoredWebWordHighlights { [weak self] in
-            self?.restoreSavedAISourceUnderlines()
+            self?.restoreWebReadingNoteHighlights {
+                self?.restoreSavedAISourceUnderlines()
+            }
         }
         applyWebZoomToPage()
         zoomField.stringValue = "\(webZoomPercent)%"

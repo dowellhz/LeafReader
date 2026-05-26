@@ -5,32 +5,6 @@ import PDFKit
 import UniformTypeIdentifiers
 import WebKit
 
-final class ClickEditableTextField: NSTextField {
-    private var allowsEditingFocus = false
-
-    override var acceptsFirstResponder: Bool {
-        allowsEditingFocus || currentEditor() != nil
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        allowsEditingFocus = true
-        defer { allowsEditingFocus = false }
-        super.mouseDown(with: event)
-    }
-}
-
-final class WindowDragTextField: NSTextField {
-    override func mouseDown(with event: NSEvent) {
-        window?.performDrag(with: event)
-    }
-}
-
-final class WindowDragImageView: NSImageView {
-    override func mouseDown(with event: NSEvent) {
-        window?.performDrag(with: event)
-    }
-}
-
 final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFViewDelegate, NSTextFieldDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     struct VocabularyExportRecord {
         let ids: [String]
@@ -174,6 +148,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var storedWebWordRecords: [StoredWebWordRecord] = []
     var pendingWebWordRecords: [String: PendingWebWordRecord] = [:]
     var webWordRecordStore: WebWordRecordStore?
+    var storedReadingNotes: [ReadingNote] = []
+    var readingNotePanelControllers: [String: ReadingNotePanelController] = [:]
     let pdfWordRecordsSaveTask = DebouncedTask(delay: 0.8)
     let webWordRecordsSaveTask = DebouncedTask(delay: 0.8)
     var aiConversationStore: AIConversationStore?
@@ -223,6 +199,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var preferredAIWidth: CGFloat = ReaderWindowController.loadPreferredAIWidth()
     var aiSettingsPanelController: AISettingsPanelController?
     var recentDocumentsPanelController: RecentDocumentsPanelController?
+    var readingNotesPanelController: ReadingNotesPanelController?
     weak var vocabularyPanel: NSWindow?
     var vocabularyPanelActivationObserver: NSObjectProtocol?
     var vocabularyReviewFilter: VocabularyFilter = .due
@@ -293,6 +270,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "selectionChanged")
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "scrollChanged")
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "webWordClicked")
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "webNoteClicked")
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "webAISourceClicked")
         NotificationCenter.default.removeObserver(self)
     }

@@ -214,27 +214,25 @@ enum SpeechRuntimeResourceManager {
                     removePartialDownload(for: runtime)
                     DispatchQueue.main.async { completion(.success(())) }
                 case .failure(let error):
-                    let nsError = error as NSError
-                    if shouldRetryDownload(error: nsError, attempt: attempt) {
-                        if shouldRestartWithoutPartialDownload(error: nsError) {
-                            removePartialDownload(for: runtime)
-                            download(runtime, downloadID: downloadID, expectedAsset: expectedAsset, retryingWithoutResume: true, attempt: attempt + 1, completion: completion)
-                        } else {
-                            download(runtime, downloadID: downloadID, expectedAsset: expectedAsset, retryingWithoutResume: false, attempt: attempt + 1, completion: completion)
-                        }
-                    } else {
-                        if shouldRestartWithoutPartialDownload(error: nsError) {
-                            removePartialDownload(for: runtime)
-                        }
-                        DispatchQueue.main.async { completion(.failure(error)) }
-                    }
+                    recoverDownloadFailure(
+                        error,
+                        runtime: runtime,
+                        downloadID: downloadID,
+                        expectedAsset: expectedAsset,
+                        attempt: attempt,
+                        completion: completion
+                    )
                     return
                 }
             } catch {
-                if shouldRestartWithoutPartialDownload(error: error as NSError) {
-                    removePartialDownload(for: runtime)
-                }
-                DispatchQueue.main.async { completion(.failure(error)) }
+                recoverDownloadFailure(
+                    error,
+                    runtime: runtime,
+                    downloadID: downloadID,
+                    expectedAsset: expectedAsset,
+                    attempt: attempt,
+                    completion: completion
+                )
             }
         }
 
@@ -256,6 +254,35 @@ enum SpeechRuntimeResourceManager {
             return
         }
         task.resume()
+    }
+
+    private static func recoverDownloadFailure(
+        _ error: Error,
+        runtime: Runtime,
+        downloadID: UUID,
+        expectedAsset: SpeechModelManifest.Asset?,
+        attempt: Int,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        switch downloadRecoveryAction(error: error as NSError, attempt: attempt) {
+        case .retry(let resumePartial):
+            if !resumePartial {
+                removePartialDownload(for: runtime)
+            }
+            download(
+                runtime,
+                downloadID: downloadID,
+                expectedAsset: expectedAsset,
+                retryingWithoutResume: !resumePartial,
+                attempt: attempt + 1,
+                completion: completion
+            )
+        case .fail(let removePartial):
+            if removePartial {
+                removePartialDownload(for: runtime)
+            }
+            DispatchQueue.main.async { completion(.failure(error)) }
+        }
     }
 
     private static func isCurrentDownload(_ runtime: Runtime, downloadID: UUID) -> Bool {

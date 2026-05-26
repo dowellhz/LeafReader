@@ -1,5 +1,9 @@
 import Foundation
 
+extension Notification.Name {
+    static let readerThemeDidChange = Notification.Name("readerThemeDidChange")
+}
+
 enum ReaderTheme: String, CaseIterable {
     private static let defaultsKey = "readerTheme"
     private static let pdfDimmingKey = "pdfDimmingStrength"
@@ -34,6 +38,7 @@ enum ReaderTheme: String, CaseIterable {
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: defaultsKey)
             UserDefaults.standard.synchronize()
+            NotificationCenter.default.post(name: .readerThemeDidChange, object: newValue)
         }
     }
 

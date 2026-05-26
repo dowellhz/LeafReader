@@ -41,8 +41,13 @@ swiftc \
   mac-app/EmbeddingWarmupPolicy.swift \
   mac-app/PDFPagingPolicy.swift \
   mac-app/PDFBrightnessPolicy.swift \
+  mac-app/StoredPDFWordRect.swift \
   mac-app/ReaderSessionPolicy.swift \
   mac-app/ReaderSessionStore.swift \
+  mac-app/ReadingNote.swift \
+  mac-app/ReadingNoteTextPolicy.swift \
+  mac-app/ReadingNoteStore.swift \
+  mac-app/ReadingNoteExporter.swift \
   mac-app/ReaderProgressFormatter.swift \
   mac-app/ReadAloudTextMatcher.swift \
   mac-app/VocabularyTextPolicy.swift \
@@ -65,6 +70,7 @@ swiftc \
   mac-app/SpeechSentenceBoundary.swift \
   mac-app/SpeechSynthesisError.swift \
   mac-app/TTSWaveFile.swift \
+  mac-app/VocabularyAudioCache.swift \
   mac-app/PiperTTSBackend.swift \
   mac-app/KokoroVoiceResourceManager.swift \
   mac-app/SpeechRuntimeDownloadSupport.swift \
@@ -86,12 +92,14 @@ swiftc \
   mac-app/EPUBHTMLSanitizer.swift \
   mac-app/EPUBTextDecoder.swift \
   tests/EPUBLogicTests.swift \
+  tests/ReadingNoteLogicTests.swift \
   tests/ReaderShelfLogicTests.swift \
   tests/AISettingsLogicTests.swift \
   tests/VocabularyLogicTests.swift \
   tests/LogicTests.swift \
   -framework PDFKit \
   -framework Cocoa \
+  -lsqlite3 \
   -o /tmp/leafreader-logic-tests
 /tmp/leafreader-logic-tests
 if [[ -n "${LEAFREADER_TEST_APP_BUNDLE:-}" ]]; then

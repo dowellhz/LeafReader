@@ -116,11 +116,14 @@ extension ReaderWindowController {
         guard isMeaningfulVocabularyContext(context) else { return }
         let sentence = String(context.prefix(280))
         DispatchQueue.main.async { [weak self] in
-            self?.speakVocabularyTexts([sentence])
+            self?.speakVocabularyTexts([sentence], options: .normalSpeed)
         }
     }
 
-    func speakVocabularyTexts(_ texts: [String]) {
+    func speakVocabularyTexts(
+        _ texts: [String],
+        options: SpeechPlaybackCoordinator.SynthesisOptions = .default
+    ) {
         let playableTexts = texts
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -140,7 +143,7 @@ extension ReaderWindowController {
             let shouldResumeReadAloud = isReadAloudActive && !isReadAloudPaused
             if shouldResumeReadAloud {
                 pauseReadAloudForSelectionSpeech()
-                SpeechPlaybackCoordinator.shared.speakTextInterruption(text) { [weak self] didUseLocalTTS in
+                SpeechPlaybackCoordinator.shared.speakCachedVocabularyText(text, options: options) { [weak self] didUseLocalTTS in
                     guard let self else { return }
                     guard !didUseLocalTTS else {
                         self.clearSelectionForSpeechStartIfNeeded()
@@ -158,13 +161,14 @@ extension ReaderWindowController {
                 }
                 return
             }
-            SpeechPlaybackCoordinator.shared.speakText(text) { [weak self] didUseLocalTTS in
+            SpeechPlaybackCoordinator.shared.speakCachedVocabularyText(text, options: options) { [weak self] didUseLocalTTS in
                 guard let self else { return }
                 guard !didUseLocalTTS else {
                     self.clearSelectionForSpeechStartIfNeeded()
                     return
                 }
                 self.vocabularySpeechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
+            } finished: {
             }
         } else {
             for text in playableTexts {

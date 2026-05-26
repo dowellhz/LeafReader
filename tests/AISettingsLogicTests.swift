@@ -321,6 +321,17 @@ enum AISettingsLogicTests {
         KokoroVoiceResourceManager.invalidateInstalledVoiceCache()
     }
 
+    static func testVocabularyAudioCacheKeySeparatesSpeechSettings() throws {
+        let first = VocabularyAudioCache.entry(text: "hello", runtimeID: "kitten", voiceID: "expr-voice-2-f", speedID: "normal")
+        let second = VocabularyAudioCache.entry(text: "hello", runtimeID: "kitten", voiceID: "expr-voice-2-m", speedID: "normal")
+        let third = VocabularyAudioCache.entry(text: "hello", runtimeID: "kitten", voiceID: "expr-voice-2-f", speedID: "settings-slow")
+        let fourth = VocabularyAudioCache.entry(text: "hello", runtimeID: "piper", voiceID: "expr-voice-2-f", speedID: "normal")
+        try expectEqual(VocabularyAudioCache.maximumBytes, 100 * 1024 * 1024, "vocabulary audio cache should stay capped at 100 MB")
+        try expect(first.url != second.url, "vocabulary audio cache should separate voices")
+        try expect(first.url != third.url, "vocabulary audio cache should separate speed settings")
+        try expect(first.url != fourth.url, "vocabulary audio cache should separate runtimes")
+    }
+
     static func testSpeechSynthesisErrorMessagesAreActionable() throws {
         try expect(
             SpeechSynthesisError.runtimeUnavailable("Piper").localizedDescription.contains("Piper"),
@@ -487,6 +498,14 @@ enum AISettingsLogicTests {
             "mismatched resume responses should retry from a clean download"
         )
         try expect(
+            SpeechRuntimeResourceManager.shouldRetryDownload(error: checksumMismatch, attempt: 1),
+            "checksum failures should retry once the corrupt partial archive is discarded"
+        )
+        try expect(
+            !SpeechRuntimeResourceManager.shouldRetryDownload(error: checksumMismatch, attempt: 4),
+            "checksum failures should stop retrying at the download attempt limit"
+        )
+        try expect(
             SpeechRuntimeResourceManager.shouldRestartWithoutPartialDownload(error: resumeExpired),
             "expired resume ranges should discard the partial archive"
         )
@@ -501,6 +520,21 @@ enum AISettingsLogicTests {
         try expect(
             !SpeechRuntimeResourceManager.shouldRestartWithoutPartialDownload(error: networkFailure),
             "transient network failures should keep the partial archive for resume"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.downloadRecoveryAction(error: checksumMismatch, attempt: 1),
+            .retry(resumePartial: false),
+            "checksum failures should restart from a clean archive while retry attempts remain"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.downloadRecoveryAction(error: checksumMismatch, attempt: 4),
+            .fail(removePartial: true),
+            "checksum failures should remove corrupt archives before surfacing the final error"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.downloadRecoveryAction(error: networkFailure, attempt: 1),
+            .retry(resumePartial: true),
+            "transient network failures should retry with the partial archive"
         )
     }
 

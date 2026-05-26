@@ -14,6 +14,7 @@ extension ReaderWindowController {
             }
             return
         }
+        closeReadingNotePanelsForDocumentTransition()
         currentDocumentKind = .pdf
         pdfView.isHidden = false
         webView.isHidden = true
@@ -33,7 +34,9 @@ extension ReaderWindowController {
         schedulePDFTOCBuild(for: url, displayBox: pdfView.displayBox)
         storedWordRecords = loadStoredWordRecords()
         storedWebWordRecords.removeAll()
+        loadReadingNotesForCurrentDocument()
         restoreStoredWordAnnotations()
+        restoreReadingNoteAnnotations()
         aiPanel.loadLinkedWordBubbles(pdfWordRecordStore?.linkedWordBubbles(from: storedWordRecords) ?? [])
         loadSavedAIConversationIfNeeded()
         titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
@@ -80,6 +83,7 @@ extension ReaderWindowController {
     }
 
     func applyLoadedWebDocument(_ document: WebReadableDocument, url: URL, kind: ReaderDocumentKind, generation: Int) {
+        closeReadingNotePanelsForDocumentTransition()
         currentDocumentKind = kind
         pdfView.isHidden = true
         pdfDimOverlay.isHidden = true
@@ -103,6 +107,7 @@ extension ReaderWindowController {
         webScrollProgress = 0
         storedWordRecords.removeAll()
         storedWebWordRecords = loadStoredWebWordRecords()
+        loadReadingNotesForCurrentDocument()
         aiPanel.loadLinkedWordBubbles(webWordRecordStore?.linkedWordBubbles(from: storedWebWordRecords) ?? [])
         loadSavedAIConversationIfNeeded()
         aiPanel.setSelectedText("")
@@ -143,6 +148,8 @@ extension ReaderWindowController {
         invalidateDocumentAgentIndex()
         pendingPDFWordRecords.removeAll()
         pendingWebWordRecords.removeAll()
+        storedReadingNotes.removeAll()
+        readingNotePanelControllers.removeAll()
         cancelScheduledEmbeddingWarmup()
         accumulatedPDFTrackpadScroll = 0
         didTurnPageForCurrentPDFTrackpadGesture = false

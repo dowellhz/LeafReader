@@ -2,7 +2,12 @@ import Cocoa
 import AVFoundation
 
 extension SpeechPlaybackCoordinator {
-    func speakTextInterruption(_ text: String, completion: @escaping (Bool) -> Void, finished: @escaping () -> Void) {
+    func speakTextInterruption(
+        _ text: String,
+        options: SynthesisOptions = .default,
+        completion: @escaping (Bool) -> Void,
+        finished: @escaping () -> Void
+    ) {
         cancelScheduledIdleShutdown()
         let value = SpeechTextPolicy.normalizedReadAloudInput(text)
         guard SpeechTextPolicy.isLocalTTSCandidate(value) else {
@@ -21,7 +26,12 @@ extension SpeechPlaybackCoordinator {
                 try? FileManager.default.removeItem(at: outputURL)
                 return
             }
-            let result = self.generateWAVResult(text: segment, outputURL: outputURL, recordFailure: false)
+            let result = self.generateWAVResult(
+                text: segment,
+                outputURL: outputURL,
+                options: options,
+                recordFailure: false
+            )
             guard result.isSuccess else {
                 try? FileManager.default.removeItem(at: outputURL)
                 if self.isActiveInterruptionGeneration(generationID),
@@ -151,6 +161,109 @@ extension SpeechPlaybackCoordinator {
         }
     }
 
+    func speakCachedVocabularyText(
+        _ text: String,
+        options: SynthesisOptions = .default,
+        completion: @escaping (Bool) -> Void,
+        finished: @escaping () -> Void
+    ) {
+        cancelScheduledIdleShutdown()
+        let value = SpeechTextPolicy.normalizedReadAloudInput(text)
+        guard SpeechTextPolicy.isLocalTTSCandidate(value) else {
+            completion(false)
+            return
+        }
+
+        let segment = SpeechTextPolicy.segments(for: value).joined(separator: " ")
+        let backend = Self.preferredBackend(for: segment)
+        guard let runtime = backend.runtime else {
+            completion(false)
+            return
+        }
+        let voiceID = vocabularyCacheVoiceID(runtime: runtime, text: segment)
+        let cacheEntry = VocabularyAudioCache.entry(
+            text: segment,
+            runtimeID: runtime.id,
+            voiceID: voiceID,
+            speedID: options.cacheSpeedID
+        )
+        let languageHint = SpeechTextPolicy.prefersChineseTTS(segment)
+            ? AISettingsStore.SpeechLanguageHint.chinese
+            : nil
+        let generationID = UUID()
+        beginInterruptionGeneration(generationID)
+        queue.async { [weak self] in
+            guard let self else { return }
+            guard self.isActiveInterruptionGeneration(generationID) else { return }
+            if TTSWaveFile.isUsable(at: cacheEntry.url) {
+                VocabularyAudioCache.markAccessed(cacheEntry.url)
+                NSLog(
+                    "LeafReader vocabulary audio cache: hit runtime=%@ voice=%@ speed=%@ key=%@ output=%@",
+                    runtime.id,
+                    voiceID,
+                    options.cacheSpeedID,
+                    cacheEntry.key,
+                    cacheEntry.url.path
+                )
+                DispatchQueue.main.async {
+                    guard self.activeInterruptionGenerationID == generationID else { return }
+                    completion(true)
+                    self.playInterruptionOutput(cacheEntry.url, removeAfterPlayback: false, finished: finished)
+                }
+                return
+            }
+
+            try? FileManager.default.createDirectory(
+                at: cacheEntry.url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let tempURL = cacheEntry.url.deletingLastPathComponent()
+                .appendingPathComponent("pending-\(UUID().uuidString).wav")
+            let result = self.generateWAVResult(
+                text: segment,
+                outputURL: tempURL,
+                voiceID: voiceID,
+                languageHint: languageHint,
+                options: options,
+                recordFailure: false
+            )
+            guard result.isSuccess,
+                  TTSWaveFile.isUsable(at: tempURL),
+                  VocabularyAudioCache.store(tempURL: tempURL, to: cacheEntry.url) else {
+                try? FileManager.default.removeItem(at: tempURL)
+                if self.isActiveInterruptionGeneration(generationID),
+                   case .failure(let error) = result {
+                    self.recordSynthesisFailure(
+                        error,
+                        text: segment,
+                        outputURL: tempURL,
+                        voiceID: voiceID,
+                        languageHint: languageHint,
+                        context: "vocabulary"
+                    )
+                }
+                DispatchQueue.main.async {
+                    guard self.activeInterruptionGenerationID == generationID else { return }
+                    completion(false)
+                }
+                return
+            }
+            NSLog(
+                "LeafReader vocabulary audio cache: generated runtime=%@ voice=%@ speed=%@ key=%@ output=%@",
+                runtime.id,
+                voiceID,
+                options.cacheSpeedID,
+                cacheEntry.key,
+                cacheEntry.url.path
+            )
+            DispatchQueue.main.async {
+                guard self.activeInterruptionGenerationID == generationID else { return }
+                completion(true)
+                self.playInterruptionOutput(cacheEntry.url, removeAfterPlayback: false, finished: finished)
+            }
+        }
+    }
+
     func cancelCurrentSpeechPreview(terminateKokoroWorker: Bool = false) {
         beginInterruptionGeneration(UUID())
         guard terminateKokoroWorker else { return }
@@ -252,5 +365,13 @@ extension SpeechPlaybackCoordinator {
             active = self.activeInterruptionGenerationID == generationID
         }
         return active
+    }
+
+    private func vocabularyCacheVoiceID(runtime: SpeechRuntimeResourceManager.Runtime, text: String) -> String {
+        if runtime == .kokoro {
+            let languageHint: AISettingsStore.SpeechLanguageHint = SpeechTextPolicy.prefersChineseTTS(text) ? .chinese : .english
+            return AISettingsStore.selectedKokoroSpeechVoiceID(languageHint: languageHint)
+        }
+        return AISettingsStore.selectedSpeechVoiceID(runtimeID: runtime.id)
     }
 }

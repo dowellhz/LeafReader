@@ -8,6 +8,11 @@ extension SpeechRuntimeResourceManager {
     private static let maxDownloadAttempts = 4
     private static let minimumInstallSafetyMarginBytes: Int64 = 200 * 1024 * 1024
 
+    enum DownloadRecoveryAction: Equatable {
+        case retry(resumePartial: Bool)
+        case fail(removePartial: Bool)
+    }
+
     struct PartialDownloadMetadata: Codable, Equatable {
         let downloadURL: String
         let assetName: String?
@@ -20,13 +25,21 @@ extension SpeechRuntimeResourceManager {
     static func shouldRetryDownload(error: NSError, attempt: Int) -> Bool {
         guard attempt < maxDownloadAttempts else { return false }
         if error.domain == downloadErrorDomain,
-           error.code == 416 || error.code == resumeRangeMismatchCode {
+           shouldRestartWithoutPartialDownload(error: error) {
             return true
         }
         if error.domain == NSURLErrorDomain {
             return error.code != NSURLErrorCancelled
         }
         return false
+    }
+
+    static func downloadRecoveryAction(error: NSError, attempt: Int) -> DownloadRecoveryAction {
+        let removePartial = shouldRestartWithoutPartialDownload(error: error)
+        if shouldRetryDownload(error: error, attempt: attempt) {
+            return .retry(resumePartial: !removePartial)
+        }
+        return .fail(removePartial: removePartial)
     }
 
     static func downloadSessionConfiguration() -> URLSessionConfiguration {

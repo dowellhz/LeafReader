@@ -15,6 +15,7 @@ final class SelectionActionToolbar: NSView {
     var onAddWord: (() -> Void)?
     var onSummarize: (() -> Void)?
     var onSpeak: (() -> Void)?
+    var onNote: (() -> Void)?
     var onCopy: (() -> Void)?
 
     private let stack = NSStackView()
@@ -42,6 +43,12 @@ final class SelectionActionToolbar: NSView {
         target: nil,
         action: nil
     )
+    private let noteButton = SelectionActionButton(
+        title: AppText.localized("笔记", "Note"),
+        symbolName: "note.text",
+        target: nil,
+        action: nil
+    )
     private let copyButton = SelectionActionButton(
         title: AppText.localized("复制", "Copy"),
         symbolName: "doc.on.doc",
@@ -52,7 +59,7 @@ final class SelectionActionToolbar: NSView {
     private var showsSpeakButton = true
 
     private var actionButtons: [SelectionActionButton] {
-        [explainButton, translateButton, contextButton, speakButton, copyButton]
+        [explainButton, translateButton, contextButton, speakButton, noteButton, copyButton]
     }
 
     enum ContextAction {
@@ -77,6 +84,7 @@ final class SelectionActionToolbar: NSView {
         configureButton(translateButton, action: #selector(translateTapped))
         configureButton(contextButton, action: #selector(contextTapped))
         configureButton(speakButton, action: #selector(speakTapped))
+        configureButton(noteButton, action: #selector(noteTapped))
         configureButton(copyButton, action: #selector(copyTapped))
 
         NSLayoutConstraint.activate([
@@ -94,7 +102,7 @@ final class SelectionActionToolbar: NSView {
     }
 
     var preferredSize: CGSize {
-        let visibleButtonCount = showsSpeakButton ? 5 : 4
+        let visibleButtonCount = showsSpeakButton ? 6 : 5
         let horizontalInsets = stack.edgeInsets.left + stack.edgeInsets.right
         let spacing = CGFloat(max(0, visibleButtonCount - 1)) * stack.spacing
         let width = horizontalInsets + spacing + CGFloat(visibleButtonCount) * Metrics.buttonWidth
@@ -131,6 +139,7 @@ final class SelectionActionToolbar: NSView {
             ? "text.badge.plus"
             : "list.bullet.rectangle"
         speakButton.title = AppText.localized("朗读", "Speak")
+        noteButton.title = AppText.localized("笔记", "Note")
         copyButton.title = AppText.localized("复制", "Copy")
         actionButtons.forEach { $0.applyTheme(ReaderTheme.selected) }
     }
@@ -170,6 +179,8 @@ final class SelectionActionToolbar: NSView {
             }
         case speakButton:
             onSpeak?()
+        case noteButton:
+            onNote?()
         case copyButton:
             onCopy?()
         default:
@@ -199,6 +210,10 @@ final class SelectionActionToolbar: NSView {
 
     @objc private func speakTapped() {
         onSpeak?()
+    }
+
+    @objc private func noteTapped() {
+        onNote?()
     }
 
     @objc private func copyTapped() {

@@ -8,6 +8,7 @@ extension ReaderWindowController {
         case addWord
         case summarize
         case speak
+        case note
         case copy
     }
 
@@ -100,6 +101,8 @@ extension ReaderWindowController {
             aiPanel.summarizeCurrentContent()
         case .speak:
             speakVocabularyTexts([text])
+        case .note:
+            createReadingNoteFromCurrentSelection(text: text)
         case .copy:
             copyTextToClipboard(text)
         }

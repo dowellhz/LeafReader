@@ -33,9 +33,12 @@ extension ReaderWindowController {
         updateReadAloudFloatingControl()
         searchOverlay.setTheme(theme)
         selectionActionToolbar.applyTheme(theme)
+        readingNotePanelControllers.values.forEach { $0.refreshTheme() }
+        readingNotesPanelController?.refreshTheme()
         pdfView.backgroundColor = chromeBackground
         pdfView.enclosingScrollView?.backgroundColor = chromeBackground
         applyPDFReaderTheme(theme: theme)
+        refreshStoredWordAnnotationAppearance()
 
         applyWebReaderTheme(theme: theme)
     }
@@ -153,6 +156,7 @@ extension ReaderWindowController {
         pdfView.documentView?.needsDisplay = true
         pdfView.setNeedsDisplay(pdfView.bounds)
         updateAISourceUnderlineTheme(theme)
+        restoreReadingNoteAnnotations()
     }
 
     func clearPDFContentFilters() {
@@ -212,6 +216,9 @@ extension ReaderWindowController {
         html.leaf-reader-dark ::selection {
           background: rgba(255, 221, 87, .46) !important;
         }
+        html.leaf-reader-eye-care ::selection {
+          background: rgba(204, 149, 39, .30) !important;
+        }
         html.leaf-reader-eye-care { background: #eee8d5 !important; color-scheme: light; }
         html.leaf-reader-eye-care body {
           color: #24261f !important;
@@ -248,12 +255,11 @@ extension ReaderWindowController {
         html.leaf-reader-eye-care svg {
           filter: brightness(.94) saturate(.92) contrast(.98);
         }
-        html.leaf-reader-eye-care ::selection {
-          background: rgba(204, 149, 39, .30) !important;
-        }
         """
         let cssLiteral = jsStringLiteral(themeCSS)
         let aiSourceUnderlineColor = jsStringLiteral(cssRGBAString(for: theme.aiSourceUnderlineColor))
+        let selectionBackgroundColor = jsStringLiteral(webSelectionBackgroundCSS(for: theme))
+        let readingNoteHighlightColor = jsStringLiteral(webReadingNoteHighlightCSS(for: theme))
         let darkEnabled = theme == .dark ? "true" : "false"
         let eyeCareEnabled = theme == .eyeCare ? "true" : "false"
         webView.evaluateJavaScript("""
@@ -270,8 +276,32 @@ extension ReaderWindowController {
           document.documentElement.classList.toggle('leaf-reader-dark', darkEnabled);
           document.documentElement.classList.toggle('leaf-reader-eye-care', eyeCareEnabled);
           document.documentElement.style.setProperty('--leaf-reader-ai-source-underline', \(aiSourceUnderlineColor));
+          document.documentElement.style.setProperty('--leaf-reader-selection-background', \(selectionBackgroundColor));
+          document.documentElement.style.setProperty('--leaf-reader-note-highlight-background', \(readingNoteHighlightColor));
         })();
         """)
+    }
+
+    private func webSelectionBackgroundCSS(for theme: ReaderTheme) -> String {
+        switch theme {
+        case .eyeCare:
+            return "rgba(204, 149, 39, .30)"
+        case .dark:
+            return "rgba(255, 221, 87, .46)"
+        case .original:
+            return "rgba(255, 221, 87, .62)"
+        }
+    }
+
+    private func webReadingNoteHighlightCSS(for theme: ReaderTheme) -> String {
+        switch theme {
+        case .eyeCare:
+            return "rgba(204, 149, 39, .30)"
+        case .dark:
+            return "rgba(145, 202, 255, .34)"
+        case .original:
+            return "rgba(145, 202, 255, .30)"
+        }
     }
 
     func cssRGBAString(for color: NSColor) -> String {

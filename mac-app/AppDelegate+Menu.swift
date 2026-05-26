@@ -67,6 +67,13 @@ extension AppDelegate {
             key: "l",
             target: controller
         ))
+        menu.addItem(menuItem(
+            AppText.localized("导出阅读笔记...", "Export Reading Notes..."),
+            action: #selector(ReaderWindowController.exportReadingNotesMarkdown(_:)),
+            key: "e",
+            target: controller,
+            modifiers: [.command, .shift]
+        ))
         menu.addItem(.separator())
         menu.addItem(menuItem(
             AppText.localized("关闭窗口", "Close Window"),
@@ -90,6 +97,12 @@ extension AppDelegate {
             AppText.localized("背单词", "Vocab"),
             action: #selector(ReaderWindowController.showVocabularyBook),
             key: "d",
+            target: controller
+        ))
+        menu.addItem(menuItem(
+            AppText.localized("阅读笔记", "Reading Notes"),
+            action: #selector(ReaderWindowController.showReadingNotesPanel(_:)),
+            key: "n",
             target: controller
         ))
         menu.addItem(menuItem(

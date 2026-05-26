@@ -27,6 +27,9 @@ extension ReaderWindowController {
                 if self.handleStoredWordClick(event) {
                     return nil
                 }
+                if self.handleReadingNoteClick(event) {
+                    return nil
+                }
                 if self.handleAISourceUnderlineClick(event) {
                     return nil
                 }
@@ -67,6 +70,16 @@ extension ReaderWindowController {
         pendingAISourceClickWorkItem = workItem
         DispatchQueue.main.async(execute: workItem)
         return false
+    }
+
+    func handleReadingNoteClick(_ event: NSEvent) -> Bool {
+        guard isMouseEventInsidePDFArea(event),
+              let noteID = readingNoteID(at: event),
+              let note = storedReadingNotes.first(where: { $0.id == noteID }) else {
+            return false
+        }
+        openReadingNotePanel(note)
+        return true
     }
 
     func clearAISelectionIfClickingReader(_ event: NSEvent) {

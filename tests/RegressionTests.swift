@@ -44,6 +44,19 @@ private func testMarkdownRendererCompactsOriginalTranslationGap() throws {
     try expect(rendered.contains("legions.\"\n翻译"), "translation heading should follow original content directly")
 }
 
+private func testMarkdownRendererKeepsAISectionHeadingBold() throws {
+    let rendered = MarkdownRenderer.render("### 解析\n\n内容\n\n笔记\n\n补充\n\n润色\n\n结果", textColor: .black)
+    let string = rendered.string as NSString
+    for heading in ["解析", "笔记", "润色"] {
+        let range = string.range(of: heading)
+        try expect(range.location != NSNotFound, "rendered text should include \(heading) heading")
+        guard let font = rendered.attribute(.font, at: range.location, effectiveRange: nil) as? NSFont else {
+            throw TestFailure(description: "\(heading) heading should have a font")
+        }
+        try expect(font.fontDescriptor.symbolicTraits.contains(.bold), "\(heading) heading should be bold")
+    }
+}
+
 private func testDocumentIdentityPreservesLegacyDataWhenOnlyLegacyHasData() throws {
     let fastID = "fast-new"
     let legacyID = "legacy-md5"
@@ -178,6 +191,8 @@ struct RegressionTestRunner {
         do {
             try testMarkdownRendererCompactsOriginalTranslationGap()
             print("PASS Markdown compact original/translation spacing")
+            try testMarkdownRendererKeepsAISectionHeadingBold()
+            print("PASS Markdown AI section heading bold")
             try testDocumentIdentityPreservesLegacyDataWhenOnlyLegacyHasData()
             print("PASS Fast document ID legacy compatibility")
             try testDocumentIdentityFastIDIsStableAndNotMD5Length()

@@ -165,6 +165,9 @@ extension ReaderWindowController {
         selectionActionToolbar.onSpeak = { [weak self] in
             self?.runSelectionToolbarAction(.speak)
         }
+        selectionActionToolbar.onNote = { [weak self] in
+            self?.runSelectionToolbarAction(.note)
+        }
         selectionActionToolbar.onCopy = { [weak self] in
             self?.runSelectionToolbarAction(.copy)
         }
@@ -210,6 +213,7 @@ extension ReaderWindowController {
         userContentController.add(self, name: "selectionChanged")
         userContentController.add(self, name: "scrollChanged")
         userContentController.add(self, name: "webWordClicked")
+        userContentController.add(self, name: "webNoteClicked")
         userContentController.add(self, name: "webAISourceClicked")
         userContentController.addUserScript(WKUserScript(
             source: Self.webDocumentUserScriptSource(),

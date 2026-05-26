@@ -1,19 +1,18 @@
 (() => {
   var lastScrollSent = 0;
-  var preservedHighlightRange = null;
   var documentMouseDown = false;
-  const installSelectionHighlightStyle = () => {
-    if (document.getElementById('leaf-reader-selection-highlight-style')) return;
+  const readerOverlayStyleID = 'leaf-reader-overlay-style';
+  const installReaderOverlayStyle = () => {
+    if (document.getElementById(readerOverlayStyleID)) return;
     const style = document.createElement('style');
-    style.id = 'leaf-reader-selection-highlight-style';
+    style.id = readerOverlayStyleID;
     style.textContent = `
-      ::highlight(leaf-reader-selection) { background: rgba(255, 221, 87, .62); color: inherit; }
       ::highlight(leaf-reader-ai-source) { text-decoration-line: underline; text-decoration-color: var(--leaf-reader-ai-source-underline, rgba(0, 122, 255, .72)); text-decoration-thickness: 1.5px; text-underline-offset: .16em; }
       ::highlight(leaf-reader-tts) { background: rgba(143, 199, 125, .32); color: inherit; }
-      .leaf-reader-selection-highlight { background: rgba(255, 221, 87, .62); color: inherit; }
       .leaf-reader-ai-source-underline { text-decoration-line: underline; text-decoration-color: var(--leaf-reader-ai-source-underline, rgba(0, 122, 255, .72)); text-decoration-thickness: 1.5px; text-underline-offset: .16em; }
       .leaf-reader-tts-underline { background: rgba(143, 199, 125, .32); border-radius: 2px; -webkit-user-select: text; user-select: text; }
-      .leaf-reader-linked-word { background: rgba(255, 221, 87, .62); border-radius: 3px; cursor: pointer; }
+      .leaf-reader-linked-word { background: transparent; border-radius: 2px; cursor: pointer; text-decoration-line: underline; text-decoration-style: solid; text-decoration-color: var(--leaf-reader-ai-source-underline, rgba(0, 122, 255, .72)); text-decoration-thickness: 3px; text-underline-offset: .16em; }
+      .leaf-reader-note-highlight { background: var(--leaf-reader-note-highlight-background, rgba(145, 202, 255, .34)); border-radius: 3px; cursor: pointer; }
       ::highlight(leaf-reader-search) { background: rgba(255, 221, 87, .52); color: inherit; }
       ::highlight(leaf-reader-search-current) { background: rgba(255, 149, 0, .72); color: inherit; }
     `;
@@ -363,7 +362,7 @@
     return true;
   };
   window.leafReaderSearch = (query, direction, reset) => {
-    installSelectionHighlightStyle();
+    installReaderOverlayStyle();
     if (!(window.CSS && CSS.highlights && window.Highlight)) {
       const found = window.find(String(query || ''), false, direction < 0, true, false, true, false);
       return { index: found ? 1 : 0, total: found ? 1 : 0 };
@@ -579,7 +578,7 @@
     return ranges;
   };
   window.leafReaderPrepareReadAloudBatch = () => {
-    installSelectionHighlightStyle();
+    installReaderOverlayStyle();
     window.leafReaderClearTTSUnderline();
     if (window.leafReaderClearSelectionVisualOnly) {
       window.leafReaderClearSelectionVisualOnly();
@@ -665,7 +664,7 @@
     return { ok: true, progress: leafReaderScrollProgress() };
   };
   window.leafReaderUnderlineTTSIndex = (segmentIndex, fallbackText) => {
-    installSelectionHighlightStyle();
+    installReaderOverlayStyle();
     window.leafReaderClearTTSUnderline();
     const numericIndex = Number(segmentIndex || 0);
     if (!numericIndex || numericIndex < 1) return window.leafReaderUnderlineTTS(fallbackText);
@@ -682,7 +681,7 @@
     return { ok: true, sourceKey, wordID: wordIDs[0] || '', wordIDs, progress };
   };
   window.leafReaderUnderlineTTS = (targetText) => {
-    installSelectionHighlightStyle();
+    installReaderOverlayStyle();
     window.leafReaderClearTTSUnderline();
     const needle = normalizedText(targetText);
     if (!needle) return false;
@@ -747,7 +746,7 @@
     const selection = window.getSelection();
     const text = String(selection || '').trim();
     if (!selection || selection.rangeCount === 0 || text.length === 0) return false;
-    installSelectionHighlightStyle();
+    installReaderOverlayStyle();
     const range = selection.getRangeAt(0).cloneRange();
     return wrapRangeTextNodes(range, 'leaf-reader-ai-source-underline', (span) => {
       span.dataset.leafAiSourceKey = String(key || '');
@@ -755,7 +754,7 @@
   };
   window.leafReaderRestoreAISourceUnderlines = (sources) => {
     window.leafReaderClearAISourceUnderlines();
-    installSelectionHighlightStyle();
+    installReaderOverlayStyle();
     for (const source of sources || []) {
       const text = normalizedText(source.selectedText || '');
       if (!text) continue;
@@ -767,7 +766,7 @@
     }
   };
   window.leafReaderRestoreWordHighlights = (records) => {
-    installSelectionHighlightStyle();
+    installReaderOverlayStyle();
     document.querySelectorAll('span.leaf-reader-linked-word').forEach((span) => {
       const parent = span.parentNode;
       if (!parent) return;
@@ -789,13 +788,64 @@
     const selection = window.getSelection();
     const text = String(selection || '').trim();
     if (!selection || selection.rangeCount === 0 || !text || !id) return false;
-    installSelectionHighlightStyle();
+    installReaderOverlayStyle();
     const range = selection.getRangeAt(0).cloneRange();
     const didWrap = wrapRangeTextNodes(range, 'leaf-reader-linked-word', (span) => {
       span.dataset.leafWordId = String(id);
     });
     selection.removeAllRanges();
     return didWrap;
+  };
+  window.leafReaderRestoreNoteHighlights = (records) => {
+    installReaderOverlayStyle();
+    document.querySelectorAll('span.leaf-reader-note-highlight').forEach((span) => {
+      const parent = span.parentNode;
+      if (!parent) return;
+      while (span.firstChild) parent.insertBefore(span.firstChild, span);
+      parent.removeChild(span);
+      parent.normalize();
+    });
+    for (const record of records || []) {
+      try {
+        const range = window.leafReaderFindTextRange(record.selectedText, record.context, record.occurrenceIndex || 0);
+        if (!range) continue;
+        wrapRangeTextNodes(range, 'leaf-reader-note-highlight', (span) => {
+          span.dataset.leafNoteId = record.id;
+        });
+      } catch (_) {}
+    }
+  };
+  window.leafReaderMarkSelectionAsNote = (id) => {
+    const selection = window.getSelection();
+    const text = String(selection || '').trim();
+    if (!selection || selection.rangeCount === 0 || !text || !id) return false;
+    installReaderOverlayStyle();
+    const range = selection.getRangeAt(0).cloneRange();
+    const didWrap = wrapRangeTextNodes(range, 'leaf-reader-note-highlight', (span) => {
+      span.dataset.leafNoteId = String(id);
+    });
+    selection.removeAllRanges();
+    return didWrap;
+  };
+  window.leafReaderScrollToNote = (id, fallbackProgress) => {
+    const target = document.querySelector(`span.leaf-reader-note-highlight[data-leaf-note-id="${CSS.escape(String(id || ''))}"]`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return true;
+    }
+    const height = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    window.scrollTo({ top: height * Math.max(0, Math.min(1, Number(fallbackProgress || 0))), behavior: 'smooth' });
+    return false;
+  };
+  window.leafReaderRemoveNoteHighlight = (id) => {
+    const selector = `span.leaf-reader-note-highlight[data-leaf-note-id="${CSS.escape(String(id || ''))}"]`;
+    document.querySelectorAll(selector).forEach((span) => {
+      const parent = span.parentNode;
+      if (!parent) return;
+      while (span.firstChild) parent.insertBefore(span.firstChild, span);
+      parent.removeChild(span);
+      parent.normalize();
+    });
   };
   window.leafReaderRemoveWordHighlight = (id) => {
     const selector = `span.leaf-reader-linked-word[data-leaf-word-id="${CSS.escape(String(id || ''))}"]`;
@@ -817,7 +867,7 @@
     window.scrollTo({ top: height * Math.max(0, Math.min(1, Number(fallbackProgress || 0))), behavior: 'smooth' });
     return false;
   };
-  const clearSpanHighlights = () => {
+  const clearLegacySelectionSpanHighlights = () => {
     document.querySelectorAll('span.leaf-reader-selection-highlight').forEach((span) => {
       const parent = span.parentNode;
       if (!parent) return;
@@ -826,46 +876,26 @@
       parent.normalize();
     });
   };
-  const clearPreservedSelectionHighlight = () => {
-    preservedHighlightRange = null;
+  const clearLegacySelectionOverlay = () => {
     if (window.CSS && CSS.highlights) CSS.highlights.delete('leaf-reader-selection');
-    clearSpanHighlights();
+    clearLegacySelectionSpanHighlights();
   };
   window.leafReaderClearSelection = () => {
-    clearPreservedSelectionHighlight();
+    clearLegacySelectionOverlay();
     const selection = window.getSelection();
     if (selection) selection.removeAllRanges();
     window.webkit.messageHandlers.selectionChanged.postMessage({ text: "", context: "" });
   };
   window.leafReaderClearSelectionVisualOnly = () => {
-    clearPreservedSelectionHighlight();
+    clearLegacySelectionOverlay();
     const selection = window.getSelection();
     if (selection) selection.removeAllRanges();
-  };
-  const preserveSelectionHighlight = (selection) => {
-    if (!selection || selection.rangeCount === 0 || String(selection || "").trim().length === 0) return;
-    installSelectionHighlightStyle();
-    clearPreservedSelectionHighlight();
-    const range = selection.getRangeAt(0).cloneRange();
-    preservedHighlightRange = range;
-    if (window.CSS && CSS.highlights && window.Highlight) {
-      CSS.highlights.set('leaf-reader-selection', new Highlight(range));
-      return;
-    }
-    try {
-      const span = document.createElement('span');
-      span.className = 'leaf-reader-selection-highlight';
-      range.surroundContents(span);
-    } catch (_) {
-      // Complex cross-node EPUB selections still keep their text context in native selection.
-    }
   };
   const sendSelection = () => {
     const selection = window.getSelection();
     const text = String(selection || "").trim();
     let context = "";
     if (selection && selection.rangeCount > 0 && text.length > 0) {
-      preserveSelectionHighlight(selection);
       const container = selection.getRangeAt(0).commonAncestorContainer;
       const element = container.nodeType === Node.ELEMENT_NODE ? container : container.parentElement;
       const block = element ? element.closest('p,li,blockquote,pre,td,th,h1,h2,h3,h4,h5,h6,div') : null;
@@ -890,13 +920,11 @@
         } catch (_) {}
       }
       window.webkit.messageHandlers.selectionChanged.postMessage({ text, context, occurrenceIndex, rect });
-      documentMouseDown = false;
       return;
     } else if (documentMouseDown) {
-      clearPreservedSelectionHighlight();
+      clearLegacySelectionOverlay();
     }
     window.webkit.messageHandlers.selectionChanged.postMessage({ text, context, occurrenceIndex: null, rect: null });
-    documentMouseDown = false;
   };
   const sendScroll = (force = false) => {
     const now = Date.now();
@@ -932,7 +960,7 @@
   };
   document.addEventListener("mousedown", () => {
     documentMouseDown = true;
-    clearPreservedSelectionHighlight();
+    clearLegacySelectionOverlay();
     const selection = window.getSelection();
     if (selection) selection.removeAllRanges();
     window.webkit.messageHandlers.selectionChanged.postMessage({ text: "", context: "" });
@@ -953,13 +981,21 @@
       return;
     }
     const target = event.target?.closest?.('span.leaf-reader-linked-word');
-    if (!target) return;
+    if (target) {
+      event.preventDefault();
+      event.stopPropagation();
+      window.webkit.messageHandlers.webWordClicked.postMessage(String(target.dataset.leafWordId || ''));
+      return;
+    }
+    const note = event.target?.closest?.('span.leaf-reader-note-highlight');
+    if (!note) return;
     event.preventDefault();
     event.stopPropagation();
-    window.webkit.messageHandlers.webWordClicked.postMessage(String(target.dataset.leafWordId || ''));
+    window.webkit.messageHandlers.webNoteClicked.postMessage(String(note.dataset.leafNoteId || ''));
   }, true);
   document.addEventListener("selectionchange", () => setTimeout(sendSelection, 0));
   document.addEventListener("mouseup", () => {
+    documentMouseDown = false;
     sendSelection();
   });
   document.addEventListener("keyup", sendSelection);

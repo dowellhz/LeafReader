@@ -28,25 +28,30 @@ final class KittenServerTTSBackend {
     private var serverOutputPipe: Pipe?
     private var serverErrorPipe: Pipe?
 
-    func synthesize(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
-        synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID).isSuccess
+    func synthesize(text: String, outputURL: URL, voiceID: String? = nil, speed: Double? = nil) -> Bool {
+        synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID, speed: speed).isSuccess
     }
 
-    func synthesizeResult(text: String, outputURL: URL, voiceID: String? = nil) -> Result<Void, SpeechSynthesisError> {
+    func synthesizeResult(
+        text: String,
+        outputURL: URL,
+        voiceID: String? = nil,
+        speed: Double? = nil
+    ) -> Result<Void, SpeechSynthesisError> {
         guard Self.runtime() != nil else {
             return .failure(Self.availabilityError())
         }
         if ensureServer() {
-            if Self.synthesizeWithServerResult(text: text, outputURL: outputURL, voiceID: voiceID).isSuccess {
+            if Self.synthesizeWithServerResult(text: text, outputURL: outputURL, voiceID: voiceID, speed: speed).isSuccess {
                 return .success(())
             }
             stop()
             if ensureServer() {
-               let retryResult = Self.synthesizeWithServerResult(text: text, outputURL: outputURL, voiceID: voiceID)
-               if retryResult.isSuccess {
-                return .success(())
-               }
-               return retryResult
+                let retryResult = Self.synthesizeWithServerResult(text: text, outputURL: outputURL, voiceID: voiceID, speed: speed)
+                if retryResult.isSuccess {
+                    return .success(())
+                }
+                return retryResult
             }
             return .failure(.invalidAudioOutput("KittenTTS"))
         }
@@ -181,14 +186,11 @@ final class KittenServerTTSBackend {
         return false
     }
 
-    private static func synthesizeWithServer(text: String, outputURL: URL, voiceID: String? = nil) -> Bool {
-        synthesizeWithServerResult(text: text, outputURL: outputURL, voiceID: voiceID).isSuccess
-    }
-
     private static func synthesizeWithServerResult(
         text: String,
         outputURL: URL,
-        voiceID: String? = nil
+        voiceID: String? = nil,
+        speed: Double? = nil
     ) -> Result<Void, SpeechSynthesisError> {
         var request = URLRequest(url: serverURL(path: "/v1/audio/speech"))
         request.httpMethod = "POST"
@@ -198,7 +200,7 @@ final class KittenServerTTSBackend {
             "model": "kitten-tts",
             "input": text,
             "voice": voiceID ?? ProcessInfo.processInfo.environment[voiceEnvironmentKey] ?? AISettingsStore.selectedKittenSpeechVoiceID,
-            "speed": speed(),
+            "speed": Self.speed(override: speed),
             "response_format": "wav"
         ]
         guard let body = try? JSONSerialization.data(withJSONObject: payload) else {
@@ -277,8 +279,8 @@ final class KittenServerTTSBackend {
         return processServerPort
     }
 
-    private static func speed() -> Double {
-        let value = ProcessInfo.processInfo.environment[speedEnvironmentKey]
+    private static func speed(override: Double? = nil) -> Double {
+        let value = override ?? ProcessInfo.processInfo.environment[speedEnvironmentKey]
             .flatMap(Double.init) ?? AISettingsStore.kittenSpeechSpeedMultiplier
         return min(max(value, 0.5), 2.0)
     }

@@ -27,22 +27,25 @@ final class KokoroTTSBackend {
         text: String,
         outputURL: URL,
         voiceID: String? = nil,
-        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil,
+        speed: Double? = nil
     ) -> Bool {
-        synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID, languageHint: languageHint).isSuccess
+        synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID, languageHint: languageHint, speed: speed).isSuccess
     }
 
     func synthesizeResult(
         text: String,
         outputURL: URL,
         voiceID: String? = nil,
-        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil,
+        speed: Double? = nil
     ) -> Result<Void, SpeechSynthesisError> {
         if synthesizeWithWorker(
             text: text,
             outputURL: outputURL,
             voiceID: voiceID,
-            languageHint: languageHint
+            languageHint: languageHint,
+            speed: speed
         ) {
             return .success(())
         }
@@ -50,7 +53,8 @@ final class KokoroTTSBackend {
             text: text,
             outputURL: outputURL,
             voiceID: voiceID,
-            languageHint: languageHint
+            languageHint: languageHint,
+            speed: speed
         ) {
         case .success:
             return .success(())
@@ -147,7 +151,8 @@ final class KokoroTTSBackend {
         text: String,
         outputURL: URL,
         voiceID: String? = nil,
-        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil,
+        speed: Double? = nil
     ) -> Bool {
         guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else {
             stop()
@@ -155,7 +160,7 @@ final class KokoroTTSBackend {
         }
         let variant = Self.variant(for: text, languageHint: languageHint)
         let voice = voiceID ?? Self.selectedVoiceID(forVariant: variant)
-        let speed = Self.speed()
+        let speed = Self.speed(override: speed)
         guard KokoroVoiceResourceManager.ensureInstalled(voiceID: voice, variant: variant),
               ensureWorker(variant: variant, voiceID: voice),
               let inputPipe = workerInputPipe,
@@ -316,7 +321,8 @@ final class KokoroTTSBackend {
         text: String,
         outputURL: URL,
         voiceID: String? = nil,
-        languageHint: AISettingsStore.SpeechLanguageHint? = nil
+        languageHint: AISettingsStore.SpeechLanguageHint? = nil,
+        speed: Double? = nil
     ) -> Result<Void, SpeechSynthesisError> {
         guard SpeechRuntimeResourceManager.isRunnable(.kokoro) else {
             return .failure(availabilityError(text: text, voiceID: voiceID, languageHint: languageHint))
@@ -340,7 +346,7 @@ final class KokoroTTSBackend {
             "--voice",
             voice,
             "--speed",
-            String(speed()),
+            String(Self.speed(override: speed)),
             "--output",
             outputURL.path
         ]
@@ -409,8 +415,8 @@ final class KokoroTTSBackend {
         return AISettingsStore.selectedKokoroSpeechVoiceID(languageHint: hint)
     }
 
-    private static func speed() -> Double {
-        let value = ProcessInfo.processInfo.environment[speedEnvironmentKey]
+    private static func speed(override: Double? = nil) -> Double {
+        let value = override ?? ProcessInfo.processInfo.environment[speedEnvironmentKey]
             .flatMap(Double.init) ?? AISettingsStore.kokoroSpeechSpeedMultiplier
         return min(max(value, 0.5), 2.0)
     }

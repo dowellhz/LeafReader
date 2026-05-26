@@ -26,11 +26,16 @@ final class PiperTTSBackend {
     private var shouldDisableCoreML = false
     private var coreMLFallbackDiagnostic: String?
 
-    func synthesize(text: String, outputURL: URL, voiceID: String?) -> Bool {
-        synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID).isSuccess
+    func synthesize(text: String, outputURL: URL, voiceID: String?, lengthScale: Double? = nil) -> Bool {
+        synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID, lengthScale: lengthScale).isSuccess
     }
 
-    func synthesizeResult(text: String, outputURL: URL, voiceID: String?) -> Result<Void, SpeechSynthesisError> {
+    func synthesizeResult(
+        text: String,
+        outputURL: URL,
+        voiceID: String?,
+        lengthScale: Double? = nil
+    ) -> Result<Void, SpeechSynthesisError> {
         workerStateLock.lock()
         defer { workerStateLock.unlock() }
         cancelWorkerIdleShutdown()
@@ -38,10 +43,21 @@ final class PiperTTSBackend {
         guard !trimmed.isEmpty else {
             return .failure(.invalidAudioOutput("Piper"))
         }
-        guard let runtime = resolveRuntime(voiceID: voiceID) else {
+        guard let runtime = resolveRuntime(voiceID: voiceID, lengthScale: lengthScale) else {
             return .failure(.runtimeUnavailable("Piper"))
         }
         try? FileManager.default.removeItem(at: outputURL)
+
+        if lengthScale != nil {
+            defer { scheduleWorkerIdleShutdownIfNeeded() }
+            switch runPiperOneShot(text: trimmed, outputURL: outputURL, runtime: runtime) {
+            case .success:
+                return TTSWaveFile.isUsable(at: outputURL) ? .success(()) : .failure(.invalidAudioOutput("Piper"))
+            case .failure(let error):
+                try? FileManager.default.removeItem(at: outputURL)
+                return .failure(error)
+            }
+        }
 
         if synthesizeWithWorker(text: trimmed, outputURL: outputURL, runtime: runtime) {
             return .success(())
@@ -268,11 +284,11 @@ final class PiperTTSBackend {
         return runPiper(runtime.executableURL, arguments: arguments, input: text + "\n")
     }
 
-    private func resolveRuntime(voiceID: String?) -> PiperRuntime? {
+    private func resolveRuntime(voiceID: String?, lengthScale: Double? = nil) -> PiperRuntime? {
         let environment = ProcessInfo.processInfo.environment
         let selectedVoiceID = environment[voiceEnvironmentKey] ?? voiceID ?? AISettingsStore.selectedPiperSpeechVoiceID
         let modelFileName = "\(selectedVoiceID).onnx"
-        let lengthScale = AISettingsStore.piperLengthScale
+        let lengthScale = lengthScale ?? AISettingsStore.piperLengthScale
 
         if let executablePath = environment[executableEnvironmentKey],
            let modelPath = environment[modelEnvironmentKey] {

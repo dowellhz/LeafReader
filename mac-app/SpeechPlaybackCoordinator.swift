@@ -50,14 +50,44 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         let pageIndex: Int?
     }
 
-    func speakText(_ text: String, completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
+    struct SynthesisOptions {
+        let speedMultiplier: Double?
+        let piperLengthScale: Double?
+
+        static let `default` = SynthesisOptions()
+        static let normalSpeed = SynthesisOptions(speedMultiplier: 1.0, piperLengthScale: 1.0)
+
+        init(speedMultiplier: Double? = nil, piperLengthScale: Double? = nil) {
+            self.speedMultiplier = speedMultiplier
+            self.piperLengthScale = piperLengthScale
+        }
+
+        var cacheSpeedID: String {
+            if speedMultiplier == 1.0, piperLengthScale == 1.0 {
+                return "normal"
+            }
+            return "settings-\(AISettingsStore.selectedSpeechSpeedID)"
+        }
+    }
+
+    func speakText(
+        _ text: String,
+        options: SynthesisOptions = .default,
+        completion: @escaping (Bool) -> Void,
+        finished: (() -> Void)? = nil
+    ) {
         let segments = SpeechTextPolicy.readAloudSegments(for: text).map {
             ReadAloudSegment(speechText: $0)
         }
-        speakText(segments: segments, completion: completion, finished: finished)
+        speakText(segments: segments, options: options, completion: completion, finished: finished)
     }
 
-    func speakText(segments inputSegments: [ReadAloudSegment], completion: @escaping (Bool) -> Void, finished: (() -> Void)? = nil) {
+    func speakText(
+        segments inputSegments: [ReadAloudSegment],
+        options: SynthesisOptions = .default,
+        completion: @escaping (Bool) -> Void,
+        finished: (() -> Void)? = nil
+    ) {
         cancelScheduledIdleShutdown()
         let segments = inputSegments.flatMap { segment -> [ReadAloudSegment] in
             let speechText = SpeechTextPolicy.normalizedReadAloudInput(segment.speechText)
@@ -82,7 +112,13 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
             return
         }
 
-        generateAndPlay(segments: segments, allSegments: segments, completion: completion, finished: finished)
+        generateAndPlay(
+            segments: segments,
+            allSegments: segments,
+            options: options,
+            completion: completion,
+            finished: finished
+        )
     }
 
     private func generateAndPlay(
@@ -90,6 +126,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         allSegments: [ReadAloudSegment],
         indexOffset: Int = 0,
         initialPlaybackSegments: [PlaybackSegment] = [],
+        options: SynthesisOptions = .default,
         completion: @escaping (Bool) -> Void,
         finished: (() -> Void)?
     ) {
@@ -120,6 +157,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
                     text: segment.speechText,
                     outputURL: outputURL,
                     languageHint: segment.speechLanguageHint,
+                    options: options,
                     recordFailure: false
                 )
                 guard result.isSuccess else {
@@ -735,6 +773,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         outputURL: URL,
         voiceID: String? = nil,
         languageHint: AISettingsStore.SpeechLanguageHint? = nil,
+        options: SynthesisOptions = .default,
         recordFailure: Bool = true
     ) -> Result<Void, SpeechSynthesisError> {
         let backend = Self.preferredBackend(for: text, languageHint: languageHint)
@@ -747,12 +786,23 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
                 text: text,
                 outputURL: outputURL,
                 voiceID: voiceID,
-                languageHint: languageHint
+                languageHint: languageHint,
+                speed: options.speedMultiplier
             )
         case .kitten:
-            result = kittenBackend.synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID)
+            result = kittenBackend.synthesizeResult(
+                text: text,
+                outputURL: outputURL,
+                voiceID: voiceID,
+                speed: options.speedMultiplier
+            )
         case .piper:
-            result = piperBackend.synthesizeResult(text: text, outputURL: outputURL, voiceID: voiceID)
+            result = piperBackend.synthesizeResult(
+                text: text,
+                outputURL: outputURL,
+                voiceID: voiceID,
+                lengthScale: options.piperLengthScale
+            )
         case .none:
             result = .failure(.unsupportedLanguage(AppText.localized("当前朗读引擎", "Selected speech runtime")))
         }

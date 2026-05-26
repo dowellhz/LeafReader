@@ -51,7 +51,8 @@ extension ReaderWindowController {
 
         let wordAnnotation = page.annotations
             .first { annotation in
-                annotation.bounds.contains(pointOnPage) && storedWordID(from: annotation) != nil
+                storedWordID(from: annotation) != nil
+                    && annotation.bounds.insetBy(dx: -4, dy: -14).contains(pointOnPage)
             }
         if let wordID = wordAnnotation.flatMap(storedWordID(from:)) {
             return wordID

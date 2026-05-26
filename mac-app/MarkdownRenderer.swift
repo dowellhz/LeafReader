@@ -24,6 +24,12 @@ enum MarkdownRenderer {
             previousLineWasBlank = false
             previousNonEmptyLine = line
 
+            if let image = imageLine(line, textColor: textColor) {
+                output.append(image)
+                output.append(NSAttributedString(string: "\n"))
+                continue
+            }
+
             let parsed = markdownLine(line, baseFontSize: fontSize)
             let baseFont = parsed.isHeading || parsed.isBoldLine
                 ? NSFont.boldSystemFont(ofSize: parsed.fontSize)
@@ -84,6 +90,27 @@ enum MarkdownRenderer {
             || normalized == "explanation"
     }
 
+    private static func isReadingNoteSectionHeading(_ line: String) -> Bool {
+        let normalized = line
+            .trimmingCharacters(in: .whitespaces)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "#*_：: "))
+            .lowercased()
+        return normalized == "笔记"
+            || normalized == "解析"
+            || normalized == "翻译"
+            || normalized == "总结"
+            || normalized == "润色"
+            || normalized == "notes"
+            || normalized == "note"
+            || normalized == "explain"
+            || normalized == "explanation"
+            || normalized == "translate"
+            || normalized == "translation"
+            || normalized == "summary"
+            || normalized == "summarize"
+            || normalized == "polish"
+    }
+
     private static func markdownLine(_ line: String, baseFontSize: CGFloat) -> (display: String, isHeading: Bool, isBoldLine: Bool, isBullet: Bool, fontSize: CGFloat) {
         var display = line
         var isHeading = false
@@ -96,10 +123,17 @@ enum MarkdownRenderer {
             fontSize = marker.count <= 1 ? baseFontSize + 3 : (marker.count == 2 ? baseFontSize + 1 : baseFontSize)
         } else if display.hasPrefix("【"), display.contains("】") {
             isHeading = true
+        } else if isReadingNoteSectionHeading(display) {
+            isHeading = true
         }
 
         let isBullet = display.range(of: #"^[-*]\s+"#, options: .regularExpression) != nil
+            || display.range(of: #"^- \[[ xX]\]\s+"#, options: .regularExpression) != nil
             || display.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil
+        display = display
+            .replacingOccurrences(of: #"^- \[ \]\s+"#, with: "☐ ", options: .regularExpression)
+            .replacingOccurrences(of: #"^- \[[xX]\]\s+"#, with: "☑ ", options: .regularExpression)
+            .replacingOccurrences(of: #"^>\s?"#, with: "", options: .regularExpression)
         display = display
             .replacingOccurrences(of: #"^[-*]\s+"#, with: "• ", options: .regularExpression)
 
@@ -109,9 +143,48 @@ enum MarkdownRenderer {
         return (display, isHeading, isBoldLine, isBullet, fontSize)
     }
 
+    private static func imageLine(_ line: String, textColor: NSColor) -> NSAttributedString? {
+        let nsLine = line as NSString
+        guard let regex = try? NSRegularExpression(pattern: #"^!\[([^\]]*)\]\(([^)]+)\)$"#) else { return nil }
+        let range = NSRange(location: 0, length: nsLine.length)
+        guard let match = regex.firstMatch(in: line, range: range),
+              match.numberOfRanges == 3 else {
+            return nil
+        }
+        let title = nsLine.substring(with: match.range(at: 1))
+        let target = nsLine.substring(with: match.range(at: 2))
+        let url = URL(string: target) ?? URL(fileURLWithPath: target)
+        guard let image = NSImage(contentsOf: url) else {
+            return NSAttributedString(
+                string: title.isEmpty ? target : title,
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 13),
+                    .foregroundColor: textColor.withAlphaComponent(0.72)
+                ]
+            )
+        }
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        attachment.bounds = scaledImageBounds(for: image)
+        let rendered = NSMutableAttributedString(attachment: attachment)
+        rendered.addAttribute(.link, value: url.absoluteString, range: NSRange(location: 0, length: rendered.length))
+        return rendered
+    }
+
+    private static func scaledImageBounds(for image: NSImage) -> NSRect {
+        let maxWidth: CGFloat = 360
+        let size = image.size
+        guard size.width > 0, size.height > 0 else {
+            return NSRect(x: 0, y: -4, width: 180, height: 120)
+        }
+        let scale = min(1, maxWidth / size.width)
+        return NSRect(x: 0, y: -4, width: size.width * scale, height: size.height * scale)
+    }
+
     private static func applyInlineMarkdown(to attributed: NSMutableAttributedString, baseFontSize: CGFloat) {
         applyDelimitedStyle(to: attributed, delimiter: "**", font: NSFont.boldSystemFont(ofSize: baseFontSize))
         applyDelimitedStyle(to: attributed, delimiter: "__", font: NSFont.boldSystemFont(ofSize: baseFontSize))
+        applyDelimitedStyle(to: attributed, delimiter: "*", font: NSFontManager.shared.convert(NSFont.systemFont(ofSize: baseFontSize), toHaveTrait: .italicFontMask))
         applyDelimitedStyle(to: attributed, delimiter: "`", font: NSFont.monospacedSystemFont(ofSize: max(12, baseFontSize - 1), weight: .regular))
     }
 
