@@ -1,6 +1,8 @@
 import Foundation
 
 enum VocabularyReviewScoringService {
+    // One exported vocabulary card may aggregate several saved word records. Keep the
+    // exported card's SRS state pinned to the earliest due underlying record.
     static func snapshot(
         ids: [String],
         documentKind: ReaderDocumentKind,

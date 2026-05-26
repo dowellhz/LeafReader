@@ -80,6 +80,8 @@ if [[ -z "$RUNTIME_ASSETS_RELEASE_TAG" ]]; then
   echo "Unable to read SpeechRuntimeModel.runtimeAssetsReleaseTag" >&2
   exit 1
 fi
+# Speech models are not uploaded for normal app releases; their download tag is
+# intentionally allowed to lag behind the app version until model archives change.
 if [[ "$RUNTIME_ASSETS_RELEASE_TAG" == "$TAG" && "$UPLOAD_SPEECH_MODELS" -ne 1 ]]; then
   echo "SpeechRuntimeModel.runtimeAssetsReleaseTag points at $TAG, but --with-speech-models was not provided." >&2
   echo "Either publish the changed model archives with --with-speech-models, or keep runtimeAssetsReleaseTag pointed at the existing model asset release." >&2

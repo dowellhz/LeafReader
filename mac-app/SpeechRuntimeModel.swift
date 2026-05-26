@@ -12,6 +12,8 @@ extension SpeechRuntimeResourceManager {
         case piper
 
         private static let releaseDownloadsBaseURL = "https://github.com/dowellhz/LeafReader/releases"
+        // Speech model archives are versioned independently from app releases. Only move
+        // this tag when publishing new model assets with scripts/publish_release.sh --with-speech-models.
         static let runtimeAssetsReleaseTag = "v1.5.10"
 
         static let displayOrder: [Runtime] = [.kitten, .piper, .kokoro]

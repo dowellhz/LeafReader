@@ -69,6 +69,8 @@ final class VocabularySpeechCoordinator: NSObject, AVSpeechSynthesizerDelegate {
         _ text: String,
         options: SpeechPlaybackCoordinator.SynthesisOptions
     ) {
+        // Short selections stay on AVSpeechSynthesizer so they can interrupt read-aloud cheaply.
+        // Longer vocabulary/context speech uses the cached local TTS path when available.
         if VocabularyTextPolicy.shouldUseSystemTTSForShortSelection(text) {
             selectionSpeechCompletion = nil
             synthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
@@ -77,6 +79,8 @@ final class VocabularySpeechCoordinator: NSObject, AVSpeechSynthesizerDelegate {
 
         let shouldResumeReadAloud = owner?.shouldResumeReadAloudAfterVocabularySpeech ?? false
         if shouldResumeReadAloud {
+            // Vocabulary playback is an interruption: pause the main read-aloud stream,
+            // then resume only if it was active at the time this request started.
             owner?.pauseReadAloudForVocabularySpeech()
             SpeechPlaybackCoordinator.shared.speakCachedVocabularyText(text, options: options) { [weak self] didUseLocalTTS in
                 guard let self else { return }

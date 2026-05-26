@@ -49,6 +49,8 @@ struct VocabularySRSState: Codable {
         next.reviewCount += 1
         next.lastReviewedAt = date
 
+        // Grade mapping is UI-driven: 1 = did not remember, 2 = remembered after context,
+        // 3/4 = active recall. Lapses stay due soon instead of advancing by days.
         if boundedGrade == 1 {
             next.repetition = 0
             next.intervalDays = 0
@@ -60,6 +62,8 @@ struct VocabularySRSState: Codable {
             return next
         }
 
+        // Context-assisted recall uses the gentler interval ladder; active recall can
+        // grow faster and counts toward mastery.
         let intervals = boundedGrade == 2
             ? [1, 2, 4, 7, 15]
             : [1, 3, 7, 15, 30]
