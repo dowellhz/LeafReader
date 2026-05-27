@@ -46,6 +46,7 @@ swiftc \
   mac-app/ReaderSessionStore.swift \
   mac-app/ReadingNote.swift \
   mac-app/ReadingNoteTextPolicy.swift \
+  mac-app/ReadingNoteListPresenter.swift \
   mac-app/ReadingNoteStore.swift \
   mac-app/ReadingNoteExporter.swift \
   mac-app/ReaderProgressFormatter.swift \
@@ -58,6 +59,7 @@ swiftc \
   mac-app/AppText.swift \
   mac-app/AIModelConfig.swift \
   mac-app/LocalEncryptedStore.swift \
+  mac-app/LocalRuntime.swift \
   mac-app/SpeechVoiceCatalog.swift \
   mac-app/AISettingsStore.swift \
   mac-app/AISettingsStore+Embedding.swift \

@@ -120,6 +120,54 @@ enum ReadingNoteLogicTests {
         try expectEqual(fallback.displayTitle, "Fallback quote", "empty markdown title should fall back to quote")
     }
 
+    static func testReadingNoteListPresenterRows() throws {
+        let newer = ReadingNote(
+            id: "note-new",
+            documentID: "doc-1",
+            documentTitle: "Book",
+            documentKind: "web",
+            quote: "Fallback",
+            markdown: "# Web note title",
+            locator: ReadingNote.Locator(
+                pdfFragments: nil,
+                webAnchor: ReadingNote.WebAnchor(
+                    selectedText: "Fallback",
+                    context: "Before Fallback After",
+                    occurrenceIndex: 0,
+                    scrollProgress: 0.5
+                )
+            ),
+            createdAt: Date(timeIntervalSince1970: 200),
+            updatedAt: Date(timeIntervalSince1970: 200)
+        )
+        let older = ReadingNote(
+            id: "note-old",
+            documentID: "doc-1",
+            documentTitle: "Book",
+            documentKind: "pdf",
+            quote: "PDF fallback",
+            markdown: "> PDF note title",
+            locator: ReadingNote.Locator(
+                pdfFragments: [
+                    ReadingNote.PDFFragment(
+                        pageIndex: 6,
+                        bounds: StoredPDFWordRect(CGRect(x: 0, y: 0, width: 10, height: 10))
+                    )
+                ],
+                webAnchor: nil
+            ),
+            createdAt: Date(timeIntervalSince1970: 100),
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        let rows = ReadingNoteListPresenter.rows(for: [newer, older])
+        try expectEqual(rows.map(\.id), ["note-old", "note-new"], "reading note rows should sort by creation time")
+        try expectEqual(rows[0].locationText, AppText.localized("第 7 页", "p. 7"), "PDF row should show page location")
+        try expectEqual(rows[0].titleText, "PDF note title", "PDF row should use display title")
+        try expectEqual(rows[1].locationText, AppText.localized("网页位置", "Web location"), "web row should show web location")
+        try expectEqual(rows[1].titleText, "Web note title", "web row should use display title")
+    }
+
     static func testReadingNoteQuoteSoftLineBreaks() throws {
         let input = """
         A beginning is the time for taking

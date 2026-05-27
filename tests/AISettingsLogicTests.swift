@@ -419,6 +419,24 @@ enum AISettingsLogicTests {
         try expect(!kittenURL.contains("/v1.4.18/"), "KittenTTS download URL should not be pinned to the old 1.4.18 release")
     }
 
+    static func testSpeechRuntimeLocalRuntimeDescriptors() throws {
+        let descriptors = SpeechRuntimeResourceManager.Runtime.localRuntimeDescriptors
+        try expectEqual(descriptors.map(\.id), ["kitten", "piper", "kokoro"], "speech runtime descriptors should preserve display order")
+
+        let piper = SpeechRuntimeResourceManager.Runtime.piper
+        let descriptor = piper.localRuntimeDescriptor
+        try expectEqual(descriptor.family, .speech, "speech runtime descriptor should identify the runtime family")
+        try expectEqual(descriptor.id, piper.id, "descriptor should expose runtime id")
+        try expectEqual(descriptor.title, piper.title, "descriptor should expose runtime title")
+        try expectEqual(descriptor.downloadURL, piper.downloadURL, "descriptor should expose runtime download URL")
+        try expectEqual(descriptor.manifestURL, SpeechRuntimeResourceManager.Runtime.modelManifestURL, "descriptor should expose the speech model manifest URL")
+        try expectEqual(descriptor.installDirectory, piper.installDirectory, "descriptor should expose the user install directory")
+        try expectEqual(descriptor.executableURL, piper.userExecutableURL, "descriptor should expose the user executable URL")
+        try expectEqual(descriptor.modelDirectory, piper.modelDirectory(in: piper.installDirectory), "descriptor should expose the model directory")
+        try expectEqual(descriptor.requiredPaths, piper.requiredPaths, "descriptor should expose required install paths")
+        try expect(descriptor.installDirectories.contains(piper.installDirectory), "descriptor should include the user install directory among candidate directories")
+    }
+
     static func testSpeechModelManifestParsingAndChecksumValidation() throws {
         let manifestJSON = """
         {

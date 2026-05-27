@@ -28,14 +28,14 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
     private let askButton = NSButton(title: AppText.localized("问 AI", "Ask AI"), target: nil, action: nil)
     let askInputContainer = NSView()
     let askInputField = ReadingNoteAskTextField(string: "")
-    private let askSendButton = NSButton(title: "", target: nil, action: nil)
+    let askSendButton = NSButton(title: "", target: nil, action: nil)
     let statusLabel = NSTextField(labelWithString: "")
-    private let wordCountLabel = NSTextField(labelWithString: "")
-    private let rootView = NSView()
-    private let titleIconView = NSImageView()
-    private let metadataView = NSView()
-    private let editorContainer = NSView()
-    private var topIconButtons: [NSButton] = []
+    let wordCountLabel = NSTextField(labelWithString: "")
+    let rootView = NSView()
+    let titleIconView = NSImageView()
+    let metadataView = NSView()
+    let editorContainer = NSView()
+    var topIconButtons: [NSButton] = []
     var aiActionButtons: [NSButton] {
         [explainButton, translateButton, summarizeButton, polishButton, askButton]
     }
@@ -470,51 +470,6 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         return button
     }
 
-    private func applyTheme(_ theme: ReaderTheme) {
-        let background = ReadingNoteTheme.panelBackground(theme)
-        let text = ReadingNoteTheme.primaryText(theme)
-        window?.backgroundColor = background
-        window?.appearance = theme == .dark ? NSAppearance(named: .darkAqua) : NSAppearance(named: .aqua)
-        rootView.layer?.backgroundColor = background.cgColor
-        rootView.layer?.cornerRadius = 18
-        metadataView.layer?.backgroundColor = ReadingNoteTheme.insetBackground(theme).cgColor
-        metadataView.layer?.cornerRadius = 8
-        editorContainer.layer?.backgroundColor = ReadingNoteTheme.editorBackground(theme).cgColor
-        editorContainer.layer?.cornerRadius = 9
-        editorContainer.layer?.borderWidth = 1
-        editorContainer.layer?.borderColor = ReadingNoteTheme.panelBorder(theme).cgColor
-        textView.backgroundColor = ReadingNoteTheme.editorBackground(theme)
-        textView.textColor = text
-        textView.insertionPointColor = text
-        textView.font = NSFont.systemFont(ofSize: 15)
-        titleIconView.contentTintColor = text
-        applyTextColor(text, in: rootView)
-        applyControlTint(text, in: rootView)
-        applyTopIconButtonTheme(theme)
-        statusLabel.textColor = text.withAlphaComponent(0.72)
-        wordCountLabel.textColor = text.withAlphaComponent(0.58)
-        aiToolbarContainer.layer?.backgroundColor = ReadingNoteTheme.cardBackground(theme).cgColor
-        aiToolbarContainer.layer?.borderWidth = 1
-        aiToolbarContainer.layer?.borderColor = ReadingNoteTheme.panelBorder(theme).cgColor
-        askInputContainer.layer?.backgroundColor = ReadingNoteTheme.cardBackground(theme).cgColor
-        askInputContainer.layer?.borderWidth = 1
-        askInputContainer.layer?.borderColor = ReadingNoteTheme.panelBorder(theme).cgColor
-        askInputField.textColor = text
-        askSendButton.contentTintColor = text
-        aiActionButtons.forEach {
-            $0.layer?.backgroundColor = NSColor.clear.cgColor
-            $0.contentTintColor = text
-        }
-    }
-
-    private func applyTopIconButtonTheme(_ theme: ReaderTheme) {
-        for button in topIconButtons {
-            button.layer?.backgroundColor = ReadingNoteTheme.secondaryButtonBackground(theme).cgColor
-            button.layer?.borderWidth = 1
-            button.layer?.borderColor = ReadingNoteTheme.panelBorder(theme).cgColor
-        }
-    }
-
     func save() {
         note.markdown = markdownFromEditor()
         note.updatedAt = Date()
@@ -538,24 +493,6 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         let formatter = DateFormatter()
         formatter.dateFormat = "MM/dd HH:mm"
         return formatter.string(from: note.createdAt)
-    }
-
-    private func applyTextColor(_ color: NSColor, in view: NSView) {
-        for subview in view.subviews {
-            if let label = subview as? NSTextField, !label.isEditable {
-                label.textColor = color.withAlphaComponent(label === wordCountLabel ? 0.58 : 1)
-            }
-            applyTextColor(color, in: subview)
-        }
-    }
-
-    private func applyControlTint(_ color: NSColor, in view: NSView) {
-        for subview in view.subviews {
-            if let button = subview as? NSButton {
-                button.contentTintColor = color
-            }
-            applyControlTint(color, in: subview)
-        }
     }
 
     private func scheduleAutoSave() {

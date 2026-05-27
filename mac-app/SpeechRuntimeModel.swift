@@ -92,6 +92,31 @@ extension SpeechRuntimeResourceManager {
             displayOrder.first { $0.id == id }
         }
 
+        static var localRuntimeDescriptors: [LocalRuntimeDescriptor] {
+            displayOrder.map(\.localRuntimeDescriptor)
+        }
+
+        var localRuntimeDescriptor: LocalRuntimeDescriptor {
+            LocalRuntimeDescriptor(
+                family: .speech,
+                id: id,
+                title: title,
+                summaryText: summaryText,
+                downloadSizeText: downloadSizeText,
+                minimumSystemVersion: minimumSystemVersion,
+                minimumSystemVersionText: minimumSystemVersionText,
+                downloadURL: downloadURL,
+                manifestURL: Self.modelManifestURL,
+                installDirectory: installDirectory,
+                bundledInstallDirectory: bundledInstallDirectory,
+                installDirectories: installDirectories,
+                executableURL: userExecutableURL,
+                bundledExecutableURL: bundledExecutableURL,
+                modelDirectory: modelDirectory(in: installDirectory),
+                requiredPaths: requiredPaths
+            )
+        }
+
         var downloadURL: URL {
             switch self {
             case .kokoro:

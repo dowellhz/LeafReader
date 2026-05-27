@@ -37,6 +37,7 @@ final class ReadingNotesPanelController: NSObject {
     private var exportButton: NSButton?
     private var closeButton: NSButton?
     private var notes: [ReadingNote] = []
+    private var rows: [ReadingNoteListRowViewModel] = []
 
     override init() {
         super.init()
@@ -53,7 +54,7 @@ final class ReadingNotesPanelController: NSObject {
     }
 
     func show(notes: [ReadingNote], parent: NSWindow?) {
-        self.notes = notes.sortedByCreatedAt()
+        updateData(notes)
         if panel == nil {
             panel = buildPanel()
         }
@@ -67,7 +68,7 @@ final class ReadingNotesPanelController: NSObject {
     }
 
     func update(notes: [ReadingNote]) {
-        self.notes = notes.sortedByCreatedAt()
+        updateData(notes)
         refreshContent()
     }
 
@@ -214,19 +215,19 @@ final class ReadingNotesPanelController: NSObject {
             stack.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
-        summaryLabel.stringValue = AppText.localized("共 \(notes.count) 条笔记", "\(notes.count) note(s)")
-        guard !notes.isEmpty else {
+        summaryLabel.stringValue = ReadingNoteListPresenter.summaryText(noteCount: rows.count)
+        guard !rows.isEmpty else {
             stack.addArrangedSubview(emptyStateLabel())
             return
         }
-        for note in notes {
-            let row = noteRow(note)
+        for rowViewModel in rows {
+            let row = noteRow(rowViewModel)
             stack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
     }
 
-    private func noteRow(_ note: ReadingNote) -> NSView {
+    private func noteRow(_ rowViewModel: ReadingNoteListRowViewModel) -> NSView {
         let theme = ReaderTheme.selected
         let row = NSView()
         row.wantsLayer = true
@@ -239,12 +240,12 @@ final class ReadingNotesPanelController: NSObject {
         let icon = rowIcon(theme: theme)
         iconContainer.addSubview(icon)
 
-        let locationLabel = NSTextField(labelWithString: rowLocation(note))
+        let locationLabel = NSTextField(labelWithString: rowViewModel.locationText)
         locationLabel.font = AppFont.semibold(ofSize: 15)
         locationLabel.textColor = ReadingNoteTheme.primaryText(theme)
         locationLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        let quoteLabel = NSTextField(labelWithString: rowTitle(note))
+        let quoteLabel = NSTextField(labelWithString: rowViewModel.titleText)
         quoteLabel.font = NSFont.systemFont(ofSize: 14)
         quoteLabel.textColor = ReadingNoteTheme.primaryText(theme)
         quoteLabel.lineBreakMode = .byTruncatingTail
@@ -253,8 +254,8 @@ final class ReadingNotesPanelController: NSObject {
         quoteLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         quoteLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        let openButton = rowOpenButton(noteID: note.id)
-        let deleteButton = rowDeleteButton(noteID: note.id, theme: theme)
+        let openButton = rowOpenButton(noteID: rowViewModel.id)
+        let deleteButton = rowDeleteButton(noteID: rowViewModel.id, theme: theme)
 
         for view in [iconContainer, locationLabel, quoteLabel, openButton, deleteButton] {
             row.addSubview(view)
@@ -318,17 +319,6 @@ final class ReadingNotesPanelController: NSObject {
         button.contentTintColor = ReadingNoteTheme.secondaryText(theme)
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
-    }
-
-    private func rowLocation(_ note: ReadingNote) -> String {
-        if let first = note.locator.pdfFragments?.first {
-            return AppText.localized("第 \(first.pageIndex + 1) 页", "p. \(first.pageIndex + 1)")
-        }
-        return AppText.localized("网页位置", "Web location")
-    }
-
-    private func rowTitle(_ note: ReadingNote) -> String {
-        ReadingNoteTextPolicy.compactInlineText(note.displayTitle, maxLength: 96)
     }
 
     private func actionButton(title: String, action: Selector) -> NSButton {
@@ -395,6 +385,11 @@ final class ReadingNotesPanelController: NSObject {
             button.layer?.backgroundColor = ReadingNoteTheme.secondaryButtonBackground(theme).cgColor
             button.contentTintColor = ReadingNoteTheme.primaryText(theme)
         }
+    }
+
+    private func updateData(_ notes: [ReadingNote]) {
+        self.notes = ReadingNoteListPresenter.sortedNotes(notes)
+        self.rows = ReadingNoteListPresenter.rows(for: notes)
     }
 
 }
