@@ -124,6 +124,7 @@ enum VocabularyReviewScoringService {
                 ids: old.ids,
                 word: old.word,
                 answer: old.answer,
+                dictionaryTags: old.dictionaryTags,
                 location: old.location,
                 context: old.context,
                 createdAt: old.createdAt,

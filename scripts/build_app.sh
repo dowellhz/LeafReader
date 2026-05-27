@@ -267,6 +267,7 @@ for ARCH in "${BUILD_ARCHS[@]}"; do
     -framework WebKit \
     -framework CryptoKit \
     -framework AVFoundation \
+    -framework Network \
     -framework Sparkle \
     -lsqlite3 \
     -Xlinker -rpath \

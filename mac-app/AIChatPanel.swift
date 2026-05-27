@@ -189,6 +189,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         let messages: [ChatMessage]
         let linkID: String?
         let linkedQuestion: String?
+        let fallbackAnswer: String?
     }
 
     var onAskSelectedText: ((String) -> String?)?

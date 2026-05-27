@@ -103,7 +103,9 @@ private func testPageScrollDirection() throws {
 private func testPDFPagingPolicy() throws {
     try expectEqual(PDFPagingPolicy.wheelEdgeScrollThreshold, 40, "wheel edge threshold should remain explicit")
     try expectEqual(PDFPagingPolicy.wheelPageTurnCooldown, 0.45, "wheel cooldown should prevent double page turns")
-    try expectEqual(PDFPagingPolicy.trackpadEdgeSlop, 22, "trackpad edge slop should remain explicit")
+    try expectEqual(PDFPagingPolicy.trackpadEdgeSlop, 12, "trackpad edge slop should remain explicit")
+    try expectEqual(PDFPagingPolicy.trackpadScrollerTopLimit, 0.001, "trackpad top scroller limit should avoid early turns")
+    try expectEqual(PDFPagingPolicy.trackpadScrollerBottomLimit, 0.999, "trackpad bottom scroller limit should avoid early turns")
     try expectEqual(PDFPagingPolicy.trackpadPageTurnCooldown, 0.8, "trackpad cooldown should prevent double page turns")
     try expectEqual(
         PDFPagingPolicy.trackpadPageTurnThreshold(clipHeight: 800, documentHeight: 801),
@@ -469,6 +471,9 @@ private let tests: [(String, () throws -> Void)] = [
     ("Network error long body formatting", AISettingsLogicTests.testNetworkErrorFormattingTruncatesLongBody),
     ("AI response parser non-streaming", AISettingsLogicTests.testAIResponseParserParsesNonStreamingResponses),
     ("AI response parser streaming", AISettingsLogicTests.testAIResponseParserParsesStreamingDeltas),
+    ("ECDICT SQLite lookup", ECDICTLogicTests.testSQLiteLookupAndMarkdownAnswer),
+    ("ECDICT CSV lookup", ECDICTLogicTests.testCSVLookup),
+    ("ECDICT lookup key normalization", ECDICTLogicTests.testLookupKeyNormalization),
     ("Embedding key isolation", AISettingsLogicTests.testEmbeddingKeyIsolation),
     ("Embedding legacy key migration", AISettingsLogicTests.testEmbeddingLegacyKeyMigration),
     ("Embedding warmup idle policy", testEmbeddingWarmupIdlePolicy),

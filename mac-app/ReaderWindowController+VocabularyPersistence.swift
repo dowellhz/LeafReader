@@ -32,6 +32,7 @@ extension ReaderWindowController {
                 context: context,
                 question: reusable.question,
                 answer: reusable.answer,
+                dictionaryTags: reusable.dictionaryTags,
                 createdAt: Date(),
                 srs: reusable.srs ?? VocabularySRSState.initial()
             )
@@ -48,6 +49,7 @@ extension ReaderWindowController {
             pageIndex: pageIndex,
             bounds: StoredPDFWordRect(bounds),
             context: vocabularyContextForCurrentSelection(selectedText: text),
+            dictionaryTags: dictionaryTags(for: text),
             createdAt: Date()
         )
         return id
@@ -87,6 +89,7 @@ extension ReaderWindowController {
                 scrollProgress: webScrollProgress,
                 question: reusable.question,
                 answer: reusable.answer,
+                dictionaryTags: reusable.dictionaryTags,
                 createdAt: Date(),
                 srs: reusable.srs ?? VocabularySRSState.initial()
             )
@@ -104,9 +107,15 @@ extension ReaderWindowController {
             context: context,
             occurrenceIndex: currentWebSelectionOccurrenceIndex,
             scrollProgress: webScrollProgress,
+            dictionaryTags: dictionaryTags(for: word),
             createdAt: Date()
         )
         return id
+    }
+
+    func dictionaryTags(for word: String) -> String? {
+        let tags = ECDICTDictionary.shared.lookup(word)?.tags.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return tags.isEmpty ? nil : tags
     }
 
     func existingPendingWebWordRecord(word: String, context: String, occurrenceIndex: Int?) -> PendingWebWordRecord? {

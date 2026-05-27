@@ -110,7 +110,10 @@ final class EdgePagingPDFView: PDFView {
 
     private var isScrolledToTop: Bool {
         guard let scrollView = pdfScrollView else { return false }
-        return scrollView.contentView.bounds.minY <= 2
+        guard let documentView = scrollView.documentView else { return true }
+        let scrollerValue = scrollView.verticalScroller?.doubleValue
+        return scrollView.contentView.bounds.minY <= documentView.bounds.minY + PDFPagingPolicy.trackpadEdgeSlop
+            || scrollerValue.map { $0 <= PDFPagingPolicy.trackpadScrollerTopLimit } == true
     }
 
     private var isScrolledToBottom: Bool {
@@ -120,7 +123,9 @@ final class EdgePagingPDFView: PDFView {
         let clipHeight = scrollView.contentView.bounds.height
         let documentHeight = documentView.bounds.height
         guard documentHeight > clipHeight + PDFPagingPolicy.documentSizeTolerance else { return true }
-        return clipView.bounds.maxY >= documentHeight - PDFPagingPolicy.documentSizeTolerance
+        let scrollerValue = scrollView.verticalScroller?.doubleValue
+        return clipView.bounds.maxY >= documentView.bounds.maxY - PDFPagingPolicy.trackpadEdgeSlop
+            || scrollerValue.map { $0 >= PDFPagingPolicy.trackpadScrollerBottomLimit } == true
     }
 
     private var pdfScrollView: NSScrollView? {

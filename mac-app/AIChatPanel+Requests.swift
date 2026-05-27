@@ -1,7 +1,7 @@
 import Cocoa
 
 extension AIChatPanel {
-    func requestAI(linkID: String? = nil, linkedQuestion: String? = nil) {
+    func requestAI(linkID: String? = nil, linkedQuestion: String? = nil, fallbackAnswer: String? = nil) {
         trimMessagesIfNeeded()
         let requestID = UUID()
         let requestMessages = messages
@@ -30,6 +30,7 @@ extension AIChatPanel {
                 self.setBusy(false, text: "")
                 switch result {
                 case .success(let content):
+                    NetworkConnectivityMonitor.shared.markRequestSucceeded()
                     let finalContent = AIResponseTextFormatter.trimmed(content)
                     guard !finalContent.isEmpty else {
                         if let assistantBody = assistantBody {
@@ -56,7 +57,29 @@ extension AIChatPanel {
                         }
                     }
                 case .failure(let error):
-                    self.lastFailedAIRequest = FailedAIRequest(messages: requestMessages, linkID: linkID, linkedQuestion: linkedQuestion)
+                    let shouldUseDictionaryFallback = self.shouldUseLocalDictionaryFallback(for: error)
+                    if shouldUseDictionaryFallback {
+                        NetworkConnectivityMonitor.shared.markNetworkFailure()
+                    }
+                    if let fallbackAnswer,
+                       shouldUseDictionaryFallback,
+                       let assistantBody = assistantBody {
+                        self.recordTranscript(role: AppText.aiRole, text: fallbackAnswer)
+                        self.appendMessage(ChatMessage(role: "assistant", content: fallbackAnswer))
+                        self.updateBubble(assistantBody, role: AppText.aiRole, text: fallbackAnswer, notify: false)
+                        self.persistBubbleIfNeeded(assistantBody)
+                        self.scrollToDictionaryAnswer(assistantBody)
+                        if let linkID, let linkedQuestion {
+                            self.onLinkedAnswerCompleted?(linkID, linkedQuestion, fallbackAnswer)
+                        }
+                        return
+                    }
+                    self.lastFailedAIRequest = FailedAIRequest(
+                        messages: requestMessages,
+                        linkID: linkID,
+                        linkedQuestion: linkedQuestion,
+                        fallbackAnswer: fallbackAnswer
+                    )
                     let message = self.userFacingAIError(error)
                     if streamedText.isEmpty, let assistantBody = assistantBody {
                         self.updateBubble(assistantBody, role: AppText.errorRole, text: message, notify: false)
@@ -67,6 +90,10 @@ extension AIChatPanel {
                 }
             }
         })
+    }
+
+    func shouldUseLocalDictionaryFallback(for error: Error) -> Bool {
+        NetworkConnectivityMonitor.isNetworkConnectivityError(error)
     }
 
     func appendRetryButton() {
@@ -106,7 +133,7 @@ extension AIChatPanel {
         lastFailedAIRequest = nil
         messages = request.messages
         trimMessagesIfNeeded()
-        requestAI(linkID: request.linkID, linkedQuestion: request.linkedQuestion)
+        requestAI(linkID: request.linkID, linkedQuestion: request.linkedQuestion, fallbackAnswer: request.fallbackAnswer)
     }
 
     @objc func cancelCurrentRequest() {

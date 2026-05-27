@@ -10,6 +10,9 @@ extension AIChatPanel {
         let text = trimmedText(selectedText)
         guard !text.isEmpty, !isBusy else { return }
         guard AISettingsStore.hasAPIKeyForSelectedModel else {
+            if handleLocalDictionaryQuestion(text) {
+                return
+            }
             onSettingsRequired?()
             return
         }
@@ -38,7 +41,10 @@ extension AIChatPanel {
             return
         }
         appendMessage(ChatMessage(role: "user", content: prompt))
-        requestAI(linkID: linkID, linkedQuestion: displayedQuestion)
+        let fallbackAnswer = isVocabularyItem
+            ? localDictionaryFallbackAnswer(for: text, context: selectedContext ?? "")
+            : nil
+        requestAI(linkID: linkID, linkedQuestion: displayedQuestion, fallbackAnswer: fallbackAnswer)
     }
 
     @objc func summarizeCurrentContent() {
@@ -137,6 +143,56 @@ extension AIChatPanel {
 
     func isVocabularySelection(_ text: String) -> Bool {
         VocabularyTextPolicy.isVocabularySelection(text)
+    }
+
+    func handleLocalDictionaryQuestion(_ text: String) -> Bool {
+        guard isVocabularySelection(text) else { return false }
+        speakSelectedWordIfNeeded(text)
+        let selectedContext = onAskSelectedText?(text) ?? ""
+        guard let answer = localDictionaryFallbackAnswer(for: text, context: selectedContext) else {
+            return false
+        }
+
+        let linkID = onSelectedWordQuestionStarted?(text)
+        if let linkID, hasLinkedBubble(id: linkID) {
+            clearSelectedText()
+            scrollToLinkedBubble(id: linkID)
+            return true
+        }
+        let displayedQuestion = vocabularyBubbleTitle(for: text)
+        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
+        recordTranscript(role: AppText.userRole, text: displayedQuestion)
+        let answerBody = appendBubble(role: AppText.aiRole, text: answer, collapsible: false, renderMarkdown: true, linkID: linkID)
+        recordTranscript(role: AppText.aiRole, text: answer)
+        appendMessage(ChatMessage(role: "user", content: wordPrompt(for: text, context: selectedContext)))
+        appendMessage(ChatMessage(role: "assistant", content: answer))
+        if let linkID {
+            onLinkedAnswerCompleted?(linkID, displayedQuestion, answer)
+        }
+        scrollToDictionaryAnswer(answerBody)
+        clearSelectedText()
+        return true
+    }
+
+    func scrollToDictionaryAnswer(_ body: NSTextField) {
+        guard let box = body.superview else { return }
+        DispatchQueue.main.async { [weak self, weak box] in
+            guard let self, let box else { return }
+            self.scrollTranscriptToTop(of: box)
+        }
+    }
+
+    func localDictionaryFallbackAnswer(for text: String, context: String) -> String? {
+        if let answer = ECDICTDictionary.shared.markdownAnswer(for: text, context: context) {
+            return answer
+        }
+        guard ECDICTDictionary.shared.isInstalled else { return nil }
+        let word = ECDICTDictionary.lookupKey(text)
+        let visibleWord = word.isEmpty ? trimmedText(text) : word
+        return AppText.localized(
+            "本地 ECDICT 词典未收录：\(visibleWord)",
+            "The local ECDICT dictionary has no entry for: \(visibleWord)"
+        )
     }
 
     func isSingleEnglishWord(_ text: String) -> Bool {

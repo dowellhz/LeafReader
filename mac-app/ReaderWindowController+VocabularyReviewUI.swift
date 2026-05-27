@@ -9,11 +9,12 @@ extension ReaderWindowController {
         if (vocabularyReviewSession.contextShown || vocabularyReviewSession.answerShown),
            let key = vocabularyReviewSession.cardKey,
            let preservedRecord = records.first(where: { vocabularyReviewSession.key(for: $0) == key }) {
+            let displayRecord = vocabularyRecordWithDictionaryTags(preservedRecord)
             let selectedPosition = visibleRecords.firstIndex(where: { vocabularyReviewSession.key(for: $0) == key }).map { $0 + 1 } ?? min(vocabularyReviewSession.reviewIndex + 1, max(1, visibleRecords.count))
-            prepareVocabularyReviewTiming(for: preservedRecord, autoPlay: autoPlayNewCard)
+            prepareVocabularyReviewTiming(for: displayRecord, autoPlay: autoPlayNewCard)
             updateVocabularySummaryWithProgress(position: selectedPosition, total: max(visibleRecords.count, selectedPosition))
             let card = VocabularyReviewCardBuilder(owner: self).build(
-                record: preservedRecord,
+                record: displayRecord,
                 position: selectedPosition,
                 total: max(visibleRecords.count, selectedPosition),
                 contextShown: vocabularyReviewSession.contextShown,
@@ -52,10 +53,11 @@ extension ReaderWindowController {
             selectedRecord = visibleRecords[vocabularyReviewSession.reviewIndex]
             selectedPosition = vocabularyReviewSession.reviewIndex + 1
         }
-        prepareVocabularyReviewTiming(for: selectedRecord, autoPlay: autoPlayNewCard)
+        let displayRecord = vocabularyRecordWithDictionaryTags(selectedRecord)
+        prepareVocabularyReviewTiming(for: displayRecord, autoPlay: autoPlayNewCard)
         updateVocabularySummaryWithProgress(position: selectedPosition, total: visibleRecords.count)
         let card = VocabularyReviewCardBuilder(owner: self).build(
-            record: selectedRecord,
+            record: displayRecord,
             position: selectedPosition,
             total: visibleRecords.count,
             contextShown: vocabularyReviewSession.contextShown,

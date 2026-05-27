@@ -178,10 +178,12 @@ extension ReaderWindowController {
             return nil
         }
 
+        let documentBounds = documentView.bounds
+        let clipBounds = clipView.bounds
         let scrollerValue = scrollView.verticalScroller?.doubleValue
-        let isAtTop = clipView.bounds.minY <= PDFPagingPolicy.trackpadEdgeSlop
+        let isAtTop = clipBounds.minY <= documentBounds.minY + PDFPagingPolicy.trackpadEdgeSlop
             || scrollerValue.map { $0 <= PDFPagingPolicy.trackpadScrollerTopLimit } == true
-        let isAtBottom = clipView.bounds.maxY >= documentHeight - PDFPagingPolicy.trackpadEdgeSlop
+        let isAtBottom = clipBounds.maxY >= documentBounds.maxY - PDFPagingPolicy.trackpadEdgeSlop
             || scrollerValue.map { $0 >= PDFPagingPolicy.trackpadScrollerBottomLimit } == true
 
         if isAtTop, event.scrollingDeltaY > 0 {

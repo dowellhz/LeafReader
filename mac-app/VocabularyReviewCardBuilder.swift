@@ -33,6 +33,7 @@ final class VocabularyReviewCardBuilder {
         wordLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         wordLabel.translatesAutoresizingMaskIntoConstraints = false
 
+        let tagLabel = ecdictTagLabel(for: record, theme: theme)
         let contentArea = NSView()
         contentArea.translatesAutoresizingMaskIntoConstraints = false
 
@@ -40,11 +41,14 @@ final class VocabularyReviewCardBuilder {
         footerArea.translatesAutoresizingMaskIntoConstraints = false
 
         card.addSubview(wordLabel)
+        if let tagLabel {
+            card.addSubview(tagLabel)
+        }
         card.addSubview(contentArea)
         card.addSubview(footerArea)
 
         addSpeakerButtonIfNeeded(for: record, wordLabel: wordLabel, card: card, theme: theme)
-        constrainCard(card, wordLabel: wordLabel, contentArea: contentArea, footerArea: footerArea)
+        constrainCard(card, wordLabel: wordLabel, tagLabel: tagLabel, contentArea: contentArea, footerArea: footerArea)
 
         if answerShown {
             addAnswerContent(for: record, in: contentArea, footerArea: footerArea, theme: theme, didScore: didScore, canUndoScore: canUndoScore)
@@ -55,6 +59,20 @@ final class VocabularyReviewCardBuilder {
         }
 
         return card
+    }
+
+    private func ecdictTagLabel(for record: VocabularyExportRecord, theme: ReaderTheme) -> NSTextField? {
+        guard let tags = record.dictionaryTags?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !tags.isEmpty else {
+            return nil
+        }
+        let label = NSTextField(labelWithString: tags.uppercased())
+        label.font = AppFont.semibold(ofSize: 15)
+        label.textColor = owner.vocabularySecondaryTextColor(for: theme)
+        label.lineBreakMode = .byTruncatingTail
+        label.maximumNumberOfLines = 1
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
     }
 
     private func addSpeakerButtonIfNeeded(
@@ -85,15 +103,15 @@ final class VocabularyReviewCardBuilder {
     private func constrainCard(
         _ card: NSView,
         wordLabel: NSTextField,
+        tagLabel: NSTextField?,
         contentArea: NSView,
         footerArea: NSView
     ) {
-        NSLayoutConstraint.activate([
+        var constraints: [NSLayoutConstraint] = [
             wordLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 18),
             wordLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 34),
             wordLabel.trailingAnchor.constraint(lessThanOrEqualTo: card.trailingAnchor, constant: -82),
 
-            contentArea.topAnchor.constraint(equalTo: wordLabel.bottomAnchor, constant: 20),
             contentArea.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 34),
             contentArea.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -34),
             contentArea.bottomAnchor.constraint(equalTo: footerArea.topAnchor, constant: -14),
@@ -102,7 +120,18 @@ final class VocabularyReviewCardBuilder {
             footerArea.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -34),
             footerArea.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -18),
             footerArea.heightAnchor.constraint(equalToConstant: 44)
-        ])
+        ]
+        if let tagLabel {
+            constraints.append(contentsOf: [
+                tagLabel.topAnchor.constraint(equalTo: wordLabel.bottomAnchor, constant: 6),
+                tagLabel.leadingAnchor.constraint(equalTo: wordLabel.leadingAnchor),
+                tagLabel.trailingAnchor.constraint(lessThanOrEqualTo: card.trailingAnchor, constant: -34),
+                contentArea.topAnchor.constraint(equalTo: tagLabel.bottomAnchor, constant: 16)
+            ])
+        } else {
+            constraints.append(contentArea.topAnchor.constraint(equalTo: wordLabel.bottomAnchor, constant: 20))
+        }
+        NSLayoutConstraint.activate(constraints)
     }
 
     private func addAnswerContent(

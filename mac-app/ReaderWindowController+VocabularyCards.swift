@@ -17,7 +17,11 @@ extension ReaderWindowController {
         let bullet = NSTextField(labelWithString: "•")
         bullet.font = NSFont.systemFont(ofSize: 26, weight: .bold)
         bullet.textColor = vocabularyAccentColor(for: theme)
+        bullet.alignment = .center
         bullet.translatesAutoresizingMaskIntoConstraints = false
+
+        let titleLeadingGuide = NSLayoutGuide()
+        card.addLayoutGuide(titleLeadingGuide)
 
         let wordLabel = NSTextField(labelWithString: word)
         wordLabel.font = AppFont.semibold(ofSize: 19)
@@ -72,10 +76,13 @@ extension ReaderWindowController {
         card.addSubview(masteredButton)
 
         NSLayoutConstraint.activate([
-            bullet.topAnchor.constraint(equalTo: card.topAnchor, constant: 12),
-            bullet.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
-            wordLabel.leadingAnchor.constraint(equalTo: bullet.trailingAnchor, constant: 8),
+            titleLeadingGuide.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 74),
+            titleLeadingGuide.widthAnchor.constraint(equalToConstant: 0),
+            bullet.centerYAnchor.constraint(equalTo: wordLabel.centerYAnchor),
+            bullet.centerXAnchor.constraint(equalTo: card.leadingAnchor, constant: 46),
+            bullet.widthAnchor.constraint(equalToConstant: 18),
             wordLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
+            wordLabel.leadingAnchor.constraint(equalTo: titleLeadingGuide.leadingAnchor),
             locationLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
             locationLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
             srsLabel.leadingAnchor.constraint(equalTo: wordLabel.leadingAnchor),

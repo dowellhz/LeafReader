@@ -31,6 +31,7 @@ extension ReaderWindowController {
                 context: pending.context,
                 question: question,
                 answer: trimmedAnswer,
+                dictionaryTags: pending.dictionaryTags,
                 createdAt: pending.createdAt,
                 srs: VocabularySRSState.initial(createdAt: pending.createdAt)
             )
@@ -49,6 +50,7 @@ extension ReaderWindowController {
                 scrollProgress: pending.scrollProgress,
                 question: question,
                 answer: trimmedAnswer,
+                dictionaryTags: pending.dictionaryTags,
                 createdAt: pending.createdAt,
                 srs: VocabularySRSState.initial(createdAt: pending.createdAt)
             )

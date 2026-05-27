@@ -55,6 +55,7 @@ swiftc \
   mac-app/ReaderAIContextPolicy.swift \
   mac-app/AIResponseParser.swift \
   mac-app/AIResponseTextFormatter.swift \
+  mac-app/ECDICTDictionary.swift \
   mac-app/EmbeddingActionPolicy.swift \
   mac-app/AppText.swift \
   mac-app/AIProviderDescriptor.swift \
@@ -110,6 +111,7 @@ swiftc \
   tests/ReadingNoteLogicTests.swift \
   tests/ReaderShelfLogicTests.swift \
   tests/AISettingsLogicTests.swift \
+  tests/ECDICTLogicTests.swift \
   tests/VocabularyLogicTests.swift \
   tests/LogicTests.swift \
   -framework PDFKit \

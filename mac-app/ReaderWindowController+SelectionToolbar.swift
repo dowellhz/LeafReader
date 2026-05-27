@@ -10,6 +10,7 @@ extension ReaderWindowController {
         case speak
         case note
         case copy
+        case configureModel
     }
 
     func selectedReaderTextForToolbar() -> String {
@@ -48,8 +49,7 @@ extension ReaderWindowController {
             return
         }
         selectionActionToolbar.applyTheme(ReaderTheme.selected)
-        selectionActionToolbar.setContextAction(selectionToolbarContextAction(for: text))
-        selectionActionToolbar.setSpeakVisible(shouldShowSelectionSpeakAction(for: text))
+        configureSelectionToolbarActions(for: text)
         let size = selectionActionToolbar.preferredSize
         let readerFrame = pdfContainer.frame
         let minimumX = readerFrame.minX + 12
@@ -105,12 +105,46 @@ extension ReaderWindowController {
             createReadingNoteFromCurrentSelection(text: text)
         case .copy:
             copyTextToClipboard(text)
+        case .configureModel:
+            openModelSettings()
         }
         hideSelectionToolbar()
     }
 
     func selectionToolbarContextAction(for text: String) -> SelectionActionToolbar.ContextAction {
         vocabularySpeakerWord(text) == nil ? .summarize : .addWord
+    }
+
+    func configureSelectionToolbarActions(for text: String) {
+        let isVocabulary = vocabularySpeakerWord(text) != nil
+        if !NetworkConnectivityMonitor.shared.isOnline {
+            selectionActionToolbar.setContextAction(isVocabulary ? .addWord : .summarize)
+            selectionActionToolbar.setDisplayMode(isVocabulary ? .offlineWord : .offlineCopyOnly)
+            return
+        }
+
+        if !AISettingsStore.hasAPIKeyForSelectedModel {
+            selectionActionToolbar.setContextAction(isVocabulary ? .addWord : .summarize)
+            selectionActionToolbar.setDisplayMode(isVocabulary ? .needsModelKeyWord : .needsModelKeyCopyOnly)
+            return
+        }
+
+        selectionActionToolbar.setContextAction(isVocabulary ? .addWord : .summarize)
+        selectionActionToolbar.setDisplayMode(.full(showsSpeak: shouldShowSelectionSpeakAction(for: text)))
+    }
+
+    @objc func networkConnectivityChanged(_ notification: Notification) {
+        guard !selectionActionToolbar.isHidden else { return }
+        let text = selectedReaderTextForToolbar()
+        guard !text.isEmpty else {
+            hideSelectionToolbar()
+            return
+        }
+        if currentDocumentKind == .pdf, let selection = pdfView.currentSelection {
+            showSelectionToolbarForPDFSelection(selection, text: text)
+            return
+        }
+        showSelectionToolbarForWebSelection(rect: currentWebSelectionRect, text: text)
     }
 
     private func shouldShowSelectionSpeakAction(for text: String) -> Bool {

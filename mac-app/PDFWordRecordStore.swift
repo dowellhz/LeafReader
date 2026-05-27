@@ -8,6 +8,7 @@ struct StoredPDFWordRecord: Codable {
     var context: String?
     var question: String
     var answer: String
+    var dictionaryTags: String? = nil
     let createdAt: Date
     var srs: VocabularySRSState?
 }

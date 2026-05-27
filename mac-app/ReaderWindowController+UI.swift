@@ -17,6 +17,13 @@ extension ReaderWindowController {
             name: NSApplication.didResignActiveNotification,
             object: NSApp
         )
+        _ = NetworkConnectivityMonitor.shared
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(networkConnectivityChanged(_:)),
+            name: .leafReaderNetworkConnectivityChanged,
+            object: nil
+        )
 
         contentArea.wantsLayer = true
         contentArea.layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
@@ -175,6 +182,9 @@ extension ReaderWindowController {
         }
         selectionActionToolbar.onCopy = { [weak self] in
             self?.runSelectionToolbarAction(.copy)
+        }
+        selectionActionToolbar.onConfigureModel = { [weak self] in
+            self?.runSelectionToolbarAction(.configureModel)
         }
     }
 

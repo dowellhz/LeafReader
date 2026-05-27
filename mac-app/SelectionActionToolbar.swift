@@ -17,6 +17,7 @@ final class SelectionActionToolbar: NSView {
     var onSpeak: (() -> Void)?
     var onNote: (() -> Void)?
     var onCopy: (() -> Void)?
+    var onConfigureModel: (() -> Void)?
 
     private let stack = NSStackView()
     private let translateButton = SelectionActionButton(
@@ -55,16 +56,29 @@ final class SelectionActionToolbar: NSView {
         target: nil,
         action: nil
     )
+    private let configureModelButton = SelectionActionButton(
+        title: AppText.localized("配置模型", "Model"),
+        symbolName: "cube",
+        target: nil,
+        action: nil
+    )
     private var contextAction: ContextAction = .summarize
-    private var showsSpeakButton = true
 
     private var actionButtons: [SelectionActionButton] {
-        [explainButton, translateButton, contextButton, speakButton, noteButton, copyButton]
+        [explainButton, translateButton, contextButton, speakButton, noteButton, copyButton, configureModelButton]
     }
 
     enum ContextAction {
         case addWord
         case summarize
+    }
+
+    enum DisplayMode {
+        case full(showsSpeak: Bool)
+        case offlineWord
+        case offlineCopyOnly
+        case needsModelKeyWord
+        case needsModelKeyCopyOnly
     }
 
     override init(frame frameRect: NSRect) {
@@ -86,6 +100,7 @@ final class SelectionActionToolbar: NSView {
         configureButton(speakButton, action: #selector(speakTapped))
         configureButton(noteButton, action: #selector(noteTapped))
         configureButton(copyButton, action: #selector(copyTapped))
+        configureButton(configureModelButton, action: #selector(configureModelTapped))
 
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: topAnchor),
@@ -102,7 +117,7 @@ final class SelectionActionToolbar: NSView {
     }
 
     var preferredSize: CGSize {
-        let visibleButtonCount = showsSpeakButton ? 6 : 5
+        let visibleButtonCount = actionButtons.filter { !$0.isHidden }.count
         let horizontalInsets = stack.edgeInsets.left + stack.edgeInsets.right
         let spacing = CGFloat(max(0, visibleButtonCount - 1)) * stack.spacing
         let width = horizontalInsets + spacing + CGFloat(visibleButtonCount) * Metrics.buttonWidth
@@ -141,6 +156,7 @@ final class SelectionActionToolbar: NSView {
         speakButton.title = AppText.localized("朗读", "Speak")
         noteButton.title = AppText.localized("笔记", "Note")
         copyButton.title = AppText.localized("复制", "Copy")
+        configureModelButton.title = AppText.localized("配置模型", "Model")
         actionButtons.forEach { $0.applyTheme(ReaderTheme.selected) }
     }
 
@@ -150,8 +166,52 @@ final class SelectionActionToolbar: NSView {
     }
 
     func setSpeakVisible(_ visible: Bool) {
-        showsSpeakButton = visible
-        speakButton.isHidden = !visible
+        setDisplayMode(.full(showsSpeak: visible))
+    }
+
+    func setDisplayMode(_ mode: DisplayMode) {
+        switch mode {
+        case .full(let showsSpeak):
+            explainButton.isHidden = false
+            translateButton.isHidden = false
+            contextButton.isHidden = false
+            speakButton.isHidden = !showsSpeak
+            noteButton.isHidden = false
+            copyButton.isHidden = false
+            configureModelButton.isHidden = true
+        case .offlineWord:
+            explainButton.isHidden = true
+            translateButton.isHidden = true
+            contextButton.isHidden = false
+            speakButton.isHidden = false
+            noteButton.isHidden = true
+            copyButton.isHidden = false
+            configureModelButton.isHidden = true
+        case .offlineCopyOnly:
+            explainButton.isHidden = true
+            translateButton.isHidden = true
+            contextButton.isHidden = true
+            speakButton.isHidden = true
+            noteButton.isHidden = true
+            copyButton.isHidden = false
+            configureModelButton.isHidden = true
+        case .needsModelKeyWord:
+            explainButton.isHidden = true
+            translateButton.isHidden = true
+            contextButton.isHidden = false
+            speakButton.isHidden = false
+            noteButton.isHidden = true
+            copyButton.isHidden = false
+            configureModelButton.isHidden = false
+        case .needsModelKeyCopyOnly:
+            explainButton.isHidden = true
+            translateButton.isHidden = true
+            contextButton.isHidden = true
+            speakButton.isHidden = true
+            noteButton.isHidden = true
+            copyButton.isHidden = false
+            configureModelButton.isHidden = false
+        }
         needsLayout = true
     }
 
@@ -183,6 +243,8 @@ final class SelectionActionToolbar: NSView {
             onNote?()
         case copyButton:
             onCopy?()
+        case configureModelButton:
+            onConfigureModel?()
         default:
             break
         }
@@ -218,6 +280,10 @@ final class SelectionActionToolbar: NSView {
 
     @objc private func copyTapped() {
         onCopy?()
+    }
+
+    @objc private func configureModelTapped() {
+        onConfigureModel?()
     }
 }
 

@@ -38,7 +38,7 @@ final class WordRecordSQLiteStore {
     func loadPDFRecords(documentID: String) -> [StoredPDFWordRecord] {
         locked {
             let sql = """
-            SELECT id, word, page_index, bounds_json, context, question, answer, created_at, srs_json
+            SELECT id, word, page_index, bounds_json, context, question, answer, dictionary_tags, created_at, srs_json
             FROM pdf_word_records
             WHERE document_id = ?
             ORDER BY created_at ASC, id ASC
@@ -70,8 +70,9 @@ final class WordRecordSQLiteStore {
                         context: optionalStringColumn(statement, 4),
                         question: question,
                         answer: answer,
-                        createdAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 7)),
-                        srs: decodeJSON(VocabularySRSState.self, from: optionalStringColumn(statement, 8))
+                        dictionaryTags: optionalStringColumn(statement, 7),
+                        createdAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 8)),
+                        srs: decodeJSON(VocabularySRSState.self, from: optionalStringColumn(statement, 9))
                     )
                 )
             }
@@ -87,9 +88,9 @@ final class WordRecordSQLiteStore {
 
             let sql = """
             INSERT OR REPLACE INTO pdf_word_records(
-                document_id, id, word, page_index, bounds_json, context, question, answer, created_at, srs_json
+                document_id, id, word, page_index, bounds_json, context, question, answer, dictionary_tags, created_at, srs_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             var didFail = false
             for record in records {
@@ -107,8 +108,9 @@ final class WordRecordSQLiteStore {
                 bindOptional(record.context, at: 6, statement: statement)
                 bind(record.question, at: 7, statement: statement)
                 bind(record.answer, at: 8, statement: statement)
-                sqlite3_bind_double(statement, 9, record.createdAt.timeIntervalSince1970)
-                bindOptional(encodeJSON(record.srs), at: 10, statement: statement)
+                bindOptional(record.dictionaryTags, at: 9, statement: statement)
+                sqlite3_bind_double(statement, 10, record.createdAt.timeIntervalSince1970)
+                bindOptional(encodeJSON(record.srs), at: 11, statement: statement)
                 if sqlite3_step(statement) != SQLITE_DONE {
                     logSQLiteFailure("insert PDF record")
                     didFail = true
@@ -142,7 +144,7 @@ final class WordRecordSQLiteStore {
     func loadWebRecords(documentID: String) -> [StoredWebWordRecord] {
         locked {
             let sql = """
-            SELECT id, word, context, occurrence_index, scroll_progress, question, answer, created_at, srs_json
+            SELECT id, word, context, occurrence_index, scroll_progress, question, answer, dictionary_tags, created_at, srs_json
             FROM web_word_records
             WHERE document_id = ?
             ORDER BY created_at ASC, id ASC
@@ -173,8 +175,9 @@ final class WordRecordSQLiteStore {
                         scrollProgress: sqlite3_column_double(statement, 4),
                         question: question,
                         answer: answer,
-                        createdAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 7)),
-                        srs: decodeJSON(VocabularySRSState.self, from: optionalStringColumn(statement, 8))
+                        dictionaryTags: optionalStringColumn(statement, 7),
+                        createdAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 8)),
+                        srs: decodeJSON(VocabularySRSState.self, from: optionalStringColumn(statement, 9))
                     )
                 )
             }
@@ -190,9 +193,9 @@ final class WordRecordSQLiteStore {
 
             let sql = """
             INSERT OR REPLACE INTO web_word_records(
-                document_id, id, word, context, occurrence_index, scroll_progress, question, answer, created_at, srs_json
+                document_id, id, word, context, occurrence_index, scroll_progress, question, answer, dictionary_tags, created_at, srs_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             var didFail = false
             for record in records {
@@ -210,8 +213,9 @@ final class WordRecordSQLiteStore {
                 sqlite3_bind_double(statement, 6, record.scrollProgress)
                 bind(record.question, at: 7, statement: statement)
                 bind(record.answer, at: 8, statement: statement)
-                sqlite3_bind_double(statement, 9, record.createdAt.timeIntervalSince1970)
-                bindOptional(encodeJSON(record.srs), at: 10, statement: statement)
+                bindOptional(record.dictionaryTags, at: 9, statement: statement)
+                sqlite3_bind_double(statement, 10, record.createdAt.timeIntervalSince1970)
+                bindOptional(encodeJSON(record.srs), at: 11, statement: statement)
                 if sqlite3_step(statement) != SQLITE_DONE {
                     logSQLiteFailure("insert web record")
                     didFail = true
@@ -254,6 +258,7 @@ final class WordRecordSQLiteStore {
             context TEXT,
             question TEXT NOT NULL,
             answer TEXT NOT NULL,
+            dictionary_tags TEXT,
             created_at REAL NOT NULL,
             srs_json TEXT,
             PRIMARY KEY(document_id, id)
@@ -269,6 +274,7 @@ final class WordRecordSQLiteStore {
             scroll_progress REAL NOT NULL,
             question TEXT NOT NULL,
             answer TEXT NOT NULL,
+            dictionary_tags TEXT,
             created_at REAL NOT NULL,
             srs_json TEXT,
             PRIMARY KEY(document_id, id)
@@ -280,6 +286,16 @@ final class WordRecordSQLiteStore {
         executeRaw(
             "ALTER TABLE web_word_records ADD COLUMN occurrence_index INTEGER",
             operation: "migrate web word occurrence index",
+            allowDuplicateColumn: true
+        )
+        executeRaw(
+            "ALTER TABLE pdf_word_records ADD COLUMN dictionary_tags TEXT",
+            operation: "migrate PDF word dictionary tags",
+            allowDuplicateColumn: true
+        )
+        executeRaw(
+            "ALTER TABLE web_word_records ADD COLUMN dictionary_tags TEXT",
+            operation: "migrate web word dictionary tags",
             allowDuplicateColumn: true
         )
     }
@@ -322,9 +338,9 @@ final class WordRecordSQLiteStore {
     private func insertPDFRecord(documentID: String, record: StoredPDFWordRecord) -> Bool {
         let sql = """
         INSERT OR REPLACE INTO pdf_word_records(
-            document_id, id, word, page_index, bounds_json, context, question, answer, created_at, srs_json
+            document_id, id, word, page_index, bounds_json, context, question, answer, dictionary_tags, created_at, srs_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
@@ -340,8 +356,9 @@ final class WordRecordSQLiteStore {
         bindOptional(record.context, at: 6, statement: statement)
         bind(record.question, at: 7, statement: statement)
         bind(record.answer, at: 8, statement: statement)
-        sqlite3_bind_double(statement, 9, record.createdAt.timeIntervalSince1970)
-        bindOptional(encodeJSON(record.srs), at: 10, statement: statement)
+        bindOptional(record.dictionaryTags, at: 9, statement: statement)
+        sqlite3_bind_double(statement, 10, record.createdAt.timeIntervalSince1970)
+        bindOptional(encodeJSON(record.srs), at: 11, statement: statement)
         guard sqlite3_step(statement) == SQLITE_DONE else {
             logSQLiteFailure("upsert PDF record")
             return false
@@ -352,9 +369,9 @@ final class WordRecordSQLiteStore {
     private func insertWebRecord(documentID: String, record: StoredWebWordRecord) -> Bool {
         let sql = """
         INSERT OR REPLACE INTO web_word_records(
-            document_id, id, word, context, occurrence_index, scroll_progress, question, answer, created_at, srs_json
+            document_id, id, word, context, occurrence_index, scroll_progress, question, answer, dictionary_tags, created_at, srs_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
@@ -370,8 +387,9 @@ final class WordRecordSQLiteStore {
         sqlite3_bind_double(statement, 6, record.scrollProgress)
         bind(record.question, at: 7, statement: statement)
         bind(record.answer, at: 8, statement: statement)
-        sqlite3_bind_double(statement, 9, record.createdAt.timeIntervalSince1970)
-        bindOptional(encodeJSON(record.srs), at: 10, statement: statement)
+        bindOptional(record.dictionaryTags, at: 9, statement: statement)
+        sqlite3_bind_double(statement, 10, record.createdAt.timeIntervalSince1970)
+        bindOptional(encodeJSON(record.srs), at: 11, statement: statement)
         guard sqlite3_step(statement) == SQLITE_DONE else {
             logSQLiteFailure("upsert web record")
             return false

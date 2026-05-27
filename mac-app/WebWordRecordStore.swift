@@ -8,6 +8,7 @@ struct StoredWebWordRecord: Codable {
     let scrollProgress: Double
     var question: String
     var answer: String
+    var dictionaryTags: String? = nil
     let createdAt: Date
     var srs: VocabularySRSState?
 }
