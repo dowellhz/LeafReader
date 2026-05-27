@@ -2,18 +2,11 @@ import Foundation
 
 extension SpeechRuntimeResourceManager {
     static func requiredPathsExist(_ paths: [URL]) -> Bool {
-        paths.allSatisfy { path in
-            var isDirectory: ObjCBool = false
-            let exists = FileManager.default.fileExists(atPath: path.path, isDirectory: &isDirectory)
-            if path.hasDirectoryPath {
-                return exists && isDirectory.boolValue
-            }
-            return FileManager.default.isExecutableFile(atPath: path.path)
-        }
+        SpeechRuntimePathChecks.requiredPathsExist(paths)
     }
 
     static func kittenRuntimePathsExist(in directory: URL) -> Bool {
-        FileManager.default.isExecutableFile(atPath: Runtime.kitten.executableURL(in: directory).path)
+        SpeechRuntimePathChecks.kittenRuntimePathsExist(in: directory)
     }
 
     static func kittenRuntimeAndModelPathsExist(installDirectories: [URL]) -> Bool {
@@ -75,146 +68,55 @@ extension SpeechRuntimeResourceManager {
     }
 
     static func piperRuntimePathsExist(in directory: URL) -> Bool {
-        let phonemizeLibraryDirectory = directory
-            .appendingPathComponent("piper-phonemize/lib", isDirectory: true)
-        let eSpeakDataDirectory = directory
-            .appendingPathComponent("piper-phonemize/share/espeak-ng-data", isDirectory: true)
-        return FileManager.default.isExecutableFile(atPath: Runtime.piper.executableURL(in: directory).path)
-            && directoryExists(phonemizeLibraryDirectory)
-            && directoryExists(eSpeakDataDirectory)
+        SpeechRuntimePathChecks.piperRuntimePathsExist(in: directory)
     }
 
     static func piperVoicePathsExist(voiceID: String = SpeechVoiceCatalog.defaultPiperVoiceID) -> Bool {
-        piperVoicePathsExist(in: Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory), voiceID: voiceID)
+        SpeechRuntimePathChecks.piperVoicePathsExist(voiceID: voiceID)
     }
 
     static func piperAnyVoicePathsExist() -> Bool {
-        piperAnyVoicePathsExist(in: Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory))
+        SpeechRuntimePathChecks.piperAnyVoicePathsExist()
     }
 
     static func piperVoicePathsExist(in modelDirectory: URL, voiceID: String = SpeechVoiceCatalog.defaultPiperVoiceID) -> Bool {
-        let model = modelDirectory.appendingPathComponent("\(voiceID).onnx")
-        let config = modelDirectory.appendingPathComponent("\(voiceID).onnx.json")
-        var isDirectory: ObjCBool = false
-        return FileManager.default.fileExists(atPath: modelDirectory.path, isDirectory: &isDirectory)
-            && isDirectory.boolValue
-            && FileManager.default.fileExists(atPath: model.path)
-            && FileManager.default.fileExists(atPath: config.path)
+        SpeechRuntimePathChecks.piperVoicePathsExist(in: modelDirectory, voiceID: voiceID)
     }
 
     static func piperAnyVoicePathsExist(in modelDirectory: URL) -> Bool {
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: modelDirectory.path, isDirectory: &isDirectory),
-              isDirectory.boolValue,
-              let contents = try? FileManager.default.contentsOfDirectory(
-                at: modelDirectory,
-                includingPropertiesForKeys: nil
-              ) else {
-            return false
-        }
-        let modelIDs = Set(contents.filter { $0.pathExtension == "onnx" }.map { $0.deletingPathExtension().lastPathComponent })
-        let configIDs = Set(contents.filter { $0.lastPathComponent.hasSuffix(".onnx.json") }.map {
-            $0.lastPathComponent.replacingOccurrences(of: ".onnx.json", with: "")
-        })
-        return !modelIDs.intersection(configIDs).isEmpty
+        SpeechRuntimePathChecks.piperAnyVoicePathsExist(in: modelDirectory)
     }
 
     static func kittenModelPathsExist(in directory: URL) -> Bool {
-        let modelDirectory = Runtime.kitten.modelDirectory(in: directory)
-        return directoryExists(modelDirectory)
-            && relativeFilesExist(
-                [
-                    "kitten_tts_mini_v0_8.onnx",
-                    "voices.npz",
-                    "config.json"
-                ],
-                in: modelDirectory
-            )
+        SpeechRuntimePathChecks.kittenModelPathsExist(in: directory)
     }
 
     static func kokoroModelCacheDirectories() -> [URL] {
-        let cacheRoot = Runtime.fluidAudioModelCacheRoot
-        return [
-            cacheRoot.appendingPathComponent("kokoro", isDirectory: true),
-            cacheRoot.appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
-        ]
+        SpeechRuntimePathChecks.kokoroModelCacheDirectories()
     }
 
     static func piperVoiceCacheDirectories() -> [URL] {
-        [Runtime.piperVoiceCacheRoot]
+        SpeechRuntimePathChecks.piperVoiceCacheDirectories()
     }
 
     static func kokoroAneModelCacheExists() -> Bool {
-        kokoroAneModelCacheExists(in: Runtime.fluidAudioModelCacheRoot)
+        SpeechRuntimePathChecks.kokoroAneModelCacheExists()
     }
 
     static func kokoroAneModelCacheExists(in cacheRoot: URL) -> Bool {
-        kokoroAneEnglishModelCacheExists(in: cacheRoot)
-            || kokoroAneMandarinModelCacheExists(in: cacheRoot)
+        SpeechRuntimePathChecks.kokoroAneModelCacheExists(in: cacheRoot)
     }
 
     static func kokoroAneEnglishModelCacheExists(in cacheRoot: URL) -> Bool {
-        let aneDirectory = cacheRoot
-            .appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
-            .appendingPathComponent("ANE", isDirectory: true)
-        let requiredAneFiles = [
-            "KokoroAlbert.mlmodelc",
-            "KokoroPostAlbert.mlmodelc",
-            "KokoroAlignment.mlmodelc",
-            "KokoroProsody.mlmodelc",
-            "KokoroNoise.mlmodelc",
-            "KokoroVocoder.mlmodelc",
-            "KokoroTail.mlmodelc",
-            "vocab.json"
-        ]
-        guard relativeFilesExist(requiredAneFiles, in: aneDirectory) else {
-            return false
-        }
-
-        let g2pDirectory = cacheRoot.appendingPathComponent("kokoro", isDirectory: true)
-        let requiredG2PFiles = [
-            "G2PEncoder.mlmodelc",
-            "G2PDecoder.mlmodelc",
-            "g2p_vocab.json"
-        ]
-        return relativeFilesExist(requiredG2PFiles, in: g2pDirectory)
+        SpeechRuntimePathChecks.kokoroAneEnglishModelCacheExists(in: cacheRoot)
     }
 
     static func kokoroAneMandarinModelCacheExists(in cacheRoot: URL) -> Bool {
-        let aneDirectory = cacheRoot
-            .appendingPathComponent("kokoro-82m-coreml", isDirectory: true)
-            .appendingPathComponent("ANE-zh", isDirectory: true)
-        let requiredAneFiles = [
-            "KokoroAlbert.mlmodelc",
-            "KokoroPostAlbert.mlmodelc",
-            "KokoroAlignment.mlmodelc",
-            "KokoroProsody.mlmodelc",
-            "KokoroNoise.mlmodelc",
-            "KokoroVocoder.mlmodelc",
-            "KokoroTail.mlmodelc",
-            "vocab.json",
-            "assets/pinyin_phrases.bin",
-            "assets/pinyin_single.bin"
-        ]
-        return relativeFilesExist(requiredAneFiles, in: aneDirectory)
+        SpeechRuntimePathChecks.kokoroAneMandarinModelCacheExists(in: cacheRoot)
     }
 
     static func removeItemIfExists(at url: URL) throws {
-        let fileManager = FileManager.default
-        guard fileManager.fileExists(atPath: url.path) else { return }
-        try fileManager.removeItem(at: url)
-    }
-
-    private static func directoryExists(_ url: URL) -> Bool {
-        var isDirectory: ObjCBool = false
-        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
-            && isDirectory.boolValue
-    }
-
-    private static func relativeFilesExist(_ relativePaths: [String], in directory: URL) -> Bool {
-        relativePaths.allSatisfy { relativePath in
-            FileManager.default.fileExists(atPath: directory.appendingPathComponent(relativePath).path)
-        }
+        try SpeechRuntimePathChecks.removeItemIfExists(at: url)
     }
 }
 
@@ -223,78 +125,6 @@ extension SpeechRuntimeResourceManager.InstallManifest {
         cacheDirectoryPaths.compactMap { path in
             let url = URL(fileURLWithPath: path, isDirectory: true)
             return (url.isInsideFluidAudioModelCache || url.isInsidePiperVoiceCache) ? url : nil
-        }
-    }
-}
-
-struct KokoroCacheInstallTransaction {
-    private struct Replacement {
-        let destination: URL
-        let backup: URL
-        let hadExistingDestination: Bool
-    }
-
-    private let fileManager: FileManager
-    private var replacements: [Replacement] = []
-    private(set) var installedDirectories: [URL] = []
-    private var isCommitted = false
-
-    init(fileManager: FileManager) {
-        self.fileManager = fileManager
-    }
-
-    mutating func replace(source: URL, destination: URL, backup: URL) throws {
-        let hadExistingDestination = fileManager.fileExists(atPath: destination.path)
-        do {
-            if hadExistingDestination {
-                try fileManager.moveItem(at: destination, to: backup)
-            }
-            try fileManager.moveItem(at: source, to: destination)
-            replacements.append(Replacement(
-                destination: destination,
-                backup: backup,
-                hadExistingDestination: hadExistingDestination
-            ))
-            installedDirectories.append(destination)
-        } catch {
-            restoreCurrentReplacement(destination: destination, backup: backup, hadExistingDestination: hadExistingDestination)
-            rollback()
-            throw error
-        }
-    }
-
-    mutating func commit() {
-        isCommitted = true
-        for replacement in replacements {
-            try? fileManager.removeItem(at: replacement.backup)
-        }
-        replacements.removeAll()
-    }
-
-    mutating func rollback() {
-        guard !isCommitted else { return }
-        for replacement in replacements.reversed() {
-            try? fileManager.removeItem(at: replacement.destination)
-            if replacement.hadExistingDestination,
-               fileManager.fileExists(atPath: replacement.backup.path),
-               !fileManager.fileExists(atPath: replacement.destination.path) {
-                try? fileManager.moveItem(at: replacement.backup, to: replacement.destination)
-            } else {
-                try? fileManager.removeItem(at: replacement.backup)
-            }
-        }
-        replacements.removeAll()
-        installedDirectories.removeAll()
-    }
-
-    private func restoreCurrentReplacement(destination: URL, backup: URL, hadExistingDestination: Bool) {
-        try? fileManager.removeItem(at: destination)
-        if hadExistingDestination,
-           fileManager.fileExists(atPath: backup.path),
-           !fileManager.fileExists(atPath: destination.path) {
-            try? fileManager.moveItem(at: backup, to: destination)
-        } else {
-            try? fileManager.removeItem(at: backup)
         }
     }
 }

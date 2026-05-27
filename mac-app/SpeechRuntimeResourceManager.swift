@@ -48,27 +48,7 @@ enum SpeechRuntimeResourceManager {
         _ = stopActiveDownload(for: runtime)
         try ensureNotInstalling(runtime)
         let manifest = installManifest(for: runtime)
-        removePartialDownload(for: runtime)
-        try removeItemIfExists(at: runtime.installDirectory)
-        SpeechRuntimeDownloadFailureStore.clear(for: runtime)
-        SpeechRuntimeInferenceFailureStore.clear(for: runtime)
-        if runtime == .kokoro {
-            KokoroVoiceResourceManager.invalidateInstalledVoiceCache()
-            let modelCacheDirectories = manifest?.cacheDirectories ?? kokoroModelCacheDirectories()
-            for modelCacheDirectory in modelCacheDirectories {
-                try removeItemIfExists(at: modelCacheDirectory)
-            }
-        } else if runtime == .piper {
-            let voiceCacheDirectories = manifest?.cacheDirectories ?? piperVoiceCacheDirectories()
-            for voiceCacheDirectory in voiceCacheDirectories {
-                try removeItemIfExists(at: voiceCacheDirectory)
-            }
-            if voiceCacheDirectories.isEmpty {
-                for voiceCacheDirectory in piperVoiceCacheDirectories() {
-                    try removeItemIfExists(at: voiceCacheDirectory)
-                }
-            }
-        }
+        try SpeechRuntimeDeleter.delete(runtime, manifest: manifest)
     }
 
     private static func stopActiveDownload(for runtime: Runtime) -> [(Result<Void, Error>) -> Void] {

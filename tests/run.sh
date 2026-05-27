@@ -89,8 +89,11 @@ swiftc \
   mac-app/SpeechRuntimeAvailability.swift \
   mac-app/SpeechRuntimeStatus.swift \
   mac-app/SpeechRuntimeInstaller.swift \
+  mac-app/SpeechRuntimeDeleter.swift \
   mac-app/SpeechRuntimeDownloadFailureStore.swift \
   mac-app/SpeechRuntimeInferenceFailureStore.swift \
+  mac-app/SpeechRuntimePathChecks.swift \
+  mac-app/SpeechRuntimeCacheInstallTransaction.swift \
   mac-app/SpeechRuntimeInstallHelpers.swift \
   mac-app/SpeechRuntimeResourceManager.swift \
   mac-app/LocalRuntimeDownloader.swift \
