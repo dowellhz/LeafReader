@@ -487,6 +487,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Reading note store round trip", ReadingNoteLogicTests.testReadingNoteStoreRoundTrip),
     ("Reading note store unavailable database", ReadingNoteLogicTests.testReadingNoteStoreUnavailableDatabase),
     ("Reading note exporter fallback quote", ReadingNoteLogicTests.testReadingNoteExporterFallbackQuote),
+    ("Reading note display title uses first markdown line", ReadingNoteLogicTests.testReadingNoteDisplayTitleUsesFirstMarkdownLine),
     ("Reading note quote soft line breaks", ReadingNoteLogicTests.testReadingNoteQuoteSoftLineBreaks),
     ("Reading note PDF line gaps preserve paragraph breaks", ReadingNoteLogicTests.testReadingNotePDFLineGapsPreserveParagraphBreaks),
     ("Reader AI context text cleanup", testReaderAIContextTextCleanup),

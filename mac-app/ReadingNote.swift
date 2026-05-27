@@ -29,6 +29,13 @@ struct ReadingNote: Codable, Identifiable {
     }
 }
 
+extension ReadingNote {
+    var displayTitle: String {
+        ReadingNoteTextPolicy.displayTitle(markdown: markdown, quote: quote)
+            ?? AppText.localized("未命名笔记", "Untitled Note")
+    }
+}
+
 extension Sequence where Element == ReadingNote {
     func sortedByCreatedAt() -> [ReadingNote] {
         sorted {

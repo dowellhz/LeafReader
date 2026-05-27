@@ -47,6 +47,14 @@ enum ReadingNoteTextPolicy {
             .joined(separator: "\n\n")
     }
 
+    static func displayTitle(markdown: String, quote: String) -> String? {
+        firstDisplayLine(in: markdown) ?? firstDisplayLine(in: quote)
+    }
+
+    static func compactInlineText(_ value: String, maxLength: Int) -> String {
+        String(collapsedSpaces(value).prefix(maxLength))
+    }
+
     private static func normalizeParagraph(_ value: String) -> String {
         let lines = value
             .components(separatedBy: "\n")
@@ -100,6 +108,27 @@ enum ReadingNoteTextPolicy {
         value
             .replacingOccurrences(of: #"[ \t\u{00A0}]+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func firstDisplayLine(in text: String) -> String? {
+        text
+            .components(separatedBy: .newlines)
+            .compactMap(displayLine)
+            .first
+    }
+
+    private static func displayLine(_ line: String) -> String? {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let value = trimmed
+            .replacingOccurrences(of: #"^#{1,6}\s+"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"^>\s?"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"^[-*+]\s+"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"^\d+\.\s+"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty, !value.hasPrefix("![") else { return nil }
+        return value
     }
 
     private static func shouldStartNewLine(_ line: String) -> Bool {

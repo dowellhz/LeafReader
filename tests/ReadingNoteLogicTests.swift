@@ -101,6 +101,25 @@ enum ReadingNoteLogicTests {
         try expect(markdown.contains("> Line one\n> Line two"), "empty note body should fall back to quoted selection")
     }
 
+    static func testReadingNoteDisplayTitleUsesFirstMarkdownLine() throws {
+        let note = ReadingNote(
+            id: "note-1",
+            documentID: "doc-1",
+            documentTitle: "Book",
+            documentKind: "pdf",
+            quote: "Fallback quote",
+            markdown: "\n> First note line\n\n## Notes\n\nBody",
+            locator: ReadingNote.Locator(pdfFragments: nil, webAnchor: nil),
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        try expectEqual(note.displayTitle, "First note line", "reading note title should use first markdown line")
+
+        var fallback = note
+        fallback.markdown = " \n"
+        try expectEqual(fallback.displayTitle, "Fallback quote", "empty markdown title should fall back to quote")
+    }
+
     static func testReadingNoteQuoteSoftLineBreaks() throws {
         let input = """
         A beginning is the time for taking

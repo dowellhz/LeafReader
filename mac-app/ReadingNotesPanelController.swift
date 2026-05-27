@@ -32,7 +32,7 @@ final class ReadingNotesPanelController: NSObject {
     private let rootView = NSView()
     private let iconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: AppText.localized("阅读笔记", "Reading Notes"))
-    private let stack = NSStackView()
+    private let stack = ReadingNotesStackView()
     private let summaryLabel = NSTextField(labelWithString: "")
     private var exportButton: NSButton?
     private var closeButton: NSButton?
@@ -244,7 +244,7 @@ final class ReadingNotesPanelController: NSObject {
         locationLabel.textColor = ReadingNoteTheme.primaryText(theme)
         locationLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        let quoteLabel = NSTextField(labelWithString: rowQuote(note))
+        let quoteLabel = NSTextField(labelWithString: rowTitle(note))
         quoteLabel.font = NSFont.systemFont(ofSize: 14)
         quoteLabel.textColor = ReadingNoteTheme.primaryText(theme)
         quoteLabel.lineBreakMode = .byTruncatingTail
@@ -327,8 +327,8 @@ final class ReadingNotesPanelController: NSObject {
         return AppText.localized("网页位置", "Web location")
     }
 
-    private func rowQuote(_ note: ReadingNote) -> String {
-        String(note.quote.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression).prefix(96))
+    private func rowTitle(_ note: ReadingNote) -> String {
+        ReadingNoteTextPolicy.compactInlineText(note.displayTitle, maxLength: 96)
     }
 
     private func actionButton(title: String, action: Selector) -> NSButton {
@@ -397,4 +397,8 @@ final class ReadingNotesPanelController: NSObject {
         }
     }
 
+}
+
+private final class ReadingNotesStackView: NSStackView {
+    override var isFlipped: Bool { true }
 }

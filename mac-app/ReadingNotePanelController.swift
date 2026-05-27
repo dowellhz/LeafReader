@@ -215,7 +215,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         title.font = AppFont.semibold(ofSize: 19)
         title.alignment = .center
         title.translatesAutoresizingMaskIntoConstraints = false
-        titleIconView.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: nil)
+        titleIconView.image = NSImage(systemSymbolName: "pencil.and.list.clipboard", accessibilityDescription: nil)
         titleIconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
         titleIconView.translatesAutoresizingMaskIntoConstraints = false
         titleIconView.widthAnchor.constraint(equalToConstant: 20).isActive = true
@@ -232,7 +232,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
             pointSize: Metrics.topIconPointSize
         )
         let moreButton = iconButton(
-            symbol: "ellipsis",
+            symbol: "ellipsis.curlybraces",
             action: #selector(moreTapped(_:)),
             pointSize: Metrics.topIconPointSize
         )
