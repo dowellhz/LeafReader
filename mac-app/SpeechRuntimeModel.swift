@@ -1,10 +1,7 @@
 import Foundation
 
 extension SpeechRuntimeResourceManager {
-    struct InstallManifest: Codable {
-        let runtimeID: String
-        let cacheDirectoryPaths: [String]
-    }
+    typealias InstallManifest = LocalRuntimeInstallManifest
 
     enum Runtime: CaseIterable {
         case kokoro
@@ -92,29 +89,24 @@ extension SpeechRuntimeResourceManager {
             displayOrder.first { $0.id == id }
         }
 
+        static var localRuntimeRegistry: LocalRuntimeRegistry {
+            SpeechRuntimeCatalog.registry
+        }
+
         static var localRuntimeDescriptors: [LocalRuntimeDescriptor] {
-            displayOrder.map(\.localRuntimeDescriptor)
+            SpeechRuntimeCatalog.descriptors
+        }
+
+        static var localRuntimeDownloadPlans: [LocalRuntimeDownloadPlan] {
+            SpeechRuntimeCatalog.downloadPlans
         }
 
         var localRuntimeDescriptor: LocalRuntimeDescriptor {
-            LocalRuntimeDescriptor(
-                family: .speech,
-                id: id,
-                title: title,
-                summaryText: summaryText,
-                downloadSizeText: downloadSizeText,
-                minimumSystemVersion: minimumSystemVersion,
-                minimumSystemVersionText: minimumSystemVersionText,
-                downloadURL: downloadURL,
-                manifestURL: Self.modelManifestURL,
-                installDirectory: installDirectory,
-                bundledInstallDirectory: bundledInstallDirectory,
-                installDirectories: installDirectories,
-                executableURL: userExecutableURL,
-                bundledExecutableURL: bundledExecutableURL,
-                modelDirectory: modelDirectory(in: installDirectory),
-                requiredPaths: requiredPaths
-            )
+            SpeechRuntimeCatalog.descriptor(for: self)
+        }
+
+        var localRuntimeDownloadPlan: LocalRuntimeDownloadPlan {
+            SpeechRuntimeCatalog.downloadPlan(for: self)
         }
 
         var downloadURL: URL {

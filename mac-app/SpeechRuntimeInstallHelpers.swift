@@ -17,64 +17,47 @@ extension SpeechRuntimeResourceManager {
     }
 
     static func kittenRuntimeAndModelPathsExist(installDirectories: [URL]) -> Bool {
-        installedRuntimePathsExist(for: .kitten, installDirectories: installDirectories)
-            && installedModelPathsExist(for: .kitten, installDirectories: installDirectories)
+        SpeechRuntimeAvailability.kittenRuntimeAndModelPathsExist(installDirectories: installDirectories)
     }
 
     static func kokoroRuntimeAndModelPathsExist(
         installDirectories: [URL],
         modelCacheRoot: URL = Runtime.fluidAudioModelCacheRoot
     ) -> Bool {
-        installedRuntimePathsExist(for: .kokoro, installDirectories: installDirectories)
-            && installedModelPathsExist(
-                for: .kokoro,
-                installDirectories: installDirectories,
-                modelCacheRoot: modelCacheRoot
-            )
+        SpeechRuntimeAvailability.kokoroRuntimeAndModelPathsExist(
+            installDirectories: installDirectories,
+            modelCacheRoot: modelCacheRoot
+        )
     }
 
     static func piperRuntimeAndVoicePathsExist(
         installDirectories: [URL],
         voiceDirectory: URL = Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory)
     ) -> Bool {
-        installedRuntimePathsExist(for: .piper, installDirectories: installDirectories)
-            && installedModelPathsExist(
-                for: .piper,
-                installDirectories: installDirectories,
-                voiceDirectory: voiceDirectory
-            )
+        SpeechRuntimeAvailability.piperRuntimeAndVoicePathsExist(
+            installDirectories: installDirectories,
+            voiceDirectory: voiceDirectory
+        )
     }
 
     static func bundledRuntimePathsExist(for runtime: Runtime) -> Bool {
-        guard let directory = runtime.bundledInstallDirectory else {
-            return false
-        }
-        return runtimePathsExist(for: runtime, in: directory)
+        SpeechRuntimeAvailability.bundledRuntimePathsExist(for: runtime)
     }
 
     static func installedRuntimePathsExist(for runtime: Runtime) -> Bool {
-        installedRuntimePathsExist(for: runtime, installDirectories: runtime.installDirectories)
+        SpeechRuntimeAvailability.installedRuntimePathsExist(for: runtime)
     }
 
     static func installedRuntimePathsExist(for runtime: Runtime, installDirectories: [URL]) -> Bool {
-        installDirectories.contains { directory in
-            runtimePathsExist(for: runtime, in: directory)
-        }
+        SpeechRuntimeAvailability.installedRuntimePathsExist(for: runtime, installDirectories: installDirectories)
     }
 
     static func runtimePathsExist(for runtime: Runtime, in directory: URL) -> Bool {
-        switch runtime {
-        case .kitten:
-            return kittenRuntimePathsExist(in: directory)
-        case .kokoro:
-            return requiredPathsExist(runtime.requiredPaths(in: directory))
-        case .piper:
-            return piperRuntimePathsExist(in: directory)
-        }
+        SpeechRuntimeAvailability.runtimePathsExist(for: runtime, in: directory)
     }
 
     static func installedModelPathsExist(for runtime: Runtime) -> Bool {
-        installedModelPathsExist(for: runtime, installDirectories: runtime.installDirectories)
+        SpeechRuntimeAvailability.installedModelPathsExist(for: runtime)
     }
 
     static func installedModelPathsExist(
@@ -83,16 +66,12 @@ extension SpeechRuntimeResourceManager {
         modelCacheRoot: URL = Runtime.fluidAudioModelCacheRoot,
         voiceDirectory: URL = Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory)
     ) -> Bool {
-        switch runtime {
-        case .kitten:
-            return installDirectories.contains { directory in
-                kittenModelPathsExist(in: directory)
-            }
-        case .kokoro:
-            return kokoroAneModelCacheExists(in: modelCacheRoot)
-        case .piper:
-            return piperAnyVoicePathsExist(in: voiceDirectory)
-        }
+        SpeechRuntimeAvailability.installedModelPathsExist(
+            for: runtime,
+            installDirectories: installDirectories,
+            modelCacheRoot: modelCacheRoot,
+            voiceDirectory: voiceDirectory
+        )
     }
 
     static func piperRuntimePathsExist(in directory: URL) -> Bool {

@@ -1,19 +1,6 @@
 import Foundation
 
-struct SpeechModelManifest: Decodable {
-    struct Asset: Decodable {
-        let name: String
-        let size: Int64?
-        let sha256: String
-    }
-
-    let generatedAt: String?
-    let assets: [Asset]
-
-    func asset(named fileName: String) -> Asset? {
-        assets.first { $0.name == fileName }
-    }
-}
+typealias SpeechModelManifest = LocalRuntimeDownloadManifest
 
 extension SpeechRuntimeResourceManager {
     static func decodeModelManifest(_ data: Data) throws -> SpeechModelManifest {
@@ -46,8 +33,11 @@ extension SpeechRuntimeResourceManager {
         }
     }
 
-    static func fetchModelManifest(completion: @escaping (Result<SpeechModelManifest?, Error>) -> Void) {
-        let task = URLSession.shared.dataTask(with: Runtime.modelManifestURL) { data, response, error in
+    static func fetchModelManifest(
+        from manifestURL: URL = Runtime.modelManifestURL,
+        completion: @escaping (Result<SpeechModelManifest?, Error>) -> Void
+    ) {
+        let task = URLSession.shared.dataTask(with: manifestURL) { data, response, error in
             if let error {
                 let bundledManifest = bundledModelManifest()
                 NSLog(

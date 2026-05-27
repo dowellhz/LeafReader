@@ -57,9 +57,14 @@ swiftc \
   mac-app/AIResponseTextFormatter.swift \
   mac-app/EmbeddingActionPolicy.swift \
   mac-app/AppText.swift \
+  mac-app/AIProviderDescriptor.swift \
   mac-app/AIModelConfig.swift \
+  mac-app/AIChatRequestBuilder.swift \
   mac-app/LocalEncryptedStore.swift \
   mac-app/LocalRuntime.swift \
+  mac-app/LocalRuntimeDownloadManifest.swift \
+  mac-app/LocalRuntimeDownloadCoordinator.swift \
+  mac-app/LocalRuntimeInstallCoordinator.swift \
   mac-app/SpeechVoiceCatalog.swift \
   mac-app/AISettingsStore.swift \
   mac-app/AISettingsStore+Embedding.swift \
@@ -75,16 +80,20 @@ swiftc \
   mac-app/VocabularyAudioCache.swift \
   mac-app/PiperTTSBackend.swift \
   mac-app/KokoroVoiceResourceManager.swift \
+  mac-app/LocalRuntimeInstaller.swift \
+  mac-app/LocalRuntimeDownloadSupport.swift \
   mac-app/SpeechRuntimeDownloadSupport.swift \
-  mac-app/SpeechModelManifest.swift \
+  mac-app/SpeechRuntimeManifestFetcher.swift \
+  mac-app/SpeechRuntimeCatalog.swift \
   mac-app/SpeechRuntimeModel.swift \
+  mac-app/SpeechRuntimeAvailability.swift \
   mac-app/SpeechRuntimeStatus.swift \
   mac-app/SpeechRuntimeInstaller.swift \
   mac-app/SpeechRuntimeDownloadFailureStore.swift \
   mac-app/SpeechRuntimeInferenceFailureStore.swift \
   mac-app/SpeechRuntimeInstallHelpers.swift \
   mac-app/SpeechRuntimeResourceManager.swift \
-  mac-app/RuntimeDownload.swift \
+  mac-app/LocalRuntimeDownloader.swift \
   mac-app/ReadingContextSnapshot.swift \
   mac-app/ReaderDocumentKind.swift \
   mac-app/VocabularyExporter.swift \

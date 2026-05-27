@@ -1,43 +1,29 @@
 import Foundation
 
 enum SpeechRuntimeResourceManager {
-    private static let stateQueue = DispatchQueue(label: "LeafReader.SpeechRuntimeResourceManager")
-    private static var activeDownloads: [Runtime: [(Result<Void, Error>) -> Void]] = [:]
-    private static var activeDownloadIDs: [Runtime: UUID] = [:]
-    private static var activeTasks: [Runtime: URLSessionTask] = [:]
-    private static var activeDownloaders: [Runtime: RuntimeDownload] = [:]
-    private static var activeProgress: [Runtime: Double] = [:]
-    private static var activeInstalls = Set<Runtime>()
-    private static var pausedDownloads = Set<Runtime>()
+    private static let downloadCoordinator = LocalRuntimeDownloadCoordinator<LocalRuntimeDownloadKey>(
+        label: "LeafReader.SpeechRuntimeResourceManager.Download"
+    )
+    private static let installCoordinator = LocalRuntimeInstallCoordinator<LocalRuntimeDownloadKey>(
+        label: "LeafReader.SpeechRuntimeResourceManager.Install"
+    )
     static let installManifestFileName = ".leafreader-install-manifest.json"
     static let installArchiveTimeout: TimeInterval = 180
 
     static func isDownloading(_ runtime: Runtime) -> Bool {
-        stateQueue.sync {
-            activeDownloads[runtime] != nil
-        }
+        downloadCoordinator.isDownloading(downloadKey(for: runtime))
     }
 
     static func isPaused(_ runtime: Runtime) -> Bool {
-        stateQueue.sync {
-            pausedDownloads.contains(runtime)
-        }
+        downloadCoordinator.isPaused(downloadKey(for: runtime))
     }
 
     static func pause(_ runtime: Runtime) {
-        stateQueue.sync {
-            guard activeDownloads[runtime] != nil else { return }
-            activeTasks[runtime]?.suspend()
-            pausedDownloads.insert(runtime)
-        }
+        downloadCoordinator.pause(downloadKey(for: runtime))
     }
 
     static func resume(_ runtime: Runtime) {
-        stateQueue.sync {
-            guard activeDownloads[runtime] != nil else { return }
-            activeTasks[runtime]?.resume()
-            pausedDownloads.remove(runtime)
-        }
+        downloadCoordinator.resume(downloadKey(for: runtime))
     }
 
     static func cancel(_ runtime: Runtime) {
@@ -55,15 +41,7 @@ enum SpeechRuntimeResourceManager {
     }
 
     static func downloadProgress(for runtime: Runtime) -> Double? {
-        stateQueue.sync {
-            guard activeDownloads[runtime] != nil,
-                  let progress = activeTasks[runtime]?.progress.fractionCompleted,
-                  progress.isFinite,
-                  progress >= 0 else {
-                return activeProgress[runtime]
-            }
-            return activeProgress[runtime] ?? progress
-        }
+        downloadCoordinator.progress(for: downloadKey(for: runtime))
     }
 
     static func delete(_ runtime: Runtime) throws {
@@ -94,34 +72,18 @@ enum SpeechRuntimeResourceManager {
     }
 
     private static func stopActiveDownload(for runtime: Runtime) -> [(Result<Void, Error>) -> Void] {
-        stateQueue.sync {
-            let completions = activeDownloads[runtime] ?? []
-            let task = activeTasks[runtime]
-            clearActiveDownloadState(for: runtime)
-            task?.cancel()
-            return completions
-        }
+        downloadCoordinator.stop(downloadKey(for: runtime))
     }
 
     static func download(_ runtime: Runtime, completion: @escaping (Result<Void, Error>) -> Void) {
-        var shouldStart = false
-        let downloadID = UUID()
-        stateQueue.sync {
-            if activeDownloads[runtime] != nil {
-                activeDownloads[runtime]?.append(completion)
-            } else {
-                activeDownloads[runtime] = [completion]
-                activeDownloadIDs[runtime] = downloadID
-                shouldStart = true
-            }
-        }
-        guard shouldStart else { return }
-        fetchModelManifest { manifestResult in
+        guard let downloadID = downloadCoordinator.begin(downloadKey(for: runtime), completion: completion) else { return }
+        let plan = runtime.localRuntimeDownloadPlan
+        fetchModelManifest(from: plan.manifestURL ?? Runtime.modelManifestURL) { manifestResult in
             guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
             switch manifestResult {
             case .success(let manifest):
-                let expectedAsset = manifest?.asset(named: runtime.downloadURL.lastPathComponent)
-                download(runtime, downloadID: downloadID, expectedAsset: expectedAsset, retryingWithoutResume: false) { result in
+                let expectedAsset = manifest?.asset(named: plan.expectedAssetName)
+                download(runtime, downloadID: downloadID, plan: plan, expectedAsset: expectedAsset, retryingWithoutResume: false) { result in
                     finishDownload(runtime, downloadID: downloadID, result: result)
                 }
             case .failure(let error):
@@ -131,14 +93,7 @@ enum SpeechRuntimeResourceManager {
     }
 
     private static func finishDownload(_ runtime: Runtime, downloadID: UUID, result: Result<Void, Error>) {
-        let completions = stateQueue.sync {
-            guard activeDownloadIDs[runtime] == downloadID else {
-                return [] as [(Result<Void, Error>) -> Void]
-            }
-            let completions = activeDownloads[runtime] ?? []
-            clearActiveDownloadState(for: runtime)
-            return completions
-        }
+        let completions = downloadCoordinator.finish(downloadKey(for: runtime), downloadID: downloadID)
         guard !completions.isEmpty else { return }
         switch result {
         case .success:
@@ -154,70 +109,70 @@ enum SpeechRuntimeResourceManager {
         }
     }
 
-    private static func clearActiveDownloadState(for runtime: Runtime) {
-        activeDownloads[runtime] = nil
-        activeDownloadIDs[runtime] = nil
-        activeTasks[runtime] = nil
-        activeDownloaders[runtime] = nil
-        activeProgress[runtime] = nil
-        pausedDownloads.remove(runtime)
-    }
-
     private static func download(
         _ runtime: Runtime,
         downloadID: UUID,
-        expectedAsset: SpeechModelManifest.Asset?,
+        plan: LocalRuntimeDownloadPlan,
+        expectedAsset: LocalRuntimeDownloadManifestAsset?,
         retryingWithoutResume: Bool,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        download(runtime, downloadID: downloadID, expectedAsset: expectedAsset, retryingWithoutResume: retryingWithoutResume, attempt: 1, completion: completion)
+        download(runtime, downloadID: downloadID, plan: plan, expectedAsset: expectedAsset, retryingWithoutResume: retryingWithoutResume, attempt: 1, completion: completion)
     }
 
     private static func download(
         _ runtime: Runtime,
         downloadID: UUID,
-        expectedAsset: SpeechModelManifest.Asset?,
+        plan: LocalRuntimeDownloadPlan,
+        expectedAsset: LocalRuntimeDownloadManifestAsset?,
         retryingWithoutResume: Bool,
         attempt: Int,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        let partialURL = partialDownloadURL(for: runtime)
-        let existingSize = retryingWithoutResume ? 0 : resumablePartialDownloadSize(for: runtime, asset: expectedAsset)
+        let partialURL = partialDownloadURL(for: plan)
+        let existingSize = retryingWithoutResume ? 0 : resumablePartialDownloadSize(for: plan, asset: expectedAsset)
         let expectedTotalBytes = expectedDownloadTotalBytes(asset: expectedAsset)
-        var request = URLRequest(url: runtime.downloadURL, cachePolicy: .reloadIgnoringLocalCacheData)
+        var request = URLRequest(url: plan.archiveURL, cachePolicy: .reloadIgnoringLocalCacheData)
         if existingSize > 0 {
             request.setValue("bytes=\(existingSize)-", forHTTPHeaderField: "Range")
-            if let metadata = readPartialDownloadMetadata(for: runtime),
+            if let metadata = readPartialDownloadMetadata(for: plan),
                let ifRange = ifRangeHeaderValue(for: metadata) {
                 request.setValue(ifRange, forHTTPHeaderField: "If-Range")
             }
         }
 
-        let downloader = RuntimeDownload(
-            runtime: runtime,
+        let downloader = LocalRuntimeDownloader(
+            plan: plan,
             downloadID: downloadID,
             partialURL: partialURL,
             existingSize: existingSize,
             retryingWithoutResume: retryingWithoutResume,
             expectedAsset: expectedAsset,
-            expectedTotalBytes: expectedTotalBytes
+            expectedTotalBytes: expectedTotalBytes,
+            progressHandler: { completedBytes, expectedBytes in
+                updateDownloadProgress(
+                    runtime,
+                    downloadID: downloadID,
+                    completedBytes: completedBytes,
+                    expectedBytes: expectedBytes
+                )
+            }
         ) { result in
             guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
             do {
                 switch result {
                 case .success:
-                    try validateArchive(at: partialURL)
-                    try validateArchiveManifest(partialURL, asset: expectedAsset)
-                    try validateAvailableDiskSpace(for: runtime, archiveURL: partialURL, asset: expectedAsset)
+                    let installer = localRuntimeInstaller(for: runtime, plan: plan)
                     guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
-                    try installArchiveIfIdle(partialURL, for: runtime)
-                    removePartialDownload(for: runtime)
+                    try installer.installDownloadedArchive(partialURL, asset: expectedAsset)
+                    removePartialDownload(for: plan)
                     DispatchQueue.main.async { completion(.success(())) }
                 case .failure(let error):
                     recoverDownloadFailure(
                         error,
                         runtime: runtime,
                         downloadID: downloadID,
+                        plan: plan,
                         expectedAsset: expectedAsset,
                         attempt: attempt,
                         completion: completion
@@ -229,6 +184,7 @@ enum SpeechRuntimeResourceManager {
                     error,
                     runtime: runtime,
                     downloadID: downloadID,
+                    plan: plan,
                     expectedAsset: expectedAsset,
                     attempt: attempt,
                     completion: completion
@@ -240,15 +196,13 @@ enum SpeechRuntimeResourceManager {
         downloader.session = session
         let task = session.dataTask(with: request)
         downloader.task = task
-        let shouldResume = stateQueue.sync {
-            guard activeDownloadIDs[runtime] == downloadID else {
-                return false
-            }
-            activeTasks[runtime] = task
-            activeDownloaders[runtime] = downloader
-            activeProgress[runtime] = existingSize > 0 ? nil : 0
-            return true
-        }
+        let shouldResume = downloadCoordinator.attach(
+            key: downloadKey(for: runtime),
+            downloadID: downloadID,
+            task: task,
+            downloader: downloader,
+            resumedFromPartial: existingSize > 0
+        )
         guard shouldResume else {
             session.invalidateAndCancel()
             return
@@ -260,18 +214,20 @@ enum SpeechRuntimeResourceManager {
         _ error: Error,
         runtime: Runtime,
         downloadID: UUID,
-        expectedAsset: SpeechModelManifest.Asset?,
+        plan: LocalRuntimeDownloadPlan,
+        expectedAsset: LocalRuntimeDownloadManifestAsset?,
         attempt: Int,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         switch downloadRecoveryAction(error: error as NSError, attempt: attempt) {
         case .retry(let resumePartial):
             if !resumePartial {
-                removePartialDownload(for: runtime)
+                removePartialDownload(for: plan)
             }
             download(
                 runtime,
                 downloadID: downloadID,
+                plan: plan,
                 expectedAsset: expectedAsset,
                 retryingWithoutResume: !resumePartial,
                 attempt: attempt + 1,
@@ -279,56 +235,43 @@ enum SpeechRuntimeResourceManager {
             )
         case .fail(let removePartial):
             if removePartial {
-                removePartialDownload(for: runtime)
+                removePartialDownload(for: plan)
             }
             DispatchQueue.main.async { completion(.failure(error)) }
         }
     }
 
     private static func isCurrentDownload(_ runtime: Runtime, downloadID: UUID) -> Bool {
-        stateQueue.sync {
-            activeDownloadIDs[runtime] == downloadID
-        }
+        downloadCoordinator.isCurrent(downloadKey(for: runtime), downloadID: downloadID)
     }
 
     static func updateDownloadProgress(_ runtime: Runtime, downloadID: UUID, completedBytes: Int64, expectedBytes: Int64?) {
-        guard let expectedBytes, expectedBytes > 0 else { return }
-        stateQueue.sync {
-            guard activeDownloadIDs[runtime] == downloadID else { return }
-            activeProgress[runtime] = min(1, max(0, Double(completedBytes) / Double(expectedBytes)))
+        downloadCoordinator.updateProgress(
+            key: downloadKey(for: runtime),
+            downloadID: downloadID,
+            completedBytes: completedBytes,
+            expectedBytes: expectedBytes
+        )
+    }
+
+    private static func localRuntimeInstaller(for runtime: Runtime, plan: LocalRuntimeDownloadPlan) -> LocalRuntimeInstaller {
+        LocalRuntimeInstaller(plan: plan) { archiveURL in
+            try installArchiveIfIdle(archiveURL, for: runtime)
         }
+    }
+
+    private static func downloadKey(for runtime: Runtime) -> LocalRuntimeDownloadKey {
+        LocalRuntimeDownloadKey(descriptor: runtime.localRuntimeDescriptor)
     }
 
     private static func installArchiveIfIdle(_ archiveURL: URL, for runtime: Runtime) throws {
-        try beginInstall(runtime)
-        defer { finishInstall(runtime) }
-        try installArchive(archiveURL, for: runtime)
+        try installCoordinator.perform(downloadKey(for: runtime), makeError: installInProgressError) {
+            try installArchive(archiveURL, for: runtime)
+        }
     }
 
     private static func ensureNotInstalling(_ runtime: Runtime) throws {
-        let isInstalling = stateQueue.sync {
-            activeInstalls.contains(runtime)
-        }
-        guard !isInstalling else {
-            throw installInProgressError()
-        }
-    }
-
-    private static func beginInstall(_ runtime: Runtime) throws {
-        let didStart = stateQueue.sync {
-            guard !activeInstalls.contains(runtime) else { return false }
-            activeInstalls.insert(runtime)
-            return true
-        }
-        guard didStart else {
-            throw installInProgressError()
-        }
-    }
-
-    private static func finishInstall(_ runtime: Runtime) {
-        stateQueue.sync {
-            _ = activeInstalls.remove(runtime)
-        }
+        try installCoordinator.ensureNotInstalling(downloadKey(for: runtime), makeError: installInProgressError)
     }
 
     private static func installInProgressError() -> NSError {

@@ -136,6 +136,32 @@ enum AISettingsLogicTests {
         }
     }
 
+    static func testAIProviderDescriptors() throws {
+        let claude = AISettingsStore.models.first { $0.id == "claude-3-5-sonnet" }
+        let openAI = AISettingsStore.models.first { $0.id == "openai-gpt-4-1" }
+        let unknown = AIProviderDescriptor.descriptor(for: "local-minicpm")
+
+        try expectEqual(
+            claude?.providerDescriptor.chatRequestFormat,
+            .anthropicMessages,
+            "Claude models should carry the Anthropic request format through the provider descriptor"
+        )
+        try expectEqual(
+            openAI?.providerDescriptor.chatRequestFormat,
+            .openAICompatible,
+            "OpenAI models should carry the OpenAI-compatible request format through the provider descriptor"
+        )
+        try expectEqual(
+            unknown.chatRequestFormat,
+            .openAICompatible,
+            "unknown providers should default to the OpenAI-compatible request format"
+        )
+        try expect(
+            AISettingsStore.selectedEmbeddingProviderDescriptor.capabilities.contains(.embedding),
+            "embedding endpoint options should expose a provider descriptor with embedding capability"
+        )
+    }
+
     static func testAISettingsStoreInjectedDefaultsEmbeddingAndToggles() throws {
         try withIsolatedAISettingsDefaults { defaults in
             defaults.set("https://api.siliconflow.cn/v1/embeddings", forKey: AISettingsStore.embeddingEndpointKey)
@@ -437,6 +463,46 @@ enum AISettingsLogicTests {
         try expect(descriptor.installDirectories.contains(piper.installDirectory), "descriptor should include the user install directory among candidate directories")
     }
 
+    static func testSpeechRuntimeLocalRuntimeDownloadPlans() throws {
+        let plans = SpeechRuntimeResourceManager.Runtime.localRuntimeDownloadPlans
+        try expectEqual(plans.map(\.descriptor.id), ["kitten", "piper", "kokoro"], "speech runtime download plans should preserve display order")
+
+        let piper = SpeechRuntimeResourceManager.Runtime.piper
+        let plan = piper.localRuntimeDownloadPlan
+        try expectEqual(plan.descriptor.id, piper.id, "download plan should carry the runtime descriptor")
+        try expectEqual(plan.archiveURL, piper.downloadURL, "download plan should expose archive URL")
+        try expectEqual(plan.manifestURL, SpeechRuntimeResourceManager.Runtime.modelManifestURL, "download plan should expose manifest URL")
+        try expectEqual(plan.expectedAssetName, "piper-tts-macos-arm64.tar.gz", "download plan should expose expected release asset name")
+    }
+
+    static func testSpeechRuntimeLocalRuntimeRegistry() throws {
+        let registry = SpeechRuntimeResourceManager.Runtime.localRuntimeRegistry
+        try expectEqual(
+            registry.descriptors.map(\.id),
+            ["kitten", "piper", "kokoro"],
+            "speech runtime registry should preserve descriptor display order"
+        )
+
+        let piperDescriptor = registry.descriptor(family: .speech, id: "piper")
+        try expectEqual(
+            piperDescriptor?.downloadURL,
+            SpeechRuntimeResourceManager.Runtime.piper.downloadURL,
+            "registry should find descriptors by family and id"
+        )
+
+        let piperPlan = registry.downloadPlan(family: .speech, id: "piper")
+        try expectEqual(
+            piperPlan?.expectedAssetName,
+            "piper-tts-macos-arm64.tar.gz",
+            "registry should find download plans by family and id"
+        )
+        try expectEqual(
+            registry.downloadPlan(family: .localLLM, id: "piper")?.expectedAssetName,
+            nil,
+            "registry lookups should not cross runtime families"
+        )
+    }
+
     static func testSpeechModelManifestParsingAndChecksumValidation() throws {
         let manifestJSON = """
         {
@@ -477,6 +543,44 @@ enum AISettingsLogicTests {
             try expectEqual(error.domain, SpeechRuntimeResourceManager.downloadErrorDomain, "size mismatch should use the download error domain")
             try expectEqual(error.code, -8, "size mismatch should use the size error code")
         }
+    }
+
+    static func testLocalRuntimeDownloadManifestAssetDecoding() throws {
+        let releaseAssetData = Data(
+            #"{"name":"mini.tar.gz","size":123,"sha256":"abc"}"#.utf8
+        )
+        let releaseAsset = try JSONDecoder().decode(
+            LocalRuntimeDownloadManifestAsset.self,
+            from: releaseAssetData
+        )
+        try expectEqual(
+            releaseAsset.assetName,
+            "mini.tar.gz",
+            "release manifest assets should decode name as the generic asset name"
+        )
+        try expectEqual(
+            releaseAsset.byteSize,
+            123,
+            "release manifest assets should decode size as the generic byte size"
+        )
+
+        let genericAssetData = Data(
+            #"{"assetName":"mini.tar.gz","byteSize":456,"sha256":"def"}"#.utf8
+        )
+        let genericAsset = try JSONDecoder().decode(
+            LocalRuntimeDownloadManifestAsset.self,
+            from: genericAssetData
+        )
+        try expectEqual(
+            genericAsset.name,
+            "mini.tar.gz",
+            "generic manifest assets should preserve the legacy name accessor"
+        )
+        try expectEqual(
+            genericAsset.size,
+            456,
+            "generic manifest assets should preserve the legacy size accessor"
+        )
     }
 
     static func testSpeechRuntimeResumeContentRangeValidation() throws {
@@ -577,6 +681,14 @@ enum AISettingsLogicTests {
                 asset: asset
             ),
             "partial metadata should match the same URL and manifest asset"
+        )
+        try expect(
+            SpeechRuntimeResourceManager.partialDownloadMetadataMatches(
+                metadata,
+                plan: SpeechRuntimeResourceManager.Runtime.piper.localRuntimeDownloadPlan,
+                asset: asset
+            ),
+            "partial metadata should also match through the generic local runtime download plan"
         )
         try expectEqual(
             SpeechRuntimeResourceManager.ifRangeHeaderValue(for: metadata),
@@ -742,6 +854,53 @@ enum AISettingsLogicTests {
         )
     }
 
+    static func testLocalRuntimeStatusPresenter() throws {
+        let descriptor = SpeechRuntimeResourceManager.Runtime.piper.localRuntimeDescriptor
+        let downloading = LocalRuntimeStatusContext(
+            descriptor: descriptor,
+            installState: .missingRuntimeAndModel,
+            isSupported: true,
+            isDownloading: true,
+            isPaused: false,
+            downloadFailureMessage: nil,
+            inferenceFailureText: nil
+        )
+        try expectEqual(
+            LocalRuntimeStatusPresenter.statusText(downloading),
+            "下载中 · 约 112 MB",
+            "generic local runtime presenter should format active downloads"
+        )
+
+        let missingRuntime = LocalRuntimeStatusContext(
+            descriptor: descriptor,
+            installState: .missingRuntime,
+            isSupported: true,
+            isDownloading: false,
+            isPaused: false,
+            downloadFailureMessage: nil,
+            inferenceFailureText: nil
+        )
+        try expectEqual(
+            LocalRuntimeStatusPresenter.statusText(missingRuntime),
+            "缺少运行时 · 模型已安装 · 约 112 MB",
+            "generic local runtime presenter should distinguish missing runtime from missing model"
+        )
+
+        let unsupportedFailure = LocalRuntimeStatusContext(
+            descriptor: descriptor,
+            installState: .missingRuntimeAndModel,
+            isSupported: false,
+            isDownloading: false,
+            isPaused: false,
+            downloadFailureMessage: "network failed",
+            inferenceFailureText: nil
+        )
+        try expect(
+            LocalRuntimeStatusPresenter.statusText(unsupportedFailure).contains("上次失败：network failed"),
+            "generic local runtime presenter should include download failure details"
+        )
+    }
+
     static func testPiperRuntimeRequiresPhonemizeResources() throws {
         let fileManager = FileManager.default
         let root = fileManager.temporaryDirectory
@@ -838,6 +997,11 @@ enum AISettingsLogicTests {
     }
 
     static func testSpeechRuntimeInstallStateDistinguishesRuntimeAndModel() throws {
+        try expectEqual(
+            LocalRuntimeInstallState.state(hasRuntime: true, hasModel: true),
+            .complete,
+            "generic local runtime state should treat runtime plus model as complete"
+        )
         try expectEqual(
             SpeechRuntimeResourceManager.runtimeInstallState(hasRuntime: true, hasModel: true),
             .complete,
@@ -1044,6 +1208,45 @@ enum AISettingsLogicTests {
             manifest.cacheDirectories,
             [validCacheDirectory, validPiperCacheDirectory],
             "install manifests should only expose child directories inside known speech model caches"
+        )
+    }
+
+    static func testLocalRuntimeInstallManifestCompatibility() throws {
+        let legacyData = Data(
+            #"{"runtimeID":"piper","cacheDirectoryPaths":["/tmp/leafreader-voice"]}"#.utf8
+        )
+        let legacyManifest = try JSONDecoder().decode(LocalRuntimeInstallManifest.self, from: legacyData)
+
+        try expectEqual(
+            legacyManifest.family,
+            .speech,
+            "legacy speech install manifests should default to the speech runtime family"
+        )
+        try expectEqual(
+            legacyManifest.runtimeID,
+            "piper",
+            "legacy speech install manifests should preserve the runtime ID"
+        )
+        try expectEqual(
+            legacyManifest.cacheDirectoryPaths,
+            ["/tmp/leafreader-voice"],
+            "legacy speech install manifests should preserve cache paths"
+        )
+
+        let llmManifest = LocalRuntimeInstallManifest(
+            family: .localLLM,
+            runtimeID: "minicpm",
+            cacheDirectoryPaths: []
+        )
+        let roundTripManifest = try JSONDecoder().decode(
+            LocalRuntimeInstallManifest.self,
+            from: JSONEncoder().encode(llmManifest)
+        )
+
+        try expectEqual(
+            roundTripManifest,
+            llmManifest,
+            "new local runtime install manifests should round-trip their runtime family"
         )
     }
 

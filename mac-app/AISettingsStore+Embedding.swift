@@ -9,6 +9,7 @@ extension AISettingsStore {
         let requiresAPIKey: Bool
         let maxInputCharacters: Int
         let payloadExtras: [String: String]
+        let providerDescriptor: AIProviderDescriptor
 
         init(
             id: String,
@@ -26,6 +27,7 @@ extension AISettingsStore {
             self.requiresAPIKey = requiresAPIKey
             self.maxInputCharacters = maxInputCharacters
             self.payloadExtras = payloadExtras
+            self.providerDescriptor = AIProviderDescriptor.embeddingProvider(id: id, displayName: title)
         }
     }
 
@@ -81,6 +83,10 @@ extension AISettingsStore {
             defaultModel: "",
             requiresAPIKey: customRequiresKey
         )
+    }
+
+    static var selectedEmbeddingProviderDescriptor: AIProviderDescriptor {
+        selectedEmbeddingEndpointOption.providerDescriptor
     }
 
     static var embeddingAPIKey: String {
