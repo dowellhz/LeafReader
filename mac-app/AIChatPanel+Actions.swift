@@ -32,8 +32,7 @@ extension AIChatPanel {
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
         clearSelectedText()
         let answerRequest = AnswerProviderRequest(text: text, context: selectedContext ?? "", linkID: linkID)
-        if let reusedAnswer = cachedOrLocalAnswerProvider().answer(for: answerRequest),
-           reusedAnswer.source == .cachedVocabulary {
+        if let reusedAnswer = cachedVocabularyAnswerProvider().answer(for: answerRequest) {
             let answer = reusedAnswer.answer
             appendBubble(role: AppText.aiRole, text: answer, collapsible: false, renderMarkdown: true, linkID: linkID)
             recordTranscript(role: AppText.aiRole, text: answer)
@@ -182,19 +181,6 @@ extension AIChatPanel {
             guard let self, let box else { return }
             self.scrollTranscriptToTop(of: box)
         }
-    }
-
-    func cachedOrLocalAnswerProvider() -> AnswerProvider {
-        CompositeAnswerProvider(providers: [
-            CachedVocabularyAnswerProvider(answerForLinkID: { [weak self] linkID in
-                self?.onLinkedWordAnswerAvailable?(linkID)
-            }),
-            localOnlyAnswerProvider()
-        ])
-    }
-
-    func localOnlyAnswerProvider() -> AnswerProvider {
-        LocalDictionaryAnswerProvider(dictionaryLookupService: dictionaryLookupService)
     }
 
     func isSingleEnglishWord(_ text: String) -> Bool {
