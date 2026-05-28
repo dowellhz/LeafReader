@@ -2,59 +2,13 @@ import Cocoa
 
 extension ReaderWindowController {
     func populateVocabularyReviewContainer(_ container: NSView, records: [VocabularyExportRecord], filter: VocabularyFilter, isDark: Bool, autoPlayNewCard: Bool = true) {
-        for view in container.subviews {
-            view.removeFromSuperview()
-        }
-        guard let selection = VocabularyReviewCardSelector.selection(records: records, session: vocabularyReviewSession) else {
-            let empty = emptyVocabularyState(filter: filter, isDark: isDark)
-            container.addSubview(empty)
-            NSLayoutConstraint.activate([
-                empty.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-                empty.centerYAnchor.constraint(equalTo: container.centerYAnchor)
-            ])
-            return
-        }
-        let displayRecord = vocabularyRecordWithDictionaryMetadata(selection.record)
-        prepareVocabularyReviewTiming(for: displayRecord, autoPlay: autoPlayNewCard)
-        updateVocabularySummaryWithProgress(position: selection.position, total: selection.total)
-        addVocabularyReviewCard(
-            to: container,
-            record: displayRecord,
-            position: selection.position,
-            total: selection.total,
-            contextShown: vocabularyReviewSession.contextShown,
-            answerShown: vocabularyReviewSession.answerShown,
-            didScore: vocabularyReviewSession.didScoreCurrentCard,
-            canUndoScore: !vocabularyReviewSession.undoSRSByID.isEmpty
+        VocabularyReviewCoordinator(owner: self).populate(
+            container: container,
+            records: records,
+            filter: filter,
+            isDark: isDark,
+            autoPlayNewCard: autoPlayNewCard
         )
-    }
-
-    private func addVocabularyReviewCard(
-        to container: NSView,
-        record: VocabularyExportRecord,
-        position: Int,
-        total: Int,
-        contextShown: Bool,
-        answerShown: Bool,
-        didScore: Bool,
-        canUndoScore: Bool
-    ) {
-        let card = VocabularyReviewCardBuilder(owner: self).build(
-            record: record,
-            position: position,
-            total: total,
-            contextShown: contextShown,
-            answerShown: answerShown,
-            didScore: didScore,
-            canUndoScore: canUndoScore
-        )
-        container.addSubview(card)
-        NSLayoutConstraint.activate([
-            card.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            card.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            card.topAnchor.constraint(equalTo: container.topAnchor),
-            card.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-        ])
     }
 
     func vocabularyReviewPriorityPopup() -> NSPopUpButton {

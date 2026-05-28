@@ -18,6 +18,7 @@ SIGNED_PKG="$RELEASE_DIR/LeafReader-$VERSION.pkg"
 APPCAST_PATH="$ROOT_DIR/docs/appcast.xml"
 BUILD_SCRIPT="$ROOT_DIR/scripts/build_app.sh"
 BUMP_VERSION_SCRIPT="$ROOT_DIR/scripts/bump_version.sh"
+WRITE_APPCAST_SCRIPT="$ROOT_DIR/scripts/write_appcast.sh"
 APP_SIGN_IDENTITY="${APP_SIGN_IDENTITY:-Developer ID Application: lu lin (T84BKD53ZD)}"
 INSTALLER_IDENTITY="${INSTALLER_IDENTITY:-Developer ID Installer: lu lin (T84BKD53ZD)}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-leafreader-notary}"
@@ -40,6 +41,10 @@ fi
 
 if [[ ! -x "$BUMP_VERSION_SCRIPT" ]]; then
   echo "Version bump script not found or not executable: $BUMP_VERSION_SCRIPT" >&2
+  exit 1
+fi
+if [[ ! -x "$WRITE_APPCAST_SCRIPT" ]]; then
+  echo "Appcast writer script not found or not executable: $WRITE_APPCAST_SCRIPT" >&2
   exit 1
 fi
 
@@ -99,53 +104,8 @@ if [[ -z "$ED_SIGNATURE" || -z "$PKG_LENGTH" ]]; then
   exit 1
 fi
 
-if [[ -n "$NOTES_FILE" ]]; then
-  NOTES_HTML_EN="$(cat "$NOTES_FILE")"
-else
-  NOTES_HTML_EN="<ul><li>Leaf Reader $VERSION release.</li></ul>"
-fi
-if [[ -n "${RELEASE_NOTES_EN_HTML_FILE:-}" ]]; then
-  NOTES_HTML_EN="$(cat "$RELEASE_NOTES_EN_HTML_FILE")"
-fi
-if [[ -n "${RELEASE_NOTES_ZH_HTML_FILE:-}" ]]; then
-  NOTES_HTML_ZH="$(cat "$RELEASE_NOTES_ZH_HTML_FILE")"
-else
-  NOTES_HTML_ZH="<ul><li>Leaf Reader $VERSION 发布。</li></ul>"
-fi
-
-PUB_DATE="$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')"
-
-cat > "$APPCAST_PATH" <<XML
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-  <channel>
-    <title>Leaf Reader Updates</title>
-    <link>https://dowellhz.github.io/LeafReader/</link>
-    <description>Leaf Reader macOS app updates.</description>
-    <language>zh-CN</language>
-    <item>
-      <title>Leaf Reader $VERSION</title>
-      <sparkle:version>$VERSION</sparkle:version>
-      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <pubDate>$PUB_DATE</pubDate>
-      <description xml:lang="zh"><![CDATA[
-        $NOTES_HTML_ZH
-      ]]></description>
-      <description xml:lang="en"><![CDATA[
-        $NOTES_HTML_EN
-      ]]></description>
-      <enclosure
-        url="$DOWNLOAD_URL"
-        sparkle:edSignature="$ED_SIGNATURE"
-        length="$PKG_LENGTH"
-        type="application/octet-stream" />
-    </item>
-  </channel>
-</rss>
-XML
-
-xmllint --noout "$APPCAST_PATH"
+RELEASE_NOTES_LEGACY_HTML_FILE="$NOTES_FILE" \
+  "$WRITE_APPCAST_SCRIPT" "$VERSION" "$DOWNLOAD_URL" "$ED_SIGNATURE" "$PKG_LENGTH" "$APPCAST_PATH"
 shasum -a 256 "$SIGNED_PKG"
 echo "Release pkg: $SIGNED_PKG"
 echo "Updated appcast: $APPCAST_PATH"

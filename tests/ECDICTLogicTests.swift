@@ -43,6 +43,30 @@ enum ECDICTLogicTests {
         try expectEqual(ECDICTDictionary.lookupKey("  Long   Time  "), "long time", "dictionary lookup should normalize spacing")
     }
 
+    static func testAnswerProviders() throws {
+        let cachedProvider = CachedVocabularyAnswerProvider { linkID in
+            linkID == "known" ? " cached answer " : nil
+        }
+        let cached = cachedProvider.answer(for: AnswerProviderRequest(text: "word", context: "", linkID: "known"))
+        try expectEqual(cached?.answer, "cached answer", "cached answer provider should trim stored answers")
+        try expectEqual(cached?.source, .cachedVocabulary, "cached answer provider should report cached source")
+
+        let dictionaryProvider = LocalDictionaryAnswerProvider(
+            dictionaryLookupService: MockDictionaryLookupService(answer: "**word**\n\n- local", metadata: VocabularyDictionaryMetadata(tags: nil, frequency: nil)),
+            isDictionaryInstalled: { true }
+        )
+        let dictionary = dictionaryProvider.answer(for: AnswerProviderRequest(text: "word", context: "context", linkID: nil))
+        try expectEqual(dictionary?.answer, "**word**\n\n- local", "dictionary provider should return local dictionary answers")
+        try expectEqual(dictionary?.source, .localDictionary, "dictionary provider should report dictionary source")
+
+        let missingProvider = LocalDictionaryAnswerProvider(
+            dictionaryLookupService: MockDictionaryLookupService(answer: nil, metadata: VocabularyDictionaryMetadata(tags: nil, frequency: nil)),
+            isDictionaryInstalled: { true }
+        )
+        let missing = missingProvider.answer(for: AnswerProviderRequest(text: "Word", context: "", linkID: nil))
+        try expect(missing?.answer.contains("word") == true, "dictionary provider should explain installed dictionary misses")
+    }
+
     private static func temporaryDirectory(_ name: String) -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("LeafReaderTests-\(name)-\(UUID().uuidString)", isDirectory: true)
@@ -82,5 +106,22 @@ enum ECDICTLogicTests {
         guard sqlite3_exec(db, insertSQL, nil, nil, nil) == SQLITE_OK else {
             throw TestFailure(description: "could not insert ECDICT test row")
         }
+    }
+}
+
+private struct MockDictionaryLookupService: DictionaryLookupService {
+    let answer: String?
+    let metadata: VocabularyDictionaryMetadata
+
+    func lookup(_ query: String) -> ECDICTEntry? {
+        nil
+    }
+
+    func markdownAnswer(for query: String, context: String) -> String? {
+        answer
+    }
+
+    func metadata(for word: String) -> VocabularyDictionaryMetadata {
+        metadata
     }
 }

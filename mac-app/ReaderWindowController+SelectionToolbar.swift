@@ -117,12 +117,14 @@ extension ReaderWindowController {
 
     func configureSelectionToolbarActions(for text: String) {
         let isVocabulary = vocabularySpeakerWord(text) != nil
+        let capabilityState = ReaderCapabilityState.make(
+            isOnline: NetworkConnectivityMonitor.shared.isOnline,
+            hasModelAPIKey: AISettingsStore.hasAPIKeyForSelectedModel,
+            isLocalDictionaryInstalled: ECDICTDictionary.shared.isInstalled
+        )
         let configuration = SelectionToolbarConfiguration.make(
             isVocabularySelection: isVocabulary,
-            queryCapability: ReaderQueryCapability.current(
-                isOnline: NetworkConnectivityMonitor.shared.isOnline,
-                hasModelAPIKey: AISettingsStore.hasAPIKeyForSelectedModel
-            ),
+            queryCapability: capabilityState.queryCapability,
             shouldShowSpeakAction: shouldShowSelectionSpeakAction(for: text)
         )
         selectionActionToolbar.applyConfiguration(configuration)

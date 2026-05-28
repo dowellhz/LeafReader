@@ -476,6 +476,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("ECDICT SQLite lookup", ECDICTLogicTests.testSQLiteLookupAndMarkdownAnswer),
     ("ECDICT CSV lookup", ECDICTLogicTests.testCSVLookup),
     ("ECDICT lookup key normalization", ECDICTLogicTests.testLookupKeyNormalization),
+    ("Answer providers", ECDICTLogicTests.testAnswerProviders),
     ("Embedding key isolation", AISettingsLogicTests.testEmbeddingKeyIsolation),
     ("Embedding legacy key migration", AISettingsLogicTests.testEmbeddingLegacyKeyMigration),
     ("Embedding warmup idle policy", testEmbeddingWarmupIdlePolicy),

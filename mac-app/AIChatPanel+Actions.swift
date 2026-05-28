@@ -31,9 +31,8 @@ extension AIChatPanel {
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
         clearSelectedText()
-        if let linkID,
-           let reusedAnswer = onLinkedWordAnswerAvailable?(linkID),
-           hasTrimmedText(reusedAnswer) {
+        let answerRequest = AnswerProviderRequest(text: text, context: selectedContext ?? "", linkID: linkID)
+        if let reusedAnswer = cachedVocabularyAnswerProvider().answer(for: answerRequest)?.answer {
             appendBubble(role: AppText.aiRole, text: reusedAnswer, collapsible: false, renderMarkdown: true, linkID: linkID)
             recordTranscript(role: AppText.aiRole, text: reusedAnswer)
             appendMessage(ChatMessage(role: "user", content: prompt))
@@ -42,7 +41,7 @@ extension AIChatPanel {
         }
         appendMessage(ChatMessage(role: "user", content: prompt))
         let fallbackAnswer = isVocabularyItem
-            ? localDictionaryFallbackAnswer(for: text, context: selectedContext ?? "")
+            ? localDictionaryAnswerProvider().answer(for: answerRequest)?.answer
             : nil
         requestAI(linkID: linkID, linkedQuestion: displayedQuestion, fallbackAnswer: fallbackAnswer)
     }
@@ -149,7 +148,8 @@ extension AIChatPanel {
         guard isVocabularySelection(text) else { return false }
         speakSelectedWordIfNeeded(text)
         let selectedContext = onAskSelectedText?(text) ?? ""
-        guard let answer = localDictionaryFallbackAnswer(for: text, context: selectedContext) else {
+        let answerRequest = AnswerProviderRequest(text: text, context: selectedContext, linkID: nil)
+        guard let answer = localDictionaryAnswerProvider().answer(for: answerRequest)?.answer else {
             return false
         }
 
@@ -182,17 +182,14 @@ extension AIChatPanel {
         }
     }
 
-    func localDictionaryFallbackAnswer(for text: String, context: String) -> String? {
-        if let answer = dictionaryLookupService.markdownAnswer(for: text, context: context) {
-            return answer
-        }
-        guard ECDICTDictionary.shared.isInstalled else { return nil }
-        let word = ECDICTDictionary.lookupKey(text)
-        let visibleWord = word.isEmpty ? trimmedText(text) : word
-        return AppText.localized(
-            "本地 ECDICT 词典未收录：\(visibleWord)",
-            "The local ECDICT dictionary has no entry for: \(visibleWord)"
-        )
+    func cachedVocabularyAnswerProvider() -> AnswerProvider {
+        CachedVocabularyAnswerProvider(answerForLinkID: { [weak self] linkID in
+            self?.onLinkedWordAnswerAvailable?(linkID)
+        })
+    }
+
+    func localDictionaryAnswerProvider() -> AnswerProvider {
+        LocalDictionaryAnswerProvider(dictionaryLookupService: dictionaryLookupService)
     }
 
     func isSingleEnglishWord(_ text: String) -> Bool {

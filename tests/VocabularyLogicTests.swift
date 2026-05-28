@@ -191,6 +191,13 @@ enum VocabularyLogicTests {
     }
 
     static func testSelectionToolbarConfiguration() throws {
+        let offlineState = ReaderCapabilityState(
+            isOnline: false,
+            hasModelAPIKey: true,
+            isLocalDictionaryInstalled: true
+        )
+        try expectEqual(offlineState.queryCapability, .offlineDictionary, "offline capability should prefer local dictionary mode")
+
         try expectEqual(
             ReaderQueryCapability.current(isOnline: false, hasModelAPIKey: true),
             .offlineDictionary,
