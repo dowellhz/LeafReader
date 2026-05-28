@@ -32,16 +32,18 @@ extension AIChatPanel {
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
         clearSelectedText()
         let answerRequest = AnswerProviderRequest(text: text, context: selectedContext ?? "", linkID: linkID)
-        if let reusedAnswer = cachedVocabularyAnswerProvider().answer(for: answerRequest)?.answer {
-            appendBubble(role: AppText.aiRole, text: reusedAnswer, collapsible: false, renderMarkdown: true, linkID: linkID)
-            recordTranscript(role: AppText.aiRole, text: reusedAnswer)
+        if let reusedAnswer = cachedOrLocalAnswerProvider().answer(for: answerRequest),
+           reusedAnswer.source == .cachedVocabulary {
+            let answer = reusedAnswer.answer
+            appendBubble(role: AppText.aiRole, text: answer, collapsible: false, renderMarkdown: true, linkID: linkID)
+            recordTranscript(role: AppText.aiRole, text: answer)
             appendMessage(ChatMessage(role: "user", content: prompt))
-            appendMessage(ChatMessage(role: "assistant", content: reusedAnswer))
+            appendMessage(ChatMessage(role: "assistant", content: answer))
             return
         }
         appendMessage(ChatMessage(role: "user", content: prompt))
         let fallbackAnswer = isVocabularyItem
-            ? localDictionaryAnswerProvider().answer(for: answerRequest)?.answer
+            ? localOnlyAnswerProvider().answer(for: answerRequest)?.answer
             : nil
         requestAI(linkID: linkID, linkedQuestion: displayedQuestion, fallbackAnswer: fallbackAnswer)
     }
@@ -149,7 +151,7 @@ extension AIChatPanel {
         speakSelectedWordIfNeeded(text)
         let selectedContext = onAskSelectedText?(text) ?? ""
         let answerRequest = AnswerProviderRequest(text: text, context: selectedContext, linkID: nil)
-        guard let answer = localDictionaryAnswerProvider().answer(for: answerRequest)?.answer else {
+        guard let answer = localOnlyAnswerProvider().answer(for: answerRequest)?.answer else {
             return false
         }
 
@@ -182,13 +184,16 @@ extension AIChatPanel {
         }
     }
 
-    func cachedVocabularyAnswerProvider() -> AnswerProvider {
-        CachedVocabularyAnswerProvider(answerForLinkID: { [weak self] linkID in
-            self?.onLinkedWordAnswerAvailable?(linkID)
-        })
+    func cachedOrLocalAnswerProvider() -> AnswerProvider {
+        CompositeAnswerProvider(providers: [
+            CachedVocabularyAnswerProvider(answerForLinkID: { [weak self] linkID in
+                self?.onLinkedWordAnswerAvailable?(linkID)
+            }),
+            localOnlyAnswerProvider()
+        ])
     }
 
-    func localDictionaryAnswerProvider() -> AnswerProvider {
+    func localOnlyAnswerProvider() -> AnswerProvider {
         LocalDictionaryAnswerProvider(dictionaryLookupService: dictionaryLookupService)
     }
 
