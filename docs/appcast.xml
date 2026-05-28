@@ -11,7 +11,14 @@
       <sparkle:shortVersionString>1.7.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
       <pubDate>Thu, 28 May 2026 01:56:02 +0000</pubDate>
-      <description><![CDATA[
+      <description xml:lang="zh"><![CDATA[
+        <ul>
+  <li>改进离线和未配置模型时的选词体验，本地 ECDICT 查询、朗读、复制和模型设置入口状态更清晰。</li>
+  <li>背单词默认使用词频优先，并且只查询当前卡片的词典信息，避免整批查询导致卡顿。</li>
+  <li>整理网络/模型能力判断、浮动窗口配置、本地词典查询和复习卡片加载结构。</li>
+</ul>
+      ]]></description>
+      <description xml:lang="en"><![CDATA[
         <ul>
   <li>Improved offline and unconfigured-model selection behavior with local ECDICT lookup, speech, copy, and model settings states.</li>
   <li>Made vocabulary review default to frequency-first ordering and kept dictionary lookup scoped to the current card.</li>

@@ -100,9 +100,17 @@ if [[ -z "$ED_SIGNATURE" || -z "$PKG_LENGTH" ]]; then
 fi
 
 if [[ -n "$NOTES_FILE" ]]; then
-  NOTES_HTML="$(cat "$NOTES_FILE")"
+  NOTES_HTML_EN="$(cat "$NOTES_FILE")"
 else
-  NOTES_HTML="<ul><li>Leaf Reader $VERSION release.</li></ul>"
+  NOTES_HTML_EN="<ul><li>Leaf Reader $VERSION release.</li></ul>"
+fi
+if [[ -n "${RELEASE_NOTES_EN_HTML_FILE:-}" ]]; then
+  NOTES_HTML_EN="$(cat "$RELEASE_NOTES_EN_HTML_FILE")"
+fi
+if [[ -n "${RELEASE_NOTES_ZH_HTML_FILE:-}" ]]; then
+  NOTES_HTML_ZH="$(cat "$RELEASE_NOTES_ZH_HTML_FILE")"
+else
+  NOTES_HTML_ZH="<ul><li>Leaf Reader $VERSION 发布。</li></ul>"
 fi
 
 PUB_DATE="$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')"
@@ -121,8 +129,11 @@ cat > "$APPCAST_PATH" <<XML
       <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
       <pubDate>$PUB_DATE</pubDate>
-      <description><![CDATA[
-        $NOTES_HTML
+      <description xml:lang="zh"><![CDATA[
+        $NOTES_HTML_ZH
+      ]]></description>
+      <description xml:lang="en"><![CDATA[
+        $NOTES_HTML_EN
       ]]></description>
       <enclosure
         url="$DOWNLOAD_URL"
