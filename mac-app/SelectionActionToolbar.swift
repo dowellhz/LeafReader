@@ -68,18 +68,8 @@ final class SelectionActionToolbar: NSView {
         [explainButton, translateButton, contextButton, speakButton, noteButton, copyButton, configureModelButton]
     }
 
-    enum ContextAction {
-        case addWord
-        case summarize
-    }
-
-    enum DisplayMode {
-        case full(showsSpeak: Bool)
-        case offlineWord
-        case offlineCopyOnly
-        case needsModelKeyWord
-        case needsModelKeyCopyOnly
-    }
+    typealias ContextAction = SelectionToolbarContextAction
+    typealias DisplayMode = SelectionToolbarDisplayMode
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -163,6 +153,11 @@ final class SelectionActionToolbar: NSView {
     func setContextAction(_ action: ContextAction) {
         contextAction = action
         refreshLanguage()
+    }
+
+    func applyConfiguration(_ configuration: SelectionToolbarConfiguration) {
+        setContextAction(configuration.contextAction)
+        setDisplayMode(configuration.displayMode)
     }
 
     func setSpeakVisible(_ visible: Bool) {

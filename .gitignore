@@ -10,6 +10,7 @@ docs/tts/*.tar.gz
 # Local build outputs
 .build/
 .venv-docs/
+runtimes/
 mac-app/Leaf Reader
 mac-app/PDFReader
 mac-app/IconBuilder

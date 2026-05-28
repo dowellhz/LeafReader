@@ -190,6 +190,69 @@ enum VocabularyLogicTests {
         try expectEqual(preserved.total, 2, "preserved card should keep total count")
     }
 
+    static func testSelectionToolbarConfiguration() throws {
+        try expectEqual(
+            ReaderQueryCapability.current(isOnline: false, hasModelAPIKey: true),
+            .offlineDictionary,
+            "offline state should use the local dictionary even when an API key exists"
+        )
+        try expectEqual(
+            ReaderQueryCapability.current(isOnline: true, hasModelAPIKey: false),
+            .needsModelConfiguration,
+            "online state without an API key should prompt for model configuration"
+        )
+        try expectEqual(
+            ReaderQueryCapability.current(isOnline: true, hasModelAPIKey: true),
+            .modelAvailable,
+            "online state with an API key should enable model actions"
+        )
+
+        let offlineWord = SelectionToolbarConfiguration.make(
+            isVocabularySelection: true,
+            queryCapability: .offlineDictionary,
+            shouldShowSpeakAction: false
+        )
+        try expectEqual(offlineWord.contextAction, .addWord, "offline word selections should keep the word action")
+        try expectEqual(offlineWord.displayMode, .offlineWord, "offline word selections should show only word/speak/copy actions")
+
+        let needsKeyText = SelectionToolbarConfiguration.make(
+            isVocabularySelection: false,
+            queryCapability: .needsModelConfiguration,
+            shouldShowSpeakAction: true
+        )
+        try expectEqual(needsKeyText.contextAction, .summarize, "non-word selections should keep summarize as their context action")
+        try expectEqual(needsKeyText.displayMode, .needsModelKeyCopyOnly, "unconfigured model text selections should show copy plus settings")
+
+        let full = SelectionToolbarConfiguration.make(
+            isVocabularySelection: true,
+            queryCapability: .modelAvailable,
+            shouldShowSpeakAction: true
+        )
+        try expectEqual(full.displayMode, .full(showsSpeak: true), "configured online state should expose the full toolbar")
+    }
+
+    static func testVocabularyReviewDisplayRecordLoaderLoadsOnlyCurrentRecord() throws {
+        let createdAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let record = vocabularyRecord(id: "current", word: "induction", createdAt: createdAt)
+        var lookedUpWords: [String] = []
+        var persisted: [(String, VocabularyExportRecord)] = []
+
+        let displayRecord = VocabularyReviewDisplayRecordLoader.displayRecord(
+            for: record,
+            metadataLookup: { word in
+                lookedUpWords.append(word)
+                return (tags: "cet6 gre", frequency: 500)
+            },
+            persistTags: { tags, record in
+                persisted.append((tags, record))
+            }
+        )
+
+        try expectEqual(lookedUpWords, ["induction"], "display loader should look up only the requested review card")
+        try expectEqual(displayRecord.dictionaryTags, "cet6 gre", "display loader should attach dictionary tags to the current card")
+        try expectEqual(persisted.map(\.0), ["cet6 gre"], "display loader should persist tags once for the current card")
+    }
+
     private static func vocabularyRecord(
         id: String,
         word: String,

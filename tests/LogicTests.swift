@@ -509,6 +509,8 @@ private let tests: [(String, () throws -> Void)] = [
     ("Reader AI context policy", testReaderAIContextPolicy),
     ("AI response text formatter", testAIResponseTextFormatter),
     ("Embedding action policy", testEmbeddingActionPolicy),
+    ("Selection toolbar configuration", VocabularyLogicTests.testSelectionToolbarConfiguration),
+    ("Vocabulary review display record loader", VocabularyLogicTests.testVocabularyReviewDisplayRecordLoaderLoadsOnlyCurrentRecord),
     ("Reading context snapshot", testReadingContextSnapshot),
     ("Captured page scroll guard", testCapturedPageScrollGuard),
     ("PDF brightness policy", testPDFBrightnessPolicy),

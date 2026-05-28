@@ -1,25 +1,16 @@
 import Foundation
 
-struct VocabularyDictionaryMetadata {
-    let tags: String?
-    let frequency: Int?
-}
-
 struct VocabularyDictionaryBackfillItem {
     let id: String
     let word: String
 }
 
 enum VocabularyDictionaryMetadataService {
-    static func metadata(for word: String, dictionary: ECDICTDictionary = .shared) -> VocabularyDictionaryMetadata {
-        guard let entry = dictionary.lookup(word) else {
-            return VocabularyDictionaryMetadata(tags: nil, frequency: nil)
-        }
-        let tags = entry.tags.trimmingCharacters(in: .whitespacesAndNewlines)
-        return VocabularyDictionaryMetadata(
-            tags: tags.isEmpty ? nil : tags,
-            frequency: frequency(from: entry.frq)
-        )
+    static func metadata(
+        for word: String,
+        lookupService: DictionaryLookupService = LocalDictionaryLookupService.shared
+    ) -> VocabularyDictionaryMetadata {
+        lookupService.metadata(for: word)
     }
 
     static func frequency(from value: String) -> Int? {

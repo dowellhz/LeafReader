@@ -12,6 +12,11 @@ enum ECDICTLogicTests {
         try expectEqual(entry?.word, "apple", "ECDICT SQLite lookup should be case-insensitive")
         try expectEqual(entry?.translation, "n. 苹果", "ECDICT SQLite lookup should read translation")
 
+        let lookupService = LocalDictionaryLookupService(dictionary: dictionary)
+        let metadata = lookupService.metadata(for: "apple")
+        try expectEqual(metadata.tags, "cet4", "dictionary lookup service should expose tags")
+        try expectEqual(metadata.frequency, 900, "dictionary lookup service should expose parsed frequency")
+
         let answer = dictionary.markdownAnswer(for: "apple", context: "I ate an apple.") ?? ""
         try expect(answer.contains("**apple**"), "dictionary answer should include the word heading")
         try expect(answer.contains("n. 苹果"), "dictionary answer should include Chinese translation")
@@ -79,4 +84,3 @@ enum ECDICTLogicTests {
         }
     }
 }
-

@@ -57,6 +57,7 @@ swiftc \
   mac-app/AIResponseParser.swift \
   mac-app/AIResponseTextFormatter.swift \
   mac-app/ECDICTDictionary.swift \
+  mac-app/DictionaryLookupService.swift \
   mac-app/EmbeddingActionPolicy.swift \
   mac-app/AppText.swift \
   mac-app/AIProviderDescriptor.swift \
@@ -107,6 +108,9 @@ swiftc \
   mac-app/VocabularyReviewQueueBuilder.swift \
   mac-app/VocabularyReviewSession.swift \
   mac-app/VocabularyReviewCardSelector.swift \
+  mac-app/ReaderQueryCapability.swift \
+  mac-app/SelectionToolbarConfiguration.swift \
+  mac-app/VocabularyReviewDisplayRecordLoader.swift \
   mac-app/VocabularyAnswerFormatter.swift \
   mac-app/VocabularyExporter.swift \
   mac-app/ReaderAIContextBuilder.swift \

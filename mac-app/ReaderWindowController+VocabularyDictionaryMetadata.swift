@@ -2,18 +2,14 @@ import Foundation
 
 extension ReaderWindowController {
     func vocabularyRecordWithDictionaryMetadata(_ record: VocabularyExportRecord) -> VocabularyExportRecord {
-        if record.dictionaryTags?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-            return record
-        }
-        guard VocabularyTextPolicy.speakableWord(record.word) != nil,
-              let tags = dictionaryTags(for: record.word) else {
-            return record
-        }
-        persistDictionaryMetadata(tags: tags, for: record)
-        return record.withDictionaryMetadata(tags: tags)
+        VocabularyReviewDisplayRecordLoader.displayRecord(
+            for: record,
+            metadataLookup: dictionaryMetadata(for:),
+            persistTags: persistDictionaryMetadata(tags:for:)
+        )
     }
 
-    private func persistDictionaryMetadata(tags: String, for record: VocabularyExportRecord) {
+    func persistDictionaryMetadata(tags: String, for record: VocabularyExportRecord) {
         let idSet = Set(record.ids)
         updateStoredVocabularyRecords(
             ids: idSet,

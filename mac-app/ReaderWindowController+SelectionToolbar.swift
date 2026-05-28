@@ -117,20 +117,15 @@ extension ReaderWindowController {
 
     func configureSelectionToolbarActions(for text: String) {
         let isVocabulary = vocabularySpeakerWord(text) != nil
-        if !NetworkConnectivityMonitor.shared.isOnline {
-            selectionActionToolbar.setContextAction(isVocabulary ? .addWord : .summarize)
-            selectionActionToolbar.setDisplayMode(isVocabulary ? .offlineWord : .offlineCopyOnly)
-            return
-        }
-
-        if !AISettingsStore.hasAPIKeyForSelectedModel {
-            selectionActionToolbar.setContextAction(isVocabulary ? .addWord : .summarize)
-            selectionActionToolbar.setDisplayMode(isVocabulary ? .needsModelKeyWord : .needsModelKeyCopyOnly)
-            return
-        }
-
-        selectionActionToolbar.setContextAction(isVocabulary ? .addWord : .summarize)
-        selectionActionToolbar.setDisplayMode(.full(showsSpeak: shouldShowSelectionSpeakAction(for: text)))
+        let configuration = SelectionToolbarConfiguration.make(
+            isVocabularySelection: isVocabulary,
+            queryCapability: ReaderQueryCapability.current(
+                isOnline: NetworkConnectivityMonitor.shared.isOnline,
+                hasModelAPIKey: AISettingsStore.hasAPIKeyForSelectedModel
+            ),
+            shouldShowSpeakAction: shouldShowSelectionSpeakAction(for: text)
+        )
+        selectionActionToolbar.applyConfiguration(configuration)
     }
 
     @objc func networkConnectivityChanged(_ notification: Notification) {

@@ -183,7 +183,7 @@ extension AIChatPanel {
     }
 
     func localDictionaryFallbackAnswer(for text: String, context: String) -> String? {
-        if let answer = ECDICTDictionary.shared.markdownAnswer(for: text, context: context) {
+        if let answer = dictionaryLookupService.markdownAnswer(for: text, context: context) {
             return answer
         }
         guard ECDICTDictionary.shared.isInstalled else { return nil }

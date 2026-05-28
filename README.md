@@ -64,6 +64,12 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 
 ### 更新记录
 
+#### 1.7.1
+
+- 增强离线和未配置模型时的选词体验：本地 ECDICT 查询、朗读、复制和模型设置入口的状态更清晰。
+- 优化背单词流程，默认词频优先，并避免一次性查询整批单词导致卡顿。
+- 整理网络/模型状态、浮动窗口、本地词典和复习卡片加载结构。
+
 #### 1.7.0
 
 - 增加阅读笔记入口，并改进笔记编辑、Ask AI、粘贴和右键菜单行为。
@@ -184,6 +190,12 @@ Regular app releases reuse those files. Regenerated speech archives should only 
 
 ### Changelog
 
+#### 1.7.1
+
+- Improved selection behavior when offline or when no model API key is configured, with clearer local ECDICT, speech, copy, and model-settings states.
+- Refined vocabulary review with frequency-first ordering by default and current-card dictionary lookup to avoid batch lookup stalls.
+- Cleaned up network/model capability, selection toolbar, local dictionary, and review-card loading boundaries.
+
 #### 1.7.0
 
 - Added Reading Notes access from the reader toolbar and refined note editing, Ask AI, paste, and context-menu behavior.
@@ -246,6 +258,12 @@ Third-party speech models and runtimes remain copyrighted by their respective pr
 - [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) / Kokoro model: Apache License 2.0.
 - [KittenTTS](https://github.com/KittenML/KittenTTS) and [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs): KittenTTS model under Apache License 2.0; Rust runtime copyright belongs to the `kitten_tts_rs` project contributors.
 - [Piper](https://github.com/rhasspy/piper): MIT License; Piper voice model assets follow the metadata shipped with the upstream model package.
+
+## What's New in 1.7.1
+
+- Improved offline and unconfigured-model selection behavior with local ECDICT lookup, speech, copy, and model settings states.
+- Made vocabulary review default to frequency-first ordering and kept dictionary lookup scoped to the current card.
+- Refactored network/model capability checks, selection toolbar configuration, local dictionary lookup, and review-card loading.
 
 ## What's New in 1.7.0
 
