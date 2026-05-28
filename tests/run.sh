@@ -65,6 +65,7 @@ LOGIC_APP_SOURCES=(
   mac-app/AISettingsStore.swift
   mac-app/AISettingsStore+Embedding.swift
   mac-app/AISettingsStore+Speech.swift
+  mac-app/NetworkConnectivityMonitor.swift
   mac-app/NetworkErrorFormatter.swift
   mac-app/KokoroWorkerResponseReader.swift
   mac-app/ProcessRunner.swift
@@ -102,6 +103,7 @@ LOGIC_APP_SOURCES=(
   mac-app/VocabularyReviewSession.swift
   mac-app/VocabularyReviewCardSelector.swift
   mac-app/ReaderQueryCapability.swift
+  mac-app/RequestAvailabilityPolicy.swift
   mac-app/SelectionToolbarConfiguration.swift
   mac-app/VocabularyReviewDisplayRecordLoader.swift
   mac-app/VocabularyAnswerFormatter.swift
@@ -150,6 +152,7 @@ run_swift_test /tmp/leafreader-logic-tests \
   "${LOGIC_TEST_SOURCES[@]}" \
   -framework PDFKit \
   -framework Cocoa \
+  -framework Network \
   -lsqlite3
 
 if [[ -n "${LEAFREADER_TEST_APP_BUNDLE:-}" ]]; then

@@ -10,7 +10,7 @@ extension AIChatPanel {
         let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating, linkID: linkID, persist: false)
         requestState.begin(id: requestID, assistantBody: assistantBody)
         var streamedText = ""
-        requestState.currentStreamTask = client.sendStream(messages: messages, onDelta: { [weak self, weak assistantBody] delta in
+        requestState.currentStreamTask = llmAnswerProvider.answerStream(messages: messages, onDelta: { [weak self, weak assistantBody] delta in
             DispatchQueue.main.async {
                 guard let self = self, let assistantBody = assistantBody else { return }
                 guard self.requestState.isActive(requestID) else { return }
@@ -93,7 +93,7 @@ extension AIChatPanel {
     }
 
     func shouldUseLocalDictionaryFallback(for error: Error) -> Bool {
-        NetworkConnectivityMonitor.isNetworkConnectivityError(error)
+        RequestAvailabilityPolicy.shouldUseLocalDictionaryFallback(for: error)
     }
 
     func appendRetryButton() {

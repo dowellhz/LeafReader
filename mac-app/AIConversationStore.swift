@@ -51,14 +51,16 @@ struct AIConversationSourceLocation: Codable, Equatable {
     var selectedText: String?
     var pdfBounds: [StoredPDFWordRect]?
     var webContext: String?
+    var occurrenceIndex: Int?
 
-    init(kind: Kind, index: Int, progress: Double?, selectedText: String? = nil, pdfBounds: [StoredPDFWordRect]? = nil, webContext: String? = nil) {
+    init(kind: Kind, index: Int, progress: Double?, selectedText: String? = nil, pdfBounds: [StoredPDFWordRect]? = nil, webContext: String? = nil, occurrenceIndex: Int? = nil) {
         self.kind = kind
         self.index = index
         self.progress = progress
         self.selectedText = selectedText
         self.pdfBounds = pdfBounds
         self.webContext = webContext
+        self.occurrenceIndex = occurrenceIndex
     }
 }
 

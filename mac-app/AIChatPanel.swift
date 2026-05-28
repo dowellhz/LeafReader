@@ -161,6 +161,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
     let client = AIClient()
     let dictionaryLookupService: DictionaryLookupService = LocalDictionaryLookupService.shared
+    lazy var llmAnswerProvider: StreamingAnswerProvider = LLMAnswerProvider(client: client)
     let askButton = GradientButton(title: "", target: nil, action: nil)
     let summaryButton = CapsuleChromeButton(title: "", target: nil, action: nil)
     let translateButton = CapsuleChromeButton(title: "", target: nil, action: nil)

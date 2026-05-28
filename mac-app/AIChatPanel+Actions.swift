@@ -9,7 +9,7 @@ extension AIChatPanel {
     @objc func startQuestion() {
         let text = trimmedText(selectedText)
         guard !text.isEmpty, !isBusy else { return }
-        guard AISettingsStore.hasAPIKeyForSelectedModel else {
+        guard canUseSelectedModel() else {
             if handleLocalDictionaryQuestion(text) {
                 return
             }
@@ -58,7 +58,7 @@ extension AIChatPanel {
 
     func askSelectedSummary(_ text: String) {
         guard !isBusy else { return }
-        guard AISettingsStore.hasAPIKeyForSelectedModel else {
+        guard canUseSelectedModel() else {
             onSettingsRequired?()
             return
         }
@@ -81,7 +81,7 @@ extension AIChatPanel {
 
     func askSelectedTranslation(_ text: String) {
         guard !isBusy else { return }
-        guard AISettingsStore.hasAPIKeyForSelectedModel else {
+        guard canUseSelectedModel() else {
             onSettingsRequired?()
             return
         }
@@ -111,7 +111,7 @@ extension AIChatPanel {
 
     func askCurrentContent(mode: CurrentContentMode) {
         guard !isBusy else { return }
-        guard AISettingsStore.hasAPIKeyForSelectedModel else {
+        guard canUseSelectedModel() else {
             onSettingsRequired?()
             return
         }
@@ -217,10 +217,14 @@ extension AIChatPanel {
         AIPromptStore.sentencePrompt(for: text)
     }
 
+    func canUseSelectedModel() -> Bool {
+        RequestAvailabilityPolicy.canUseSelectedModel()
+    }
+
     @objc func sendFollowUp() {
         let text = trimmedText(inputField.stringValue)
         guard !text.isEmpty, !isBusy else { return }
-        guard AISettingsStore.hasAPIKeyForSelectedModel else {
+        guard canUseSelectedModel() else {
             onSettingsRequired?()
             return
         }

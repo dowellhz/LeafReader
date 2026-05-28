@@ -77,7 +77,8 @@ extension ReaderWindowController {
             index: index,
             progress: min(1, max(0, webScrollProgress)),
             selectedText: selectedText.isEmpty ? nil : selectedText,
-            webContext: currentWebSelectionContext.trimmingCharacters(in: .whitespacesAndNewlines)
+            webContext: currentWebSelectionContext.trimmingCharacters(in: .whitespacesAndNewlines),
+            occurrenceIndex: currentWebSelectionOccurrenceIndex
         )
         if !selectedText.isEmpty {
             addAISourceUnderline(for: source)

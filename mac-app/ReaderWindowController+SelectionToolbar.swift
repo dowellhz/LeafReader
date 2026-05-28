@@ -44,29 +44,7 @@ extension ReaderWindowController {
     }
 
     func showSelectionToolbar(near sourceRect: NSRect, text: String, preferredEdge: SelectionToolbarEdge = .above) {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            hideSelectionToolbar()
-            return
-        }
-        selectionActionToolbar.applyTheme(ReaderTheme.selected)
-        configureSelectionToolbarActions(for: text)
-        let size = selectionActionToolbar.preferredSize
-        let readerFrame = pdfContainer.frame
-        let minimumX = readerFrame.minX + 12
-        let maximumX = max(minimumX, readerFrame.maxX - size.width - 12)
-        let centeredX = sourceRect.midX - size.width / 2
-        let x = min(max(centeredX, minimumX), maximumX)
-        let aboveY = sourceRect.maxY + 10
-        let belowY = sourceRect.minY - size.height - 10
-        let maximumY = readerFrame.maxY - size.height - 12
-        let y: CGFloat
-        switch preferredEdge {
-        case .above:
-            y = aboveY <= maximumY ? aboveY : max(readerFrame.minY + 12, belowY)
-        case .below:
-            y = belowY >= readerFrame.minY + 12 ? belowY : min(aboveY, maximumY)
-        }
-        showSelectionToolbarWindow(frameInContent: NSRect(origin: CGPoint(x: x, y: y), size: size))
+        SelectionToolbarCoordinator(owner: self).show(near: sourceRect, text: text, preferredEdge: preferredEdge)
     }
 
     func hideSelectionToolbar() {
@@ -154,7 +132,7 @@ extension ReaderWindowController {
         setAIPanelCollapsed(false, animated: true)
     }
 
-    private func showSelectionToolbarWindow(frameInContent: NSRect) {
+    func showSelectionToolbarWindow(frameInContent: NSRect) {
         guard let parentWindow = window else { return }
         let toolbarWindow = selectionActionToolbarWindow ?? makeSelectionToolbarWindow()
         selectionActionToolbarWindow = toolbarWindow

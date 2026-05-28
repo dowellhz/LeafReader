@@ -130,6 +130,38 @@ private func testAIConversationMergeTrimsToLimitAfterPreservingNewest() throws {
     )
 }
 
+private func testAIConversationSourceLocationPreservesWebOccurrenceIndex() throws {
+    let source = AIConversationSourceLocation(
+        kind: .webProgress,
+        index: 3,
+        progress: 0.5,
+        selectedText: "repeat",
+        webContext: "repeat repeat",
+        occurrenceIndex: 1
+    )
+    let data = try JSONEncoder().encode(source)
+    let decoded = try JSONDecoder().decode(AIConversationSourceLocation.self, from: data)
+
+    try expectEqual(decoded, source, "web source location should preserve occurrence index")
+    try expectEqual(decoded.occurrenceIndex, 1, "web occurrence index should round-trip through saved AI source")
+}
+
+private func testAIConversationSourceLocationDecodesLegacyWithoutOccurrenceIndex() throws {
+    let json = """
+    {
+      "kind": "webProgress",
+      "index": 2,
+      "progress": 0.25,
+      "selectedText": "repeat",
+      "webContext": "repeat repeat"
+    }
+    """
+    let decoded = try JSONDecoder().decode(AIConversationSourceLocation.self, from: Data(json.utf8))
+
+    try expectEqual(decoded.kind, .webProgress, "legacy web source should decode")
+    try expectEqual(decoded.occurrenceIndex, nil, "legacy web source should keep missing occurrence index as nil")
+}
+
 private func testAIRequestStateLifecycle() throws {
     let state = AIRequestState()
     let firstID = UUID()
@@ -201,6 +233,10 @@ struct RegressionTestRunner {
             print("PASS AI conversation lazy-save merge")
             try testAIConversationMergeTrimsToLimitAfterPreservingNewest()
             print("PASS AI conversation merge trim")
+            try testAIConversationSourceLocationPreservesWebOccurrenceIndex()
+            print("PASS AI source web occurrence index")
+            try testAIConversationSourceLocationDecodesLegacyWithoutOccurrenceIndex()
+            print("PASS AI source legacy decode")
             try testAIRequestStateLifecycle()
             print("PASS AI request state lifecycle")
             try testProcessRunnerCapturesOutputAndTimeout()

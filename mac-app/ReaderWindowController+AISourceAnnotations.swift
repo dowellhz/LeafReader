@@ -135,18 +135,22 @@ extension ReaderWindowController {
 
     func restoreWebAISourceUnderlines(for sources: [AIConversationSourceLocation]) {
         webAISourceLocationsByKey.removeAll()
-        let payload = sources.compactMap { source -> [String: String]? in
+        let payload = sources.compactMap { source -> [String: Any]? in
             guard source.kind == .webProgress,
                   let selectedText = source.selectedText?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !selectedText.isEmpty else {
                 return nil
             }
             let key = registerWebAISource(source)
-            return [
+            var item: [String: Any] = [
                 "key": key,
                 "selectedText": selectedText,
                 "context": source.webContext?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             ]
+            if let occurrenceIndex = source.occurrenceIndex {
+                item["occurrenceIndex"] = occurrenceIndex
+            }
+            return item
         }
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8) else {
