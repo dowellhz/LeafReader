@@ -5,33 +5,7 @@ extension ReaderWindowController {
         for view in container.subviews {
             view.removeFromSuperview()
         }
-        let visibleRecords = vocabularyReviewRecords(records)
-        if (vocabularyReviewSession.contextShown || vocabularyReviewSession.answerShown),
-           let key = vocabularyReviewSession.cardKey,
-           let preservedRecord = records.first(where: { vocabularyReviewSession.key(for: $0) == key }) {
-            let displayRecord = vocabularyRecordWithDictionaryTags(preservedRecord)
-            let selectedPosition = visibleRecords.firstIndex(where: { vocabularyReviewSession.key(for: $0) == key }).map { $0 + 1 } ?? min(vocabularyReviewSession.reviewIndex + 1, max(1, visibleRecords.count))
-            prepareVocabularyReviewTiming(for: displayRecord, autoPlay: autoPlayNewCard)
-            updateVocabularySummaryWithProgress(position: selectedPosition, total: max(visibleRecords.count, selectedPosition))
-            let card = VocabularyReviewCardBuilder(owner: self).build(
-                record: displayRecord,
-                position: selectedPosition,
-                total: max(visibleRecords.count, selectedPosition),
-                contextShown: vocabularyReviewSession.contextShown,
-                answerShown: vocabularyReviewSession.answerShown,
-                didScore: vocabularyReviewSession.didScoreCurrentCard,
-                canUndoScore: !vocabularyReviewSession.undoSRSByID.isEmpty
-            )
-            container.addSubview(card)
-            NSLayoutConstraint.activate([
-                card.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-                card.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                card.topAnchor.constraint(equalTo: container.topAnchor),
-                card.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-            ])
-            return
-        }
-        guard !visibleRecords.isEmpty else {
+        guard let selection = VocabularyReviewCardSelector.selection(records: records, session: vocabularyReviewSession) else {
             let empty = emptyVocabularyState(filter: filter, isDark: isDark)
             container.addSubview(empty)
             NSLayoutConstraint.activate([
@@ -40,30 +14,39 @@ extension ReaderWindowController {
             ])
             return
         }
-        vocabularyReviewSession.reviewIndex = min(max(0, vocabularyReviewSession.reviewIndex), visibleRecords.count - 1)
-        let selectedRecord: VocabularyExportRecord
-        let selectedPosition: Int
-        if (vocabularyReviewSession.contextShown || vocabularyReviewSession.answerShown),
-           let key = vocabularyReviewSession.cardKey,
-           let preservedIndex = visibleRecords.firstIndex(where: { vocabularyReviewSession.key(for: $0) == key }) {
-            selectedRecord = visibleRecords[preservedIndex]
-            selectedPosition = preservedIndex + 1
-            vocabularyReviewSession.reviewIndex = preservedIndex
-        } else {
-            selectedRecord = visibleRecords[vocabularyReviewSession.reviewIndex]
-            selectedPosition = vocabularyReviewSession.reviewIndex + 1
-        }
-        let displayRecord = vocabularyRecordWithDictionaryTags(selectedRecord)
+        let displayRecord = vocabularyRecordWithDictionaryMetadata(selection.record)
         prepareVocabularyReviewTiming(for: displayRecord, autoPlay: autoPlayNewCard)
-        updateVocabularySummaryWithProgress(position: selectedPosition, total: visibleRecords.count)
-        let card = VocabularyReviewCardBuilder(owner: self).build(
+        updateVocabularySummaryWithProgress(position: selection.position, total: selection.total)
+        addVocabularyReviewCard(
+            to: container,
             record: displayRecord,
-            position: selectedPosition,
-            total: visibleRecords.count,
+            position: selection.position,
+            total: selection.total,
             contextShown: vocabularyReviewSession.contextShown,
             answerShown: vocabularyReviewSession.answerShown,
             didScore: vocabularyReviewSession.didScoreCurrentCard,
             canUndoScore: !vocabularyReviewSession.undoSRSByID.isEmpty
+        )
+    }
+
+    private func addVocabularyReviewCard(
+        to container: NSView,
+        record: VocabularyExportRecord,
+        position: Int,
+        total: Int,
+        contextShown: Bool,
+        answerShown: Bool,
+        didScore: Bool,
+        canUndoScore: Bool
+    ) {
+        let card = VocabularyReviewCardBuilder(owner: self).build(
+            record: record,
+            position: position,
+            total: total,
+            contextShown: contextShown,
+            answerShown: answerShown,
+            didScore: didScore,
+            canUndoScore: canUndoScore
         )
         container.addSubview(card)
         NSLayoutConstraint.activate([
@@ -84,10 +67,13 @@ extension ReaderWindowController {
         popup.lastItem?.representedObject = VocabularyReviewPriority.oldWordsFirst.rawValue
         popup.addItem(withTitle: AppText.localized("新单词优先", "New Words First"))
         popup.lastItem?.representedObject = VocabularyReviewPriority.newWordsFirst.rawValue
+        popup.addItem(withTitle: AppText.localized("词频优先", "Frequency First"))
+        popup.lastItem?.representedObject = VocabularyReviewPriority.frequencyFirst.rawValue
         popup.menu?.autoenablesItems = false
         popup.target = self
         popup.action = #selector(changeVocabularyReviewPriority(_:))
         popup.theme = ReaderTheme.selected
+        loadVocabularyReviewPriorityPreference()
         if let index = popup.itemArray.firstIndex(where: { item in
             (item.representedObject as? String) == vocabularyReviewSession.priority.rawValue
         }) {
@@ -103,8 +89,39 @@ extension ReaderWindowController {
               let root = vocabularyPanelController.rootView else { return }
         commitPendingVocabularyAnswerIfNeeded()
         vocabularyReviewSession.priority = priority
+        saveVocabularyReviewPriorityPreference(priority)
         vocabularyReviewSession.resetForReviewMode()
+        if priority == .frequencyFirst {
+            backfillFrequencyForCurrentTrainerIfNeeded(autoPlayAfterCompletion: true)
+            return
+        }
         showVocabularyReviewMode(in: root, autoPlay: true)
+    }
+
+    func showVocabularyFrequencyLoading(in root: NSView) {
+        guard let reviewContainer = findView(identifier: "vocabularyReviewContainer", in: root) else { return }
+        for view in reviewContainer.subviews {
+            view.removeFromSuperview()
+        }
+        let label = NSTextField(labelWithString: AppText.localized("正在处理词频，请稍候…", "Processing word frequency..."))
+        label.font = AppFont.semibold(ofSize: 16)
+        label.textColor = vocabularySecondaryTextColor(for: ReaderTheme.selected)
+        label.alignment = .center
+        label.identifier = NSUserInterfaceItemIdentifier("vocabularyFrequencyLoadingLabel")
+        label.translatesAutoresizingMaskIntoConstraints = false
+        reviewContainer.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: reviewContainer.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: reviewContainer.centerYAnchor)
+        ])
+    }
+
+    func updateVocabularyFrequencyLoading(in root: NSView, word: String, current: Int, total: Int) {
+        guard let label = findView(identifier: "vocabularyFrequencyLoadingLabel", in: root) as? NSTextField else { return }
+        label.stringValue = AppText.localized(
+            "正在处理词频 \(current) / \(total)：\(word)",
+            "Processing frequency \(current) / \(total): \(word)"
+        )
     }
 
     func vocabularyExampleAttributedString(_ text: String, word: String, fontSize: CGFloat, textColor: NSColor) -> NSAttributedString {

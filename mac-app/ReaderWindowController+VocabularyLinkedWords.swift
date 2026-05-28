@@ -32,6 +32,7 @@ extension ReaderWindowController {
                 question: question,
                 answer: trimmedAnswer,
                 dictionaryTags: pending.dictionaryTags,
+                dictionaryFrequency: pending.dictionaryFrequency,
                 createdAt: pending.createdAt,
                 srs: VocabularySRSState.initial(createdAt: pending.createdAt)
             )
@@ -51,6 +52,7 @@ extension ReaderWindowController {
                 question: question,
                 answer: trimmedAnswer,
                 dictionaryTags: pending.dictionaryTags,
+                dictionaryFrequency: pending.dictionaryFrequency,
                 createdAt: pending.createdAt,
                 srs: VocabularySRSState.initial(createdAt: pending.createdAt)
             )

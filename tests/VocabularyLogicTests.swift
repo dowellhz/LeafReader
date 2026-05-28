@@ -1,91 +1,5 @@
 import Foundation
 
-private struct VocabularySRSState {
-    var easeFactor: Double
-    var intervalDays: Int
-    var repetition: Int
-    var dueDate: Date
-    var lastReviewedAt: Date?
-    var reviewCount: Int
-    var lapseCount: Int
-    var activeRecallStreak: Int?
-    var masteredAt: Date?
-
-    static func initial(createdAt: Date = Date()) -> VocabularySRSState {
-        VocabularySRSState(
-            easeFactor: 2.5,
-            intervalDays: 0,
-            repetition: 0,
-            dueDate: createdAt,
-            lastReviewedAt: nil,
-            reviewCount: 0,
-            lapseCount: 0,
-            activeRecallStreak: 0,
-            masteredAt: nil
-        )
-    }
-
-    var isDue: Bool {
-        dueDate <= Date()
-    }
-
-    var isMastered: Bool {
-        (activeRecallStreak ?? 0) >= 3 && intervalDays >= 7 && !isDue
-    }
-
-    func reviewed(grade: Int, at date: Date = Date()) -> VocabularySRSState {
-        let boundedGrade = min(max(grade, 1), 4)
-        let wasMastered = isMastered
-        var next = self
-        next.reviewCount += 1
-        next.lastReviewedAt = date
-
-        if boundedGrade == 1 {
-            next.repetition = 0
-            next.intervalDays = 0
-            next.lapseCount += 1
-            next.activeRecallStreak = 0
-            next.masteredAt = nil
-            next.easeFactor = max(1.3, next.easeFactor - 0.25)
-            next.dueDate = Calendar.current.date(byAdding: .minute, value: 10, to: date) ?? date
-            return next
-        }
-
-        let intervals = boundedGrade == 2
-            ? [1, 2, 4, 7, 15]
-            : [1, 3, 7, 15, 30]
-        let baseInterval = next.repetition < intervals.count
-            ? intervals[next.repetition]
-            : Int((Double(max(1, next.intervalDays)) * next.easeFactor).rounded())
-        next.intervalDays = max(1, baseInterval)
-        next.repetition += 1
-        if boundedGrade >= 3 {
-            next.activeRecallStreak = (next.activeRecallStreak ?? 0) + 1
-        } else {
-            next.activeRecallStreak = 0
-        }
-        next.easeFactor = max(1.3, next.easeFactor + next.easeDelta(for: boundedGrade))
-        next.dueDate = Calendar.current.date(byAdding: .day, value: next.intervalDays, to: date) ?? date
-        if !wasMastered && next.isMastered {
-            next.masteredAt = date
-        }
-        return next
-    }
-
-    private func easeDelta(for grade: Int) -> Double {
-        let q: Double
-        switch grade {
-        case 2:
-            q = 3
-        case 4:
-            q = 5
-        default:
-            q = 4
-        }
-        return 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)
-    }
-}
-
 private struct StoredWordRecord: Equatable {
     let id: String
     var answer: String
@@ -228,5 +142,69 @@ enum VocabularyLogicTests {
         }
         try expect(csv.contains("Front,Back,Page,Context,Source,Created At"), "CSV should include header")
         try expect(csv.contains("\"alpha\",\" first answer \",\"p. 1\",\"context\",\"Book\""), "CSV should include escaped record")
+    }
+
+    static func testVocabularyAnswerFormatter() throws {
+        let answer = """
+        ## **Induction**
+
+        中文释义：
+        • n. 归纳
+        """
+        try expectEqual(
+            VocabularyAnswerFormatter.answerBody(answer, word: "induction"),
+            "中文释义：\n• n. 归纳",
+            "answer formatter should remove duplicate word heading and blank lines"
+        )
+        try expectEqual(
+            VocabularyAnswerFormatter.normalizedHeading("__Induction ：__"),
+            "induction",
+            "heading normalization should trim markdown emphasis and punctuation"
+        )
+    }
+
+    static func testVocabularyReviewCardSelector() throws {
+        let createdAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let first = vocabularyRecord(id: "first", word: "alpha", createdAt: createdAt)
+        let second = vocabularyRecord(id: "second", word: "beta", createdAt: createdAt.addingTimeInterval(1))
+        let records = [first, second]
+
+        let session = VocabularyReviewSession()
+        session.priority = .newWordsFirst
+        session.reviewIndex = 8
+        guard let initial = VocabularyReviewCardSelector.selection(records: records, session: session) else {
+            throw TestFailure(description: "selector should return a review card")
+        }
+        try expectEqual(initial.record.word, "beta", "new words first should select newest due record")
+        try expectEqual(initial.position, 2, "selector should clamp an out-of-range review index to the last visible card")
+        try expectEqual(initial.total, 2, "selector should report visible review count")
+        try expectEqual(session.reviewIndex, 1, "selector should clamp session review index")
+
+        session.contextShown = true
+        session.cardKey = session.key(for: first)
+        guard let preserved = VocabularyReviewCardSelector.selection(records: records, session: session) else {
+            throw TestFailure(description: "selector should preserve currently shown card")
+        }
+        try expectEqual(preserved.record.word, "alpha", "visible context card should remain selected")
+        try expectEqual(preserved.position, 1, "preserved card should keep its visible queue position")
+        try expectEqual(preserved.total, 2, "preserved card should keep total count")
+    }
+
+    private static func vocabularyRecord(
+        id: String,
+        word: String,
+        createdAt: Date
+    ) -> VocabularyExportRecord {
+        VocabularyExportRecord(
+            ids: [id],
+            word: word,
+            answer: "\(word) answer",
+            dictionaryTags: nil,
+            dictionaryFrequency: nil,
+            location: "",
+            context: "",
+            createdAt: createdAt,
+            srs: VocabularySRSState.initial(createdAt: createdAt)
+        )
     }
 }

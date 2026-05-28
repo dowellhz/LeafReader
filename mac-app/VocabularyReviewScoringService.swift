@@ -31,21 +31,17 @@ enum VocabularyReviewScoringService {
         documentKind: ReaderDocumentKind,
         pdfRecords: inout [StoredPDFWordRecord],
         webRecords: inout [StoredWebWordRecord],
-        exportRecords: inout [VocabularyExportRecord],
-        savePDFRecord: (StoredPDFWordRecord) -> Void,
-        saveWebRecord: (StoredWebWordRecord) -> Void
+        exportRecords: inout [VocabularyExportRecord]
     ) {
         let idSet = Set(snapshot.keys)
         switch documentKind {
         case .pdf:
             for index in pdfRecords.indices where idSet.contains(pdfRecords[index].id) {
                 pdfRecords[index].srs = snapshot[pdfRecords[index].id]
-                savePDFRecord(pdfRecords[index])
             }
         default:
             for index in webRecords.indices where idSet.contains(webRecords[index].id) {
                 webRecords[index].srs = snapshot[webRecords[index].id]
-                saveWebRecord(webRecords[index])
             }
         }
 
@@ -60,9 +56,7 @@ enum VocabularyReviewScoringService {
         documentKind: ReaderDocumentKind,
         pdfRecords: inout [StoredPDFWordRecord],
         webRecords: inout [StoredWebWordRecord],
-        exportRecords: inout [VocabularyExportRecord],
-        savePDFRecord: (StoredPDFWordRecord) -> Void,
-        saveWebRecord: (StoredWebWordRecord) -> Void
+        exportRecords: inout [VocabularyExportRecord]
     ) {
         let idSet = Set(ids)
         switch documentKind {
@@ -70,13 +64,11 @@ enum VocabularyReviewScoringService {
             for index in pdfRecords.indices where idSet.contains(pdfRecords[index].id) {
                 let current = pdfRecords[index].srs ?? VocabularySRSState.initial(createdAt: pdfRecords[index].createdAt)
                 pdfRecords[index].srs = current.reviewed(grade: grade)
-                savePDFRecord(pdfRecords[index])
             }
         default:
             for index in webRecords.indices where idSet.contains(webRecords[index].id) {
                 let current = webRecords[index].srs ?? VocabularySRSState.initial(createdAt: webRecords[index].createdAt)
                 webRecords[index].srs = current.reviewed(grade: grade)
-                saveWebRecord(webRecords[index])
             }
         }
 
@@ -125,6 +117,7 @@ enum VocabularyReviewScoringService {
                 word: old.word,
                 answer: old.answer,
                 dictionaryTags: old.dictionaryTags,
+                dictionaryFrequency: old.dictionaryFrequency,
                 location: old.location,
                 context: old.context,
                 createdAt: old.createdAt,

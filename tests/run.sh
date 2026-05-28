@@ -10,6 +10,7 @@ swiftc \
   mac-app/StoredPDFWordRect.swift \
   mac-app/PDFWordRecordStore.swift \
   mac-app/WebWordRecordStore.swift \
+  mac-app/WordRecordSQLiteRowMapper.swift \
   mac-app/WordRecordSQLiteStore.swift \
   -framework Cocoa \
   -lsqlite3 \
@@ -100,6 +101,13 @@ swiftc \
   mac-app/LocalRuntimeDownloader.swift \
   mac-app/ReadingContextSnapshot.swift \
   mac-app/ReaderDocumentKind.swift \
+  mac-app/VocabularyReviewModels.swift \
+  mac-app/VocabularySRS.swift \
+  mac-app/VocabularyExportRecord.swift \
+  mac-app/VocabularyReviewQueueBuilder.swift \
+  mac-app/VocabularyReviewSession.swift \
+  mac-app/VocabularyReviewCardSelector.swift \
+  mac-app/VocabularyAnswerFormatter.swift \
   mac-app/VocabularyExporter.swift \
   mac-app/ReaderAIContextBuilder.swift \
   mac-app/ReaderAIContextBuilder+PDF.swift \

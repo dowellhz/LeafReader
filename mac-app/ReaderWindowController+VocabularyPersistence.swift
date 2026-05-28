@@ -33,6 +33,7 @@ extension ReaderWindowController {
                 question: reusable.question,
                 answer: reusable.answer,
                 dictionaryTags: reusable.dictionaryTags,
+                dictionaryFrequency: reusable.dictionaryFrequency,
                 createdAt: Date(),
                 srs: reusable.srs ?? VocabularySRSState.initial()
             )
@@ -43,13 +44,15 @@ extension ReaderWindowController {
         }
 
         let id = UUID().uuidString
+        let metadata = dictionaryMetadata(for: text)
         pendingPDFWordRecords[id] = PendingPDFWordRecord(
             id: id,
             word: text.trimmingCharacters(in: .whitespacesAndNewlines),
             pageIndex: pageIndex,
             bounds: StoredPDFWordRect(bounds),
             context: vocabularyContextForCurrentSelection(selectedText: text),
-            dictionaryTags: dictionaryTags(for: text),
+            dictionaryTags: metadata.tags,
+            dictionaryFrequency: metadata.frequency,
             createdAt: Date()
         )
         return id
@@ -90,6 +93,7 @@ extension ReaderWindowController {
                 question: reusable.question,
                 answer: reusable.answer,
                 dictionaryTags: reusable.dictionaryTags,
+                dictionaryFrequency: reusable.dictionaryFrequency,
                 createdAt: Date(),
                 srs: reusable.srs ?? VocabularySRSState.initial()
             )
@@ -101,21 +105,27 @@ extension ReaderWindowController {
 
         let id = UUID().uuidString
         markCurrentWebSelectionAsStoredWord(id: id)
+        let metadata = dictionaryMetadata(for: word)
         pendingWebWordRecords[id] = PendingWebWordRecord(
             id: id,
             word: word,
             context: context,
             occurrenceIndex: currentWebSelectionOccurrenceIndex,
             scrollProgress: webScrollProgress,
-            dictionaryTags: dictionaryTags(for: word),
+            dictionaryTags: metadata.tags,
+            dictionaryFrequency: metadata.frequency,
             createdAt: Date()
         )
         return id
     }
 
+    func dictionaryMetadata(for word: String) -> (tags: String?, frequency: Int?) {
+        let metadata = VocabularyDictionaryMetadataService.metadata(for: word)
+        return (metadata.tags, metadata.frequency)
+    }
+
     func dictionaryTags(for word: String) -> String? {
-        let tags = ECDICTDictionary.shared.lookup(word)?.tags.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return tags.isEmpty ? nil : tags
+        dictionaryMetadata(for: word).tags
     }
 
     func existingPendingWebWordRecord(word: String, context: String, occurrenceIndex: Int?) -> PendingWebWordRecord? {

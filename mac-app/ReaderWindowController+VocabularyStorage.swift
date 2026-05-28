@@ -1,5 +1,14 @@
 import Cocoa
 
+struct VocabularyRecordMutationResult {
+    let didUpdatePDF: Bool
+    let didUpdateWeb: Bool
+
+    var didUpdate: Bool {
+        didUpdatePDF || didUpdateWeb
+    }
+}
+
 extension ReaderWindowController {
     func loadStoredWordRecords() -> [StoredPDFWordRecord] {
         pdfWordRecordStore?.load() ?? []
@@ -39,6 +48,35 @@ extension ReaderWindowController {
         if webWordRecordStore?.delete(ids: ids) != true {
             saveStoredWebWordRecords()
         }
+    }
+
+    @discardableResult
+    func updateStoredVocabularyRecords(
+        ids: Set<String>,
+        updatePDF: (inout StoredPDFWordRecord) -> Bool,
+        updateWeb: (inout StoredWebWordRecord) -> Bool
+    ) -> VocabularyRecordMutationResult {
+        var didUpdatePDF = false
+        for index in storedWordRecords.indices where ids.contains(storedWordRecords[index].id) {
+            guard updatePDF(&storedWordRecords[index]) else { continue }
+            saveStoredWordRecord(storedWordRecords[index])
+            didUpdatePDF = true
+        }
+        if didUpdatePDF {
+            saveStoredWordRecords()
+        }
+
+        var didUpdateWeb = false
+        for index in storedWebWordRecords.indices where ids.contains(storedWebWordRecords[index].id) {
+            guard updateWeb(&storedWebWordRecords[index]) else { continue }
+            saveStoredWebWordRecord(storedWebWordRecords[index])
+            didUpdateWeb = true
+        }
+        if didUpdateWeb {
+            saveStoredWebWordRecords()
+        }
+
+        return VocabularyRecordMutationResult(didUpdatePDF: didUpdatePDF, didUpdateWeb: didUpdateWeb)
     }
 
     func scheduleStoredWordRecordsSave() {

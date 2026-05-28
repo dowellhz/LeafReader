@@ -9,6 +9,7 @@ struct StoredWebWordRecord: Codable {
     var question: String
     var answer: String
     var dictionaryTags: String? = nil
+    var dictionaryFrequency: Int? = nil
     let createdAt: Date
     var srs: VocabularySRSState?
 }

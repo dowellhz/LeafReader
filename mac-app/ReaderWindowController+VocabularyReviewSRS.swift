@@ -147,9 +147,12 @@ extension ReaderWindowController {
             documentKind: currentDocumentKind,
             pdfRecords: &storedWordRecords,
             webRecords: &storedWebWordRecords,
-            exportRecords: &currentVocabularyExportRecords,
-            savePDFRecord: { [weak self] in self?.saveStoredWordRecord($0) },
-            saveWebRecord: { [weak self] in self?.saveStoredWebWordRecord($0) }
+            exportRecords: &currentVocabularyExportRecords
+        )
+        updateStoredVocabularyRecords(
+            ids: Set(snapshot.keys),
+            updatePDF: { _ in true },
+            updateWeb: { _ in true }
         )
     }
 
@@ -160,9 +163,12 @@ extension ReaderWindowController {
             documentKind: currentDocumentKind,
             pdfRecords: &storedWordRecords,
             webRecords: &storedWebWordRecords,
-            exportRecords: &currentVocabularyExportRecords,
-            savePDFRecord: { [weak self] in self?.saveStoredWordRecord($0) },
-            saveWebRecord: { [weak self] in self?.saveStoredWebWordRecord($0) }
+            exportRecords: &currentVocabularyExportRecords
+        )
+        updateStoredVocabularyRecords(
+            ids: Set(ids),
+            updatePDF: { _ in true },
+            updateWeb: { _ in true }
         )
     }
 

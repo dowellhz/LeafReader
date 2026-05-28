@@ -424,6 +424,8 @@ private func testKokoroWorkerResponseReaderBuffersPartialLines() throws {
 
 private let tests: [(String, () throws -> Void)] = [
     ("Vocabulary SRS", VocabularyLogicTests.testVocabularySRS),
+    ("Vocabulary review card selector", VocabularyLogicTests.testVocabularyReviewCardSelector),
+    ("Vocabulary answer formatter", VocabularyLogicTests.testVocabularyAnswerFormatter),
     ("Recent document sorting/import", ReaderShelfLogicTests.testRecentDocumentSortingAndImport),
     ("Dropped document actions", ReaderShelfLogicTests.testDroppedDocumentActions),
     ("Embedding defaults", AISettingsLogicTests.testEmbeddingDefaults),

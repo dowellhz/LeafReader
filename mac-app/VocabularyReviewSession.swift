@@ -3,7 +3,7 @@ import Foundation
 final class VocabularyReviewSession {
     let listPageSize = 20
     var filter: VocabularyFilter = .due
-    var priority: VocabularyReviewPriority = .oldWordsFirst
+    var priority: VocabularyReviewPriority = .frequencyFirst
     var reviewIndex = 0
     var listPageIndex = 0
     var contextShown = false
@@ -79,7 +79,7 @@ final class VocabularyReviewSession {
             return remainingCurrentBatch
         }
 
-        let nextBatch = reviewQueue(records)
+        let nextBatch = VocabularyReviewQueueBuilder.queue(records: records, priority: priority)
             .filter { !isDoneForToday($0) }
             .prefix(10)
             .map(key(for:))
@@ -148,36 +148,5 @@ final class VocabularyReviewSession {
 
     func goToNextListPage() {
         listPageIndex += 1
-    }
-
-    private func reviewQueue(_ records: [VocabularyExportRecord]) -> [VocabularyExportRecord] {
-        let dueRecords = records
-            .filter { $0.srs.isDue }
-            .sorted(by: prioritySort)
-        if !dueRecords.isEmpty {
-            return dueRecords
-        }
-        let fallbackRecords = records
-            .filter { !$0.srs.isMastered }
-        switch priority {
-        case .oldWordsFirst:
-            return fallbackRecords.sorted { $0.srs.dueDate < $1.srs.dueDate }
-        case .newWordsFirst:
-            return fallbackRecords.sorted(by: prioritySort)
-        }
-    }
-
-    private func prioritySort(_ lhs: VocabularyExportRecord, _ rhs: VocabularyExportRecord) -> Bool {
-        switch priority {
-        case .oldWordsFirst:
-            if lhs.srs.isNew != rhs.srs.isNew {
-                return !lhs.srs.isNew
-            }
-        case .newWordsFirst:
-            if lhs.srs.isNew != rhs.srs.isNew {
-                return lhs.srs.isNew
-            }
-        }
-        return lhs.srs.dueDate < rhs.srs.dueDate
     }
 }

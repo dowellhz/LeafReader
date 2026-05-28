@@ -8,15 +8,23 @@ extension ReaderWindowController {
         }
         let page = vocabularyReviewSession.currentListPageRecords(records, matching: filter)
         if page.total == 0 {
-            stack.addArrangedSubview(emptyVocabularyState(filter: filter, isDark: isDark))
+            addFullWidthVocabularyListView(emptyVocabularyState(filter: filter, isDark: isDark), to: stack)
             return
         }
         for record in page.records {
-            stack.addArrangedSubview(vocabularyCard(record: record, isDark: isDark))
+            addFullWidthVocabularyListView(vocabularyCard(record: record, isDark: isDark), to: stack)
         }
         if page.pageCount > 1 {
-            stack.addArrangedSubview(vocabularyPaginationView(currentPage: page.pageIndex, pageCount: page.pageCount, total: page.total, isDark: isDark))
+            addFullWidthVocabularyListView(
+                vocabularyPaginationView(currentPage: page.pageIndex, pageCount: page.pageCount, total: page.total, isDark: isDark),
+                to: stack
+            )
         }
+    }
+
+    private func addFullWidthVocabularyListView(_ view: NSView, to stack: NSStackView) {
+        stack.addArrangedSubview(view)
+        view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
     }
 
     func vocabularyPaginationView(currentPage: Int, pageCount: Int, total: Int, isDark: Bool) -> NSView {

@@ -17,6 +17,7 @@ enum VocabularyRecordProvider {
                         word: $0.word,
                         answer: $0.answer,
                         dictionaryTags: $0.dictionaryTags,
+                        dictionaryFrequency: $0.dictionaryFrequency,
                         location: AppText.localized("第 \($0.pageIndex + 1) 页", "p. \($0.pageIndex + 1)"),
                         context: pdfContext($0),
                         createdAt: $0.createdAt,
@@ -32,6 +33,7 @@ enum VocabularyRecordProvider {
                         word: $0.word,
                         answer: $0.answer,
                         dictionaryTags: $0.dictionaryTags,
+                        dictionaryFrequency: $0.dictionaryFrequency,
                         location: AppText.localized("进度 \(Int(($0.scrollProgress * 100).rounded()))%", "\(Int(($0.scrollProgress * 100).rounded()))%"),
                         context: $0.context,
                         createdAt: $0.createdAt,
@@ -83,11 +85,15 @@ enum VocabularyRecordProvider {
             let dictionaryTags = group
                 .compactMap(\.dictionaryTags)
                 .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            let dictionaryFrequency = group
+                .compactMap(\.dictionaryFrequency)
+                .min()
             return VocabularyExportRecord(
                 ids: group.flatMap(\.ids),
                 word: displayWord(first.word),
                 answer: answer,
                 dictionaryTags: dictionaryTags,
+                dictionaryFrequency: dictionaryFrequency,
                 location: locationText,
                 context: context,
                 createdAt: first.createdAt,

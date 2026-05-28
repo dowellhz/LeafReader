@@ -9,4 +9,5 @@ enum VocabularyFilter: Int {
 enum VocabularyReviewPriority: String {
     case oldWordsFirst
     case newWordsFirst
+    case frequencyFirst
 }

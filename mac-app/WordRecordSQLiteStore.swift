@@ -6,8 +6,9 @@ final class WordRecordSQLiteStore {
 
     private let lock = NSLock()
     private var db: OpaquePointer?
-    private let encoder = JSONEncoder()
-    private let decoder = JSONDecoder()
+    private let codec = WordRecordSQLiteJSONCodec()
+    private lazy var pdfMapper = PDFWordRecordSQLiteMapper(codec: codec)
+    private lazy var webMapper = WebWordRecordSQLiteMapper(codec: codec)
 
     init(databaseURL: URL?) {
         guard let url = databaseURL else {
@@ -37,46 +38,12 @@ final class WordRecordSQLiteStore {
 
     func loadPDFRecords(documentID: String) -> [StoredPDFWordRecord] {
         locked {
-            let sql = """
-            SELECT id, word, page_index, bounds_json, context, question, answer, dictionary_tags, created_at, srs_json
-            FROM pdf_word_records
-            WHERE document_id = ?
-            ORDER BY created_at ASC, id ASC
-            """
-            var statement: OpaquePointer?
-            guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-                logSQLiteFailure("prepare load PDF records")
-                return []
-            }
-            defer { sqlite3_finalize(statement) }
-            bind(documentID, at: 1, statement: statement)
-
-            var records: [StoredPDFWordRecord] = []
-            while sqlite3_step(statement) == SQLITE_ROW {
-                guard let id = stringColumn(statement, 0),
-                      let word = stringColumn(statement, 1),
-                      let boundsJSON = stringColumn(statement, 3),
-                      let bounds = decodeJSON(StoredPDFWordRect.self, from: boundsJSON),
-                      let question = stringColumn(statement, 5),
-                      let answer = stringColumn(statement, 6) else {
-                    continue
-                }
-                records.append(
-                    StoredPDFWordRecord(
-                        id: id,
-                        word: word,
-                        pageIndex: Int(sqlite3_column_int(statement, 2)),
-                        bounds: bounds,
-                        context: optionalStringColumn(statement, 4),
-                        question: question,
-                        answer: answer,
-                        dictionaryTags: optionalStringColumn(statement, 7),
-                        createdAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 8)),
-                        srs: decodeJSON(VocabularySRSState.self, from: optionalStringColumn(statement, 9))
-                    )
-                )
-            }
-            return records
+            loadRecords(
+                sql: PDFWordRecordSQLiteMapper.selectSQL,
+                prepareOperation: "prepare load PDF records",
+                bind: { bindText(documentID, at: .documentID, statement: $0) },
+                decode: pdfMapper.decode
+            )
         }
     }
 
@@ -86,37 +53,12 @@ final class WordRecordSQLiteStore {
             guard beginTransaction() else { return false }
             _ = execute(sql: "DELETE FROM pdf_word_records WHERE document_id = ?", bindings: [documentID], operation: "delete existing PDF records")
 
-            let sql = """
-            INSERT OR REPLACE INTO pdf_word_records(
-                document_id, id, word, page_index, bounds_json, context, question, answer, dictionary_tags, created_at, srs_json
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """
             var didFail = false
             for record in records {
-                var statement: OpaquePointer?
-                guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-                    logSQLiteFailure("prepare save PDF record")
+                guard insertPDFRecord(documentID: documentID, record: record, prepareOperation: "prepare save PDF record", stepOperation: "insert PDF record") else {
                     didFail = true
                     break
                 }
-                bind(documentID, at: 1, statement: statement)
-                bind(record.id, at: 2, statement: statement)
-                bind(record.word, at: 3, statement: statement)
-                sqlite3_bind_int(statement, 4, Int32(record.pageIndex))
-                bind(encodeJSON(record.bounds) ?? "{}", at: 5, statement: statement)
-                bindOptional(record.context, at: 6, statement: statement)
-                bind(record.question, at: 7, statement: statement)
-                bind(record.answer, at: 8, statement: statement)
-                bindOptional(record.dictionaryTags, at: 9, statement: statement)
-                sqlite3_bind_double(statement, 10, record.createdAt.timeIntervalSince1970)
-                bindOptional(encodeJSON(record.srs), at: 11, statement: statement)
-                if sqlite3_step(statement) != SQLITE_DONE {
-                    logSQLiteFailure("insert PDF record")
-                    didFail = true
-                }
-                sqlite3_finalize(statement)
-                if didFail { break }
             }
             if didFail {
                 rollbackTransaction()
@@ -143,45 +85,12 @@ final class WordRecordSQLiteStore {
 
     func loadWebRecords(documentID: String) -> [StoredWebWordRecord] {
         locked {
-            let sql = """
-            SELECT id, word, context, occurrence_index, scroll_progress, question, answer, dictionary_tags, created_at, srs_json
-            FROM web_word_records
-            WHERE document_id = ?
-            ORDER BY created_at ASC, id ASC
-            """
-            var statement: OpaquePointer?
-            guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-                logSQLiteFailure("prepare load web records")
-                return []
-            }
-            defer { sqlite3_finalize(statement) }
-            bind(documentID, at: 1, statement: statement)
-
-            var records: [StoredWebWordRecord] = []
-            while sqlite3_step(statement) == SQLITE_ROW {
-                guard let id = stringColumn(statement, 0),
-                      let word = stringColumn(statement, 1),
-                      let context = stringColumn(statement, 2),
-                      let question = stringColumn(statement, 5),
-                      let answer = stringColumn(statement, 6) else {
-                    continue
-                }
-                records.append(
-                    StoredWebWordRecord(
-                        id: id,
-                        word: word,
-                        context: context,
-                        occurrenceIndex: sqlite3_column_type(statement, 3) == SQLITE_NULL ? nil : Int(sqlite3_column_int(statement, 3)),
-                        scrollProgress: sqlite3_column_double(statement, 4),
-                        question: question,
-                        answer: answer,
-                        dictionaryTags: optionalStringColumn(statement, 7),
-                        createdAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 8)),
-                        srs: decodeJSON(VocabularySRSState.self, from: optionalStringColumn(statement, 9))
-                    )
-                )
-            }
-            return records
+            loadRecords(
+                sql: WebWordRecordSQLiteMapper.selectSQL,
+                prepareOperation: "prepare load web records",
+                bind: { bindText(documentID, at: .documentID, statement: $0) },
+                decode: webMapper.decode
+            )
         }
     }
 
@@ -191,37 +100,12 @@ final class WordRecordSQLiteStore {
             guard beginTransaction() else { return false }
             _ = execute(sql: "DELETE FROM web_word_records WHERE document_id = ?", bindings: [documentID], operation: "delete existing web records")
 
-            let sql = """
-            INSERT OR REPLACE INTO web_word_records(
-                document_id, id, word, context, occurrence_index, scroll_progress, question, answer, dictionary_tags, created_at, srs_json
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """
             var didFail = false
             for record in records {
-                var statement: OpaquePointer?
-                guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-                    logSQLiteFailure("prepare save web record")
+                guard insertWebRecord(documentID: documentID, record: record, prepareOperation: "prepare save web record", stepOperation: "insert web record") else {
                     didFail = true
                     break
                 }
-                bind(documentID, at: 1, statement: statement)
-                bind(record.id, at: 2, statement: statement)
-                bind(record.word, at: 3, statement: statement)
-                bind(record.context, at: 4, statement: statement)
-                bindOptionalInt(record.occurrenceIndex, at: 5, statement: statement)
-                sqlite3_bind_double(statement, 6, record.scrollProgress)
-                bind(record.question, at: 7, statement: statement)
-                bind(record.answer, at: 8, statement: statement)
-                bindOptional(record.dictionaryTags, at: 9, statement: statement)
-                sqlite3_bind_double(statement, 10, record.createdAt.timeIntervalSince1970)
-                bindOptional(encodeJSON(record.srs), at: 11, statement: statement)
-                if sqlite3_step(statement) != SQLITE_DONE {
-                    logSQLiteFailure("insert web record")
-                    didFail = true
-                }
-                sqlite3_finalize(statement)
-                if didFail { break }
             }
             if didFail {
                 rollbackTransaction()
@@ -259,6 +143,7 @@ final class WordRecordSQLiteStore {
             question TEXT NOT NULL,
             answer TEXT NOT NULL,
             dictionary_tags TEXT,
+            dictionary_frequency INTEGER,
             created_at REAL NOT NULL,
             srs_json TEXT,
             PRIMARY KEY(document_id, id)
@@ -275,6 +160,7 @@ final class WordRecordSQLiteStore {
             question TEXT NOT NULL,
             answer TEXT NOT NULL,
             dictionary_tags TEXT,
+            dictionary_frequency INTEGER,
             created_at REAL NOT NULL,
             srs_json TEXT,
             PRIMARY KEY(document_id, id)
@@ -298,6 +184,16 @@ final class WordRecordSQLiteStore {
             operation: "migrate web word dictionary tags",
             allowDuplicateColumn: true
         )
+        executeRaw(
+            "ALTER TABLE pdf_word_records ADD COLUMN dictionary_frequency INTEGER",
+            operation: "migrate PDF word dictionary frequency",
+            allowDuplicateColumn: true
+        )
+        executeRaw(
+            "ALTER TABLE web_word_records ADD COLUMN dictionary_frequency INTEGER",
+            operation: "migrate web word dictionary frequency",
+            allowDuplicateColumn: true
+        )
     }
 
     private func locked<T>(_ body: () -> T) -> T {
@@ -319,82 +215,87 @@ final class WordRecordSQLiteStore {
     }
 
     private func execute(sql: String, bindings: [String], operation: String) -> Bool {
+        executeStatement(
+            sql: sql,
+            prepareOperation: "prepare \(operation)",
+            stepOperation: operation
+        ) { statement in
+            for (offset, value) in bindings.enumerated() {
+                sqlite3_bind_text(statement, Int32(offset + 1), value, -1, WORD_RECORD_SQLITE_TRANSIENT)
+            }
+        }
+    }
+
+    private func loadRecords<Record>(
+        sql: String,
+        prepareOperation: String,
+        bind: (OpaquePointer?) -> Void,
+        decode: (OpaquePointer?) -> Record?
+    ) -> [Record] {
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-            logSQLiteFailure("prepare \(operation)")
+            logSQLiteFailure(prepareOperation)
+            return []
+        }
+        defer { sqlite3_finalize(statement) }
+        bind(statement)
+
+        var records: [Record] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            guard let record = decode(statement) else { continue }
+            records.append(record)
+        }
+        return records
+    }
+
+    private func executeStatement(
+        sql: String,
+        prepareOperation: String,
+        stepOperation: String,
+        bind: (OpaquePointer?) -> Void
+    ) -> Bool {
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+            logSQLiteFailure(prepareOperation)
             return false
         }
         defer { sqlite3_finalize(statement) }
-        for (offset, value) in bindings.enumerated() {
-            bind(value, at: Int32(offset + 1), statement: statement)
-        }
+        bind(statement)
         guard sqlite3_step(statement) == SQLITE_DONE else {
-            logSQLiteFailure(operation)
+            logSQLiteFailure(stepOperation)
             return false
         }
         return true
     }
 
-    private func insertPDFRecord(documentID: String, record: StoredPDFWordRecord) -> Bool {
-        let sql = """
-        INSERT OR REPLACE INTO pdf_word_records(
-            document_id, id, word, page_index, bounds_json, context, question, answer, dictionary_tags, created_at, srs_json
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-            logSQLiteFailure("prepare upsert PDF record")
-            return false
+    private func insertPDFRecord(
+        documentID: String,
+        record: StoredPDFWordRecord,
+        prepareOperation: String = "prepare upsert PDF record",
+        stepOperation: String = "upsert PDF record"
+    ) -> Bool {
+        executeStatement(
+            sql: PDFWordRecordSQLiteMapper.insertSQL,
+            prepareOperation: prepareOperation,
+            stepOperation: stepOperation
+        ) { statement in
+            pdfMapper.bind(documentID: documentID, record: record, to: statement)
         }
-        defer { sqlite3_finalize(statement) }
-        bind(documentID, at: 1, statement: statement)
-        bind(record.id, at: 2, statement: statement)
-        bind(record.word, at: 3, statement: statement)
-        sqlite3_bind_int(statement, 4, Int32(record.pageIndex))
-        bind(encodeJSON(record.bounds) ?? "{}", at: 5, statement: statement)
-        bindOptional(record.context, at: 6, statement: statement)
-        bind(record.question, at: 7, statement: statement)
-        bind(record.answer, at: 8, statement: statement)
-        bindOptional(record.dictionaryTags, at: 9, statement: statement)
-        sqlite3_bind_double(statement, 10, record.createdAt.timeIntervalSince1970)
-        bindOptional(encodeJSON(record.srs), at: 11, statement: statement)
-        guard sqlite3_step(statement) == SQLITE_DONE else {
-            logSQLiteFailure("upsert PDF record")
-            return false
-        }
-        return true
     }
 
-    private func insertWebRecord(documentID: String, record: StoredWebWordRecord) -> Bool {
-        let sql = """
-        INSERT OR REPLACE INTO web_word_records(
-            document_id, id, word, context, occurrence_index, scroll_progress, question, answer, dictionary_tags, created_at, srs_json
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-            logSQLiteFailure("prepare upsert web record")
-            return false
+    private func insertWebRecord(
+        documentID: String,
+        record: StoredWebWordRecord,
+        prepareOperation: String = "prepare upsert web record",
+        stepOperation: String = "upsert web record"
+    ) -> Bool {
+        executeStatement(
+            sql: WebWordRecordSQLiteMapper.insertSQL,
+            prepareOperation: prepareOperation,
+            stepOperation: stepOperation
+        ) { statement in
+            webMapper.bind(documentID: documentID, record: record, to: statement)
         }
-        defer { sqlite3_finalize(statement) }
-        bind(documentID, at: 1, statement: statement)
-        bind(record.id, at: 2, statement: statement)
-        bind(record.word, at: 3, statement: statement)
-        bind(record.context, at: 4, statement: statement)
-        bindOptionalInt(record.occurrenceIndex, at: 5, statement: statement)
-        sqlite3_bind_double(statement, 6, record.scrollProgress)
-        bind(record.question, at: 7, statement: statement)
-        bind(record.answer, at: 8, statement: statement)
-        bindOptional(record.dictionaryTags, at: 9, statement: statement)
-        sqlite3_bind_double(statement, 10, record.createdAt.timeIntervalSince1970)
-        bindOptional(encodeJSON(record.srs), at: 11, statement: statement)
-        guard sqlite3_step(statement) == SQLITE_DONE else {
-            logSQLiteFailure("upsert web record")
-            return false
-        }
-        return true
     }
 
     private func deleteRecords(table: String, documentID: String, ids: [String]) -> Bool {
@@ -403,19 +304,17 @@ final class WordRecordSQLiteStore {
         guard beginTransaction() else { return false }
         var didFail = false
         for id in ids {
-            var statement: OpaquePointer?
-            guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
-                logSQLiteFailure("prepare delete \(table) record")
-                didFail = true
-                break
+            let didDelete = executeStatement(
+                sql: sql,
+                prepareOperation: "prepare delete \(table) record",
+                stepOperation: "delete \(table) record"
+            ) { statement in
+                sqlite3_bind_text(statement, 1, documentID, -1, WORD_RECORD_SQLITE_TRANSIENT)
+                sqlite3_bind_text(statement, 2, id, -1, WORD_RECORD_SQLITE_TRANSIENT)
             }
-            bind(documentID, at: 1, statement: statement)
-            bind(id, at: 2, statement: statement)
-            if sqlite3_step(statement) != SQLITE_DONE {
-                logSQLiteFailure("delete \(table) record")
+            if !didDelete {
                 didFail = true
             }
-            sqlite3_finalize(statement)
             if didFail { break }
         }
         if didFail {
@@ -424,45 +323,6 @@ final class WordRecordSQLiteStore {
         }
         commitTransaction()
         return true
-    }
-
-    private func bind(_ value: String, at index: Int32, statement: OpaquePointer?) {
-        sqlite3_bind_text(statement, index, value, -1, SQLITE_TRANSIENT)
-    }
-
-    private func bindOptional(_ value: String?, at index: Int32, statement: OpaquePointer?) {
-        guard let value else {
-            sqlite3_bind_null(statement, index)
-            return
-        }
-        bind(value, at: index, statement: statement)
-    }
-
-    private func bindOptionalInt(_ value: Int?, at index: Int32, statement: OpaquePointer?) {
-        guard let value else {
-            sqlite3_bind_null(statement, index)
-            return
-        }
-        sqlite3_bind_int(statement, index, Int32(value))
-    }
-
-    private func stringColumn(_ statement: OpaquePointer?, _ index: Int32) -> String? {
-        guard let pointer = sqlite3_column_text(statement, index) else { return nil }
-        return String(cString: pointer)
-    }
-
-    private func optionalStringColumn(_ statement: OpaquePointer?, _ index: Int32) -> String? {
-        sqlite3_column_type(statement, index) == SQLITE_NULL ? nil : stringColumn(statement, index)
-    }
-
-    private func encodeJSON<T: Encodable>(_ value: T?) -> String? {
-        guard let value, let data = try? encoder.encode(value) else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    private func decodeJSON<T: Decodable>(_ type: T.Type, from string: String?) -> T? {
-        guard let string, let data = string.data(using: .utf8) else { return nil }
-        return try? decoder.decode(type, from: data)
     }
 
     @discardableResult
@@ -501,5 +361,3 @@ final class WordRecordSQLiteStore {
         databaseDirectory()?.appendingPathComponent("word-records.sqlite3")
     }
 }
-
-private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)

@@ -166,23 +166,4 @@ extension ReaderWindowController {
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
     }
-
-    @objc func showVocabularyBook() {
-        let aggregatedRecords = VocabularyRecordProvider.records(
-            documentKind: currentDocumentKind,
-            pdfRecords: storedWordRecords,
-            webRecords: storedWebWordRecords,
-            pdfContext: { [weak self] in
-                VocabularyContextProvider.pdfContext(for: $0, document: self?.pdfView.document)
-            }
-        )
-        guard !aggregatedRecords.isEmpty else {
-            NSSound.beep()
-            return
-        }
-        currentVocabularyExportRecords = aggregatedRecords
-        vocabularyReviewSession.filter = .due
-        vocabularyReviewSession.resetForReviewMode()
-        vocabularyPanelController.show(records: aggregatedRecords)
-    }
 }
