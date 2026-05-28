@@ -150,6 +150,9 @@ extension ReaderWindowController {
         aiPanel.onConversationChanged = { [weak self] conversation in
             self?.saveAIConversationIfNeeded(conversation)
         }
+        aiPanel.onConversationBubblesDeleted = { [weak self] deletedBubbles in
+            self?.removeAIConversationBubblesFromPersistence(deletedBubbles)
+        }
         aiPanel.onConversationSourcesChanged = { [weak self] sources in
             self?.reconcileAISourceUnderlines(activeSources: sources)
         }

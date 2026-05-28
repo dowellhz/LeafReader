@@ -19,7 +19,7 @@ extension ReaderWindowController {
 
         currentVocabularyExportRecords = records
         vocabularyReviewSession.filter = .due
-        loadVocabularyReviewPriorityPreference()
+        loadVocabularyReviewPreferences()
         vocabularyReviewSession.resetForReviewMode()
         vocabularyPanelController.show(records: records)
         backfillFrequencyForCurrentTrainerIfNeeded(autoPlayAfterCompletion: false)
@@ -53,8 +53,18 @@ extension ReaderWindowController {
         vocabularyReviewSession.priority = vocabularyReviewPreferences?.reviewPriority ?? .frequencyFirst
     }
 
+    func loadVocabularyReviewPreferences() {
+        loadVocabularyReviewPriorityPreference()
+        vocabularyReviewSession.dailyReviewGoal = vocabularyReviewPreferences?.dailyReviewGoal ?? VocabularyDailyGoalPolicy.defaultGoal
+    }
+
     func saveVocabularyReviewPriorityPreference(_ priority: VocabularyReviewPriority) {
         guard let preferences = vocabularyReviewPreferences else { return }
         preferences.reviewPriority = priority
+    }
+
+    func saveVocabularyDailyGoalPreference(_ goal: Int) {
+        guard let preferences = vocabularyReviewPreferences else { return }
+        preferences.dailyReviewGoal = goal
     }
 }

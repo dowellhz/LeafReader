@@ -239,6 +239,9 @@ extension ReaderWindowController {
         let disallowedModifiers: NSEvent.ModifierFlags = [.command, .option, .control]
         guard event.modifierFlags.intersection(disallowedModifiers).isEmpty else { return false }
         guard !isEditingTextInput else { return false }
+        if handleReadAloudManualAdvanceKey(event) {
+            return true
+        }
 
         switch event.keyCode {
         case 123:
@@ -250,6 +253,18 @@ extension ReaderWindowController {
         default:
             return false
         }
+    }
+
+    func handleReadAloudManualAdvanceKey(_ event: NSEvent) -> Bool {
+        guard isReadAloudActive,
+              readAloudAdvanceMode == .manual,
+              !isReadAloudLoading else {
+            return false
+        }
+        let key = event.characters ?? event.charactersIgnoringModifiers ?? ""
+        guard ReadAloudManualAdvanceKeyPolicy.accepts(key) else { return false }
+        advanceReadAloudFromFloatingControl()
+        return true
     }
 
     func handleReaderCommandShortcut(_ event: NSEvent) -> Bool {

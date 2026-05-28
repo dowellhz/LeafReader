@@ -13,6 +13,31 @@ struct ECDICTEntry: Equatable {
     let exchange: String
 }
 
+struct ECDICTDiagnosticInfo {
+    let url: URL?
+    let byteCount: Int64?
+    let entryCount: Int?
+
+    var isInstalled: Bool {
+        url != nil
+    }
+
+    var detailText: String {
+        guard let url else {
+            return AppText.localized("ECDICT 未安装", "ECDICT missing")
+        }
+        var parts = [AppText.localized("ECDICT 已安装", "ECDICT installed")]
+        if let entryCount {
+            parts.append(AppText.localized("\(entryCount) 词", "\(entryCount) entries"))
+        }
+        if let byteCount {
+            parts.append(ByteCountFormatter.string(fromByteCount: byteCount, countStyle: .file))
+        }
+        parts.append(url.lastPathComponent)
+        return parts.joined(separator: " · ")
+    }
+}
+
 final class ECDICTDictionary {
     static let shared = ECDICTDictionary()
 
@@ -47,6 +72,24 @@ final class ECDICTDictionary {
     var isInstalled: Bool {
         databaseURLs.contains { FileManager.default.fileExists(atPath: $0.path) }
             || csvURLs.contains { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    func diagnosticInfo() -> ECDICTDiagnosticInfo {
+        for url in databaseURLs where FileManager.default.fileExists(atPath: url.path) {
+            return ECDICTDiagnosticInfo(
+                url: url,
+                byteCount: fileSize(at: url),
+                entryCount: sqliteEntryCount(databaseURL: url)
+            )
+        }
+        for url in csvURLs where FileManager.default.fileExists(atPath: url.path) {
+            return ECDICTDiagnosticInfo(
+                url: url,
+                byteCount: fileSize(at: url),
+                entryCount: csvEntryCount(csvURL: url)
+            )
+        }
+        return ECDICTDiagnosticInfo(url: nil, byteCount: nil, entryCount: nil)
     }
 
     func lookup(_ query: String) -> ECDICTEntry? {
@@ -144,6 +187,38 @@ final class ECDICTDictionary {
         sqliteDatabase = db
         sqliteDatabaseURL = databaseURL
         return db
+    }
+
+    private func sqliteEntryCount(databaseURL: URL) -> Int? {
+        sqliteLock.lock()
+        defer { sqliteLock.unlock() }
+        guard let db = openSQLiteDatabase(databaseURL) else { return nil }
+        for table in ["stardict", "ecdict", "dictionary"] {
+            if let count = sqliteEntryCount(db: db, table: table) {
+                return count
+            }
+        }
+        return nil
+    }
+
+    private func sqliteEntryCount(db: OpaquePointer, table: String) -> Int? {
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table)", -1, &statement, nil) == SQLITE_OK else {
+            return nil
+        }
+        defer { sqlite3_finalize(statement) }
+        guard sqlite3_step(statement) == SQLITE_ROW else { return nil }
+        return Int(sqlite3_column_int(statement, 0))
+    }
+
+    private func csvEntryCount(csvURL: URL) -> Int? {
+        guard let text = try? String(contentsOf: csvURL, encoding: .utf8) else { return nil }
+        return max(0, csvRecords(in: text).count - 1)
+    }
+
+    private func fileSize(at url: URL) -> Int64? {
+        guard let values = try? url.resourceValues(forKeys: [.fileSizeKey]) else { return nil }
+        return values.fileSize.map(Int64.init)
     }
 
     private func lookupSQLite(_ key: String, db: OpaquePointer, table: String) -> ECDICTEntry? {

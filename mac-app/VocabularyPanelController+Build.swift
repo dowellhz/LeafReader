@@ -9,6 +9,7 @@ private struct VocabularyPanelViews {
     let scrollView: NSScrollView
     let stack: NSStackView
     let reviewPriorityPopup: NSPopUpButton
+    let reviewGoalPopup: NSPopUpButton
     let exportMarkdownButton: ThemedSettingsActionButton
     let exportCSVButton: ThemedSettingsActionButton
     let closeButton: ThemedSettingsActionButton
@@ -82,6 +83,8 @@ extension VocabularyPanelController {
 
         let reviewPriorityPopup = owner.vocabularyReviewPriorityPopup()
         reviewPriorityPopup.identifier = NSUserInterfaceItemIdentifier("vocabularyReviewPriorityPopup")
+        let reviewGoalPopup = owner.vocabularyDailyGoalPopup()
+        reviewGoalPopup.identifier = NSUserInterfaceItemIdentifier("vocabularyReviewGoalPopup")
 
         let closeButton = owner.vocabularyActionButton(title: AppText.close, target: owner, action: #selector(ReaderWindowController.closeVocabularyBook(_:)))
         closeButton.identifier = NSUserInterfaceItemIdentifier("closeVocabularyBook")
@@ -111,6 +114,7 @@ extension VocabularyPanelController {
             scrollView: scrollView,
             stack: stack,
             reviewPriorityPopup: reviewPriorityPopup,
+            reviewGoalPopup: reviewGoalPopup,
             exportMarkdownButton: exportMarkdownButton,
             exportCSVButton: exportCSVButton,
             closeButton: closeButton
@@ -207,6 +211,7 @@ extension VocabularyPanelController {
             views.reviewContainer,
             views.scrollView,
             views.reviewPriorityPopup,
+            views.reviewGoalPopup,
             views.exportMarkdownButton,
             views.exportCSVButton,
             views.closeButton
@@ -248,6 +253,10 @@ extension VocabularyPanelController {
             views.reviewPriorityPopup.centerYAnchor.constraint(equalTo: views.closeButton.centerYAnchor),
             views.reviewPriorityPopup.widthAnchor.constraint(equalToConstant: 150),
             views.reviewPriorityPopup.heightAnchor.constraint(equalToConstant: 36),
+            views.reviewGoalPopup.leadingAnchor.constraint(equalTo: views.reviewPriorityPopup.trailingAnchor, constant: 10),
+            views.reviewGoalPopup.centerYAnchor.constraint(equalTo: views.closeButton.centerYAnchor),
+            views.reviewGoalPopup.widthAnchor.constraint(equalToConstant: 112),
+            views.reviewGoalPopup.heightAnchor.constraint(equalToConstant: 36),
 
             views.exportMarkdownButton.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 30),
             views.exportMarkdownButton.centerYAnchor.constraint(equalTo: views.closeButton.centerYAnchor),

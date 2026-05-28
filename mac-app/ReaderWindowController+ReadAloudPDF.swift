@@ -199,13 +199,6 @@ extension ReaderWindowController {
 
     private func preparePDFReadAloudPageTop(_ page: PDFPage) -> Bool {
         let pageIndex = pdfView.document?.index(for: page)
-        if let pageIndex,
-           pageIndex != NSNotFound,
-           isPDFPageIndexVisible(pageIndex) {
-            lockPDFReadAloudPage(at: pageIndex, save: true)
-            return false
-        }
-
         let bounds = page.bounds(for: pdfView.displayBox)
         let destination = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: bounds.maxY))
         pdfView.go(to: destination)

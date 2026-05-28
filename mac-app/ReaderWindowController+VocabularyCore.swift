@@ -24,6 +24,7 @@ extension ReaderWindowController {
         findView(identifier: "vocabularyReviewContainer", in: root)?.isHidden = false
         findView(identifier: "vocabularyScrollView", in: root)?.isHidden = true
         findView(identifier: "vocabularyReviewPriorityPopup", in: root)?.isHidden = false
+        findView(identifier: "vocabularyReviewGoalPopup", in: root)?.isHidden = false
         findView(identifier: "vocabularyExportMarkdownButton", in: root)?.isHidden = true
         findView(identifier: "vocabularyExportCSVButton", in: root)?.isHidden = true
         if let reviewContainer = findView(identifier: "vocabularyReviewContainer", in: root) {
@@ -37,6 +38,7 @@ extension ReaderWindowController {
         findView(identifier: "vocabularyReviewContainer", in: root)?.isHidden = true
         findView(identifier: "vocabularyScrollView", in: root)?.isHidden = false
         findView(identifier: "vocabularyReviewPriorityPopup", in: root)?.isHidden = true
+        findView(identifier: "vocabularyReviewGoalPopup", in: root)?.isHidden = true
         findView(identifier: "vocabularyExportMarkdownButton", in: root)?.isHidden = false
         findView(identifier: "vocabularyExportCSVButton", in: root)?.isHidden = false
     }

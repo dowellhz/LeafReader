@@ -241,6 +241,12 @@ extension AppDelegate {
             target: self,
             modifiers: [.command, .shift]
         ))
+        menu.addItem(menuItem(
+            AppText.localized("诊断信息", "Diagnostics"),
+            action: #selector(showDiagnostics(_:)),
+            key: "",
+            target: self
+        ))
         return rootMenuItem(title: menu.title, submenu: menu)
     }
 

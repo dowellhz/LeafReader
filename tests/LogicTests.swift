@@ -399,6 +399,13 @@ private func testReadAloudTextMatcher() throws {
     try expect(partialRange != nil, "read-aloud matching should fall back to a stable partial token range")
 }
 
+private func testReadAloudManualAdvanceKeyPolicy() throws {
+    try expect(ReadAloudManualAdvanceKeyPolicy.accepts("\\"), "backslash should trigger manual TTS advance")
+    try expect(ReadAloudManualAdvanceKeyPolicy.accepts("、"), "Chinese enumeration comma should trigger manual TTS advance")
+    try expect(!ReadAloudManualAdvanceKeyPolicy.accepts("/"), "slash should not trigger manual TTS advance")
+    try expect(!ReadAloudManualAdvanceKeyPolicy.accepts(nil), "nil key should not trigger manual TTS advance")
+}
+
 private func testKokoroWorkerResponseReader() throws {
     var reader = KokoroWorkerResponseReader(requestID: "target")
     let payload = """
@@ -425,6 +432,7 @@ private func testKokoroWorkerResponseReaderBuffersPartialLines() throws {
 private let tests: [(String, () throws -> Void)] = [
     ("Vocabulary SRS", VocabularyLogicTests.testVocabularySRS),
     ("Vocabulary review card selector", VocabularyLogicTests.testVocabularyReviewCardSelector),
+    ("Vocabulary daily goal policy", VocabularyLogicTests.testVocabularyDailyGoalPolicy),
     ("Vocabulary answer formatter", VocabularyLogicTests.testVocabularyAnswerFormatter),
     ("Recent document sorting/import", ReaderShelfLogicTests.testRecentDocumentSortingAndImport),
     ("Dropped document actions", ReaderShelfLogicTests.testDroppedDocumentActions),
@@ -520,6 +528,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Speech text English candidate", testSpeechTextPolicyEnglishCandidate),
     ("Speech text segments", testSpeechTextPolicySegments),
     ("Read-aloud text matcher", testReadAloudTextMatcher),
+    ("Read-aloud manual advance key policy", testReadAloudManualAdvanceKeyPolicy),
     ("Kokoro worker response reader", testKokoroWorkerResponseReader),
     ("Kokoro worker response partial lines", testKokoroWorkerResponseReaderBuffersPartialLines)
 ]

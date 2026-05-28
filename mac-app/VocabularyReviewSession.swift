@@ -4,6 +4,7 @@ final class VocabularyReviewSession {
     let listPageSize = 20
     var filter: VocabularyFilter = .due
     var priority: VocabularyReviewPriority = .frequencyFirst
+    var dailyReviewGoal = VocabularyDailyGoalPolicy.defaultGoal
     var reviewIndex = 0
     var listPageIndex = 0
     var contextShown = false

@@ -27,7 +27,7 @@ extension ReaderWindowController {
         popup.target = self
         popup.action = #selector(changeVocabularyReviewPriority(_:))
         popup.theme = ReaderTheme.selected
-        loadVocabularyReviewPriorityPreference()
+        loadVocabularyReviewPreferences()
         if let index = popup.itemArray.firstIndex(where: { item in
             (item.representedObject as? String) == vocabularyReviewSession.priority.rawValue
         }) {
@@ -50,6 +50,37 @@ extension ReaderWindowController {
             return
         }
         showVocabularyReviewMode(in: root, autoPlay: true)
+    }
+
+    func vocabularyDailyGoalPopup() -> NSPopUpButton {
+        let popup = ThemedSettingsPopUpButton(frame: .zero, pullsDown: false)
+        popup.controlSize = .large
+        popup.font = AppFont.semibold(ofSize: 13)
+        popup.isBordered = false
+        popup.translatesAutoresizingMaskIntoConstraints = false
+        for goal in VocabularyDailyGoalPolicy.options {
+            popup.addItem(withTitle: AppText.localized("目标 \(goal)", "Goal \(goal)"))
+            popup.lastItem?.representedObject = goal
+        }
+        popup.menu?.autoenablesItems = false
+        popup.target = self
+        popup.action = #selector(changeVocabularyDailyGoal(_:))
+        popup.theme = ReaderTheme.selected
+        loadVocabularyReviewPreferences()
+        if let index = popup.itemArray.firstIndex(where: { ($0.representedObject as? Int) == vocabularyReviewSession.dailyReviewGoal }) {
+            popup.selectItem(at: index)
+        }
+        return popup
+    }
+
+    @objc func changeVocabularyDailyGoal(_ sender: NSPopUpButton) {
+        guard let goal = sender.selectedItem?.representedObject as? Int,
+              let root = vocabularyPanelController.rootView else { return }
+        vocabularyReviewSession.dailyReviewGoal = goal
+        saveVocabularyDailyGoalPreference(goal)
+        if let summary = findView(identifier: "vocabularySummaryLabel", in: root) as? NSTextField {
+            summary.stringValue = vocabularySummaryText(records: currentVocabularyExportRecords, filter: vocabularyReviewSession.filter)
+        }
     }
 
     func showVocabularyFrequencyLoading(in root: NSView) {

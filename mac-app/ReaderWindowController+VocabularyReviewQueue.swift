@@ -13,7 +13,7 @@ extension ReaderWindowController {
         let count = vocabularyRecords(records, matching: filter).count
         switch filter {
         case .due:
-            return AppText.localized("今日复习 \(count) 个单词", "\(count) reviewed today")
+            return "\(AppText.localized("今日复习 \(count) 个单词", "\(count) reviewed today")) · \(VocabularyDailyGoalPolicy.progressText(records: records, goal: vocabularyReviewSession.dailyReviewGoal))"
         case .new:
             return AppText.localized("今日新词 \(count) 个单词", "\(count) new today")
         case .all:

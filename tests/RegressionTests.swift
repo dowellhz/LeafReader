@@ -130,6 +130,27 @@ private func testAIConversationMergeTrimsToLimitAfterPreservingNewest() throws {
     )
 }
 
+private func testAIConversationRemovalPreventsMergeRestore() throws {
+    let deletedQuestion = bubble("user", "deleted question")
+    let deletedAnswer = bubble("assistant", "deleted answer")
+    let loaded = SavedAIConversation(bubbles: [
+        bubble("user", "old question"),
+        deletedQuestion,
+        deletedAnswer
+    ])
+    let visible = SavedAIConversation(bubbles: [
+        bubble("user", "old question")
+    ])
+
+    let prunedLoaded = loaded.removing([deletedQuestion, deletedAnswer])
+    let merged = SavedAIConversation.mergedForSave(loaded: prunedLoaded, visible: visible, maxBubbles: 10)
+    try expectEqual(
+        merged.bubbles.map(\.text),
+        ["old question"],
+        "deleted visible conversation bubbles should not be restored from loaded history during merge"
+    )
+}
+
 private func testAIConversationSourceLocationPreservesWebOccurrenceIndex() throws {
     let source = AIConversationSourceLocation(
         kind: .webProgress,
@@ -233,6 +254,8 @@ struct RegressionTestRunner {
             print("PASS AI conversation lazy-save merge")
             try testAIConversationMergeTrimsToLimitAfterPreservingNewest()
             print("PASS AI conversation merge trim")
+            try testAIConversationRemovalPreventsMergeRestore()
+            print("PASS AI conversation deleted bubbles stay deleted")
             try testAIConversationSourceLocationPreservesWebOccurrenceIndex()
             print("PASS AI source web occurrence index")
             try testAIConversationSourceLocationDecodesLegacyWithoutOccurrenceIndex()

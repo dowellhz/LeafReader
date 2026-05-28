@@ -38,6 +38,7 @@ extension ReaderWindowController {
         updateReadAloudFloatingControl()
         if let pageIndex {
             turnPDFReadAloudPageIfNeeded(to: pageIndex)
+            lastReadAloudProgressPageIndex = pageIndex
         }
         titleLabel.toolTip = text
         updateTemporaryReadAloudUnderline(for: matchText, index: index, pageIndex: pageIndex)
@@ -60,6 +61,7 @@ extension ReaderWindowController {
         readAloudPDFCandidatePageIndex = 0
         readAloudPDFSearchLocation = 0
         readAloudPageLockedAtTopIndex = nil
+        lastReadAloudProgressPageIndex = nil
     }
 
     private func updateTemporaryReadAloudUnderline(for text: String, index: Int?, pageIndex: Int?) {
@@ -114,9 +116,11 @@ extension ReaderWindowController {
               let document = pdfView.document,
               pageIndex >= 0,
               pageIndex < document.pageCount,
-              currentPageIndex() != pageIndex,
-              !isPDFPageIndexVisible(pageIndex),
               let page = document.page(at: pageIndex) else {
+            return
+        }
+        let didCrossPage = lastReadAloudProgressPageIndex.map { $0 != pageIndex } ?? false
+        guard didCrossPage || currentPageIndex() != pageIndex else {
             return
         }
         let bounds = page.bounds(for: pdfView.displayBox)

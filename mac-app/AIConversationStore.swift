@@ -26,7 +26,13 @@ struct SavedAIConversation: Codable {
         return SavedAIConversation(bubbles: mergedBubbles)
     }
 
-    private static func conversationBubbleKey(_ bubble: SavedAIConversationBubble) -> String {
+    func removing(_ deletedBubbles: [SavedAIConversationBubble]) -> SavedAIConversation {
+        let deletedKeys = Set(deletedBubbles.map(Self.conversationBubbleKey))
+        guard !deletedKeys.isEmpty else { return self }
+        return SavedAIConversation(bubbles: bubbles.filter { !deletedKeys.contains(Self.conversationBubbleKey($0)) })
+    }
+
+    static func conversationBubbleKey(_ bubble: SavedAIConversationBubble) -> String {
         "\(bubble.role)\u{1F}\(bubble.text)"
     }
 }

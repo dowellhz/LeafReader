@@ -190,6 +190,30 @@ enum VocabularyLogicTests {
         try expectEqual(preserved.total, 2, "preserved card should keep total count")
     }
 
+    static func testVocabularyDailyGoalPolicy() throws {
+        let now = Date()
+        let old = now.addingTimeInterval(-172_800)
+        let reviewed = VocabularyExportRecord(
+            ids: ["reviewed"],
+            word: "reviewed",
+            answer: "answer",
+            dictionaryTags: nil,
+            dictionaryFrequency: nil,
+            location: "",
+            context: "",
+            createdAt: old,
+            srs: VocabularySRSState.initial(createdAt: old).reviewed(grade: 3, at: now)
+        )
+        let pending = vocabularyRecord(id: "pending", word: "pending", createdAt: old)
+
+        try expectEqual(VocabularyDailyGoalPolicy.normalizedGoal(0), 10, "invalid daily goal should use default")
+        try expectEqual(
+            VocabularyDailyGoalPolicy.reviewedTodayCount(records: [reviewed, pending]),
+            1,
+            "daily goal should count only records reviewed today"
+        )
+    }
+
     static func testSelectionToolbarConfiguration() throws {
         let offlineState = ReaderCapabilityState(
             isOnline: false,

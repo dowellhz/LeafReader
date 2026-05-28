@@ -74,6 +74,7 @@ extension AIChatPanel {
 
         var boxesToRemove: [ChatBubbleView] = []
         var idsToRemove: [String] = []
+        var deletedBubbles: [SavedAIConversationBubble] = []
         for view in transcriptStack.arrangedSubviews[startIndex...] {
             guard let box = view as? ChatBubbleView,
                   let candidateID = bodyIDForBubbleBox(box),
@@ -86,6 +87,13 @@ extension AIChatPanel {
             }
             boxesToRemove.append(box)
             idsToRemove.append(candidateID)
+            deletedBubbles.append(SavedAIConversationBubble(
+                role: metadata.role,
+                text: metadata.text,
+                collapsible: metadata.collapsible,
+                renderMarkdown: metadata.renderMarkdown,
+                sourceLocation: metadata.sourceLocation
+            ))
         }
 
         guard !idsToRemove.isEmpty else { return }
@@ -97,6 +105,7 @@ extension AIChatPanel {
             bubbleMetadataByID.removeValue(forKey: removedID)
             persistentBubbleIDs.removeAll { $0 == removedID }
         }
+        onConversationBubblesDeleted?(deletedBubbles)
         notifyConversationChangedIfNeeded()
         transcriptStack.needsLayout = true
         scheduleTranscriptLayout()

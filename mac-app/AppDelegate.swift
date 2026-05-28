@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var helpWindow: NSWindow?
     var aboutWindow: NSWindow?
     var updateStatusWindow: NSWindow?
+    var diagnosticsPanelController: DiagnosticsPanelController?
     var updaterController: SPUStandardUpdaterController?
     var manualUpdateProbeInProgress = false
     var manualUpdateProbeFoundUpdate = false

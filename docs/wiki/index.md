@@ -4,12 +4,12 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 
 ## 文档状态
 
-- 当前版本：`1.7.0`
+- 当前版本：`1.7.1`
 
 <div class="hero-actions" markdown>
 
 [返回官网](https://leafreader.space/){ .button .primary }
-[下载 Leaf Reader](https://github.com/dowellhz/LeafReader/releases/download/v1.7.0/LeafReader-1.7.0.pkg){ .button }
+[下载 Leaf Reader](https://github.com/dowellhz/LeafReader/releases/download/v1.7.1/LeafReader-1.7.1.pkg){ .button }
 [GitHub](https://github.com/dowellhz/LeafReader){ .button }
 
 </div>
@@ -19,6 +19,8 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 <div class="grid" markdown>
 
 [**安装与入门** - 下载、首次打开、AI 配置、翻译和背单词。](getting-started.md){ .card }
+
+[**快捷键** - 阅读、翻页、搜索、朗读和笔记编辑快捷键。](shortcuts.md){ .card }
 
 [**AI 使用** - 选中文本、翻译、解释、总结和追问。](ai-chat.md){ .card }
 
@@ -49,6 +51,8 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 [**Architecture** - System shape and module boundaries.](architecture.md){ .card }
 
 [**Getting Started** - Install, configure AI, and start reading.](getting-started.md){ .card }
+
+[**Shortcuts** - Keyboard shortcuts for reading, navigation, TTS, and notes.](shortcuts.md){ .card }
 
 [**Development Tasks** - Entry points for common engineering work.](development-tasks.md){ .card }
 

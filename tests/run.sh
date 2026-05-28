@@ -72,6 +72,7 @@ LOGIC_APP_SOURCES=(
   mac-app/SpeechTextPolicy.swift
   mac-app/SpeechTextNormalization.swift
   mac-app/SpeechSentenceBoundary.swift
+  mac-app/ReadAloudManualAdvanceKeyPolicy.swift
   mac-app/SpeechSynthesisError.swift
   mac-app/TTSWaveFile.swift
   mac-app/VocabularyAudioCache.swift
@@ -97,6 +98,7 @@ LOGIC_APP_SOURCES=(
   mac-app/ReadingContextSnapshot.swift
   mac-app/ReaderDocumentKind.swift
   mac-app/VocabularyReviewModels.swift
+  mac-app/VocabularyDailyGoalPolicy.swift
   mac-app/VocabularySRS.swift
   mac-app/VocabularyExportRecord.swift
   mac-app/VocabularyReviewQueueBuilder.swift

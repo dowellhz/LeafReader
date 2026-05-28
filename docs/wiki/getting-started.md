@@ -66,6 +66,7 @@ Leaf Reader 使用 Sparkle 更新通道。发布版本后，可以在应用内�
 ## 相关页面
 
 - [功能地图](feature-map.md)
+- [快捷键](shortcuts.md)
 - [AI Chat](ai-chat.md)
 - [AI Analysis Cache](ai-analysis-cache.md)
 - [Word Highlights](word-highlights.md)

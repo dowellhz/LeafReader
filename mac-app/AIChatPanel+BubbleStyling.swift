@@ -193,15 +193,16 @@ extension AIChatPanel {
                 label = AppText.localized("来源 当前位置", "Source current position")
             }
         }
+        let action = AppText.localized("定位原文", "Locate Source")
         let snippet = sourceSnippetText(for: source, limit: 42)
-        return snippet.isEmpty ? label : "\(label) · \(snippet)"
+        return snippet.isEmpty ? "\(action) · \(label)" : "\(action) · \(label) · \(snippet)"
     }
 
     func sourceTooltipText(for source: AIConversationSourceLocation) -> String {
         let base = sourceSummaryText(for: source)
         let selected = sourceSnippetText(for: source, limit: 180)
         guard !selected.isEmpty else { return base }
-        return "\(base)\n\(selected)"
+        return "\(base)\n\(AppText.localized("点击跳回文章中的来源位置。", "Click to jump back to the source position."))\n\(selected)"
     }
 
     private func sourceSnippetText(for source: AIConversationSourceLocation, limit: Int) -> String {

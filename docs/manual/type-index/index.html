@@ -371,6 +371,27 @@
 
 
 
+
+
+
+
+
+
+    <li class="md-nav__item">
+      <a href="../shortcuts/" class="md-nav__link">
+
+
+  <span class="md-ellipsis">
+    快捷键
+  </span>
+
+
+      </a>
+    </li>
+
+
+
+
           </ul>
         </nav>
 
@@ -956,6 +977,11 @@
 <td><code>extension AIChatPanel {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/AIChatPanel+AnswerProviders.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension AIChatPanel {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/AIChatPanel+BubbleInteraction.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension AIChatPanel {</code></td>
@@ -1041,14 +1067,19 @@
 <td><code>final class LoadingDotsView</code></td>
 </tr>
 <tr>
+<td><code>mac-app/AIChatRequestBuilder.swift</code></td>
+<td style="text-align: right;">103</td>
+<td><code>enum AIChatResponseDecoder {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/AIChatRequestBuilder.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum AIChatRequestBuilder {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/AIClient.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>final class AIClient {</code></td>
-</tr>
-<tr>
-<td><code>mac-app/AIConversationStore.swift</code></td>
-<td style="text-align: right;">34</td>
-<td><code>struct SavedAIConversationBubble</code></td>
 </tr>
 <tr>
 <td><code>mac-app/AIConversationStore.swift</code></td>
@@ -1057,12 +1088,17 @@
 </tr>
 <tr>
 <td><code>mac-app/AIConversationStore.swift</code></td>
-<td style="text-align: right;">42</td>
+<td style="text-align: right;">40</td>
+<td><code>struct SavedAIConversationBubble</code></td>
+</tr>
+<tr>
+<td><code>mac-app/AIConversationStore.swift</code></td>
+<td style="text-align: right;">48</td>
 <td><code>struct AIConversationSourceLocation</code></td>
 </tr>
 <tr>
 <td><code>mac-app/AIConversationStore.swift</code></td>
-<td style="text-align: right;">65</td>
+<td style="text-align: right;">73</td>
 <td><code>final class AIConversationStore {</code></td>
 </tr>
 <tr>
@@ -1074,6 +1110,21 @@
 <td><code>mac-app/AIPromptStore.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>enum AIPromptStore {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/AIProviderDescriptor.swift</code></td>
+<td style="text-align: right;">13</td>
+<td><code>struct AIProviderDescriptor</code></td>
+</tr>
+<tr>
+<td><code>mac-app/AIProviderDescriptor.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum AIChatRequestFormat</code></td>
+</tr>
+<tr>
+<td><code>mac-app/AIProviderDescriptor.swift</code></td>
+<td style="text-align: right;">8</td>
+<td><code>enum AIProviderCapability</code></td>
 </tr>
 <tr>
 <td><code>mac-app/AIRequestState.swift</code></td>
@@ -1231,8 +1282,43 @@
 <td><code>final class AITextActionRunner {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/AnswerProvider.swift</code></td>
+<td style="text-align: right;">19</td>
+<td><code>protocol AnswerProvider {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/AnswerProvider.swift</code></td>
+<td style="text-align: right;">23</td>
+<td><code>struct CachedVocabularyAnswerProvider</code></td>
+</tr>
+<tr>
+<td><code>mac-app/AnswerProvider.swift</code></td>
+<td style="text-align: right;">36</td>
+<td><code>struct LocalDictionaryAnswerProvider</code></td>
+</tr>
+<tr>
+<td><code>mac-app/AnswerProvider.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct AnswerProviderRequest {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/AnswerProvider.swift</code></td>
+<td style="text-align: right;">67</td>
+<td><code>struct CompositeAnswerProvider</code></td>
+</tr>
+<tr>
+<td><code>mac-app/AnswerProvider.swift</code></td>
+<td style="text-align: right;">9</td>
+<td><code>struct AnswerProviderResult</code></td>
+</tr>
+<tr>
 <td><code>mac-app/AppDelegate+About.swift</code></td>
 <td style="text-align: right;">4</td>
+<td><code>extension AppDelegate {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/AppDelegate+Diagnostics.swift</code></td>
+<td style="text-align: right;">3</td>
 <td><code>extension AppDelegate {</code></td>
 </tr>
 <tr>
@@ -1316,6 +1402,41 @@
 <td><code>final class DebouncedTask {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/DiagnosticsPanelController.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>final class DiagnosticsPanelController</code></td>
+</tr>
+<tr>
+<td><code>mac-app/DiagnosticsPanelTheme.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct DiagnosticsPanelTheme {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/DiagnosticsReport.swift</code></td>
+<td style="text-align: right;">10</td>
+<td><code>enum DiagnosticsReport {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/DiagnosticsReport.swift</code></td>
+<td style="text-align: right;">4</td>
+<td><code>struct DiagnosticRow {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/DictionaryLookupService.swift</code></td>
+<td style="text-align: right;">14</td>
+<td><code>final class LocalDictionaryLookupService</code></td>
+</tr>
+<tr>
+<td><code>mac-app/DictionaryLookupService.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct VocabularyDictionaryMetadata {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/DictionaryLookupService.swift</code></td>
+<td style="text-align: right;">8</td>
+<td><code>protocol DictionaryLookupService {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/DocumentIdentity.swift</code></td>
 <td style="text-align: right;">4</td>
 <td><code>enum DocumentIdentity {</code></td>
@@ -1374,6 +1495,26 @@
 <td><code>mac-app/DocumentQuestionPromptRequest.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>struct DocumentQuestionPromptRequest {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ECDICTDictionary.swift</code></td>
+<td style="text-align: right;">16</td>
+<td><code>struct ECDICTDiagnosticInfo {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ECDICTDictionary.swift</code></td>
+<td style="text-align: right;">363</td>
+<td><code>enum ECDICTAnswerFormatter {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ECDICTDictionary.swift</code></td>
+<td style="text-align: right;">41</td>
+<td><code>final class ECDICTDictionary {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ECDICTDictionary.swift</code></td>
+<td style="text-align: right;">4</td>
+<td><code>struct ECDICTEntry</code></td>
 </tr>
 <tr>
 <td><code>mac-app/EPUBHTMLSanitizer.swift</code></td>
@@ -1456,6 +1597,16 @@
 <td><code>struct KokoroWorkerResponseReader {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/LLMAnswerProvider.swift</code></td>
+<td style="text-align: right;">11</td>
+<td><code>final class LLMAnswerProvider</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LLMAnswerProvider.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>protocol StreamingAnswerProvider {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/LeafAlertStyle.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension NSAlert {</code></td>
@@ -1466,6 +1617,86 @@
 <td><code>enum LocalEncryptedStore {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/LocalRuntime.swift</code></td>
+<td style="text-align: right;">108</td>
+<td><code>struct LocalRuntimeRegistry {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntime.swift</code></td>
+<td style="text-align: right;">128</td>
+<td><code>struct LocalRuntimeStatusContext {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntime.swift</code></td>
+<td style="text-align: right;">138</td>
+<td><code>enum LocalRuntimeStatusPresenter {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntime.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum LocalRuntimeFamily</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntime.swift</code></td>
+<td style="text-align: right;">48</td>
+<td><code>enum LocalRuntimeInstallState</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntime.swift</code></td>
+<td style="text-align: right;">68</td>
+<td><code>struct LocalRuntimeDescriptor {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntime.swift</code></td>
+<td style="text-align: right;">87</td>
+<td><code>struct LocalRuntimeDownloadPlan {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntime.swift</code></td>
+<td style="text-align: right;">8</td>
+<td><code>struct LocalRuntimeInstallManifest</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntime.swift</code></td>
+<td style="text-align: right;">94</td>
+<td><code>struct LocalRuntimeDownloadKey</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntimeDownloadCoordinator.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>final class LocalRuntimeDownloadCoordinator&lt;Key</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntimeDownloadManifest.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct LocalRuntimeDownloadManifestAsset</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntimeDownloadManifest.swift</code></td>
+<td style="text-align: right;">51</td>
+<td><code>struct LocalRuntimeDownloadManifest</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntimeDownloadSupport.swift</code></td>
+<td style="text-align: right;">4</td>
+<td><code>enum LocalRuntimeDownloadSupport {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntimeDownloader.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>final class LocalRuntimeDownloader</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntimeInstallCoordinator.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>final class LocalRuntimeInstallCoordinator&lt;Key</code></td>
+</tr>
+<tr>
+<td><code>mac-app/LocalRuntimeInstaller.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct LocalRuntimeInstaller {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/MarkdownRenderer.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>enum MarkdownRenderer {</code></td>
@@ -1474,6 +1705,16 @@
 <td><code>mac-app/ModalOverlayManager.swift</code></td>
 <td style="text-align: right;">18</td>
 <td><code>final class ModalOverlayManager {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/NetworkConnectivityMonitor.swift</code></td>
+<td style="text-align: right;">4</td>
+<td><code>extension Notification.Name {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/NetworkConnectivityMonitor.swift</code></td>
+<td style="text-align: right;">8</td>
+<td><code>final class NetworkConnectivityMonitor {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/NetworkErrorFormatter.swift</code></td>
@@ -1517,7 +1758,7 @@
 </tr>
 <tr>
 <td><code>mac-app/PDFWordRecordStore.swift</code></td>
-<td style="text-align: right;">15</td>
+<td style="text-align: right;">17</td>
 <td><code>struct PDFWordRecordStore {</code></td>
 </tr>
 <tr>
@@ -1566,6 +1807,11 @@
 <td><code>final class ReadAloudFloatingSpeedSliderCell</code></td>
 </tr>
 <tr>
+<td><code>mac-app/ReadAloudManualAdvanceKeyPolicy.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum ReadAloudManualAdvanceKeyPolicy {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/ReadAloudSoftHintView.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>final class ReadAloudSoftHintView</code></td>
@@ -1576,8 +1822,13 @@
 <td><code>enum ReadAloudTextMatcher {</code></td>
 </tr>
 <tr>
-<td><code>mac-app/ReaderAIContextBuilder.swift</code></td>
+<td><code>mac-app/ReaderAIContextBuilder+PDF.swift</code></td>
 <td style="text-align: right;">4</td>
+<td><code>extension ReaderAIContextBuilder {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderAIContextBuilder.swift</code></td>
+<td style="text-align: right;">3</td>
 <td><code>struct ReaderAIContextBuilder {</code></td>
 </tr>
 <tr>
@@ -1649,6 +1900,16 @@
 <td><code>mac-app/ReaderProgressFormatter.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>enum ReaderProgressFormatter {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderQueryCapability.swift</code></td>
+<td style="text-align: right;">28</td>
+<td><code>enum ReaderQueryCapability</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderQueryCapability.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct ReaderCapabilityState</code></td>
 </tr>
 <tr>
 <td><code>mac-app/ReaderSessionPolicy.swift</code></td>
@@ -1921,7 +2182,7 @@
 <td><code>extension ReaderWindowController {</code></td>
 </tr>
 <tr>
-<td><code>mac-app/ReaderWindowController+VocabularyActions.swift</code></td>
+<td><code>mac-app/ReaderWindowController+VocabularyAnswerFormatting.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension ReaderWindowController {</code></td>
 </tr>
@@ -1937,6 +2198,21 @@
 </tr>
 <tr>
 <td><code>mac-app/ReaderWindowController+VocabularyCore.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReaderWindowController {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderWindowController+VocabularyDeletion.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReaderWindowController {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderWindowController+VocabularyDictionaryMetadata.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReaderWindowController {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderWindowController+VocabularyFrequency.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension ReaderWindowController {</code></td>
 </tr>
@@ -1966,6 +2242,11 @@
 <td><code>extension ReaderWindowController {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/ReaderWindowController+VocabularyPanelActions.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReaderWindowController {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/ReaderWindowController+VocabularyPersistence.swift</code></td>
 <td style="text-align: right;">4</td>
 <td><code>extension ReaderWindowController {</code></td>
@@ -1991,7 +2272,22 @@
 <td><code>extension ReaderWindowController {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/ReaderWindowController+VocabularySpeech.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReaderWindowController {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/ReaderWindowController+VocabularyStorage.swift</code></td>
+<td style="text-align: right;">12</td>
+<td><code>extension ReaderWindowController {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderWindowController+VocabularyStorage.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct VocabularyRecordMutationResult {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderWindowController+VocabularyTrainer.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension ReaderWindowController {</code></td>
 </tr>
@@ -2038,6 +2334,11 @@
 <tr>
 <td><code>mac-app/ReadingNote.swift</code></td>
 <td style="text-align: right;">32</td>
+<td><code>extension ReadingNote {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNote.swift</code></td>
+<td style="text-align: right;">39</td>
 <td><code>extension Sequence where Element == ReadingNote {</code></td>
 </tr>
 <tr>
@@ -2071,6 +2372,16 @@
 <td><code>enum ReadingNoteExporter {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/ReadingNoteListPresenter.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct ReadingNoteListRowViewModel</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNoteListPresenter.swift</code></td>
+<td style="text-align: right;">9</td>
+<td><code>enum ReadingNoteListPresenter {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/ReadingNotePanelController+AskAI.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension ReadingNotePanelController {</code></td>
@@ -2082,6 +2393,11 @@
 </tr>
 <tr>
 <td><code>mac-app/ReadingNotePanelController+Markdown.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReadingNotePanelController {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNotePanelController+Theme.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension ReadingNotePanelController {</code></td>
 </tr>
@@ -2146,9 +2462,9 @@
 <td><code>struct RecentDocumentItem</code></td>
 </tr>
 <tr>
-<td><code>mac-app/RuntimeDownload.swift</code></td>
+<td><code>mac-app/RequestAvailabilityPolicy.swift</code></td>
 <td style="text-align: right;">3</td>
-<td><code>final class RuntimeDownload</code></td>
+<td><code>enum RequestAvailabilityPolicy {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/SearchOverlayView.swift</code></td>
@@ -2157,13 +2473,33 @@
 </tr>
 <tr>
 <td><code>mac-app/SelectionActionToolbar.swift</code></td>
-<td style="text-align: right;">224</td>
+<td style="text-align: right;">285</td>
 <td><code>final class SelectionActionButton</code></td>
 </tr>
 <tr>
 <td><code>mac-app/SelectionActionToolbar.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>final class SelectionActionToolbar</code></td>
+</tr>
+<tr>
+<td><code>mac-app/SelectionToolbarConfiguration.swift</code></td>
+<td style="text-align: right;">16</td>
+<td><code>struct SelectionToolbarConfiguration</code></td>
+</tr>
+<tr>
+<td><code>mac-app/SelectionToolbarConfiguration.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum SelectionToolbarContextAction</code></td>
+</tr>
+<tr>
+<td><code>mac-app/SelectionToolbarConfiguration.swift</code></td>
+<td style="text-align: right;">8</td>
+<td><code>enum SelectionToolbarDisplayMode</code></td>
+</tr>
+<tr>
+<td><code>mac-app/SelectionToolbarCoordinator.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>final class SelectionToolbarCoordinator {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/SettingsControls.swift</code></td>
@@ -2179,16 +2515,6 @@
 <td><code>mac-app/SettingsTabsView.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>final class SettingsTabsView</code></td>
-</tr>
-<tr>
-<td><code>mac-app/SpeechModelManifest.swift</code></td>
-<td style="text-align: right;">18</td>
-<td><code>extension SpeechRuntimeResourceManager {</code></td>
-</tr>
-<tr>
-<td><code>mac-app/SpeechModelManifest.swift</code></td>
-<td style="text-align: right;">3</td>
-<td><code>struct SpeechModelManifest</code></td>
 </tr>
 <tr>
 <td><code>mac-app/SpeechPlaybackBackend.swift</code></td>
@@ -2246,13 +2572,33 @@
 <td><code>extension SpeechPlaybackCoordinator {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/SpeechRuntimeAvailability.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum SpeechRuntimeAvailability {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/SpeechRuntimeCacheInstallTransaction.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct KokoroCacheInstallTransaction {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/SpeechRuntimeCatalog.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum SpeechRuntimeCatalog {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/SpeechRuntimeDeleter.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum SpeechRuntimeDeleter {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/SpeechRuntimeDownloadFailureStore.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>enum SpeechRuntimeDownloadFailureStore {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/SpeechRuntimeDownloadSupport.swift</code></td>
-<td style="text-align: right;">4</td>
+<td style="text-align: right;">3</td>
 <td><code>extension SpeechRuntimeResourceManager {</code></td>
 </tr>
 <tr>
@@ -2262,17 +2608,12 @@
 </tr>
 <tr>
 <td><code>mac-app/SpeechRuntimeInstallHelpers.swift</code></td>
-<td style="text-align: right;">242</td>
+<td style="text-align: right;">123</td>
 <td><code>extension SpeechRuntimeResourceManager.InstallManifest {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/SpeechRuntimeInstallHelpers.swift</code></td>
-<td style="text-align: right;">251</td>
-<td><code>struct KokoroCacheInstallTransaction {</code></td>
-</tr>
-<tr>
-<td><code>mac-app/SpeechRuntimeInstallHelpers.swift</code></td>
-<td style="text-align: right;">323</td>
+<td style="text-align: right;">132</td>
 <td><code>extension URL {</code></td>
 </tr>
 <tr>
@@ -2286,9 +2627,19 @@
 <td><code>extension SpeechRuntimeResourceManager {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/SpeechRuntimeManifestFetcher.swift</code></td>
+<td style="text-align: right;">5</td>
+<td><code>extension SpeechRuntimeResourceManager {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/SpeechRuntimeModel.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension SpeechRuntimeResourceManager {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/SpeechRuntimePathChecks.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum SpeechRuntimePathChecks {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/SpeechRuntimeResourceManager.swift</code></td>
@@ -2391,6 +2742,11 @@
 <td><code>enum UpdateFailureKind</code></td>
 </tr>
 <tr>
+<td><code>mac-app/VocabularyAnswerFormatter.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum VocabularyAnswerFormatter {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/VocabularyAudioCache.swift</code></td>
 <td style="text-align: right;">4</td>
 <td><code>enum VocabularyAudioCache {</code></td>
@@ -2399,6 +2755,21 @@
 <td><code>mac-app/VocabularyContextProvider.swift</code></td>
 <td style="text-align: right;">4</td>
 <td><code>enum VocabularyContextProvider {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyDailyGoalPolicy.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum VocabularyDailyGoalPolicy {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyDictionaryMetadataService.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct VocabularyDictionaryBackfillItem {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyDictionaryMetadataService.swift</code></td>
+<td style="text-align: right;">8</td>
+<td><code>enum VocabularyDictionaryMetadataService {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/VocabularyExportRecord.swift</code></td>
@@ -2411,8 +2782,23 @@
 <td><code>struct VocabularyExporter {</code></td>
 </tr>
 <tr>
-<td><code>mac-app/VocabularyPanelController+Build.swift</code></td>
+<td><code>mac-app/VocabularyFrequencyBackfillService.swift</code></td>
+<td style="text-align: right;">13</td>
+<td><code>final class VocabularyFrequencyBackfillService {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyFrequencyBackfillService.swift</code></td>
 <td style="text-align: right;">3</td>
+<td><code>struct VocabularyFrequencyBackfillProgress {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyFrequencyBackfillService.swift</code></td>
+<td style="text-align: right;">9</td>
+<td><code>struct VocabularyFrequencyBackfillResult {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyPanelController+Build.swift</code></td>
+<td style="text-align: right;">18</td>
 <td><code>extension VocabularyPanelController {</code></td>
 </tr>
 <tr>
@@ -2431,6 +2817,36 @@
 <td><code>final class VocabularyReviewCardBuilder {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/VocabularyReviewCardContentBuilder.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>final class VocabularyReviewCardContentBuilder {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyReviewCardFooterBuilder.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>final class VocabularyReviewCardFooterBuilder {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyReviewCardSelector.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct VocabularyReviewCardSelection {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyReviewCardSelector.swift</code></td>
+<td style="text-align: right;">9</td>
+<td><code>enum VocabularyReviewCardSelector {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyReviewCoordinator.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>final class VocabularyReviewCoordinator {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyReviewDisplayRecordLoader.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum VocabularyReviewDisplayRecordLoader {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/VocabularyReviewModels.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>enum VocabularyFilter</code></td>
@@ -2439,6 +2855,16 @@
 <td><code>mac-app/VocabularyReviewModels.swift</code></td>
 <td style="text-align: right;">9</td>
 <td><code>enum VocabularyReviewPriority</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyReviewPreferences.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct VocabularyReviewPreferences {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/VocabularyReviewQueueBuilder.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum VocabularyReviewQueueBuilder {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/VocabularyReviewScoringService.swift</code></td>
@@ -2472,13 +2898,33 @@
 </tr>
 <tr>
 <td><code>mac-app/WebWordRecordStore.swift</code></td>
-<td style="text-align: right;">15</td>
+<td style="text-align: right;">17</td>
 <td><code>struct WebWordRecordStore {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/WebWordRecordStore.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>struct StoredWebWordRecord</code></td>
+</tr>
+<tr>
+<td><code>mac-app/WordRecordSQLiteRowMapper.swift</code></td>
+<td style="text-align: right;">105</td>
+<td><code>struct WebWordRecordSQLiteMapper {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/WordRecordSQLiteRowMapper.swift</code></td>
+<td style="text-align: right;">19</td>
+<td><code>enum WordRecordSQLiteBindIndex</code></td>
+</tr>
+<tr>
+<td><code>mac-app/WordRecordSQLiteRowMapper.swift</code></td>
+<td style="text-align: right;">34</td>
+<td><code>struct PDFWordRecordSQLiteMapper {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/WordRecordSQLiteRowMapper.swift</code></td>
+<td style="text-align: right;">4</td>
+<td><code>struct WordRecordSQLiteJSONCodec {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/WordRecordSQLiteStore.swift</code></td>

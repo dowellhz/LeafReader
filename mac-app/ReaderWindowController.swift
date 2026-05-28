@@ -170,6 +170,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var readAloudPDFCandidatePageIndex = 0
     var readAloudPDFSearchLocation = 0
     var readAloudPageLockedAtTopIndex: Int?
+    var lastReadAloudProgressPageIndex: Int?
     var lastReadAloudAISource: AIConversationSourceLocation?
     var lastReadAloudLinkedWordID: String?
     var readAloudSoftHintView: ReadAloudSoftHintView?

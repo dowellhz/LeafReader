@@ -48,6 +48,18 @@ extension ReaderWindowController {
         store.save(conversation)
     }
 
+    func removeAIConversationBubblesFromPersistence(_ deletedBubbles: [SavedAIConversationBubble]) {
+        guard AISettingsStore.saveAIConversationEnabled,
+              !deletedBubbles.isEmpty else {
+            return
+        }
+        if loadedAIConversation == nil {
+            loadedAIConversation = aiConversationStore?.load()
+        }
+        loadedAIConversation = loadedAIConversation?.removing(deletedBubbles)
+        pendingAIConversationToSave = pendingAIConversationToSave?.removing(deletedBubbles)
+    }
+
     func applyAIConversationPersistenceSetting() {
         guard let store = aiConversationStore else { return }
         if AISettingsStore.saveAIConversationEnabled {
