@@ -58,6 +58,64 @@ extension ReadingNotePanelController {
         replaceText(in: lineRange, with: replacement)
     }
 
+    func replaceCurrentSlashLineWithEditablePrefix(_ value: String) {
+        let nsText = textView.string as NSString
+        let location = min(textView.selectedRange().location, nsText.length)
+        let lineRange = nsText.lineRange(for: NSRange(location: max(0, location - 1), length: 0))
+        replaceText(in: lineRange, with: value)
+    }
+
+    func replaceCurrentSlashTrigger(with value: String) {
+        let nsText = textView.string as NSString
+        let location = min(textView.selectedRange().location, nsText.length)
+        guard location > 0,
+              nsText.substring(with: NSRange(location: location - 1, length: 1)) == "/" else {
+            return
+        }
+        replaceText(in: NSRange(location: location - 1, length: 1), with: value)
+    }
+
+    func replaceCurrentSlashLineWithMarkdownBlock(_ block: MarkdownRenderer.Block) {
+        let nsText = textView.string as NSString
+        let location = min(textView.selectedRange().location, nsText.length)
+        let lineRange = nsText.lineRange(for: NSRange(location: max(0, location - 1), length: 0))
+        let attributes = markdownTypingAttributes(for: block)
+        guard textView.shouldChangeText(in: lineRange, replacementString: "") else { return }
+        textView.textStorage?.replaceCharacters(in: lineRange, with: NSAttributedString(string: "", attributes: attributes))
+        textView.typingAttributes = attributes
+        textView.didChangeText()
+        textView.setSelectedRange(NSRange(location: lineRange.location, length: 0))
+        save()
+        updateWordCount()
+    }
+
+    func resetMarkdownTypingAttributes() {
+        textView.typingAttributes = [
+            .font: NSFont.systemFont(ofSize: 15),
+            .foregroundColor: ReadingNoteTheme.primaryText(ReaderTheme.selected),
+            .leafMarkdownBlock: MarkdownRenderer.Block.paragraph.rawValue
+        ]
+    }
+
+    private func markdownTypingAttributes(for block: MarkdownRenderer.Block) -> [NSAttributedString.Key: Any] {
+        let font: NSFont
+        switch block {
+        case .heading1:
+            font = NSFont.boldSystemFont(ofSize: 18)
+        case .heading2:
+            font = NSFont.boldSystemFont(ofSize: 16)
+        case .heading3, .heading4, .heading5, .heading6:
+            font = NSFont.boldSystemFont(ofSize: 15)
+        default:
+            font = NSFont.systemFont(ofSize: 15)
+        }
+        return [
+            .font: font,
+            .foregroundColor: ReadingNoteTheme.primaryText(ReaderTheme.selected),
+            .leafMarkdownBlock: block.rawValue
+        ]
+    }
+
     func replaceSelectedText(in range: NSRange, with value: String) {
         guard range.length > 0 else { return }
         replaceText(in: boundedSelectionRange(location: range.location, length: range.length), with: value)

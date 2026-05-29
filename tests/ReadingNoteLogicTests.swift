@@ -208,4 +208,20 @@ enum ReadingNoteLogicTests {
             "large PDF line gaps should preserve paragraph breaks"
         )
     }
+
+    static func testReadingNoteSlashCommandGroups() throws {
+        try expectEqual(
+            ReadingNoteSlashCommand.blockCommands,
+            [.text, .heading1, .heading2, .heading3, .heading4, .bulletedList, .numberedList],
+            "slash command menu should expose basic blocks in a stable order"
+        )
+        try expectEqual(
+            ReadingNoteSlashCommand.aiCommands,
+            [.aiContinue],
+            "slash command menu should expose AI commands in a stable order"
+        )
+        try expectEqual(ReadingNoteSlashCommand.heading2.marker, "## ", "heading command should map to markdown marker")
+        try expect(ReadingNoteSlashCommand.aiContinue.isAICommand, "AI completion command should be marked as AI")
+        try expect(!ReadingNoteSlashCommand.bulletedList.isAICommand, "block command should not be marked as AI")
+    }
 }

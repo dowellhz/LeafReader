@@ -1,5 +1,4 @@
 import Cocoa
-import Sparkle
 
 extension AppDelegate {
     @objc func showAboutLeafReader(_ sender: Any?) {
@@ -56,7 +55,7 @@ extension AppDelegate {
         nameLabel.textColor = primaryText
         content.addSubview(nameLabel)
 
-        let versionLabel = NSTextField(labelWithString: helpVersionText())
+        let versionLabel = NSTextField(labelWithString: appVersionText())
         versionLabel.translatesAutoresizingMaskIntoConstraints = false
         versionLabel.alignment = .center
         versionLabel.font = .systemFont(ofSize: 14, weight: .medium)

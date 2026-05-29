@@ -10,7 +10,8 @@ extension ReadingNotePanelController {
         textView.textStorage?.setAttributedString(rendered)
         textView.typingAttributes = [
             .font: NSFont.systemFont(ofSize: 15),
-            .foregroundColor: ReadingNoteTheme.primaryText(ReaderTheme.selected)
+            .foregroundColor: ReadingNoteTheme.primaryText(ReaderTheme.selected),
+            .leafMarkdownBlock: MarkdownRenderer.Block.paragraph.rawValue
         ]
     }
 
@@ -44,6 +45,20 @@ extension ReadingNotePanelController {
         if trimmed.hasPrefix("☑ ") {
             return "- [x] " + String(trimmed.dropFirst(2))
         }
+        if let blockRaw = attributed.attribute(.leafMarkdownBlock, at: 0, effectiveRange: nil) as? String,
+           let block = MarkdownRenderer.Block(rawValue: blockRaw) {
+            switch block {
+            case .heading1: return "# " + trimmed
+            case .heading2: return "## " + trimmed
+            case .heading3: return "### " + trimmed
+            case .heading4: return "#### " + trimmed
+            case .heading5: return "##### " + trimmed
+            case .heading6: return "###### " + trimmed
+            case .numberedList: return "1. " + trimmed.replacingOccurrences(of: #"^\d+\.\s+"#, with: "", options: .regularExpression)
+            case .bullet, .checklist, .paragraph:
+                break
+            }
+        }
 
         let fullRange = NSRange(location: 0, length: attributed.length)
         if let font = attributed.attribute(.font, at: 0, effectiveRange: nil) as? NSFont {
@@ -55,6 +70,72 @@ extension ReadingNotePanelController {
             }
         }
         return inlineMarkdown(from: attributed, range: fullRange)
+    }
+
+    func renderCompletedMarkdownLineBeforeCursor() {
+        let originalSelection = textView.selectedRange()
+        guard let range = completedMarkdownLineRangeBeforeCursor() else {
+            resetMarkdownTypingAttributes()
+            return
+        }
+        let nsText = textView.string as NSString
+        let rawLine = nsText.substring(with: range).trimmingCharacters(in: .newlines)
+        guard shouldRenderCompletedMarkdownLine(rawLine) else {
+            resetMarkdownTypingAttributes()
+            return
+        }
+        let rendered = MarkdownRenderer.render(
+            rawLine,
+            fontSize: 15,
+            textColor: ReadingNoteTheme.primaryText(ReaderTheme.selected)
+        )
+        replaceTextPreservingSelectionAfterCommittedLine(
+            in: range,
+            with: rendered,
+            originalSelection: originalSelection
+        )
+        resetMarkdownTypingAttributes()
+    }
+
+    private func replaceTextPreservingSelectionAfterCommittedLine(
+        in range: NSRange,
+        with value: NSAttributedString,
+        originalSelection: NSRange
+    ) {
+        guard textView.shouldChangeText(in: range, replacementString: value.string) else { return }
+        let delta = value.length - range.length
+        textView.textStorage?.replaceCharacters(in: range, with: value)
+        textView.didChangeText()
+        let textLength = (textView.string as NSString).length
+        let adjustedLocation = min(max(0, originalSelection.location + delta), textLength)
+        textView.setSelectedRange(NSRange(location: adjustedLocation, length: 0))
+        save()
+        updateWordCount()
+    }
+
+    private func completedMarkdownLineRangeBeforeCursor() -> NSRange? {
+        let nsText = textView.string as NSString
+        let cursor = min(textView.selectedRange().location, nsText.length)
+        guard cursor > 0 else { return nil }
+        let previousLocation = max(0, cursor - 1)
+        let previousCharacter = nsText.substring(with: NSRange(location: previousLocation, length: 1))
+        let lineLocation = previousCharacter == "\n" ? max(0, previousLocation - 1) : previousLocation
+        guard lineLocation < nsText.length else { return nil }
+        return nsText.lineRange(for: NSRange(location: lineLocation, length: 0))
+    }
+
+    private func shouldRenderCompletedMarkdownLine(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let patterns = [
+            #"^#{1,6}\s+\S"#,
+            #"^[-*]\s+\S"#,
+            #"^\d+\.\s+\S"#,
+            #"^- \[[ xX]\]\s+\S"#
+        ]
+        return patterns.contains { pattern in
+            trimmed.range(of: pattern, options: .regularExpression) != nil
+        }
     }
 
     private func imageMarkdownLine(from attributed: NSAttributedString) -> String? {

@@ -1,5 +1,4 @@
 import Cocoa
-import Sparkle
 
 extension AppDelegate {
     func refreshMainMenu() {

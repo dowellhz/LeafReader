@@ -33,6 +33,8 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 
 [**快捷键** - 阅读、翻页、搜索、朗读和笔记编辑快捷键。](shortcuts.md){ .card }
 
+[**阅读笔记** - 选中文本生成笔记、AI 补全、问 AI 和 Markdown 编辑。](reading-notes.md){ .card }
+
 [**AI 使用** - 选中文本、翻译、解释、总结和追问。](ai-chat.md){ .card }
 
 [**TTS 与朗读** - 本地朗读模型、下载状态、兼容性和播放入口。](tts.md){ .card }
@@ -64,6 +66,8 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 [**Getting Started** - Install, configure AI, and start reading.](getting-started.md){ .card }
 
 [**Shortcuts** - Keyboard shortcuts for reading, navigation, TTS, and notes.](shortcuts.md){ .card }
+
+[**Reading Notes** - Selection notes, AI completion, Ask AI, and Markdown editing.](reading-notes.md){ .card }
 
 [**Development Tasks** - Entry points for common engineering work.](development-tasks.md){ .card }
 

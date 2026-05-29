@@ -1,5 +1,9 @@
 import Cocoa
 
+extension NSAttributedString.Key {
+    static let leafMarkdownBlock = NSAttributedString.Key("LeafReaderMarkdownBlock")
+}
+
 enum MarkdownRenderer {
     static func render(_ text: String, fontSize: CGFloat = 15, textColor: NSColor) -> NSAttributedString {
         let output = NSMutableAttributedString()
@@ -37,6 +41,7 @@ enum MarkdownRenderer {
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: baseFont,
                 .foregroundColor: textColor,
+                .leafMarkdownBlock: parsed.block.rawValue,
                 .paragraphStyle: paragraphStyle(
                     spacing: parsed.isHeading ? 6 : 4,
                     headIndent: parsed.isBullet ? 18 : 0,
@@ -113,25 +118,63 @@ enum MarkdownRenderer {
             || normalized == "polish"
     }
 
-    private static func markdownLine(_ line: String, baseFontSize: CGFloat) -> (display: String, isHeading: Bool, isBoldLine: Bool, isBullet: Bool, fontSize: CGFloat) {
+    enum Block: String {
+        case paragraph
+        case heading1
+        case heading2
+        case heading3
+        case heading4
+        case heading5
+        case heading6
+        case bullet
+        case numberedList
+        case checklist
+    }
+
+    private static func markdownLine(_ line: String, baseFontSize: CGFloat) -> (display: String, isHeading: Bool, isBoldLine: Bool, isBullet: Bool, fontSize: CGFloat, block: Block) {
         var display = line
         var isHeading = false
         var fontSize = baseFontSize
+        var block: Block = .paragraph
 
         if let range = display.range(of: #"^#{1,6}\s+"#, options: .regularExpression) {
             let marker = String(display[range]).trimmingCharacters(in: .whitespaces)
             display.removeSubrange(range)
             isHeading = true
-            fontSize = marker.count <= 1 ? baseFontSize + 3 : (marker.count == 2 ? baseFontSize + 1 : baseFontSize)
+            switch marker.count {
+            case 1:
+                fontSize = baseFontSize + 3
+                block = .heading1
+            case 2:
+                fontSize = baseFontSize + 1
+                block = .heading2
+            case 3:
+                block = .heading3
+            case 4:
+                block = .heading4
+            case 5:
+                block = .heading5
+            default:
+                block = .heading6
+            }
         } else if display.hasPrefix("【"), display.contains("】") {
             isHeading = true
+            block = .heading3
         } else if isReadingNoteSectionHeading(display) {
             isHeading = true
+            block = .heading3
         }
 
         let isBullet = display.range(of: #"^[-*]\s+"#, options: .regularExpression) != nil
             || display.range(of: #"^- \[[ xX]\]\s+"#, options: .regularExpression) != nil
             || display.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil
+        if display.range(of: #"^- \[[ xX]\]\s+"#, options: .regularExpression) != nil {
+            block = .checklist
+        } else if display.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil {
+            block = .numberedList
+        } else if display.range(of: #"^[-*]\s+"#, options: .regularExpression) != nil {
+            block = .bullet
+        }
         display = display
             .replacingOccurrences(of: #"^- \[ \]\s+"#, with: "☐ ", options: .regularExpression)
             .replacingOccurrences(of: #"^- \[[xX]\]\s+"#, with: "☑ ", options: .regularExpression)
@@ -142,7 +185,7 @@ enum MarkdownRenderer {
         let trimmed = display.trimmingCharacters(in: .whitespaces)
         let isBoldLine = isStandaloneBoldLine(trimmed)
 
-        return (display, isHeading, isBoldLine, isBullet, fontSize)
+        return (display, isHeading, isBoldLine, isBullet, fontSize, block)
     }
 
     private static func imageLine(_ line: String, textColor: NSColor) -> NSAttributedString? {

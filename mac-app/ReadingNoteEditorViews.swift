@@ -3,6 +3,7 @@ import Cocoa
 final class ReadingNoteTextView: NSTextView {
     var onSelectionChanged: (() -> Void)?
     var onSlashCommand: (() -> Void)?
+    var onCommitMarkdownLine: (() -> Void)?
 
     override func menu(for event: NSEvent) -> NSMenu? {
         nil
@@ -52,19 +53,27 @@ final class ReadingNoteTextView: NSTextView {
     }
 
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 36, currentLineIsSlashCommand() {
-            onSlashCommand?()
-            return
-        }
+        let isPlainSlash = event.modifierFlags.intersection([.command, .control, .option]).isEmpty
+            && event.charactersIgnoringModifiers == "/"
+        let isPlainReturn = event.modifierFlags.intersection([.command, .control, .option]).isEmpty
+            && (event.keyCode == 36 || event.keyCode == 76)
         super.keyDown(with: event)
+        if isPlainSlash, cursorIsAfterSlash() {
+            DispatchQueue.main.async { [weak self] in
+                self?.onSlashCommand?()
+            }
+        } else if isPlainReturn {
+            DispatchQueue.main.async { [weak self] in
+                self?.onCommitMarkdownLine?()
+            }
+        }
     }
 
-    private func currentLineIsSlashCommand() -> Bool {
+    private func cursorIsAfterSlash() -> Bool {
         let nsText = string as NSString
         let location = min(selectedRange().location, nsText.length)
-        let lineRange = nsText.lineRange(for: NSRange(location: max(0, location - 1), length: 0))
-        let line = nsText.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
-        return line == "/"
+        guard location > 0 else { return false }
+        return nsText.substring(with: NSRange(location: location - 1, length: 1)) == "/"
     }
 }
 

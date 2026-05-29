@@ -6,7 +6,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     static let updateWindowOpenRetryDelay: TimeInterval = 0.15
 
     var controller: ReaderWindowController!
-    var helpWindow: NSWindow?
     var aboutWindow: NSWindow?
     var updateStatusWindow: NSWindow?
     var diagnosticsPanelController: DiagnosticsPanelController?

@@ -201,7 +201,10 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
             self?.refreshAIToolbar()
         }
         textView.onSlashCommand = { [weak self] in
-            self?.runSlashContinuation()
+            self?.showSlashCommandMenu()
+        }
+        textView.onCommitMarkdownLine = { [weak self] in
+            self?.renderCompletedMarkdownLineBeforeCursor()
         }
         textView.minSize = NSSize(width: 0, height: 0)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)

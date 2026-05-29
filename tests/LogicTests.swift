@@ -514,6 +514,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Reading note list presenter rows", ReadingNoteLogicTests.testReadingNoteListPresenterRows),
     ("Reading note quote soft line breaks", ReadingNoteLogicTests.testReadingNoteQuoteSoftLineBreaks),
     ("Reading note PDF line gaps preserve paragraph breaks", ReadingNoteLogicTests.testReadingNotePDFLineGapsPreserveParagraphBreaks),
+    ("Reading note slash command groups", ReadingNoteLogicTests.testReadingNoteSlashCommandGroups),
     ("Reader AI context text cleanup", testReaderAIContextTextCleanup),
     ("Reader AI context policy", testReaderAIContextPolicy),
     ("AI response text formatter", testAIResponseTextFormatter),

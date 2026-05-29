@@ -11,7 +11,7 @@
 
 当前版本安装包：
 
-[LeafReader-1.4.14.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.4.14/LeafReader-1.4.14.pkg)
+[LeafReader-1.7.1.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.1/LeafReader-1.7.1.pkg)
 
 ## 首次打开
 
@@ -50,6 +50,15 @@ API Key 保存在本机。只有使用 AI 功能时，选中的文本、问题�
 3. 选择解释、翻译、总结或继续追问。
 4. 长文本翻译会自动分段处理。
 
+## 使用阅读笔记
+
+1. 在书中选中一段文字。
+2. 点击浮动工具栏里的“笔记”。
+3. 在阅读笔记窗口中补充翻译、难句解析或自己的备注。
+4. 选中笔记中的词句后，可以使用“解析”“翻译”“总结”“整理”或“问 AI”继续加工。
+
+阅读笔记支持 `/` 命令菜单、Markdown 显示、AI 补全和导出。完整说明见 [阅读笔记](reading-notes.md)。
+
 ## 使用背单词
 
 1. 选中单词或短语。
@@ -67,6 +76,7 @@ Leaf Reader 使用 Sparkle 更新通道。发布版本后，可以在应用内�
 
 - [功能地图](feature-map.md)
 - [快捷键](shortcuts.md)
+- [阅读笔记](reading-notes.md)
 - [AI Chat](ai-chat.md)
 - [AI Analysis Cache](ai-analysis-cache.md)
 - [Word Highlights](word-highlights.md)

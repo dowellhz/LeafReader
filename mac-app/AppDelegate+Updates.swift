@@ -191,7 +191,7 @@ extension AppDelegate {
     }
 
     private func showUpToDateUpdateStatus() {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? helpVersionText()
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? appVersionText()
         showWhiteUpdateStatus(
             title: AppText.localized("已是最新版本", "You're up to date!"),
             message: AppText.localized(

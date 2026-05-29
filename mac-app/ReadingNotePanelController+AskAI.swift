@@ -71,10 +71,124 @@ extension ReadingNotePanelController {
         runAskQuestion(request)
     }
 
+    func showSlashCommandMenu() {
+        guard let trigger = slashCommandTrigger() else { return }
+        aiToolbarContainer.isHidden = true
+        askInputContainer.isHidden = true
+
+        let menu = NSMenu()
+        if trigger.isLineCommand {
+            menu.addItem(disabledMenuHeader(AppText.localized("基础块", "Basic blocks")))
+            for command in ReadingNoteSlashCommand.blockCommands {
+                menu.addItem(slashMenuItem(command))
+            }
+            menu.addItem(.separator())
+        }
+        menu.addItem(disabledMenuHeader("AI"))
+        for command in trigger.isLineCommand ? ReadingNoteSlashCommand.aiCommands : [.aiContinue] {
+            menu.addItem(slashMenuItem(command))
+        }
+        menu.addItem(.separator())
+        let close = NSMenuItem(title: AppText.localized("关闭菜单", "Close menu"), action: nil, keyEquivalent: "\u{1b}")
+        close.isEnabled = false
+        menu.addItem(close)
+        let point = slashCommandMenuPoint()
+        menu.popUp(positioning: nil, at: point, in: textView)
+    }
+
+    @objc func slashCommandSelected(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let command = ReadingNoteSlashCommand(rawValue: raw) else { return }
+        runSlashCommand(command)
+    }
+
     func runSlashContinuation() {
-        let prefix = textBeforeCursor().trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefix = textBeforeCurrentSlashTrigger().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prefix.isEmpty else { return }
-        runAIAction(.continueLine, title: AppText.localized("补充", "Continue"), sourceText: prefix, replaceSlashLine: true)
+        runAIAction(.continueLine, title: AppText.localized("补充", "Continue"), sourceText: prefix, replaceSlashTrigger: true)
+    }
+
+    private func runSlashCommand(_ command: ReadingNoteSlashCommand) {
+        switch command {
+        case .text:
+            replaceCurrentSlashLineWithMarkdownBlock(.paragraph)
+        case .heading1:
+            replaceCurrentSlashLineWithMarkdownBlock(.heading1)
+        case .heading2:
+            replaceCurrentSlashLineWithMarkdownBlock(.heading2)
+        case .heading3:
+            replaceCurrentSlashLineWithMarkdownBlock(.heading3)
+        case .heading4:
+            replaceCurrentSlashLineWithMarkdownBlock(.heading4)
+        case .bulletedList, .numberedList:
+            replaceCurrentSlashLineWithEditablePrefix(command.marker)
+        case .aiContinue:
+            runSlashContinuation()
+        case .aiExplain:
+            replaceCurrentSlashLine(with: "")
+            runAIAction(.explain, title: AppText.localized("解析", "Explain"))
+        case .aiTranslate:
+            replaceCurrentSlashLine(with: "")
+            runAIAction(.translate, title: AppText.localized("翻译", "Translate"))
+        case .aiSummarize:
+            replaceCurrentSlashLine(with: "")
+            runAIAction(.summarize, title: AppText.localized("总结", "Summarize"))
+        case .aiOrganize:
+            replaceCurrentSlashLine(with: "")
+            runAIAction(
+                .polish,
+                title: AppText.localized("整理", "Organize"),
+                replaceSelection: true,
+                renderMarkdownReplacement: true
+            )
+        }
+    }
+
+    private func slashMenuItem(_ command: ReadingNoteSlashCommand) -> NSMenuItem {
+        let item = NSMenuItem(title: command.title, action: #selector(slashCommandSelected(_:)), keyEquivalent: "")
+        item.target = self
+        item.representedObject = command.rawValue
+        if !command.marker.isEmpty {
+            item.attributedTitle = slashMenuAttributedTitle(title: command.title, marker: command.marker)
+        }
+        return item
+    }
+
+    private func disabledMenuHeader(_ title: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        return item
+    }
+
+    private func slashMenuAttributedTitle(title: String, marker: String) -> NSAttributedString {
+        let attributed = NSMutableAttributedString(
+            string: title,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 14),
+                .foregroundColor: NSColor.labelColor
+            ]
+        )
+        attributed.append(NSAttributedString(
+            string: "    \(marker)",
+            attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular),
+                .foregroundColor: NSColor.tertiaryLabelColor
+            ]
+        ))
+        return attributed
+    }
+
+    private func slashCommandMenuPoint() -> NSPoint {
+        guard let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer else {
+            return NSPoint(x: textView.textContainerInset.width, y: textView.bounds.maxY - textView.textContainerInset.height)
+        }
+        let location = min(textView.selectedRange().location, (textView.string as NSString).length)
+        let glyphIndex = location > 0 ? layoutManager.glyphIndexForCharacter(at: location - 1) : 0
+        var rect = layoutManager.boundingRect(forGlyphRange: NSRange(location: glyphIndex, length: 1), in: textContainer)
+        rect.origin.x += textView.textContainerOrigin.x
+        rect.origin.y += textView.textContainerOrigin.y
+        return NSPoint(x: rect.minX, y: rect.minY - 6)
     }
 
     private func handleAskInputKeyDown(_ event: NSEvent) -> NSEvent? {
@@ -104,11 +218,33 @@ extension ReadingNotePanelController {
         return nil
     }
 
+    private struct SlashCommandTrigger {
+        let slashRange: NSRange
+        let lineRange: NSRange
+        let isLineCommand: Bool
+    }
+
+    private func slashCommandTrigger() -> SlashCommandTrigger? {
+        let nsText = textView.string as NSString
+        let location = min(textView.selectedRange().location, nsText.length)
+        guard location > 0,
+              nsText.substring(with: NSRange(location: location - 1, length: 1)) == "/" else {
+            return nil
+        }
+        let lineRange = nsText.lineRange(for: NSRange(location: max(0, location - 1), length: 0))
+        let line = nsText.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+        return SlashCommandTrigger(
+            slashRange: NSRange(location: location - 1, length: 1),
+            lineRange: lineRange,
+            isLineCommand: line == "/"
+        )
+    }
+
     private func runAIAction(
         _ action: AITextActionRunner.Action,
         title: String,
         sourceText: String? = nil,
-        replaceSlashLine: Bool = false,
+        replaceSlashTrigger: Bool = false,
         replaceSelection: Bool = false,
         renderMarkdownReplacement: Bool = false
     ) {
@@ -126,7 +262,7 @@ extension ReadingNotePanelController {
         }
         setRunning(true, title: title)
         aiToolbarContainer.isHidden = true
-        let usesTailPlaceholder = !replaceSlashLine && !replaceSelection
+        let usesTailPlaceholder = !replaceSlashTrigger && !replaceSelection
         if usesTailPlaceholder {
             appendAIPlaceholder(title: title)
         }
@@ -137,8 +273,8 @@ extension ReadingNotePanelController {
             case .success(let output):
                 let value = output.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !value.isEmpty else { return }
-                if replaceSlashLine {
-                    self.replaceCurrentSlashLine(with: value)
+                if replaceSlashTrigger {
+                    self.replaceCurrentSlashTrigger(with: value)
                 } else if replaceSelection {
                     if renderMarkdownReplacement {
                         self.replaceSelectionWithMarkdown(value, selectionRange: selectionRange)
@@ -366,10 +502,11 @@ extension ReadingNotePanelController {
         return output
     }
 
-    private func textBeforeCursor() -> String {
-        let location = textView.selectedRange().location
-        guard location <= (textView.string as NSString).length else { return textView.string }
-        return (textView.string as NSString).substring(to: location)
+    private func textBeforeCurrentSlashTrigger() -> String {
+        let nsText = textView.string as NSString
+        let location = min(textView.selectedRange().location, nsText.length)
+        guard location > 0 else { return "" }
+        return nsText.substring(to: location - 1)
     }
 
     private func userFacingError(_ error: Error) -> String {

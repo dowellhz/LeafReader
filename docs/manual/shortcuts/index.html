@@ -297,7 +297,7 @@
 
 
     <li class="md-nav__item">
-      <a href="https://github.com/dowellhz/LeafReader/releases/download/v1.4.14/LeafReader-1.4.14.pkg" class="md-nav__link">
+      <a href="https://github.com/dowellhz/LeafReader/releases/download/v1.7.1/LeafReader-1.7.1.pkg" class="md-nav__link">
 
 
   <span class="md-ellipsis">
@@ -699,6 +699,27 @@
 
   <span class="md-ellipsis">
     文档加载
+  </span>
+
+
+      </a>
+    </li>
+
+
+
+
+
+
+
+
+
+
+    <li class="md-nav__item">
+      <a href="../reading-notes/" class="md-nav__link">
+
+
+  <span class="md-ellipsis">
+    阅读笔记
   </span>
 
 
@@ -1266,12 +1287,13 @@
 <td>阅读笔记编辑器内生效。</td>
 </tr>
 <tr>
-<td><code>/</code> 后按 <code>Return</code></td>
-<td>运行笔记 AI 命令</td>
-<td>当前行只有 <code>/</code> 时触发笔记 AI 操作。</td>
+<td><code>/</code></td>
+<td>打开笔记命令菜单</td>
+<td>行首输入 <code>/</code> 可选择文本、标题、列表或 AI 补全；如果 <code>/</code> 不是行首，只显示 AI 补全。标题输入时直接显示标题效果。</td>
 </tr>
 </tbody>
 </table>
+<p>笔记 AI 补全不会再通过 <code>/</code> 后直接按 <code>Return</code> 触发；需要先在命令菜单里选择 AI 补全，避免误触发模型请求。</p>
 <h2 id="_7">输入状态例外<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h2>
 <ul>
 <li>文本输入框、搜索框、AI 输入框、阅读笔记编辑器正在编辑时，阅读区翻页和朗读手动快捷键不会截获普通输入。</li>
