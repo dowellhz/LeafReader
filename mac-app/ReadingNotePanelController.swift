@@ -10,8 +10,6 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         static let floatingToolbarInset: CGFloat = 8
         static let topIconPointSize: CGFloat = 17
     }
-    static let askInputForwardedShortcutKeys: Set<String> = ["a", "c", "x", "v"]
-
     struct AskRequest {
         let question: String
         let selectedText: String

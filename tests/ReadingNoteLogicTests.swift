@@ -224,4 +224,32 @@ enum ReadingNoteLogicTests {
         try expect(ReadingNoteSlashCommand.aiContinue.isAICommand, "AI completion command should be marked as AI")
         try expect(!ReadingNoteSlashCommand.bulletedList.isAICommand, "block command should not be marked as AI")
     }
+
+    static func testReadingNoteAIMarkdownBodyStripsFence() throws {
+        try expectEqual(
+            ReadingNoteAITextPolicy.markdownBody(from: "```markdown\n# Title\n\nBody\n```"),
+            "# Title\n\nBody",
+            "AI markdown replacement should strip a wrapping fenced block"
+        )
+        try expectEqual(
+            ReadingNoteAITextPolicy.markdownBody(from: "\nPlain text\n"),
+            "Plain text",
+            "AI markdown replacement should trim plain text"
+        )
+    }
+
+    static func testReadingNoteAIDocumentContext() throws {
+        let note = String(repeating: "a", count: ReadingNoteAITextPolicy.noteContextLimit + 10)
+        let context = ReadingNoteAITextPolicy.documentContext(
+            selectedText: "selected",
+            noteMarkdown: note,
+            isChinese: false
+        )
+        try expect(context.contains("[Selected reading-note text]\nselected"), "AI context should include selected note text")
+        try expect(
+            context.contains(String(repeating: "a", count: ReadingNoteAITextPolicy.noteContextLimit)),
+            "AI context should include truncated note markdown"
+        )
+        try expect(!context.contains(String(repeating: "a", count: ReadingNoteAITextPolicy.noteContextLimit + 1)), "AI context should clamp note markdown")
+    }
 }

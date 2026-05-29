@@ -1,5 +1,31 @@
 import Cocoa
 
+enum ReadingNoteEditingShortcut: String {
+    case selectAll = "a"
+    case copy = "c"
+    case cut = "x"
+    case paste = "v"
+    case undo = "z"
+
+    static func shortcut(for event: NSEvent) -> ReadingNoteEditingShortcut? {
+        guard event.modifierFlags.intersection([.command, .control]).isEmpty == false,
+              event.modifierFlags.intersection([.option]).isEmpty,
+              let key = event.charactersIgnoringModifiers?.lowercased() else {
+            return nil
+        }
+        return ReadingNoteEditingShortcut(rawValue: key)
+    }
+
+    var canForwardToFieldEditor: Bool {
+        switch self {
+        case .selectAll, .copy, .cut, .paste:
+            return true
+        case .undo:
+            return false
+        }
+    }
+}
+
 final class ReadingNoteTextView: NSTextView {
     var onSelectionChanged: (() -> Void)?
     var onSlashCommand: (() -> Void)?
@@ -16,34 +42,29 @@ final class ReadingNoteTextView: NSTextView {
     override func rightMouseUp(with event: NSEvent) {}
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.modifierFlags.intersection([.command, .control]).isEmpty == false,
-              event.modifierFlags.intersection([.option]).isEmpty,
-              let key = event.charactersIgnoringModifiers?.lowercased() else {
+        guard let shortcut = ReadingNoteEditingShortcut.shortcut(for: event) else {
             return super.performKeyEquivalent(with: event)
         }
-
-        switch key {
-        case "a":
+        switch shortcut {
+        case .selectAll:
             selectAll(nil)
             return true
-        case "c":
+        case .copy:
             copy(nil)
             return true
-        case "x":
+        case .cut:
             cut(nil)
             return true
-        case "v":
+        case .paste:
             paste(nil)
             return true
-        case "z":
+        case .undo:
             if event.modifierFlags.contains(.shift) {
                 undoManager?.redo()
             } else {
                 undoManager?.undo()
             }
             return true
-        default:
-            return super.performKeyEquivalent(with: event)
         }
     }
 
@@ -79,27 +100,42 @@ final class ReadingNoteTextView: NSTextView {
 
 final class ReadingNoteAskTextField: NSTextField {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.modifierFlags.intersection([.command, .control]).isEmpty == false,
-              event.modifierFlags.intersection([.option]).isEmpty,
-              let key = event.charactersIgnoringModifiers?.lowercased() else {
+        guard let shortcut = ReadingNoteEditingShortcut.shortcut(for: event),
+              shortcut.canForwardToFieldEditor else {
             return super.performKeyEquivalent(with: event)
         }
-
-        switch key {
-        case "a":
+        switch shortcut {
+        case .selectAll:
             currentEditor()?.selectAll(nil)
             return true
-        case "c":
+        case .copy:
             currentEditor()?.copy(nil)
             return true
-        case "x":
+        case .cut:
             currentEditor()?.cut(nil)
             return true
-        case "v":
+        case .paste:
             currentEditor()?.paste(nil)
             return true
-        default:
+        case .undo:
             return super.performKeyEquivalent(with: event)
+        }
+    }
+}
+
+extension NSText {
+    func performReadingNoteEditingShortcut(_ shortcut: ReadingNoteEditingShortcut) {
+        switch shortcut {
+        case .selectAll:
+            selectAll(nil)
+        case .copy:
+            copy(nil)
+        case .cut:
+            cut(nil)
+        case .paste:
+            paste(nil)
+        case .undo:
+            break
         }
     }
 }
