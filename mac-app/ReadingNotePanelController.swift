@@ -117,6 +117,9 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
     }
 
     func windowWillClose(_ notification: Notification) {
+        editorState.isClosing = true
+        editorState.cancelAIRequests()
+        aiRunner.cancel()
         if let window {
             window.parent?.removeChildWindow(window)
         }

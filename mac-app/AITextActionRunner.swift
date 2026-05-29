@@ -11,6 +11,7 @@ final class AITextActionRunner {
 
     private let client = AIClient()
     private var task: URLSessionDataTask?
+    private var runID: UUID?
 
     var isRunning: Bool {
         task != nil
@@ -19,6 +20,7 @@ final class AITextActionRunner {
     func cancel() {
         task?.cancel()
         task = nil
+        runID = nil
     }
 
     func run(action: Action, text: String, noteContext: String = "", completion: @escaping (Result<String, Error>) -> Void) {
@@ -32,9 +34,13 @@ final class AITextActionRunner {
             ChatMessage(role: "system", content: AIPromptStore.systemPrompt()),
             ChatMessage(role: "user", content: prompt(action: action, text: trimmed, noteContext: noteContext))
         ]
+        let currentRunID = UUID()
+        runID = currentRunID
         task = client.send(messages: messages) { [weak self] result in
             DispatchQueue.main.async {
+                guard self?.runID == currentRunID else { return }
                 self?.task = nil
+                self?.runID = nil
                 completion(result)
             }
         }
@@ -57,9 +63,13 @@ final class AITextActionRunner {
             ChatMessage(role: "system", content: systemPrompt),
             ChatMessage(role: "user", content: questionPrompt(question: trimmedQuestion, selectedText: trimmedSelection))
         ]
+        let currentRunID = UUID()
+        runID = currentRunID
         task = client.send(messages: messages) { [weak self] result in
             DispatchQueue.main.async {
+                guard self?.runID == currentRunID else { return }
                 self?.task = nil
+                self?.runID = nil
                 completion(result)
             }
         }
@@ -80,9 +90,13 @@ final class AITextActionRunner {
             ChatMessage(role: "system", content: systemPrompt),
             ChatMessage(role: "user", content: trimmed)
         ]
+        let currentRunID = UUID()
+        runID = currentRunID
         task = client.send(messages: messages) { [weak self] result in
             DispatchQueue.main.async {
+                guard self?.runID == currentRunID else { return }
                 self?.task = nil
+                self?.runID = nil
                 completion(result)
             }
         }

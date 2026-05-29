@@ -105,38 +105,69 @@ extension ReadingNotePanelController {
             NSSound.beep()
             return
         }
+        let insertionMode = aiInsertionMode(
+            title: title,
+            selectionRange: selectionRange,
+            replaceSlashTrigger: replaceSlashTrigger,
+            replaceSelection: replaceSelection,
+            renderMarkdownReplacement: renderMarkdownReplacement
+        )
+        removeAIPlaceholder()
+        let requestID = editorState.beginAIRequest()
         setRunning(true, title: title)
         aiToolbarContainer.isHidden = true
-        let usesTailPlaceholder = !replaceSlashTrigger && !replaceSelection
-        if usesTailPlaceholder {
+        if insertionMode.usesPlaceholder {
             appendAIPlaceholder(title: title)
         }
         aiRunner.run(action: action, text: text, noteContext: textView.string) { [weak self] result in
             guard let self else { return }
+            guard self.editorState.canApplyAIResult(requestID) else { return }
+            self.editorState.finishAIRequest(requestID)
             self.setRunning(false, title: "")
             switch result {
             case .success(let output):
                 let value = output.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !value.isEmpty else { return }
-                if replaceSlashTrigger {
-                    self.replaceCurrentSlashTrigger(with: value)
-                } else if replaceSelection {
-                    if renderMarkdownReplacement {
-                        self.replaceSelectionWithMarkdown(value, selectionRange: selectionRange)
-                    } else {
-                        self.replaceSelectedText(in: selectionRange, with: value)
-                    }
-                } else if usesTailPlaceholder {
-                    self.replaceAIPlaceholder(title: title, body: value)
-                } else {
-                    self.appendAISection(title: title, body: value)
-                }
+                self.applyAIOutput(value, insertionMode: insertionMode)
             case .failure(let error):
-                if usesTailPlaceholder {
+                if insertionMode.usesPlaceholder {
                     self.removeAIPlaceholder()
                 }
                 self.statusLabel.stringValue = self.userFacingError(error)
             }
+        }
+    }
+
+    private func aiInsertionMode(
+        title: String,
+        selectionRange: NSRange,
+        replaceSlashTrigger: Bool,
+        replaceSelection: Bool,
+        renderMarkdownReplacement: Bool
+    ) -> ReadingNoteAIInsertionMode {
+        if replaceSlashTrigger {
+            return .replaceSlashTrigger
+        }
+        if replaceSelection {
+            return .replaceSelection(selectionRange, renderMarkdown: renderMarkdownReplacement)
+        }
+        return .replacePlaceholder(title: title)
+    }
+
+    private func applyAIOutput(_ value: String, insertionMode: ReadingNoteAIInsertionMode) {
+        switch insertionMode {
+        case .appendSection(let title):
+            appendAISection(title: title, body: value)
+        case .replacePlaceholder(let title):
+            replaceAIPlaceholder(title: title, body: value)
+        case .replaceSelection(let range, let renderMarkdown):
+            if renderMarkdown {
+                replaceSelectionWithMarkdown(value, selectionRange: range)
+            } else {
+                replaceSelectedText(in: range, with: value)
+            }
+        case .replaceSlashTrigger:
+            replaceCurrentSlashTrigger(with: value)
         }
     }
 
@@ -173,22 +204,25 @@ extension ReadingNotePanelController {
         setAskInputVisible(false)
         askInputField.stringValue = ""
         window?.makeFirstResponder(textView)
+        removeAIPlaceholder()
+        let requestID = editorState.beginAIRequest()
         setRunning(true, title: AppText.localized("问 AI", "Ask AI"))
         appendAIPlaceholder(title: request.question)
         if let onDocumentQuestionPrompt {
             onDocumentQuestionPrompt(documentQuestionPromptRequest(for: request)) { [weak self] prompt in
                 DispatchQueue.main.async {
                     guard let self else { return }
+                    guard self.editorState.canApplyAIResult(requestID) else { return }
                     if let prompt, !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        self.runAskPrompt(prompt, request: request)
+                        self.runAskPrompt(prompt, request: request, requestID: requestID)
                     } else {
-                        self.runAskFallback(request)
+                        self.runAskFallback(request, requestID: requestID)
                     }
                 }
             }
             return
         }
-        runAskFallback(request)
+        runAskFallback(request, requestID: requestID)
     }
 
     private func documentQuestionPromptRequest(for request: AskRequest) -> DocumentQuestionPromptRequest {
@@ -203,23 +237,25 @@ extension ReadingNotePanelController {
         )
     }
 
-    private func runAskPrompt(_ prompt: String, request: AskRequest) {
+    private func runAskPrompt(_ prompt: String, request: AskRequest, requestID: UUID) {
         aiRunner.runPrompt(prompt, systemPrompt: AIPromptStore.compactSystemPrompt()) { [weak self] result in
-            self?.finishAskQuestion(result, request: request)
+            self?.finishAskQuestion(result, request: request, requestID: requestID)
         }
     }
 
-    private func runAskFallback(_ request: AskRequest) {
+    private func runAskFallback(_ request: AskRequest, requestID: UUID) {
         aiRunner.runQuestion(
             question: request.question,
             selectedText: request.selectedText,
             systemPrompt: AIPromptStore.compactSystemPrompt()
         ) { [weak self] result in
-            self?.finishAskQuestion(result, request: request)
+            self?.finishAskQuestion(result, request: request, requestID: requestID)
         }
     }
 
-    private func finishAskQuestion(_ result: Result<String, Error>, request: AskRequest) {
+    private func finishAskQuestion(_ result: Result<String, Error>, request: AskRequest, requestID: UUID) {
+        guard editorState.canApplyAIResult(requestID) else { return }
+        editorState.finishAIRequest(requestID)
         setRunning(false, title: "")
         switch result {
         case .success(let output):

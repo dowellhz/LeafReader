@@ -339,4 +339,27 @@ enum ReadingNoteLogicTests {
         try expect(serialized.contains("- [x] 完成"), "round-trip should preserve checked task")
         try expect(serialized.contains("**加粗** 和 *斜体* 与 `code`"), "round-trip should preserve inline styles")
     }
+
+    static func testReadingNoteEditorStateRejectsStaleAIResults() throws {
+        let state = ReadingNoteEditorState()
+        let first = state.beginAIRequest()
+        let second = state.beginAIRequest()
+        try expect(!state.canApplyAIResult(first), "starting a newer AI request should stale the older request")
+        try expect(state.canApplyAIResult(second), "latest AI request should be applicable")
+        state.finishAIRequest(second)
+        try expect(!state.canApplyAIResult(second), "finished AI request should no longer be applicable")
+
+        let closing = state.beginAIRequest()
+        state.isClosing = true
+        try expect(!state.canApplyAIResult(closing), "closing note panel should reject pending AI results")
+    }
+
+    static func testReadingNoteAIInsertionModePlaceholderFlag() throws {
+        try expect(ReadingNoteAIInsertionMode.replacePlaceholder(title: "解析").usesPlaceholder, "placeholder insertion should mark placeholder usage")
+        try expect(!ReadingNoteAIInsertionMode.replaceSlashTrigger.usesPlaceholder, "slash insertion should not mark placeholder usage")
+        try expect(
+            !ReadingNoteAIInsertionMode.replaceSelection(NSRange(location: 0, length: 1), renderMarkdown: true).usesPlaceholder,
+            "selection insertion should not mark placeholder usage"
+        )
+    }
 }

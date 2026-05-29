@@ -520,6 +520,8 @@ private let tests: [(String, () throws -> Void)] = [
     ("Reading note markdown input policy", ReadingNoteLogicTests.testReadingNoteMarkdownInputPolicyRendersInlineStyles),
     ("Reading note text replacement policy", ReadingNoteLogicTests.testReadingNoteTextReplacementPolicyRestoresSelection),
     ("Reading note markdown round trip", ReadingNoteLogicTests.testReadingNoteMarkdownRoundTrip),
+    ("Reading note editor state stale AI", ReadingNoteLogicTests.testReadingNoteEditorStateRejectsStaleAIResults),
+    ("Reading note AI insertion mode", ReadingNoteLogicTests.testReadingNoteAIInsertionModePlaceholderFlag),
     ("Reader AI context text cleanup", testReaderAIContextTextCleanup),
     ("Reader AI context policy", testReaderAIContextPolicy),
     ("AI response text formatter", testAIResponseTextFormatter),
