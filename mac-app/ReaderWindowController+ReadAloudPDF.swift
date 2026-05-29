@@ -32,7 +32,7 @@ extension ReaderWindowController {
         }
     }
 
-    func resumePendingPDFReadAloudIfNeeded() {
+    func resumePendingPDFReadAloudIfNeeded(trigger: ReadAloudContinuationTrigger = .automatic) {
         guard currentDocumentKind == .pdf,
               isReadAloudActive,
               !isReadAloudPaused,
@@ -43,9 +43,9 @@ extension ReaderWindowController {
         pendingReadAloudPDFContinuation = nil
         switch continuation {
         case .afterBatch(let lastQueuedPage):
-            continueReadAloudAfterPDFBatch(lastQueuedPage: lastQueuedPage)
+            continueReadAloudAfterPDFBatch(lastQueuedPage: lastQueuedPage, trigger: trigger)
         case .afterCurrentScreen:
-            continueReadAloudAfterCurrentPDFScreen()
+            continueReadAloudAfterCurrentPDFScreen(trigger: trigger)
         case .waitForPage(let expectedPageIndex, let previousPageIndex, let startAtPageTop):
             waitForPDFReadAloudPageChange(
                 expectedPageIndex: expectedPageIndex,
@@ -59,15 +59,14 @@ extension ReaderWindowController {
         }
     }
 
-    private func continueReadAloudAfterPDFBatch(lastQueuedPage: PDFPage) {
+    private func continueReadAloudAfterPDFBatch(
+        lastQueuedPage: PDFPage,
+        trigger: ReadAloudContinuationTrigger = .automatic
+    ) {
         guard isReadAloudActive else { return }
-        if readAloudAdvanceMode == .manual {
+        if deferReadAloudContinuationIfNeeded(trigger: trigger, setPending: {
             pendingReadAloudPDFContinuation = .afterBatch(lastQueuedPage: lastQueuedPage)
-            pauseReadAloudForManualAdvance()
-            return
-        }
-        guard !isReadAloudPaused else {
-            pendingReadAloudPDFContinuation = .afterBatch(lastQueuedPage: lastQueuedPage)
+        }) {
             return
         }
         pendingReadAloudPDFContinuation = nil
@@ -83,15 +82,13 @@ extension ReaderWindowController {
         continueReadAloudFromPDFPageTop(at: lastQueuedIndex + 1, previousPageIndex: nil)
     }
 
-    private func continueReadAloudAfterCurrentPDFScreen() {
+    private func continueReadAloudAfterCurrentPDFScreen(
+        trigger: ReadAloudContinuationTrigger = .automatic
+    ) {
         guard isReadAloudActive else { return }
-        if readAloudAdvanceMode == .manual {
+        if deferReadAloudContinuationIfNeeded(trigger: trigger, setPending: {
             pendingReadAloudPDFContinuation = .afterCurrentScreen
-            pauseReadAloudForManualAdvance()
-            return
-        }
-        guard !isReadAloudPaused else {
-            pendingReadAloudPDFContinuation = .afterCurrentScreen
+        }) {
             return
         }
         pendingReadAloudPDFContinuation = nil

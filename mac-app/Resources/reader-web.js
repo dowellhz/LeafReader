@@ -287,16 +287,7 @@
     return merged;
   };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-      normalizedText,
-      occurrenceIndexInText,
-      leafReaderFindSearchSpans,
-      normalizedIndexForRoot,
-      rangeForNormalizedText,
-      rangeForWordInContext,
-      leafReaderHasCJK,
-      leafReaderSentenceSegments
-    };
+    module.exports = require('./reader-web-text.js');
   }
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   let leafReaderSearchQuery = '';

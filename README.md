@@ -64,6 +64,12 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 
 ### 更新记录
 
+#### 1.7.2
+
+- 改进阅读笔记：支持保存按钮、复制/粘贴快捷键，并修复重新打开后样式和字数统计不同步的问题。
+- 修复朗读手动/自动接续和下一页流程中的状态遗漏，让 PDF/Web 朗读翻页更稳定。
+- 整理阅读笔记、朗读、文档、AI 和 embedding 状态结构，降低后续维护风险。
+
 #### 1.7.1
 
 - 增强离线和未配置模型时的选词体验：本地 ECDICT 查询、朗读、复制和模型设置入口的状态更清晰。
@@ -190,6 +196,12 @@ Regular app releases reuse those files. Regenerated speech archives should only 
 
 ### Changelog
 
+#### 1.7.2
+
+- Improved Reading Notes with a save button, copy/paste shortcuts, and fixes for reopened styling and word-count refresh.
+- Fixed read-aloud continuation edge cases across manual/automatic advance and next-page flows for more reliable PDF/Web playback.
+- Refactored Reading Notes, read-aloud, document, AI, and embedding state boundaries to reduce maintenance risk.
+
 #### 1.7.1
 
 - Improved selection behavior when offline or when no model API key is configured, with clearer local ECDICT, speech, copy, and model-settings states.
@@ -258,6 +270,12 @@ Third-party speech models and runtimes remain copyrighted by their respective pr
 - [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) / Kokoro model: Apache License 2.0.
 - [KittenTTS](https://github.com/KittenML/KittenTTS) and [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs): KittenTTS model under Apache License 2.0; Rust runtime copyright belongs to the `kitten_tts_rs` project contributors.
 - [Piper](https://github.com/rhasspy/piper): MIT License; Piper voice model assets follow the metadata shipped with the upstream model package.
+
+## What's New in 1.7.2
+
+- Improved Reading Notes with a save button, copy/paste shortcuts, and fixes for reopened styling and word-count refresh.
+- Fixed read-aloud continuation edge cases across manual/automatic advance and next-page flows for more reliable PDF/Web playback.
+- Refactored Reading Notes, read-aloud, document, AI, and embedding state boundaries to reduce maintenance risk.
 
 ## What's New in 1.7.1
 

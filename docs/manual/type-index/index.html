@@ -1838,6 +1838,11 @@
 <td><code>enum ReaderAIContextPolicy {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/ReaderAIState.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct ReaderAIState {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/ReaderChromeViews.swift</code></td>
 <td style="text-align: right;">158</td>
 <td><code>final class SideHandleButton</code></td>
@@ -1888,9 +1893,19 @@
 <td><code>enum ReaderDocumentKind {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/ReaderDocumentState.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct ReaderDocumentState {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/ReaderDropContentView.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>final class ReaderDropContentView</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderEmbeddingState.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>struct ReaderEmbeddingState {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/ReaderFileDrop.swift</code></td>
@@ -1911,6 +1926,11 @@
 <td><code>mac-app/ReaderQueryCapability.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>struct ReaderCapabilityState</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderReadAloudState.swift</code></td>
+<td style="text-align: right;">4</td>
+<td><code>struct ReaderReadAloudState {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/ReaderSessionPolicy.swift</code></td>
@@ -1978,6 +1998,11 @@
 <td><code>extension ReaderWindowController {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/ReaderWindowController+AIState.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReaderWindowController {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/ReaderWindowController+ChromeUI.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension ReaderWindowController {</code></td>
@@ -1994,6 +2019,11 @@
 </tr>
 <tr>
 <td><code>mac-app/ReaderWindowController+DocumentShelf.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReaderWindowController {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderWindowController+DocumentState.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension ReaderWindowController {</code></td>
 </tr>
@@ -2024,6 +2054,11 @@
 </tr>
 <tr>
 <td><code>mac-app/ReaderWindowController+EmbeddingQuery.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReaderWindowController {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderWindowController+EmbeddingState.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension ReaderWindowController {</code></td>
 </tr>
@@ -2095,6 +2130,11 @@
 <tr>
 <td><code>mac-app/ReaderWindowController+ReadAloudSoftHint.swift</code></td>
 <td style="text-align: right;">3</td>
+<td><code>extension ReaderWindowController {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReaderWindowController+ReadAloudState.swift</code></td>
+<td style="text-align: right;">4</td>
 <td><code>extension ReaderWindowController {</code></td>
 </tr>
 <tr>
@@ -2348,19 +2388,44 @@
 <td><code>struct ReadingNote</code></td>
 </tr>
 <tr>
+<td><code>mac-app/ReadingNoteAIInsertionMode.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum ReadingNoteAIInsertionMode {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNoteAITextPolicy.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum ReadingNoteAITextPolicy {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNoteEditorState.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>final class ReadingNoteEditorState {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/ReadingNoteEditorViews.swift</code></td>
-<td style="text-align: right;">107</td>
+<td style="text-align: right;">126</td>
+<td><code>final class ReadingNoteAskTextField</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNoteEditorViews.swift</code></td>
+<td style="text-align: right;">151</td>
+<td><code>extension NSText {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNoteEditorViews.swift</code></td>
+<td style="text-align: right;">168</td>
 <td><code>final class ReadingNoteIconButton</code></td>
 </tr>
 <tr>
 <td><code>mac-app/ReadingNoteEditorViews.swift</code></td>
-<td style="text-align: right;">3</td>
+<td style="text-align: right;">29</td>
 <td><code>final class ReadingNoteTextView</code></td>
 </tr>
 <tr>
 <td><code>mac-app/ReadingNoteEditorViews.swift</code></td>
-<td style="text-align: right;">80</td>
-<td><code>final class ReadingNoteAskTextField</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum ReadingNoteEditingShortcut</code></td>
 </tr>
 <tr>
 <td><code>mac-app/ReadingNoteExporter.swift</code></td>
@@ -2383,7 +2448,37 @@
 <td><code>enum ReadingNoteListPresenter {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/ReadingNoteMarkdownInputPolicy.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum ReadingNoteMarkdownInputPolicy {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNoteMarkdownSerializer.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum ReadingNoteMarkdownSerializer {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNotePanelController+AIPlaceholders.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReadingNotePanelController {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNotePanelController+Actions.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReadingNotePanelController {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/ReadingNotePanelController+AskAI.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReadingNotePanelController {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNotePanelController+Build.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReadingNotePanelController {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNotePanelController+Editor.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension ReadingNotePanelController {</code></td>
 </tr>
@@ -2398,13 +2493,18 @@
 <td><code>extension ReadingNotePanelController {</code></td>
 </tr>
 <tr>
+<td><code>mac-app/ReadingNotePanelController+SlashCommands.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>extension ReadingNotePanelController {</code></td>
+</tr>
+<tr>
 <td><code>mac-app/ReadingNotePanelController+Theme.swift</code></td>
 <td style="text-align: right;">3</td>
 <td><code>extension ReadingNotePanelController {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/ReadingNotePanelController.swift</code></td>
-<td style="text-align: right;">4</td>
+<td style="text-align: right;">3</td>
 <td><code>final class ReadingNotePanelController</code></td>
 </tr>
 <tr>
@@ -2421,6 +2521,11 @@
 <td><code>mac-app/ReadingNoteTextPolicy.swift</code></td>
 <td style="text-align: right;">4</td>
 <td><code>enum ReadingNoteTextPolicy {</code></td>
+</tr>
+<tr>
+<td><code>mac-app/ReadingNoteTextReplacementPolicy.swift</code></td>
+<td style="text-align: right;">3</td>
+<td><code>enum ReadingNoteTextReplacementPolicy {</code></td>
 </tr>
 <tr>
 <td><code>mac-app/ReadingNoteTheme.swift</code></td>

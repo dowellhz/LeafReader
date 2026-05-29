@@ -40,6 +40,7 @@ LOGIC_APP_SOURCES=(
   mac-app/ReadingNote.swift
   mac-app/ReadingNoteEditorState.swift
   mac-app/ReadingNoteAIInsertionMode.swift
+  mac-app/ReadingNoteEditorViews.swift
   mac-app/ReadingNoteSlashCommand.swift
   mac-app/ReadingNoteAITextPolicy.swift
   mac-app/ReadingNoteMarkdownInputPolicy.swift
@@ -136,6 +137,7 @@ LOGIC_TEST_SOURCES=(
   tests/LogicTests.swift
 )
 
+node --check mac-app/Resources/reader-web-text.js
 node --check mac-app/Resources/reader-web.js
 node tests/ReaderWebScriptTests.js
 

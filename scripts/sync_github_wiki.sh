@@ -13,6 +13,8 @@ WIKI_PAGES=(
   Feature-Map.md
   Development-Tasks.md
   Document-Loading.md
+  Reading-Notes.md
+  Shortcuts.md
   AI-Chat.md
   AI-Analysis-Cache.md
   Word-Highlights.md
@@ -115,6 +117,8 @@ copy_page "architecture.md" "Architecture.md"
 copy_page "feature-map.md" "Feature-Map.md"
 copy_page "development-tasks.md" "Development-Tasks.md"
 copy_page "document-loading.md" "Document-Loading.md"
+copy_page "reading-notes.md" "Reading-Notes.md"
+copy_page "shortcuts.md" "Shortcuts.md"
 copy_page "ai-chat.md" "AI-Chat.md"
 copy_page "ai-analysis-cache.md" "AI-Analysis-Cache.md"
 copy_page "word-highlights.md" "Word-Highlights.md"
@@ -158,6 +162,8 @@ This wiki explains the codebase structure and stable engineering workflows for L
 - [Feature Map](Feature-Map)
 - [Development Tasks](Development-Tasks)
 - [Document Loading](Document-Loading)
+- [Reading Notes](Reading-Notes)
+- [Shortcuts](Shortcuts)
 - [AI Chat](AI-Chat)
 - [AI Analysis Cache](AI-Analysis-Cache)
 - [Word Highlights](Word-Highlights)
@@ -191,6 +197,8 @@ cat > "$WIKI_WORKTREE/_Sidebar.md" <<'EOF'
 - [Feature Map](Feature-Map)
 - [Development Tasks](Development-Tasks)
 - [Document Loading](Document-Loading)
+- [Reading Notes](Reading-Notes)
+- [Shortcuts](Shortcuts)
 - [AI Chat](AI-Chat)
 - [AI Analysis Cache](AI-Analysis-Cache)
 - [Word Highlights](Word-Highlights)

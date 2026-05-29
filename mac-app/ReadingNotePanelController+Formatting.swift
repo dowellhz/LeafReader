@@ -8,8 +8,7 @@ extension ReadingNotePanelController {
             return
         }
         textView.undoManager?.undo()
-        save()
-        updateWordCount()
+        commitEditorChange()
     }
 
     @objc func redoTapped(_ sender: NSButton) {
@@ -18,8 +17,7 @@ extension ReadingNotePanelController {
             return
         }
         textView.undoManager?.redo()
-        save()
-        updateWordCount()
+        commitEditorChange()
     }
 
     @objc func boldTapped(_ sender: NSButton) {
@@ -85,8 +83,7 @@ extension ReadingNotePanelController {
         textView.typingAttributes = attributes
         textView.didChangeText()
         textView.setSelectedRange(boundedSelectionRange(location: lineRange.location, length: 0))
-        save()
-        updateWordCount()
+        commitEditorChange()
     }
 
     func resetMarkdownTypingAttributes() {
@@ -135,8 +132,7 @@ extension ReadingNotePanelController {
         textView.textStorage?.replaceCharacters(in: range, with: value)
         textView.didChangeText()
         restoreSelection(afterReplacing: range, replacementLength: (value as NSString).length, selection: selection)
-        save()
-        updateWordCount()
+        commitEditorChange()
     }
 
     func replaceText(
@@ -148,8 +144,7 @@ extension ReadingNotePanelController {
         textView.textStorage?.replaceCharacters(in: range, with: value)
         textView.didChangeText()
         restoreSelection(afterReplacing: range, replacementLength: value.length, selection: selection)
-        save()
-        updateWordCount()
+        commitEditorChange()
     }
 
     private func restoreSelection(

@@ -116,12 +116,28 @@ extension ReaderWindowController {
         guard isReadAloudActive, !isReadAloudLoading else { return }
         isReadAloudPaused = false
         updateReadAloudButton()
+        if resumePendingReadAloudFromFloatingAdvanceIfNeeded() {
+            return
+        }
         if !SpeechPlaybackCoordinator.shared.hasActiveReadAloudWork() {
-            resumePendingPDFReadAloudIfNeeded()
-            resumePendingWebReadAloudIfNeeded()
+            resumePendingReadAloudIfNeeded(trigger: .userAdvance)
             return
         }
         SpeechPlaybackCoordinator.shared.advanceToNextSegment()
+    }
+
+    private func resumePendingReadAloudFromFloatingAdvanceIfNeeded() -> Bool {
+        if currentDocumentKind == .pdf, pendingReadAloudPDFContinuation != nil {
+            SpeechPlaybackCoordinator.shared.stopSpeaking()
+            resumePendingPDFReadAloudIfNeeded(trigger: .userAdvance)
+            return true
+        }
+        if currentDocumentKind != .pdf, pendingReadAloudWebContinuation {
+            SpeechPlaybackCoordinator.shared.stopSpeaking()
+            resumePendingWebReadAloudIfNeeded(trigger: .userAdvance)
+            return true
+        }
+        return false
     }
 
     @objc func previousReadAloudFromFloatingControl() {
@@ -150,8 +166,7 @@ extension ReaderWindowController {
         SpeechPlaybackCoordinator.shared.setManualAdvanceEnabled(readAloudAdvanceMode == .manual)
         if readAloudAdvanceMode == .automatic, isReadAloudPaused {
             isReadAloudPaused = false
-            resumePendingPDFReadAloudIfNeeded()
-            resumePendingWebReadAloudIfNeeded()
+            resumePendingReadAloudIfNeeded()
         }
         updateReadAloudButton()
         updateReadAloudFloatingControl()

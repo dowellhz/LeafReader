@@ -5,7 +5,7 @@ extension ReadingNotePanelController {
         let suffix = markdownFromEditor().hasSuffix("\n") ? "" : "\n"
         renderMarkdownIntoEditor(markdownFromEditor() + "\(suffix)\n### \(title)\n\n\(body)\n")
         textView.scrollToEndOfDocument(nil)
-        save()
+        commitEditorChange()
     }
 
     func appendAIPlaceholder(title: String) {
@@ -21,6 +21,7 @@ extension ReadingNotePanelController {
         textView.textStorage?.setAttributedString(rendered)
         editorState.aiPlaceholderDisplayText = "\(title)\n\n\u{fffc}\(placeholderText)"
         textView.scrollToEndOfDocument(nil)
+        refreshEditorDerivedState()
     }
 
     func replaceAIPlaceholder(title: String, body: String) {

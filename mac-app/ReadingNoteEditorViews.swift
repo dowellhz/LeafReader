@@ -46,49 +46,61 @@ final class ReadingNoteTextView: NSTextView {
         guard let shortcut = ReadingNoteEditingShortcut.shortcut(for: event) else {
             return super.performKeyEquivalent(with: event)
         }
+        performEditingShortcut(shortcut, event: event)
+        return true
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if let shortcut = ReadingNoteEditingShortcut.shortcut(for: event) {
+            performEditingShortcut(shortcut, event: event)
+            return
+        }
+        let shouldOpenSlashMenu = isPlainSlashEvent(event)
+        let shouldCommitMarkdownLine = isPlainReturnEvent(event)
+        super.keyDown(with: event)
+        if shouldOpenSlashMenu, cursorIsAfterSlash() {
+            DispatchQueue.main.async { [weak self] in
+                self?.onSlashCommand?()
+            }
+        } else if shouldCommitMarkdownLine {
+            DispatchQueue.main.async { [weak self] in
+                self?.onCommitMarkdownLine?()
+            }
+        }
+    }
+
+    private func performEditingShortcut(_ shortcut: ReadingNoteEditingShortcut, event: NSEvent) {
         switch shortcut {
         case .selectAll:
             selectAll(nil)
-            return true
         case .copy:
             copy(nil)
-            return true
         case .cut:
             cut(nil)
-            return true
         case .paste:
             paste(nil)
-            return true
         case .undo:
             if event.modifierFlags.contains(.shift) {
                 undoManager?.redo()
             } else {
                 undoManager?.undo()
             }
-            return true
         }
+    }
+
+    private func isPlainSlashEvent(_ event: NSEvent) -> Bool {
+        event.modifierFlags.intersection([.command, .control, .option]).isEmpty
+            && event.charactersIgnoringModifiers == "/"
+    }
+
+    private func isPlainReturnEvent(_ event: NSEvent) -> Bool {
+        event.modifierFlags.intersection([.command, .control, .option]).isEmpty
+            && (event.keyCode == 36 || event.keyCode == 76)
     }
 
     override func setSelectedRange(_ charRange: NSRange) {
         super.setSelectedRange(charRange)
         onSelectionChanged?()
-    }
-
-    override func keyDown(with event: NSEvent) {
-        let isPlainSlash = event.modifierFlags.intersection([.command, .control, .option]).isEmpty
-            && event.charactersIgnoringModifiers == "/"
-        let isPlainReturn = event.modifierFlags.intersection([.command, .control, .option]).isEmpty
-            && (event.keyCode == 36 || event.keyCode == 76)
-        super.keyDown(with: event)
-        if isPlainSlash, cursorIsAfterSlash() {
-            DispatchQueue.main.async { [weak self] in
-                self?.onSlashCommand?()
-            }
-        } else if isPlainReturn {
-            DispatchQueue.main.async { [weak self] in
-                self?.onCommitMarkdownLine?()
-            }
-        }
     }
 
     override func paste(_ sender: Any?) {

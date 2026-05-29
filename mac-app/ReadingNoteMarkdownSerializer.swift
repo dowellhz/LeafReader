@@ -21,14 +21,8 @@ enum ReadingNoteMarkdownSerializer {
         let rawLine = attributed.string.trimmingCharacters(in: .newlines)
         let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return "" }
-        if trimmed.hasPrefix("• ") {
-            return "- " + String(trimmed.dropFirst(2))
-        }
-        if trimmed.hasPrefix("☐ ") {
-            return "- [ ] " + String(trimmed.dropFirst(2))
-        }
-        if trimmed.hasPrefix("☑ ") {
-            return "- [x] " + String(trimmed.dropFirst(2))
+        if let markdown = displayedListMarkdownLine(from: attributed, rawLine: rawLine) {
+            return markdown
         }
         if let blockRaw = attributed.attribute(.leafMarkdownBlock, at: 0, effectiveRange: nil) as? String,
            let block = MarkdownRenderer.Block(rawValue: blockRaw) {
@@ -39,7 +33,13 @@ enum ReadingNoteMarkdownSerializer {
             case .heading4: return "#### " + trimmed
             case .heading5: return "##### " + trimmed
             case .heading6: return "###### " + trimmed
-            case .numberedList: return "1. " + trimmed.replacingOccurrences(of: #"^\d+\.\s+"#, with: "", options: .regularExpression)
+            case .numberedList:
+                return numberedMarkdownLine(from: attributed, rawLine: rawLine)
+                    ?? "1. " + trimmed.replacingOccurrences(
+                        of: #"^\d+\.\s+"#,
+                        with: "",
+                        options: .regularExpression
+                    )
             case .bullet, .checklist, .paragraph:
                 break
             }
@@ -55,6 +55,58 @@ enum ReadingNoteMarkdownSerializer {
             }
         }
         return inlineMarkdown(from: attributed, range: fullRange)
+    }
+
+    private static func displayedListMarkdownLine(from attributed: NSAttributedString, rawLine: String) -> String? {
+        let prefixes = [
+            (display: "• ", markdown: "- "),
+            (display: "☐ ", markdown: "- [ ] "),
+            (display: "☑ ", markdown: "- [x] ")
+        ]
+        for prefix in prefixes {
+            if let markdown = prefixedMarkdownLine(
+                from: attributed,
+                rawLine: rawLine,
+                displayPrefix: prefix.display,
+                markdownPrefix: prefix.markdown
+            ) {
+                return markdown
+            }
+        }
+        return nil
+    }
+
+    private static func prefixedMarkdownLine(
+        from attributed: NSAttributedString,
+        rawLine: String,
+        displayPrefix: String,
+        markdownPrefix: String
+    ) -> String? {
+        let nsLine = rawLine as NSString
+        let leadingWhitespace = rawLine.prefix { $0 == " " || $0 == "\t" }.count
+        let displayRange = NSRange(location: leadingWhitespace, length: (displayPrefix as NSString).length)
+        guard displayRange.location + displayRange.length <= nsLine.length,
+              nsLine.substring(with: displayRange) == displayPrefix else {
+            return nil
+        }
+        let contentLocation = displayRange.location + displayRange.length
+        let contentRange = NSRange(location: contentLocation, length: max(0, attributed.length - contentLocation))
+        let content = inlineMarkdown(from: attributed, range: contentRange)
+        return markdownPrefix + content
+    }
+
+    private static func numberedMarkdownLine(from attributed: NSAttributedString, rawLine: String) -> String? {
+        let nsLine = rawLine as NSString
+        guard let match = try? NSRegularExpression(pattern: #"^\s*\d+\.\s+"#).firstMatch(
+            in: rawLine,
+            range: NSRange(location: 0, length: nsLine.length)
+        ) else {
+            return nil
+        }
+        let contentLocation = match.range.location + match.range.length
+        let contentRange = NSRange(location: contentLocation, length: max(0, attributed.length - contentLocation))
+        let content = inlineMarkdown(from: attributed, range: contentRange)
+        return "1. " + content
     }
 
     private static func imageMarkdownLine(from attributed: NSAttributedString) -> String? {

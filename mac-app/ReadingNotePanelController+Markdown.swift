@@ -13,6 +13,7 @@ extension ReadingNotePanelController {
             .foregroundColor: ReadingNoteTheme.primaryText(ReaderTheme.selected),
             .leafMarkdownBlock: MarkdownRenderer.Block.paragraph.rawValue
         ]
+        refreshEditorDerivedState()
     }
 
     func renderPastedMarkdownIfNeeded(in insertedRange: NSRange) {
@@ -36,8 +37,6 @@ extension ReadingNotePanelController {
             with: rendered,
             selection: .adjustedOriginal(textView.selectedRange())
         )
-        save()
-        updateWordCount()
     }
 
     func markdownFromEditor() -> String {

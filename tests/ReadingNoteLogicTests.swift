@@ -293,6 +293,24 @@ enum ReadingNoteLogicTests {
         )
     }
 
+    static func testReadingNoteEditingShortcutsAcceptControlCopyPaste() throws {
+        try expectEqual(
+            ReadingNoteEditingShortcut.shortcut(for: keyEvent(key: "c", modifiers: [.control])),
+            .copy,
+            "Control-C should copy in reading note editor"
+        )
+        try expectEqual(
+            ReadingNoteEditingShortcut.shortcut(for: keyEvent(key: "v", modifiers: [.control])),
+            .paste,
+            "Control-V should paste in reading note editor"
+        )
+        try expectEqual(
+            ReadingNoteEditingShortcut.shortcut(for: keyEvent(key: "c", modifiers: [.command])),
+            .copy,
+            "Command-C should still copy in reading note editor"
+        )
+    }
+
     static func testReadingNoteTextReplacementPolicyRestoresSelection() throws {
         try expectEqual(
             ReadingNoteTextReplacementPolicy.selectionRange(
@@ -340,6 +358,21 @@ enum ReadingNoteLogicTests {
         try expect(serialized.contains("**加粗** 和 *斜体* 与 `code`"), "round-trip should preserve inline styles")
     }
 
+    static func testReadingNoteMarkdownRoundTripPreservesInlineStylesInLists() throws {
+        let markdown = """
+        - **Fremen**: 沙漠原住民
+        - *Landstraad*: 各大家族议会
+        1. **CHOAM**: 星际贸易组织
+        - [ ] **Atreides**: 主角家族
+        """
+        let rendered = MarkdownRenderer.render(markdown, textColor: .black)
+        let serialized = ReadingNoteMarkdownSerializer.markdown(from: rendered)
+        try expect(serialized.contains("- **Fremen**: 沙漠原住民"), "bullet line should preserve inline bold")
+        try expect(serialized.contains("- *Landstraad*: 各大家族议会"), "bullet line should preserve inline italic")
+        try expect(serialized.contains("1. **CHOAM**: 星际贸易组织"), "numbered line should preserve inline bold")
+        try expect(serialized.contains("- [ ] **Atreides**: 主角家族"), "checklist line should preserve inline bold")
+    }
+
     static func testReadingNoteEditorStateRejectsStaleAIResults() throws {
         let state = ReadingNoteEditorState()
         let first = state.beginAIRequest()
@@ -361,5 +394,20 @@ enum ReadingNoteLogicTests {
             !ReadingNoteAIInsertionMode.replaceSelection(NSRange(location: 0, length: 1), renderMarkdown: true).usesPlaceholder,
             "selection insertion should not mark placeholder usage"
         )
+    }
+
+    private static func keyEvent(key: String, modifiers: NSEvent.ModifierFlags) -> NSEvent {
+        NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: modifiers,
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: key,
+            charactersIgnoringModifiers: key,
+            isARepeat: false,
+            keyCode: 0
+        )!
     }
 }

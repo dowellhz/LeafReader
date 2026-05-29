@@ -15,9 +15,7 @@ extension ReadingNotePanelController {
         editorContainer.layer?.borderWidth = 1
         editorContainer.layer?.borderColor = ReadingNoteTheme.panelBorder(theme).cgColor
         textView.backgroundColor = ReadingNoteTheme.editorBackground(theme)
-        textView.textColor = text
         textView.insertionPointColor = text
-        textView.font = NSFont.systemFont(ofSize: 15)
         titleIconView.contentTintColor = text
         applyTextColor(text, in: rootView)
         applyControlTint(text, in: rootView)

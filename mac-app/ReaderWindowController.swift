@@ -35,6 +35,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         case waitForPage(expectedPageIndex: Int?, previousPageIndex: Int?, startAtPageTop: Bool)
     }
 
+    enum ReadAloudContinuationTrigger: Equatable {
+        case automatic
+        case userAdvance
+    }
+
     static let preferredAIWidthDefaultsKey = "preferredAIWidth"
     static let pdfTwoPageModeDefaultsKey = "pdfTwoPageMode"
     static let pdfMarginCropDefaultsKey = "pdfMarginCrop"
@@ -88,59 +93,17 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     weak var toolbarView: NSView?
     weak var bottomBarView: NSView?
     weak var zoomGroupView: NSView?
-    var currentFileURL: URL?
-    var lastSavedSessionBookmarkURL: URL?
-    var currentFileMD5: String?
-    var sessionStore = ReaderSessionStore(fileMD5: nil)
-    var currentDocumentKind: ReaderDocumentKind = .pdf
-    var documentLoadGeneration = 0
-    var currentWebPlainText = ""
-    var webPlainTextGeneration = 0
-    var currentWebSelectedText = ""
-    var currentWebSelectionContext = ""
-    var currentWebSelectionOccurrenceIndex: Int?
-    var currentWebSelectionRect: NSRect?
-    var pendingWebProgressRestore: (generation: Int, progress: Double, zoomPercent: Int?)?
-    var currentDocumentDiagnostics: [String] = []
-    var currentTOCItems: [ReaderTOCItem] = []
-    var pdfTOCDestinations: [String: ReaderTOCHelper.PDFTOCDestination] = [:]
-    var pdfTOCGeneration = 0
-    var webZoomPercent = 100
-    var webScrollProgress: Double = 0
-    var originalPDFCropBoxes: [Int: CGRect] = [:]
-    var lastWebProgressSave = Date.distantPast
+    var documentState = ReaderDocumentState()
     var accumulatedPDFTrackpadScroll: CGFloat = 0
     var lastPDFTrackpadPageTurn = Date.distantPast
     var didTurnPageForCurrentPDFTrackpadGesture = false
     var lastPDFTrackpadEdgeDirection: EdgePagingPDFView.ScrollPageDirection?
-    var lastPageIndex: Int?
     var searchResults: [PDFSelection] = []
     var searchResultIndex = 0
     var lastSearchQuery = ""
-    var pdfAgentIndex: PDFDocumentAgentIndex?
-    var isBuildingDocumentAgentIndex = false
-    var documentAgentIndexGeneration = 0
-    var pendingDocumentAgentIndexCallbacks: [() -> Void] = []
-    lazy var pdfEmbeddingStore = PDFEmbeddingStore()
-    let embeddingStoreQueue = DispatchQueue(label: "com.linlu.leafreader.embedding-store", qos: .utility)
-    let embeddingClient = EmbeddingClient()
-    let retrievalQueryClient = AIClient()
-    var isPreparingPDFEmbeddings = false
-    var isEmbeddingBackfillPaused = false
-    var embeddingBackfillNeedsRetry = false
-    var queuedEmbeddingPriorityPageIndex: Int?
-    var pendingEmbeddingReadyCallbacks: [() -> Void] = []
-    var embeddingBackfillGeneration = 0
-    var scheduledEmbeddingCacheRestoreWorkItem: DispatchWorkItem?
-    var scheduledEmbeddingWarmupWorkItem: DispatchWorkItem?
-    var lastReaderInteractionAt = Date()
+    var embeddingState = ReaderEmbeddingState()
+    var aiState = ReaderAIState()
     let sessionSaveTask = DebouncedTask(delay: ReaderSessionPolicy.lastPositionSaveDelay)
-    var suppressSearchSelectionForAIUntil = Date.distantPast
-    var highlightedSelectionKeys = Set<String>()
-    var aiSourceUnderlineKeys = Set<String>()
-    var aiSourceLocationsByUnderlineKey: [String: AIConversationSourceLocation] = [:]
-    var webAISourceLocationsByKey: [String: AIConversationSourceLocation] = [:]
-    var activeAISourceUnderlines: [AIConversationSourceLocation] = []
     var storedWordRecords: [StoredPDFWordRecord] = []
     var pendingPDFWordRecords: [String: PendingPDFWordRecord] = [:]
     var pdfWordRecordStore: PDFWordRecordStore?
@@ -151,49 +114,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var readingNotePanelControllers: [String: ReadingNotePanelController] = [:]
     let pdfWordRecordsSaveTask = DebouncedTask(delay: 0.8)
     let webWordRecordsSaveTask = DebouncedTask(delay: 0.8)
-    var aiConversationStore: AIConversationStore?
-    var loadedAIConversation: SavedAIConversation?
-    var pendingAIConversationToSave: SavedAIConversation?
-    var documentPromptGeneration = 0
-    var retrievalQueryTask: URLSessionDataTask?
-    let aiConversationSaveTask = DebouncedTask(delay: 1.0)
-    let preferredAIWidthSaveTask = DebouncedTask(delay: 0.4)
-    let windowResizeLayoutTask = DebouncedTask(delay: 0.08)
-    let aiPanelResizeLayoutTask = DebouncedTask(delay: 0.05)
-    var pendingAIPanelExpansionAction: (() -> Void)?
-    var pendingAISourceClickWorkItem: DispatchWorkItem?
-    var readAloudOriginalTitle: String?
-    var readAloudOriginalToolTip: String?
-    var temporaryReadAloudUnderlineAnnotations: [(page: PDFPage, annotation: PDFAnnotation)] = []
-    var readAloudPDFPages: [PDFPage] = []
-    var readAloudPDFPageTextCache: [Int: String] = [:]
-    var readAloudPDFCandidatePageIndex = 0
-    var readAloudPDFSearchLocation = 0
-    var readAloudPageLockedAtTopIndex: Int?
-    var lastReadAloudProgressPageIndex: Int?
-    var lastReadAloudAISource: AIConversationSourceLocation?
-    var lastReadAloudLinkedWordID: String?
-    var readAloudSoftHintView: ReadAloudSoftHintView?
-    var readAloudSoftHintDismissWorkItem: DispatchWorkItem?
-    var lastReadAloudSoftHintKey: String?
-    var readAloudSoftHintCenterXConstraint: NSLayoutConstraint?
-    var readAloudFloatingControlView: ReadAloudFloatingControlView?
-    var readAloudFloatingControlWindow: NSWindow?
-    var pendingReadAloudPDFContinuation: PendingReadAloudPDFContinuation?
-    var pendingReadAloudWebContinuation = false
-    var readAloudSpeechLanguageHint: AISettingsStore.SpeechLanguageHint?
-    var readAloudAdvanceMode = ReadAloudAdvanceMode.load()
-    var isReadAloudActive = false
-    var isReadAloudPaused = false
-    var isReadAloudLoading = false
-    var canReadAloudGoPrevious = false
+    var readAloudState = ReaderReadAloudState()
     var currentVocabularyExportRecords: [VocabularyExportRecord] = []
     var didRegisterSelectionObserver = false
-    var isRestoringSession = false
     var isEditingZoomField = false
     var isEditingPageField = false
-    var isAIPanelCollapsed = true
-    var preferredAIWidth: CGFloat = ReaderWindowController.loadPreferredAIWidth()
     var aiSettingsPanelController: AISettingsPanelController?
     var recentDocumentsPanelController: RecentDocumentsPanelController?
     var readingNotesPanelController: ReadingNotesPanelController?

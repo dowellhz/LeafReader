@@ -42,8 +42,7 @@ extension ReaderWindowController {
         SpeechPlaybackCoordinator.shared.resumeSpeaking()
         vocabularySpeechSynthesizer.continueSpeaking()
         updateReadAloudButton()
-        resumePendingPDFReadAloudIfNeeded()
-        resumePendingWebReadAloudIfNeeded()
+        resumePendingReadAloudIfNeeded(trigger: .userAdvance)
     }
 
     func stopReadAloudImmediately() {
@@ -140,6 +139,31 @@ extension ReaderWindowController {
         readAloudButton.needsDisplay = true
         readAloudButton.displayIfNeeded()
         updateReadAloudFloatingControl()
+    }
+
+    func resumePendingReadAloudIfNeeded(trigger: ReadAloudContinuationTrigger = .automatic) {
+        resumePendingPDFReadAloudIfNeeded(trigger: trigger)
+        resumePendingWebReadAloudIfNeeded(trigger: trigger)
+    }
+
+    func shouldPauseBeforeReadAloudContinuation(trigger: ReadAloudContinuationTrigger) -> Bool {
+        readAloudAdvanceMode == .manual && trigger == .automatic
+    }
+
+    func deferReadAloudContinuationIfNeeded(
+        trigger: ReadAloudContinuationTrigger,
+        setPending: () -> Void
+    ) -> Bool {
+        if shouldPauseBeforeReadAloudContinuation(trigger: trigger) {
+            setPending()
+            pauseReadAloudForManualAdvance()
+            return true
+        }
+        guard !isReadAloudPaused else {
+            setPending()
+            return true
+        }
+        return false
     }
 
 }

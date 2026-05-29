@@ -51,19 +51,18 @@ extension ReaderWindowController {
         }
     }
 
-    private func continueWebReadAloudAfterBatch(hasMore: Bool) {
+    private func continueWebReadAloudAfterBatch(
+        hasMore: Bool,
+        trigger: ReadAloudContinuationTrigger = .automatic
+    ) {
         guard isReadAloudActive else { return }
         guard hasMore else {
             finishReadAloudFromToolbar()
             return
         }
-        if readAloudAdvanceMode == .manual {
+        if deferReadAloudContinuationIfNeeded(trigger: trigger, setPending: {
             pendingReadAloudWebContinuation = true
-            pauseReadAloudForManualAdvance()
-            return
-        }
-        guard !isReadAloudPaused else {
-            pendingReadAloudWebContinuation = true
+        }) {
             return
         }
         pendingReadAloudWebContinuation = false
@@ -85,7 +84,7 @@ extension ReaderWindowController {
         }
     }
 
-    func resumePendingWebReadAloudIfNeeded() {
+    func resumePendingWebReadAloudIfNeeded(trigger: ReadAloudContinuationTrigger = .automatic) {
         guard currentDocumentKind != .pdf,
               isReadAloudActive,
               !isReadAloudPaused,
@@ -94,7 +93,7 @@ extension ReaderWindowController {
             return
         }
         pendingReadAloudWebContinuation = false
-        continueWebReadAloudAfterBatch(hasMore: true)
+        continueWebReadAloudAfterBatch(hasMore: true, trigger: trigger)
     }
 
     func skipReadAloudToNextWebPage() {

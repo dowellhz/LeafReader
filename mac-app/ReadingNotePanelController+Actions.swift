@@ -7,6 +7,22 @@ extension ReadingNotePanelController {
         onSave(note)
     }
 
+    func commitEditorChange() {
+        save()
+        refreshEditorDerivedState()
+    }
+
+    func refreshEditorDerivedState() {
+        updateWordCount()
+        refreshAIToolbar()
+    }
+
+    @objc func saveTapped(_ sender: NSButton) {
+        editorState.cancelAutoSave()
+        save()
+        statusLabel.stringValue = AppText.localized("已保存", "Saved")
+    }
+
     func updateWordCount() {
         let count = textView.string.trimmingCharacters(in: .whitespacesAndNewlines).count
         wordCountLabel.stringValue = AppText.localized("\(count) 字", "\(count) chars")
