@@ -30,6 +30,7 @@ final class ReadingNoteTextView: NSTextView {
     var onSelectionChanged: (() -> Void)?
     var onSlashCommand: (() -> Void)?
     var onCommitMarkdownLine: (() -> Void)?
+    var onMarkdownPaste: ((NSRange) -> Void)?
 
     override func menu(for event: NSEvent) -> NSMenu? {
         nil
@@ -87,6 +88,18 @@ final class ReadingNoteTextView: NSTextView {
             DispatchQueue.main.async { [weak self] in
                 self?.onCommitMarkdownLine?()
             }
+        }
+    }
+
+    override func paste(_ sender: Any?) {
+        let pastedText = NSPasteboard.general.string(forType: .string) ?? ""
+        let originalSelection = selectedRange()
+        super.paste(sender)
+        guard ReadingNoteMarkdownInputPolicy.shouldRenderPastedText(pastedText) else { return }
+        let insertedLength = max(0, selectedRange().location - originalSelection.location)
+        let insertedRange = NSRange(location: originalSelection.location, length: insertedLength)
+        DispatchQueue.main.async { [weak self] in
+            self?.onMarkdownPaste?(insertedRange)
         }
     }
 

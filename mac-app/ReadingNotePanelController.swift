@@ -37,10 +37,8 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
     var aiActionButtons: [NSButton] {
         [explainButton, translateButton, summarizeButton, polishButton, askButton]
     }
-    var pendingAskSelectedText = ""
-    var aiPlaceholderDisplayText: String?
+    let editorState = ReadingNoteEditorState()
     private weak var scrollView: NSScrollView?
-    var askInputKeyMonitor: Any?
     var isAskInputVisible: Bool {
         !askInputContainer.isHidden
     }
@@ -51,8 +49,6 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
     private let onExportNote: (ReadingNote) -> Void
     private let onDeleteNote: (ReadingNote) -> Void
     let onDocumentQuestionPrompt: DocumentQuestionPromptHandler?
-    private var savesOnClose = true
-    private var autoSaveWorkItem: DispatchWorkItem?
 
     init(
         note: ReadingNote,
@@ -101,7 +97,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
     }
 
     deinit {
-        if let askInputKeyMonitor {
+        if let askInputKeyMonitor = editorState.askInputKeyMonitor {
             NSEvent.removeMonitor(askInputKeyMonitor)
         }
         NotificationCenter.default.removeObserver(self)
@@ -124,9 +120,8 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         if let window {
             window.parent?.removeChildWindow(window)
         }
-        autoSaveWorkItem?.cancel()
-        autoSaveWorkItem = nil
-        if savesOnClose {
+        editorState.cancelAutoSave()
+        if editorState.savesOnClose {
             save()
         }
         onClose(note.id)
@@ -145,9 +140,8 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
     }
 
     func closeWithoutSaving() {
-        autoSaveWorkItem?.cancel()
-        autoSaveWorkItem = nil
-        savesOnClose = false
+        editorState.cancelAutoSave()
+        editorState.savesOnClose = false
         close()
     }
 
@@ -203,6 +197,9 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         }
         textView.onCommitMarkdownLine = { [weak self] in
             self?.renderCompletedMarkdownLineBeforeCursor()
+        }
+        textView.onMarkdownPaste = { [weak self] insertedRange in
+            self?.renderPastedMarkdownIfNeeded(in: insertedRange)
         }
         textView.minSize = NSSize(width: 0, height: 0)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
@@ -497,11 +494,11 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
     }
 
     private func scheduleAutoSave() {
-        autoSaveWorkItem?.cancel()
+        editorState.cancelAutoSave()
         let workItem = DispatchWorkItem { [weak self] in
             self?.save()
         }
-        autoSaveWorkItem = workItem
+        editorState.autoSaveWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: workItem)
     }
 
@@ -520,7 +517,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
 
     private func closeAfterExplicitSave() {
         save()
-        savesOnClose = false
+        editorState.savesOnClose = false
         close()
     }
 

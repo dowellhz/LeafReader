@@ -19,7 +19,7 @@ extension ReadingNotePanelController {
         rendered.append(aiPlaceholderAttributedString(text: placeholderText))
         rendered.append(NSAttributedString(string: "\n"))
         textView.textStorage?.setAttributedString(rendered)
-        aiPlaceholderDisplayText = "\(title)\n\n\u{fffc}\(placeholderText)"
+        editorState.aiPlaceholderDisplayText = "\(title)\n\n\u{fffc}\(placeholderText)"
         textView.scrollToEndOfDocument(nil)
     }
 
@@ -35,20 +35,20 @@ extension ReadingNotePanelController {
         }
         replaceText(in: range, with: replacement)
         textView.scrollToEndOfDocument(nil)
-        aiPlaceholderDisplayText = nil
+        editorState.aiPlaceholderDisplayText = nil
     }
 
     func removeAIPlaceholder() {
         guard let range = aiPlaceholderRange() else {
-            aiPlaceholderDisplayText = nil
+            editorState.aiPlaceholderDisplayText = nil
             return
         }
         replaceText(in: expandedPlaceholderRemovalRange(range), with: "")
-        aiPlaceholderDisplayText = nil
+        editorState.aiPlaceholderDisplayText = nil
     }
 
     private func aiPlaceholderRange() -> NSRange? {
-        guard let display = aiPlaceholderDisplayText else { return nil }
+        guard let display = editorState.aiPlaceholderDisplayText else { return nil }
         let range = (textView.string as NSString).range(of: display)
         return range.location == NSNotFound ? nil : range
     }

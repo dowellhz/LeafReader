@@ -2,7 +2,7 @@ import Cocoa
 
 extension ReadingNotePanelController {
     func installAskInputKeyMonitor() {
-        askInputKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        editorState.askInputKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.handleAskInputKeyDown(event) ?? event
         }
     }
@@ -57,7 +57,7 @@ extension ReadingNotePanelController {
             NSSound.beep()
             return
         }
-        pendingAskSelectedText = selected
+        editorState.pendingAskSelectedText = selected
         askInputField.stringValue = ""
         aiToolbarContainer.isHidden = true
         positionAskInputNearSelection()
@@ -155,7 +155,7 @@ extension ReadingNotePanelController {
             NSSound.beep()
             return nil
         }
-        let selected = pendingAskSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let selected = editorState.pendingAskSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !selected.isEmpty else {
             statusLabel.stringValue = AppText.localized("请先选中笔记中的文字", "Select text in the note first")
             NSSound.beep()
@@ -226,7 +226,7 @@ extension ReadingNotePanelController {
             let value = output.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !value.isEmpty else { return }
             replaceAIPlaceholder(title: request.question, body: value)
-            pendingAskSelectedText = ""
+            editorState.pendingAskSelectedText = ""
         case .failure(let error):
             removeAIPlaceholder()
             statusLabel.stringValue = userFacingError(error)

@@ -1,3 +1,4 @@
+import Cocoa
 import Foundation
 
 enum ReadingNoteLogicTests {
@@ -251,5 +252,91 @@ enum ReadingNoteLogicTests {
             "AI context should include truncated note markdown"
         )
         try expect(!context.contains(String(repeating: "a", count: ReadingNoteAITextPolicy.noteContextLimit + 1)), "AI context should clamp note markdown")
+    }
+
+    static func testReadingNoteMarkdownInputPolicyRendersInlineStyles() throws {
+        try expect(
+            ReadingNoteMarkdownInputPolicy.shouldRenderCompletedLine("**加粗**文字"),
+            "completed note line should render bold markdown"
+        )
+        try expect(
+            ReadingNoteMarkdownInputPolicy.shouldRenderCompletedLine("这是 __加粗__ 文字"),
+            "completed note line should render underscore bold markdown"
+        )
+        try expect(
+            ReadingNoteMarkdownInputPolicy.shouldRenderCompletedLine("*斜体*文字"),
+            "completed note line should render italic markdown"
+        )
+        try expect(
+            ReadingNoteMarkdownInputPolicy.shouldRenderCompletedLine("使用 `code`"),
+            "completed note line should render inline code markdown"
+        )
+        try expect(
+            ReadingNoteMarkdownInputPolicy.shouldRenderCompletedLine("* 列表"),
+            "completed note line should still render star bullet markdown"
+        )
+        try expect(
+            !ReadingNoteMarkdownInputPolicy.shouldRenderCompletedLine("普通文字"),
+            "plain note line should not be re-rendered"
+        )
+        try expect(
+            !ReadingNoteMarkdownInputPolicy.shouldRenderCompletedLine("2 * 3 = 6"),
+            "plain arithmetic star should not trigger markdown rendering"
+        )
+        try expect(
+            ReadingNoteMarkdownInputPolicy.shouldRenderPastedText("第一行\n**加粗**"),
+            "pasted multiline markdown should trigger rendering"
+        )
+        try expect(
+            !ReadingNoteMarkdownInputPolicy.shouldRenderPastedText("第一行\n第二行"),
+            "pasted plain text should not trigger rendering"
+        )
+    }
+
+    static func testReadingNoteTextReplacementPolicyRestoresSelection() throws {
+        try expectEqual(
+            ReadingNoteTextReplacementPolicy.selectionRange(
+                replacing: NSRange(location: 2, length: 4),
+                replacementLength: 1,
+                textLengthAfterReplacement: 8,
+                selection: .caretAfterReplacement
+            ),
+            NSRange(location: 3, length: 0),
+            "replacement should place caret after inserted text by default"
+        )
+        try expectEqual(
+            ReadingNoteTextReplacementPolicy.selectionRange(
+                replacing: NSRange(location: 0, length: 5),
+                replacementLength: 3,
+                textLengthAfterReplacement: 10,
+                selection: .adjustedOriginal(NSRange(location: 6, length: 0))
+            ),
+            NSRange(location: 4, length: 0),
+            "replacement should adjust an existing cursor by the replacement delta"
+        )
+        try expectEqual(
+            ReadingNoteTextReplacementPolicy.boundedRange(location: 20, length: 5, textLength: 12),
+            NSRange(location: 12, length: 0),
+            "selection restoration should clamp out-of-range selections"
+        )
+    }
+
+    static func testReadingNoteMarkdownRoundTrip() throws {
+        let markdown = """
+        # 标题
+
+        - 项目
+        - [ ] 任务
+        - [x] 完成
+
+        **加粗** 和 *斜体* 与 `code`
+        """
+        let rendered = MarkdownRenderer.render(markdown, textColor: .black)
+        let serialized = ReadingNoteMarkdownSerializer.markdown(from: rendered)
+        try expect(serialized.contains("# 标题"), "round-trip should preserve heading")
+        try expect(serialized.contains("- 项目"), "round-trip should preserve bullet list")
+        try expect(serialized.contains("- [ ] 任务"), "round-trip should preserve unchecked task")
+        try expect(serialized.contains("- [x] 完成"), "round-trip should preserve checked task")
+        try expect(serialized.contains("**加粗** 和 *斜体* 与 `code`"), "round-trip should preserve inline styles")
     }
 }

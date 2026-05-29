@@ -38,8 +38,13 @@ LOGIC_APP_SOURCES=(
   mac-app/ReaderSessionPolicy.swift
   mac-app/ReaderSessionStore.swift
   mac-app/ReadingNote.swift
+  mac-app/ReadingNoteEditorState.swift
   mac-app/ReadingNoteSlashCommand.swift
   mac-app/ReadingNoteAITextPolicy.swift
+  mac-app/ReadingNoteMarkdownInputPolicy.swift
+  mac-app/MarkdownRenderer.swift
+  mac-app/ReadingNoteMarkdownSerializer.swift
+  mac-app/ReadingNoteTextReplacementPolicy.swift
   mac-app/ReadingNoteTextPolicy.swift
   mac-app/ReadingNoteListPresenter.swift
   mac-app/ReadingNoteStore.swift

@@ -84,7 +84,7 @@ extension ReadingNotePanelController {
         textView.textStorage?.replaceCharacters(in: lineRange, with: NSAttributedString(string: "", attributes: attributes))
         textView.typingAttributes = attributes
         textView.didChangeText()
-        textView.setSelectedRange(NSRange(location: lineRange.location, length: 0))
+        textView.setSelectedRange(boundedSelectionRange(location: lineRange.location, length: 0))
         save()
         updateWordCount()
     }
@@ -126,22 +126,45 @@ extension ReadingNotePanelController {
         replaceText(in: boundedSelectionRange(location: range.location, length: range.length), with: value)
     }
 
-    func replaceText(in range: NSRange, with value: String) {
+    func replaceText(
+        in range: NSRange,
+        with value: String,
+        selection: ReadingNoteTextReplacementPolicy.Selection = .caretAfterReplacement
+    ) {
         guard textView.shouldChangeText(in: range, replacementString: value) else { return }
         textView.textStorage?.replaceCharacters(in: range, with: value)
         textView.didChangeText()
-        textView.setSelectedRange(NSRange(location: range.location + (value as NSString).length, length: 0))
+        restoreSelection(afterReplacing: range, replacementLength: (value as NSString).length, selection: selection)
         save()
         updateWordCount()
     }
 
-    func replaceText(in range: NSRange, with value: NSAttributedString) {
+    func replaceText(
+        in range: NSRange,
+        with value: NSAttributedString,
+        selection: ReadingNoteTextReplacementPolicy.Selection = .caretAfterReplacement
+    ) {
         guard textView.shouldChangeText(in: range, replacementString: value.string) else { return }
         textView.textStorage?.replaceCharacters(in: range, with: value)
         textView.didChangeText()
-        textView.setSelectedRange(NSRange(location: range.location + value.length, length: 0))
+        restoreSelection(afterReplacing: range, replacementLength: value.length, selection: selection)
         save()
         updateWordCount()
+    }
+
+    private func restoreSelection(
+        afterReplacing range: NSRange,
+        replacementLength: Int,
+        selection: ReadingNoteTextReplacementPolicy.Selection
+    ) {
+        let textLength = (textView.string as NSString).length
+        let restored = ReadingNoteTextReplacementPolicy.selectionRange(
+            replacing: range,
+            replacementLength: replacementLength,
+            textLengthAfterReplacement: textLength,
+            selection: selection
+        )
+        textView.setSelectedRange(restored)
     }
 
     private func toggleSelectionFontTrait(_ trait: NSFontTraitMask) {
@@ -164,8 +187,7 @@ extension ReadingNotePanelController {
         for update in fontUpdates {
             selected.addAttribute(.font, value: update.font, range: update.range)
         }
-        replaceText(in: range, with: selected)
-        textView.setSelectedRange(NSRange(location: range.location, length: selected.length))
+        replaceText(in: range, with: selected, selection: .range(NSRange(location: range.location, length: selected.length)))
     }
 
     private func selectionContainsTrait(_ attributed: NSAttributedString, trait: NSFontTraitMask) -> Bool {
@@ -217,10 +239,13 @@ extension ReadingNotePanelController {
         }
         let oldLocation = selection.location
         let oldEnd = selection.location + selection.length
-        replaceText(in: paragraphRange, with: replacement as String)
         let newLocation = oldLocation + (oldLocation == paragraphRange.location ? 0 : displayPrefix.count)
         let newLength = max(0, oldEnd - oldLocation + offset)
-        textView.setSelectedRange(boundedSelectionRange(location: newLocation, length: newLength))
+        replaceText(
+            in: paragraphRange,
+            with: replacement as String,
+            selection: .range(NSRange(location: newLocation, length: newLength))
+        )
     }
 
     private func selectionAlreadyUsesPrefix(_ displayPrefix: String, in selected: NSString) -> Bool {
@@ -254,9 +279,7 @@ extension ReadingNotePanelController {
 
     private func boundedSelectionRange(location: Int, length: Int) -> NSRange {
         let textLength = (textView.string as NSString).length
-        let boundedLocation = min(max(0, location), textLength)
-        let boundedLength = min(max(0, length), textLength - boundedLocation)
-        return NSRange(location: boundedLocation, length: boundedLength)
+        return ReadingNoteTextReplacementPolicy.boundedRange(location: location, length: length, textLength: textLength)
     }
 
     private func insertListPrefixAtInsertionPoint(_ displayPrefix: String) {
