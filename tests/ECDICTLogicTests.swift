@@ -65,6 +65,14 @@ enum ECDICTLogicTests {
         )
         let missing = missingProvider.answer(for: AnswerProviderRequest(text: "Word", context: "", linkID: nil))
         try expect(missing?.answer.contains("word") == true, "dictionary provider should explain installed dictionary misses")
+
+        let suffix = LocalDictionaryTagFormatter.suffix(for: "cet4 gre")
+        try expectEqual(suffix, "\n\n本地词典 Tags： `CET4` `GRE`", "dictionary tag suffix should render markdown tags")
+        try expectEqual(
+            LocalDictionaryTagFormatter.appendSuffix(to: "answer\n", suffix: suffix),
+            "answer\n\n本地词典 Tags： `CET4` `GRE`",
+            "dictionary tag suffix should be appended to AI answers"
+        )
     }
 
     private static func temporaryDirectory(_ name: String) -> URL {

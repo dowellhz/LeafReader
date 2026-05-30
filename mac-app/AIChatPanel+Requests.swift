@@ -1,7 +1,12 @@
 import Cocoa
 
 extension AIChatPanel {
-    func requestAI(linkID: String? = nil, linkedQuestion: String? = nil, fallbackAnswer: String? = nil) {
+    func requestAI(
+        linkID: String? = nil,
+        linkedQuestion: String? = nil,
+        fallbackAnswer: String? = nil,
+        answerSuffix: String? = nil
+    ) {
         trimMessagesIfNeeded()
         let requestID = UUID()
         let requestMessages = messages
@@ -31,7 +36,10 @@ extension AIChatPanel {
                 switch result {
                 case .success(let content):
                     NetworkConnectivityMonitor.shared.markRequestSucceeded()
-                    let finalContent = AIResponseTextFormatter.trimmed(content)
+                    let finalContent = LocalDictionaryTagFormatter.appendSuffix(
+                        to: AIResponseTextFormatter.trimmed(content),
+                        suffix: answerSuffix
+                    )
                     guard !finalContent.isEmpty else {
                         if let assistantBody = assistantBody {
                             self.updateBubble(
@@ -44,14 +52,14 @@ extension AIChatPanel {
                         }
                         return
                     }
-                    self.recordTranscript(role: AppText.aiRole, text: content)
-                    self.appendMessage(ChatMessage(role: "assistant", content: content))
+                    self.recordTranscript(role: AppText.aiRole, text: finalContent)
+                    self.appendMessage(ChatMessage(role: "assistant", content: finalContent))
                     if let assistantBody = assistantBody {
-                        self.updateBubble(assistantBody, role: AppText.aiRole, text: content, notify: false)
+                        self.updateBubble(assistantBody, role: AppText.aiRole, text: finalContent, notify: false)
                         self.persistBubbleIfNeeded(assistantBody)
                     }
                     if let linkID, let linkedQuestion {
-                        let visible = AIResponseTextFormatter.visibleAnswer(content)
+                        let visible = AIResponseTextFormatter.visibleAnswer(finalContent)
                         if !visible.isEmpty {
                             self.onLinkedAnswerCompleted?(linkID, linkedQuestion, visible)
                         }
@@ -78,7 +86,8 @@ extension AIChatPanel {
                         messages: requestMessages,
                         linkID: linkID,
                         linkedQuestion: linkedQuestion,
-                        fallbackAnswer: fallbackAnswer
+                        fallbackAnswer: fallbackAnswer,
+                        answerSuffix: answerSuffix
                     )
                     let message = self.userFacingAIError(error)
                     if streamedText.isEmpty, let assistantBody = assistantBody {
@@ -133,7 +142,12 @@ extension AIChatPanel {
         lastFailedAIRequest = nil
         messages = request.messages
         trimMessagesIfNeeded()
-        requestAI(linkID: request.linkID, linkedQuestion: request.linkedQuestion, fallbackAnswer: request.fallbackAnswer)
+        requestAI(
+            linkID: request.linkID,
+            linkedQuestion: request.linkedQuestion,
+            fallbackAnswer: request.fallbackAnswer,
+            answerSuffix: request.answerSuffix
+        )
     }
 
     @objc func cancelCurrentRequest() {

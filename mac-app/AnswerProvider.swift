@@ -76,3 +76,28 @@ struct CompositeAnswerProvider: AnswerProvider {
         return nil
     }
 }
+
+enum LocalDictionaryTagFormatter {
+    static func suffix(for tags: String?) -> String? {
+        let values = tagValues(from: tags)
+        guard !values.isEmpty else { return nil }
+        let renderedTags = values.map { "`\($0.uppercased())`" }.joined(separator: " ")
+        return "\n\n\(AppText.localized("本地词典 Tags：", "Local dictionary tags:")) \(renderedTags)"
+    }
+
+    static func appendSuffix(to answer: String, suffix: String?) -> String {
+        let trimmedAnswer = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let suffix,
+              !suffix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return trimmedAnswer
+        }
+        return trimmedAnswer + suffix
+    }
+
+    private static func tagValues(from tags: String?) -> [String] {
+        String(tags ?? "")
+            .components(separatedBy: CharacterSet(charactersIn: ",;/| ").union(.whitespacesAndNewlines))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+}

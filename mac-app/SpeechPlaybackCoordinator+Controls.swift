@@ -126,6 +126,46 @@ extension SpeechPlaybackCoordinator {
         }
     }
 
+    func replayCurrentSegment() {
+        let work = {
+            guard !self.activeSpeechSegments.isEmpty else { return }
+            let currentIndex = self.currentSegment?.index ?? self.lastPlayedSegmentIndex
+            guard currentIndex > 0 else { return }
+            let targetOffset = currentIndex - 1
+            let replaySegments = Array(self.activeSpeechSegments.dropFirst(targetOffset))
+            guard !replaySegments.isEmpty else { return }
+            let finished = self.playbackFinishHandler
+            let cachedPrefix = self.cachedReplayPrefix(startingAt: currentIndex, through: currentIndex)
+            if !cachedPrefix.isEmpty {
+                let remainingOffset = targetOffset + cachedPrefix.count
+                let remainingSegments = Array(self.activeSpeechSegments.dropFirst(remainingOffset))
+                self.allowOneManualAdvanceSegmentIfNeeded()
+                self.generateAndPlay(
+                    segments: remainingSegments,
+                    allSegments: self.activeSpeechSegments,
+                    indexOffset: remainingOffset,
+                    initialPlaybackSegments: cachedPrefix,
+                    completion: { _ in },
+                    finished: finished
+                )
+                return
+            }
+            self.allowOneManualAdvanceSegmentIfNeeded()
+            self.generateAndPlay(
+                segments: replaySegments,
+                allSegments: self.activeSpeechSegments,
+                indexOffset: targetOffset,
+                completion: { _ in },
+                finished: finished
+            )
+        }
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.async(execute: work)
+        }
+    }
+
     func hasActiveReadAloudWork() -> Bool {
         if Thread.isMainThread {
             return currentPlayer != nil || !pendingSegments.isEmpty || isGeneratingSegments

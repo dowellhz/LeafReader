@@ -1,7 +1,7 @@
 import Cocoa
 
 extension ReaderWindowController {
-    private static let readAloudFloatingControlSize = NSSize(width: 424, height: 40)
+    private static let readAloudFloatingControlSize = NSSize(width: 462, height: 40)
     private static let readAloudFloatingControlBottomInset: CGFloat = 14
 
     func installReadAloudFloatingControlIfNeeded() {
@@ -30,6 +30,8 @@ extension ReaderWindowController {
         control.playPauseButton.action = #selector(toggleReadAloudFromFloatingControl)
         control.stopButton.target = self
         control.stopButton.action = #selector(stopReadAloudFromFloatingControl)
+        control.replayButton.target = self
+        control.replayButton.action = #selector(replayReadAloudFromFloatingControl)
         control.nextButton.target = self
         control.nextButton.action = #selector(advanceReadAloudFromFloatingControl)
         control.nextPageButton.target = self
@@ -110,6 +112,13 @@ extension ReaderWindowController {
 
     @objc func stopReadAloudFromFloatingControl() {
         stopReadAloudImmediately()
+    }
+
+    @objc func replayReadAloudFromFloatingControl() {
+        guard isReadAloudActive, !isReadAloudLoading else { return }
+        isReadAloudPaused = false
+        updateReadAloudButton()
+        SpeechPlaybackCoordinator.shared.replayCurrentSegment()
     }
 
     @objc func advanceReadAloudFromFloatingControl() {

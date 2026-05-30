@@ -136,6 +136,7 @@ final class ReadAloudFloatingControlView: NSView {
     let previousButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let playPauseButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let stopButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
+    let replayButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let nextButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let nextPageButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
     let settingsButton = ReadAloudFloatingControlButton(title: "", target: nil, action: nil)
@@ -144,7 +145,7 @@ final class ReadAloudFloatingControlView: NSView {
     let speedSlider = ReadAloudFloatingSpeedSlider(value: 2, minValue: 0, maxValue: 3, target: nil, action: nil)
 
     private var controlButtons: [ReadAloudFloatingControlButton] {
-        [previousButton, playPauseButton, stopButton, nextButton, nextPageButton, settingsButton, modeButton]
+        [previousButton, playPauseButton, stopButton, replayButton, nextButton, nextPageButton, settingsButton, modeButton]
     }
 
     override init(frame frameRect: NSRect) {
@@ -158,6 +159,7 @@ final class ReadAloudFloatingControlView: NSView {
             previousButton,
             playPauseButton,
             stopButton,
+            replayButton,
             nextButton,
             nextPageButton,
             settingsButton,
@@ -198,6 +200,8 @@ final class ReadAloudFloatingControlView: NSView {
             playPauseButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
             stopButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
             stopButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
+            replayButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
+            replayButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
             nextButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
             nextButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
             nextPageButton.widthAnchor.constraint(equalToConstant: Metrics.iconButtonWidth),
@@ -283,6 +287,12 @@ final class ReadAloudFloatingControlView: NSView {
             symbolName: "stop.fill",
             label: AppText.localized("停止朗读", "Stop reading"),
             isEnabled: true
+        )
+        configureIconButton(
+            replayButton,
+            symbolName: "arrow.counterclockwise",
+            label: AppText.localized("重播当前句", "Replay current sentence"),
+            isEnabled: !isLoading
         )
         configureIconButton(
             nextButton,

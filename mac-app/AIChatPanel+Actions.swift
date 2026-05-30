@@ -44,7 +44,13 @@ extension AIChatPanel {
         let fallbackAnswer = isVocabularyItem
             ? localOnlyAnswerProvider().answer(for: answerRequest)?.answer
             : nil
-        requestAI(linkID: linkID, linkedQuestion: displayedQuestion, fallbackAnswer: fallbackAnswer)
+        let answerSuffix = isVocabularyItem ? localDictionaryTagSuffix(for: text) : nil
+        requestAI(
+            linkID: linkID,
+            linkedQuestion: displayedQuestion,
+            fallbackAnswer: fallbackAnswer,
+            answerSuffix: answerSuffix
+        )
     }
 
     @objc func summarizeCurrentContent() {
