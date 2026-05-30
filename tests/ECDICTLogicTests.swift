@@ -66,12 +66,23 @@ enum ECDICTLogicTests {
         let missing = missingProvider.answer(for: AnswerProviderRequest(text: "Word", context: "", linkID: nil))
         try expect(missing?.answer.contains("word") == true, "dictionary provider should explain installed dictionary misses")
 
-        let suffix = LocalDictionaryTagFormatter.suffix(for: "cet4 gre")
-        try expectEqual(suffix, "\n\n本地词典 Tags： `CET4` `GRE`", "dictionary tag suffix should render markdown tags")
+        let suffix = VocabularyTagFormatter.suffix(for: "cet4 gre")
+        try expectEqual(suffix, "\n\n`CET4` `GRE`", "dictionary tag suffix should render markdown tags")
+        try expectEqual(VocabularyTagFormatter.displayText(for: "cet4 gre"), "CET4 GRE", "dictionary tags should render consistently for review cards")
         try expectEqual(
-            LocalDictionaryTagFormatter.appendSuffix(to: "answer\n", suffix: suffix),
-            "answer\n\n本地词典 Tags： `CET4` `GRE`",
+            VocabularyTagFormatter.appendSuffix(to: "answer\n", suffix: suffix),
+            "answer\n\n`CET4` `GRE`",
             "dictionary tag suffix should be appended to AI answers"
+        )
+        try expectEqual(
+            VocabularyTagFormatter.appendSuffix(to: "answer\n\nCET6 TOEFL GRE\n\nGRE", suffix: suffix),
+            "answer\n\n`CET4` `GRE`",
+            "dictionary tag suffix should replace duplicate trailing AI tag lines"
+        )
+        try expectEqual(
+            VocabularyTagFormatter.appendSuffix(to: "注：此词为法语借词，发音已英语化。 TOEFL GRE", suffix: suffix),
+            "注：此词为法语借词，发音已英语化。\n\n`CET4` `GRE`",
+            "dictionary tag suffix should replace inline trailing AI tags"
         )
     }
 
@@ -121,15 +132,19 @@ private struct MockDictionaryLookupService: DictionaryLookupService {
     let answer: String?
     let metadata: VocabularyDictionaryMetadata
 
-    func lookup(_ query: String) -> ECDICTEntry? {
-        nil
-    }
+        func lookup(_ query: String) -> ECDICTEntry? {
+            nil
+        }
 
-    func markdownAnswer(for query: String, context: String) -> String? {
-        answer
-    }
+        func markdownAnswer(for query: String, context: String) -> String? {
+            answer
+        }
 
-    func metadata(for word: String) -> VocabularyDictionaryMetadata {
-        metadata
+        func dictionaryAnswer(for query: String, context: String) -> VocabularyDictionaryAnswer? {
+            answer.map { VocabularyDictionaryAnswer(markdown: $0, metadata: metadata) }
+        }
+
+        func metadata(for word: String) -> VocabularyDictionaryMetadata {
+            metadata
     }
 }

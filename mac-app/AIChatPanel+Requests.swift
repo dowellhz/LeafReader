@@ -36,7 +36,7 @@ extension AIChatPanel {
                 switch result {
                 case .success(let content):
                     NetworkConnectivityMonitor.shared.markRequestSucceeded()
-                    let finalContent = LocalDictionaryTagFormatter.appendSuffix(
+                    let finalContent = VocabularyTagFormatter.appendSuffix(
                         to: AIResponseTextFormatter.trimmed(content),
                         suffix: answerSuffix
                     )
@@ -65,44 +65,19 @@ extension AIChatPanel {
                         }
                     }
                 case .failure(let error):
-                    let shouldUseDictionaryFallback = self.shouldUseLocalDictionaryFallback(for: error)
-                    if shouldUseDictionaryFallback {
-                        NetworkConnectivityMonitor.shared.markNetworkFailure()
-                    }
-                    if let fallbackAnswer,
-                       shouldUseDictionaryFallback,
-                       let assistantBody = assistantBody {
-                        self.recordTranscript(role: AppText.aiRole, text: fallbackAnswer)
-                        self.appendMessage(ChatMessage(role: "assistant", content: fallbackAnswer))
-                        self.updateBubble(assistantBody, role: AppText.aiRole, text: fallbackAnswer, notify: false)
-                        self.persistBubbleIfNeeded(assistantBody)
-                        self.scrollToDictionaryAnswer(assistantBody)
-                        if let linkID, let linkedQuestion {
-                            self.onLinkedAnswerCompleted?(linkID, linkedQuestion, fallbackAnswer)
-                        }
-                        return
-                    }
-                    self.lastFailedAIRequest = FailedAIRequest(
-                        messages: requestMessages,
+                    self.handleAIRequestFailure(
+                        error,
+                        streamedText: streamedText,
+                        assistantBody: assistantBody,
+                        requestMessages: requestMessages,
                         linkID: linkID,
                         linkedQuestion: linkedQuestion,
                         fallbackAnswer: fallbackAnswer,
                         answerSuffix: answerSuffix
                     )
-                    let message = self.userFacingAIError(error)
-                    if streamedText.isEmpty, let assistantBody = assistantBody {
-                        self.updateBubble(assistantBody, role: AppText.errorRole, text: message, notify: false)
-                    } else {
-                        self.appendBubble(role: AppText.errorRole, text: message, persist: false)
-                    }
-                    self.appendRetryButton()
                 }
             }
         })
-    }
-
-    func shouldUseLocalDictionaryFallback(for error: Error) -> Bool {
-        RequestAvailabilityPolicy.shouldUseLocalDictionaryFallback(for: error)
     }
 
     func appendRetryButton() {

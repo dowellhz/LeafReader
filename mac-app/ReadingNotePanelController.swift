@@ -1,14 +1,8 @@
 import Cocoa
 
 final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NSTextViewDelegate {
-    enum Metrics {
-        static let panelOuterMargin: CGFloat = 22
-        static let metadataHorizontalInset: CGFloat = 26
-        static let metadataHeight: CGFloat = 42
-        static let editorToolbarHeight: CGFloat = 52
-        static let floatingToolbarInset: CGFloat = 8
-        static let topIconPointSize: CGFloat = 17
-    }
+    typealias Metrics = ReadingNotePanelMetrics
+
     struct AskRequest {
         let question: String
         let selectedText: String
@@ -69,7 +63,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         self.onDocumentQuestionPrompt = onDocumentQuestionPrompt
         self.onModelSettingsRequired = onModelSettingsRequired
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 460),
+            contentRect: NSRect(origin: .zero, size: Metrics.initialPanelSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -79,7 +73,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
         panel.isReleasedWhenClosed = false
-        panel.minSize = NSSize(width: 520, height: 400)
+        panel.minSize = Metrics.minimumPanelSize
         super.init(window: panel)
         panel.delegate = self
         buildContent(in: panel)

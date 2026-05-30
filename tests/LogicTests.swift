@@ -283,8 +283,41 @@ private func testReadingContextSnapshot() throws {
     )
     try expectEqual(snapshot.currentContentTitle, "Book - p. 2", "content title should include trimmed location")
     try expectEqual(snapshot.readingText, "visible", "visible text should win over nearby text")
+    try expectEqual(snapshot.focusedReadingText, "selected", "selected text should be preferred for focused AI actions")
     try expect(snapshot.contextText.contains("p. 2"), "context should include location")
     try expect(snapshot.contextText.contains("selected"), "context should include selection")
+}
+
+private func testReaderFocusedSelectionPriority() throws {
+    let explicit = ReaderFocusedSelection.make(
+        explicitSelection: " selected ",
+        readAloudSelection: " spoken ",
+        explicitContext: " selected context ",
+        readAloudContext: " spoken context "
+    )
+    try expectEqual(explicit?.origin, .explicitSelection, "explicit reader selection should win over read-aloud selection")
+    try expectEqual(explicit?.text, "selected", "focused selection should trim explicit text")
+    try expectEqual(explicit?.context, "selected context", "focused selection should use explicit context")
+
+    let readAloud = ReaderFocusedSelection.make(
+        explicitSelection: " ",
+        readAloudSelection: " spoken ",
+        explicitContext: "",
+        readAloudContext: " spoken context "
+    )
+    try expectEqual(readAloud?.origin, .readAloudSegment, "read-aloud selection should be used when there is no explicit selection")
+    try expectEqual(readAloud?.text, "spoken", "focused selection should trim read-aloud text")
+
+    let snapshot = ReadingContextSnapshot(
+        title: "Book",
+        documentKind: .pdf,
+        locationLabel: "Page 3",
+        visibleText: "visible",
+        nearbyText: "nearby",
+        focusedSelection: readAloud
+    )
+    try expectEqual(snapshot.focusedReadingText, "spoken", "read-aloud text should drive focused AI actions")
+    try expect(snapshot.contextText.contains("当前朗读内容") || snapshot.contextText.contains("Current read-aloud text"), "context should label read-aloud focused text")
 }
 
 private func testCapturedPageScrollGuard() throws {
@@ -406,6 +439,15 @@ private func testReadAloudManualAdvanceKeyPolicy() throws {
     try expect(!ReadAloudManualAdvanceKeyPolicy.accepts(nil), "nil key should not trigger manual TTS advance")
 }
 
+private func testReadAloudPlaybackPhase() throws {
+    try expect(!ReadAloudPlaybackPhase.idle.isActive, "idle read-aloud phase should not be active")
+    try expect(ReadAloudPlaybackPhase.loading.isActive, "loading read-aloud phase should be active")
+    try expect(ReadAloudPlaybackPhase.loading.isLoading, "loading read-aloud phase should report loading")
+    try expect(ReadAloudPlaybackPhase.playing.isActive, "playing read-aloud phase should be active")
+    try expect(ReadAloudPlaybackPhase.paused.isPaused, "paused read-aloud phase should report paused")
+    try expect(!ReadAloudPlaybackPhase.paused.isLoading, "paused read-aloud phase should not report loading")
+}
+
 private func testKokoroWorkerResponseReader() throws {
     var reader = KokoroWorkerResponseReader(requestID: "target")
     let payload = """
@@ -515,13 +557,25 @@ private let tests: [(String, () throws -> Void)] = [
     ("Reading note quote soft line breaks", ReadingNoteLogicTests.testReadingNoteQuoteSoftLineBreaks),
     ("Reading note PDF line gaps preserve paragraph breaks", ReadingNoteLogicTests.testReadingNotePDFLineGapsPreserveParagraphBreaks),
     ("Reading note slash command groups", ReadingNoteLogicTests.testReadingNoteSlashCommandGroups),
+    ("Reading note slash range policy", ReadingNoteLogicTests.testReadingNoteSlashRangePolicy),
     ("Reading note AI markdown body", ReadingNoteLogicTests.testReadingNoteAIMarkdownBodyStripsFence),
+    ("Reading note AI markdown image protector", ReadingNoteLogicTests.testReadingNoteAIMarkdownImageProtector),
     ("Reading note AI document context", ReadingNoteLogicTests.testReadingNoteAIDocumentContext),
     ("Reading note markdown input policy", ReadingNoteLogicTests.testReadingNoteMarkdownInputPolicyRendersInlineStyles),
+    ("Reading note markdown render range policy", ReadingNoteLogicTests.testReadingNoteMarkdownRenderRangePolicy),
+    ("Markdown block parser parses blocks", ReadingNoteLogicTests.testMarkdownBlockParserParsesBlocks),
+    ("Markdown inline parser applies styles", ReadingNoteLogicTests.testMarkdownInlineParserAppliesStyles),
     ("Reading note editing shortcuts", ReadingNoteLogicTests.testReadingNoteEditingShortcutsAcceptControlCopyPaste),
     ("Reading note text replacement policy", ReadingNoteLogicTests.testReadingNoteTextReplacementPolicyRestoresSelection),
+    ("Reading note line prefix policy", ReadingNoteLogicTests.testReadingNoteLinePrefixPolicy),
+    ("Reading note inline style policy", ReadingNoteLogicTests.testReadingNoteInlineStylePolicyTogglesTrait),
     ("Reading note markdown round trip", ReadingNoteLogicTests.testReadingNoteMarkdownRoundTrip),
     ("Reading note markdown list inline style round trip", ReadingNoteLogicTests.testReadingNoteMarkdownRoundTripPreservesInlineStylesInLists),
+    ("Reading note document codec round trip", ReadingNoteLogicTests.testReadingNoteDocumentCodecRoundTrip),
+    ("Reading note document appends AI section", ReadingNoteLogicTests.testReadingNoteDocumentAppendsAISection),
+    ("Reading note document image markdown", ReadingNoteLogicTests.testReadingNoteDocumentImageMarkdown),
+    ("Reading note image markdown round trip with spaced file path", ReadingNoteLogicTests.testReadingNoteImageMarkdownRoundTripWithSpacedFilePath),
+    ("Reading note asset store imports image to managed directory", ReadingNoteLogicTests.testReadingNoteAssetStoreImportsImageToManagedDirectory),
     ("Reading note editor state stale AI", ReadingNoteLogicTests.testReadingNoteEditorStateRejectsStaleAIResults),
     ("Reading note AI insertion mode", ReadingNoteLogicTests.testReadingNoteAIInsertionModePlaceholderFlag),
     ("Reader AI context text cleanup", testReaderAIContextTextCleanup),
@@ -531,6 +585,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Selection toolbar configuration", VocabularyLogicTests.testSelectionToolbarConfiguration),
     ("Vocabulary review display record loader", VocabularyLogicTests.testVocabularyReviewDisplayRecordLoaderLoadsOnlyCurrentRecord),
     ("Reading context snapshot", testReadingContextSnapshot),
+    ("Reader focused selection priority", testReaderFocusedSelectionPriority),
     ("Captured page scroll guard", testCapturedPageScrollGuard),
     ("PDF brightness policy", testPDFBrightnessPolicy),
     ("Debounced task", testDebouncedTask),
@@ -539,6 +594,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Speech text segments", testSpeechTextPolicySegments),
     ("Read-aloud text matcher", testReadAloudTextMatcher),
     ("Read-aloud manual advance key policy", testReadAloudManualAdvanceKeyPolicy),
+    ("Read-aloud playback phase", testReadAloudPlaybackPhase),
     ("Kokoro worker response reader", testKokoroWorkerResponseReader),
     ("Kokoro worker response partial lines", testKokoroWorkerResponseReaderBuffersPartialLines)
 ]

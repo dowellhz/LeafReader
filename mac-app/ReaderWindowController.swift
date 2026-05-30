@@ -116,6 +116,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var recentDocumentsPanelController: RecentDocumentsPanelController?
     var readingNotesPanelController: ReadingNotesPanelController?
     var vocabularyPanelController: VocabularyPanelController!
+    lazy var aiPanelCoordinator = ReaderAIPanelCoordinator(owner: self)
+    lazy var selectionCoordinator = ReaderSelectionCoordinator(owner: self)
+    lazy var selectionToolbarCoordinator = SelectionToolbarCoordinator(owner: self)
+    lazy var readAloudCoordinator = ReaderReadAloudCoordinator(owner: self)
     let vocabularyReviewSession = VocabularyReviewSession()
     var aiHandleLeadingConstraint: NSLayoutConstraint!
     var aiPanelWidthConstraint: NSLayoutConstraint!

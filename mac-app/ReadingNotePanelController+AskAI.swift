@@ -97,28 +97,26 @@ extension ReadingNotePanelController {
             showMissingModelAPIKeyPrompt()
             return
         }
-        let selectionRange = textView.selectedRange()
-        let text = sourceText ?? selectedText(in: selectionRange)
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            statusLabel.stringValue = AppText.localized("请先选中笔记中的文字", "Select text in the note first")
-            NSSound.beep()
-            return
-        }
-        let insertionMode = aiInsertionMode(
+        let requestContext = aiActionRequestContext(
             title: title,
-            selectionRange: selectionRange,
+            sourceText: sourceText,
             replaceSlashTrigger: replaceSlashTrigger,
             replaceSelection: replaceSelection,
             renderMarkdownReplacement: renderMarkdownReplacement
         )
+        guard !requestContext.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            statusLabel.stringValue = AppText.localized("请先选中笔记中的文字", "Select text in the note first")
+            NSSound.beep()
+            return
+        }
         removeAIPlaceholder()
         let requestID = editorState.beginAIRequest()
         setRunning(true, title: title)
         aiToolbarContainer.isHidden = true
-        if insertionMode.usesPlaceholder {
+        if requestContext.insertionMode.usesPlaceholder {
             appendAIPlaceholder(title: title)
         }
-        aiRunner.run(action: action, text: text, noteContext: textView.string) { [weak self] result in
+        aiRunner.run(action: action, text: requestContext.text, noteContext: textView.string) { [weak self] result in
             guard let self else { return }
             guard self.editorState.canApplyAIResult(requestID) else { return }
             self.editorState.finishAIRequest(requestID)
@@ -127,9 +125,9 @@ extension ReadingNotePanelController {
             case .success(let output):
                 let value = output.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !value.isEmpty else { return }
-                self.applyAIOutput(value, insertionMode: insertionMode)
+                self.applyAIOutput(value, insertionMode: requestContext.insertionMode)
             case .failure(let error):
-                if insertionMode.usesPlaceholder {
+                if requestContext.insertionMode.usesPlaceholder {
                     self.removeAIPlaceholder()
                 }
                 self.statusLabel.stringValue = self.userFacingError(error)
@@ -137,18 +135,56 @@ extension ReadingNotePanelController {
         }
     }
 
+    private struct AIActionRequestContext {
+        let text: String
+        let insertionMode: ReadingNoteAIInsertionMode
+    }
+
+    private func aiActionRequestContext(
+        title: String,
+        sourceText: String?,
+        replaceSlashTrigger: Bool,
+        replaceSelection: Bool,
+        renderMarkdownReplacement: Bool
+    ) -> AIActionRequestContext {
+        let selectionRange = textView.selectedRange()
+        let protectedMarkdown = protectedMarkdownForAI(
+            sourceText: sourceText,
+            selectionRange: selectionRange,
+            replaceSelection: replaceSelection,
+            renderMarkdownReplacement: renderMarkdownReplacement
+        )
+        let text = protectedMarkdown?.markdown ?? sourceText ?? selectedText(in: selectionRange)
+        return AIActionRequestContext(
+            text: text,
+            insertionMode: aiInsertionMode(
+                title: title,
+                selectionRange: selectionRange,
+                replaceSlashTrigger: replaceSlashTrigger,
+                replaceSelection: replaceSelection,
+                renderMarkdownReplacement: renderMarkdownReplacement,
+                protectedMarkdown: protectedMarkdown
+            )
+        )
+    }
+
     private func aiInsertionMode(
         title: String,
         selectionRange: NSRange,
         replaceSlashTrigger: Bool,
         replaceSelection: Bool,
-        renderMarkdownReplacement: Bool
+        renderMarkdownReplacement: Bool,
+        protectedMarkdown: ReadingNoteAIMarkdownImageProtector.ProtectedMarkdown?
     ) -> ReadingNoteAIInsertionMode {
         if replaceSlashTrigger {
             return .replaceSlashTrigger
         }
         if replaceSelection {
-            return .replaceSelection(selectionRange, renderMarkdown: renderMarkdownReplacement)
+            return .replaceSelection(
+                selectionRange,
+                renderMarkdown: renderMarkdownReplacement,
+                protectedMarkdown: protectedMarkdown
+            )
         }
         return .replacePlaceholder(title: title)
     }
@@ -159,9 +195,9 @@ extension ReadingNotePanelController {
             appendAISection(title: title, body: value)
         case .replacePlaceholder(let title):
             replaceAIPlaceholder(title: title, body: value)
-        case .replaceSelection(let range, let renderMarkdown):
+        case .replaceSelection(let range, let renderMarkdown, let protectedMarkdown):
             if renderMarkdown {
-                replaceSelectionWithMarkdown(value, selectionRange: range)
+                replaceSelectionWithMarkdown(value, selectionRange: range, protectedMarkdown: protectedMarkdown)
             } else {
                 replaceSelectedText(in: range, with: value)
             }
@@ -170,14 +206,38 @@ extension ReadingNotePanelController {
         }
     }
 
-    private func replaceSelectionWithMarkdown(_ value: String, selectionRange: NSRange) {
-        let markdown = ReadingNoteAITextPolicy.markdownBody(from: value)
-        let rendered = MarkdownRenderer.render(
+    private func replaceSelectionWithMarkdown(
+        _ value: String,
+        selectionRange: NSRange,
+        protectedMarkdown: ReadingNoteAIMarkdownImageProtector.ProtectedMarkdown?
+    ) {
+        var markdown = ReadingNoteAITextPolicy.markdownBody(from: value)
+        if let protectedMarkdown {
+            markdown = ReadingNoteAIMarkdownImageProtector.restore(markdown, protected: protectedMarkdown)
+        }
+        let rendered = ReadingNoteEditorRenderer.renderMarkdown(
             markdown,
-            fontSize: 15,
-            textColor: ReadingNoteTheme.primaryText(ReaderTheme.selected)
+            theme: ReaderTheme.selected
         )
         replaceSelectedText(in: selectionRange, with: rendered)
+    }
+
+    private func protectedMarkdownForAI(
+        sourceText: String?,
+        selectionRange: NSRange,
+        replaceSelection: Bool,
+        renderMarkdownReplacement: Bool
+    ) -> ReadingNoteAIMarkdownImageProtector.ProtectedMarkdown? {
+        guard sourceText == nil,
+              replaceSelection,
+              renderMarkdownReplacement,
+              selectionRange.length > 0,
+              let selected = textView.textStorage?.attributedSubstring(from: selectionRange) else {
+            return nil
+        }
+        let markdown = ReadingNoteMarkdownSerializer.markdown(from: selected)
+        let protected = ReadingNoteAIMarkdownImageProtector.protect(markdown)
+        return protected.isEmpty ? nil : protected
     }
 
     private func makeAskRequest(question: String) -> AskRequest? {

@@ -68,11 +68,10 @@ final class VocabularyReviewCardBuilder {
     }
 
     private func ecdictTagLabel(for record: VocabularyExportRecord, theme: ReaderTheme) -> NSTextField? {
-        guard let tags = record.dictionaryTags?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !tags.isEmpty else {
+        guard let tags = VocabularyTagFormatter.displayText(for: record.dictionaryTags) else {
             return nil
         }
-        let label = NSTextField(labelWithString: tags.uppercased())
+        let label = NSTextField(labelWithString: tags)
         label.font = AppFont.semibold(ofSize: 15)
         label.textColor = owner.vocabularySecondaryTextColor(for: theme)
         label.lineBreakMode = .byTruncatingTail

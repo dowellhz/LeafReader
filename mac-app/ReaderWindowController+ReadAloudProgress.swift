@@ -34,6 +34,9 @@ extension ReaderWindowController {
         let matchText = notification.userInfo?["matchText"] as? String ?? text
         let index = notification.userInfo?["index"] as? Int
         let pageIndex = notification.userInfo?["pageIndex"] as? Int
+        let previousReadAloudSelectionText = currentReadAloudSelectionText
+        currentReadAloudSelectionText = matchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? text : matchText
+        refreshAISelectionFromReadAloudIfNeeded(previousText: previousReadAloudSelectionText)
         canReadAloudGoPrevious = (index ?? 1) > 1
         updateReadAloudFloatingControl()
         if let pageIndex {
@@ -45,6 +48,9 @@ extension ReaderWindowController {
     }
 
     func restoreTitleAfterSpeechPlayback() {
+        let previousReadAloudSelectionText = currentReadAloudSelectionText
+        currentReadAloudSelectionText = ""
+        clearAIReadAloudSelectionIfNeeded(previousText: previousReadAloudSelectionText)
         clearTemporaryReadAloudUnderline()
         resetReadAloudPDFProgress()
         if let original = readAloudOriginalTitle {
@@ -53,6 +59,25 @@ extension ReaderWindowController {
         }
         titleLabel.toolTip = readAloudOriginalToolTip
         readAloudOriginalToolTip = nil
+    }
+
+    private func refreshAISelectionFromReadAloudIfNeeded(previousText: String) {
+        guard explicitReaderSelectedTextForAI().isEmpty else { return }
+        let readAloudText = currentReadAloudSelectionTextForAI()
+        guard !readAloudText.isEmpty else { return }
+        let currentAISelection = aiPanel.selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if currentAISelection.isEmpty || (!previousText.isEmpty && currentAISelection == previousText) {
+            aiPanel.setSelectedText(readAloudText)
+        }
+    }
+
+    private func clearAIReadAloudSelectionIfNeeded(previousText: String) {
+        guard explicitReaderSelectedTextForAI().isEmpty,
+              !previousText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              aiPanel.selectedText.trimmingCharacters(in: .whitespacesAndNewlines) == previousText.trimmingCharacters(in: .whitespacesAndNewlines) else {
+            return
+        }
+        aiPanel.setSelectedText("")
     }
 
     func resetReadAloudPDFProgress() {

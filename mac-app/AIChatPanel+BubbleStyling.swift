@@ -10,7 +10,7 @@ extension AIChatPanel {
 
     func plainString(_ text: String) -> NSAttributedString {
         NSAttributedString(string: text, attributes: [
-            .font: NSFont.systemFont(ofSize: Self.readerBodyFontSize),
+            .font: NSFont.systemFont(ofSize: Self.bubbleBodyFontSize),
             .foregroundColor: primaryTextColor,
             .paragraphStyle: paragraphStyle(spacing: 4)
         ])
@@ -40,14 +40,19 @@ extension AIChatPanel {
 
     func vocabularyTitleString(_ text: String) -> NSAttributedString {
         NSAttributedString(string: text, attributes: [
-            .font: AppFont.semibold(ofSize: Self.readerBodyFontSize),
+            .font: AppFont.semibold(ofSize: Self.bubbleBodyFontSize),
             .foregroundColor: primaryTextColor,
             .paragraphStyle: paragraphStyle(spacing: 4)
         ])
     }
 
     func markdownString(_ text: String) -> NSAttributedString {
-        MarkdownRenderer.render(text, fontSize: Self.readerBodyFontSize, textColor: primaryTextColor)
+        MarkdownRenderer.render(
+            text,
+            fontSize: Self.bubbleBodyFontSize,
+            textColor: primaryTextColor,
+            scalesHeadings: false
+        )
     }
 
     func paragraphStyle(spacing: CGFloat, headIndent: CGFloat = 0, firstLineHeadIndent: CGFloat? = nil) -> NSParagraphStyle {

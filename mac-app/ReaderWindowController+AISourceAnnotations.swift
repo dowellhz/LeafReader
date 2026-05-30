@@ -186,12 +186,12 @@ extension ReaderWindowController {
         setAIPanelCollapsed(false, animated: true)
     }
 
-    func currentPDFSelectionSourceLocation(pageIndex: Int) -> AIConversationSourceLocation {
+    func currentPDFSelectionSourceLocation(pageIndex: Int) -> AIConversationSourceLocation? {
         guard AISettingsStore.saveAIConversationEnabled,
               let selection = pdfView.currentSelection,
               let page = pdfView.document?.page(at: pageIndex),
               selection.pages.contains(page) else {
-            return AIConversationSourceLocation(kind: .pdfPage, index: pageIndex, progress: nil)
+            return nil
         }
 
         let selectedText = ReaderAIContextBuilder.normalizeWhitespace(selection.string ?? "")
@@ -209,6 +209,43 @@ extension ReaderWindowController {
         )
         addAISourceUnderline(for: source)
         return source
+    }
+
+    func currentPDFReadAloudSourceLocation(pageIndex fallbackPageIndex: Int) -> AIConversationSourceLocation? {
+        guard AISettingsStore.saveAIConversationEnabled else { return nil }
+
+        let readAloudText = currentReadAloudSelectionTextForAI()
+        guard let group = currentReadAloudPDFAnnotationGroup(),
+              let pageIndex = pdfView.document?.index(for: group.page),
+              pageIndex != NSNotFound else {
+            guard !readAloudText.isEmpty else { return nil }
+            return AIConversationSourceLocation(kind: .pdfPage, index: fallbackPageIndex, progress: nil, selectedText: readAloudText)
+        }
+
+        let lineBounds = group.annotations
+            .map { StoredPDFWordRect($0.bounds) }
+            .filter { !$0.cgRect.isEmpty }
+        let source = AIConversationSourceLocation(
+            kind: .pdfPage,
+            index: pageIndex,
+            progress: nil,
+            selectedText: readAloudText.isEmpty ? nil : readAloudText,
+            pdfBounds: lineBounds.isEmpty ? nil : lineBounds
+        )
+        addAISourceUnderline(for: source)
+        return source
+    }
+
+    private func currentReadAloudPDFAnnotationGroup() -> (page: PDFPage, annotations: [PDFAnnotation])? {
+        var groupedAnnotations: [(page: PDFPage, annotations: [PDFAnnotation])] = []
+        for item in temporaryReadAloudUnderlineAnnotations {
+            if let index = groupedAnnotations.firstIndex(where: { $0.page === item.page }) {
+                groupedAnnotations[index].annotations.append(item.annotation)
+            } else {
+                groupedAnnotations.append((item.page, [item.annotation]))
+            }
+        }
+        return groupedAnnotations.first
     }
 
     private func isAISourceUnderline(_ annotation: PDFAnnotation) -> Bool {

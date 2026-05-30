@@ -3,6 +3,19 @@ import PDFKit
 import WebKit
 
 extension ReaderWindowController {
+    func currentFocusedSelectionForAI() -> ReaderFocusedSelection? {
+        let explicitText = explicitReaderSelectedTextForAI()
+        let readAloudText = currentReadAloudSelectionTextForAI()
+        let explicitContext = explicitText.isEmpty ? "" : contextForCurrentSelection(selectedText: explicitText)
+        let readAloudContext = readAloudText.isEmpty ? "" : contextForCurrentSelection(selectedText: readAloudText)
+        return ReaderFocusedSelection.make(
+            explicitSelection: explicitText,
+            readAloudSelection: readAloudText,
+            explicitContext: explicitContext,
+            readAloudContext: readAloudContext
+        )
+    }
+
     func contextForCurrentSelection(selectedText: String) -> String {
         let normalizedSelection = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedSelection.isEmpty else { return "" }
@@ -48,7 +61,7 @@ extension ReaderWindowController {
                 completion(nil)
                 return
             }
-            let text = ReaderAIContextBuilder.normalizeWhitespace(snapshot.readingText)
+            let text = ReaderAIContextBuilder.normalizeWhitespace(snapshot.focusedReadingText)
             completion(text.isEmpty ? nil : (
                 snapshot.currentContentTitle,
                 ReaderAIContextPolicy.prefix(text, limit: ReaderAIContextPolicy.summaryContentLimit)
@@ -62,7 +75,7 @@ extension ReaderWindowController {
                 completion(nil)
                 return
             }
-            let text = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(snapshot.readingText)
+            let text = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(snapshot.focusedReadingText)
             completion(text.isEmpty ? nil : (
                 snapshot.currentContentTitle,
                 ReaderAIContextPolicy.prefix(text, limit: ReaderAIContextPolicy.translationContentLimit)
@@ -76,7 +89,7 @@ extension ReaderWindowController {
                 completion(nil)
                 return
             }
-            let text = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(snapshot.readingText)
+            let text = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(snapshot.focusedReadingText)
             completion(text.isEmpty ? nil : (
                 snapshot.currentContentTitle,
                 ReaderAIContextPolicy.prefix(text, limit: ReaderAIContextPolicy.questionContentLimit)
@@ -94,17 +107,14 @@ extension ReaderWindowController {
                 ? ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(currentPDFPageTranslationText())
                 : ReaderAIContextBuilder.normalizeWhitespace(currentPDFPageSummaryText())
             let nearbyText = ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(currentPDFNearbyPagesText())
-            let selectedText = (pdfView.currentSelection?.string ?? "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            let selectedContext = selectedText.isEmpty ? "" : contextForCurrentSelection(selectedText: selectedText)
+            let focusedSelection = currentFocusedSelectionForAI()
             completion(ReadingContextSnapshot(
                 title: title,
                 documentKind: .pdf,
                 locationLabel: currentPDFLocationLabel(),
                 visibleText: visibleText,
                 nearbyText: nearbyText,
-                selectedText: selectedText,
-                selectedContext: selectedContext
+                focusedSelection: focusedSelection
             ))
             return
         }
@@ -117,18 +127,28 @@ extension ReaderWindowController {
             let nearbyText = preserveLineBreaks
                 ? ReaderAIContextBuilder.normalizeReaderTextPreservingParagraphs(self.currentWebProgressTextWindow())
                 : ReaderAIContextBuilder.normalizeWhitespace(self.currentWebProgressTextWindow())
-            let selectedText = self.currentWebSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
-            let selectedContext = selectedText.isEmpty ? "" : self.contextForCurrentSelection(selectedText: selectedText)
+            let focusedSelection = self.currentFocusedSelectionForAI()
             completion(ReadingContextSnapshot(
                 title: title,
                 documentKind: self.currentDocumentKind,
                 locationLabel: self.currentWebLocationLabel(),
                 visibleText: visibleText,
                 nearbyText: nearbyText,
-                selectedText: selectedText,
-                selectedContext: selectedContext
+                focusedSelection: focusedSelection
             ))
         }
+    }
+
+    func explicitReaderSelectedTextForAI() -> String {
+        if currentDocumentKind == .pdf {
+            return (pdfView.currentSelection?.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return currentWebSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func currentReadAloudSelectionTextForAI() -> String {
+        guard isReadAloudActive else { return "" }
+        return currentReadAloudSelectionText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func currentPDFLocationLabel() -> String {

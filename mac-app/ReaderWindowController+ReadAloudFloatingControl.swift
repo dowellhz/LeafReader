@@ -107,53 +107,23 @@ extension ReaderWindowController {
     }
 
     @objc func toggleReadAloudFromFloatingControl() {
-        toggleReadAloudFromToolbar()
+        readAloudCoordinator.toggleFromToolbar()
     }
 
     @objc func stopReadAloudFromFloatingControl() {
-        stopReadAloudImmediately()
+        readAloudCoordinator.stopImmediately()
     }
 
     @objc func replayReadAloudFromFloatingControl() {
-        guard isReadAloudActive, !isReadAloudLoading else { return }
-        isReadAloudPaused = false
-        updateReadAloudButton()
-        SpeechPlaybackCoordinator.shared.replayCurrentSegment()
+        readAloudCoordinator.replayCurrentSegment()
     }
 
     @objc func advanceReadAloudFromFloatingControl() {
-        guard isReadAloudActive, !isReadAloudLoading else { return }
-        isReadAloudPaused = false
-        updateReadAloudButton()
-        if resumePendingReadAloudFromFloatingAdvanceIfNeeded() {
-            return
-        }
-        if !SpeechPlaybackCoordinator.shared.hasActiveReadAloudWork() {
-            resumePendingReadAloudIfNeeded(trigger: .userAdvance)
-            return
-        }
-        SpeechPlaybackCoordinator.shared.advanceToNextSegment()
-    }
-
-    private func resumePendingReadAloudFromFloatingAdvanceIfNeeded() -> Bool {
-        if currentDocumentKind == .pdf, pendingReadAloudPDFContinuation != nil {
-            SpeechPlaybackCoordinator.shared.stopSpeaking()
-            resumePendingPDFReadAloudIfNeeded(trigger: .userAdvance)
-            return true
-        }
-        if currentDocumentKind != .pdf, pendingReadAloudWebContinuation {
-            SpeechPlaybackCoordinator.shared.stopSpeaking()
-            resumePendingWebReadAloudIfNeeded(trigger: .userAdvance)
-            return true
-        }
-        return false
+        readAloudCoordinator.advanceSegment()
     }
 
     @objc func previousReadAloudFromFloatingControl() {
-        guard isReadAloudActive, !isReadAloudLoading, canReadAloudGoPrevious else { return }
-        isReadAloudPaused = false
-        updateReadAloudButton()
-        SpeechPlaybackCoordinator.shared.replayPreviousSegment()
+        readAloudCoordinator.replayPreviousSegment()
     }
 
     @objc func advanceReadAloudToNextPageFromFloatingControl() {
@@ -170,15 +140,7 @@ extension ReaderWindowController {
     }
 
     @objc func toggleReadAloudAdvanceModeFromFloatingControl() {
-        readAloudAdvanceMode = readAloudAdvanceMode.toggled
-        readAloudAdvanceMode.save()
-        SpeechPlaybackCoordinator.shared.setManualAdvanceEnabled(readAloudAdvanceMode == .manual)
-        if readAloudAdvanceMode == .automatic, isReadAloudPaused {
-            isReadAloudPaused = false
-            resumePendingReadAloudIfNeeded()
-        }
-        updateReadAloudButton()
-        updateReadAloudFloatingControl()
+        readAloudCoordinator.toggleAdvanceMode()
     }
 
     @objc func changeReadAloudSpeedFromFloatingControl(_ sender: NSSlider) {
@@ -188,8 +150,6 @@ extension ReaderWindowController {
     }
 
     func pauseReadAloudForManualAdvance() {
-        guard readAloudAdvanceMode == .manual else { return }
-        isReadAloudPaused = true
-        updateReadAloudButton()
+        readAloudCoordinator.pauseForManualAdvance()
     }
 }

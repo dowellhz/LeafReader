@@ -347,9 +347,7 @@ extension ReaderWindowController {
         })();
         """) { [weak self] result, _ in
             let text = self?.trimmedReaderSelection(result as? String) ?? ""
-            self?.currentWebSelectedText = text.count > 1 ? text : ""
-            self?.currentWebSelectionContext = text
-            self?.aiPanel.setSelectedText(self?.currentWebSelectedText ?? "")
+            self?.selectionCoordinator.setWebSelectionFromVisibleText(text)
         }
     }
 

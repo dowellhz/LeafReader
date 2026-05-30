@@ -1,119 +1,28 @@
 import Cocoa
-import AVFoundation
 
 extension ReaderWindowController {
     @objc func toggleReadAloudFromToolbar() {
-        guard !isReadAloudLoading else { return }
-        if isReadAloudPaused {
-            resumeReadAloudFromToolbar()
-        } else if isReadAloudActive {
-            pauseReadAloudFromToolbar()
-        } else {
-            startReadAloudFromToolbar()
-        }
+        readAloudCoordinator.toggleFromToolbar()
     }
 
     @objc func stopReadAloudFromToolbarAction() {
-        stopReadAloudImmediately()
-    }
-
-    private func startReadAloudFromToolbar() {
-        guard canStartReadAloudWithLocalTTS() else { return }
-        SpeechPlaybackCoordinator.shared.setManualAdvanceEnabled(readAloudAdvanceMode == .manual)
-        guard currentDocumentKind == .pdf else {
-            startWebReadAloudFromToolbar()
-            return
-        }
-        beginReadAloudLoading()
-        readCurrentPDFPageRemainderAndContinue(startAtPageTop: false)
-    }
-
-    private func pauseReadAloudFromToolbar() {
-        guard isReadAloudActive else { return }
-        isReadAloudPaused = true
-        SpeechPlaybackCoordinator.shared.pauseSpeaking()
-        vocabularySpeechSynthesizer.pauseSpeaking(at: AVSpeechBoundary.immediate)
-        updateReadAloudButton()
-    }
-
-    private func resumeReadAloudFromToolbar() {
-        guard isReadAloudActive else { return }
-        isReadAloudPaused = false
-        SpeechPlaybackCoordinator.shared.resumeSpeaking()
-        vocabularySpeechSynthesizer.continueSpeaking()
-        updateReadAloudButton()
-        resumePendingReadAloudIfNeeded(trigger: .userAdvance)
+        readAloudCoordinator.stopImmediately()
     }
 
     func stopReadAloudImmediately() {
-        resetReadAloudState()
-        SpeechPlaybackCoordinator.shared.stopSpeaking()
-        vocabularySpeechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)
-        resetReadAloudPDFTracking()
-        clearTemporaryReadAloudUnderline()
+        readAloudCoordinator.stopImmediately()
     }
 
     func finishReadAloudFromToolbar() {
-        resetReadAloudState()
-        resetReadAloudPDFTracking()
-        restoreTitleAfterSpeechPlayback()
+        readAloudCoordinator.finishFromToolbar()
     }
 
     func beginReadAloudLoading() {
-        isReadAloudActive = true
-        isReadAloudPaused = false
-        isReadAloudLoading = true
-        canReadAloudGoPrevious = false
-        clearUserSelectionForReadAloudStart()
-        updateReadAloudButton()
-    }
-
-    private func clearUserSelectionForReadAloudStart() {
-        pdfView.clearSelection()
-        guard currentDocumentKind != .pdf, webView?.isHidden == false else { return }
-        webView?.evaluateJavaScript("""
-        (() => {
-          if (window.leafReaderClearSelectionVisualOnly) {
-            window.leafReaderClearSelectionVisualOnly();
-          } else {
-            const selection = window.getSelection && window.getSelection();
-            if (selection) selection.removeAllRanges();
-          }
-        })();
-        """)
+        readAloudCoordinator.beginLoading()
     }
 
     func handleReadAloudStartResult(didUseLocalTTS: Bool) {
-        isReadAloudLoading = false
-        updateReadAloudButton()
-        guard !didUseLocalTTS else { return }
-        finishReadAloudFromToolbar()
-        if SpeechRuntimeResourceManager.runnableRuntime(preferredID: AISettingsStore.selectedSpeechRuntimeID) == nil {
-            showMissingSpeechRuntimeAlert()
-        } else if let error = SpeechPlaybackCoordinator.shared.consumeLastSynthesisError() {
-            showSpeechPlaybackFailureAlert(error: error)
-        } else {
-            showSpeechPlaybackFailureAlert()
-        }
-    }
-
-    private func resetReadAloudState() {
-        isReadAloudActive = false
-        isReadAloudPaused = false
-        isReadAloudLoading = false
-        canReadAloudGoPrevious = false
-        readAloudSpeechLanguageHint = nil
-        updateReadAloudButton()
-    }
-
-    private func resetReadAloudPDFTracking() {
-        resetReadAloudPDFProgress()
-        lastReadAloudAISource = nil
-        lastReadAloudLinkedWordID = nil
-        lastReadAloudSoftHintKey = nil
-        dismissReadAloudSoftHint()
-        pendingReadAloudPDFContinuation = nil
-        pendingReadAloudWebContinuation = false
+        readAloudCoordinator.handleStartResult(didUseLocalTTS: didUseLocalTTS)
     }
 
     func updateReadAloudButton() {
@@ -142,28 +51,18 @@ extension ReaderWindowController {
     }
 
     func resumePendingReadAloudIfNeeded(trigger: ReadAloudContinuationTrigger = .automatic) {
-        resumePendingPDFReadAloudIfNeeded(trigger: trigger)
-        resumePendingWebReadAloudIfNeeded(trigger: trigger)
+        readAloudCoordinator.resumePendingIfNeeded(trigger: trigger)
     }
 
     func shouldPauseBeforeReadAloudContinuation(trigger: ReadAloudContinuationTrigger) -> Bool {
-        readAloudAdvanceMode == .manual && trigger == .automatic
+        readAloudCoordinator.shouldPauseBeforeContinuation(trigger: trigger)
     }
 
     func deferReadAloudContinuationIfNeeded(
         trigger: ReadAloudContinuationTrigger,
         setPending: () -> Void
     ) -> Bool {
-        if shouldPauseBeforeReadAloudContinuation(trigger: trigger) {
-            setPending()
-            pauseReadAloudForManualAdvance()
-            return true
-        }
-        guard !isReadAloudPaused else {
-            setPending()
-            return true
-        }
-        return false
+        readAloudCoordinator.deferContinuationIfNeeded(trigger: trigger, setPending: setPending)
     }
 
 }

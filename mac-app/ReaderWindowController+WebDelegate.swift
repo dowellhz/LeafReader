@@ -40,35 +40,7 @@ extension ReaderWindowController {
             return
         }
         guard message.name == "selectionChanged" else { return }
-        guard Date() >= suppressSearchSelectionForAIUntil else {
-            clearSearchSelectionForAI()
-            return
-        }
-        let text: String
-        let context: String
-        if let payload = message.body as? [String: Any] {
-            text = (payload["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            context = (payload["context"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            currentWebSelectionOccurrenceIndex = payload["occurrenceIndex"] as? Int
-            currentWebSelectionRect = webSelectionRect(from: payload["rect"])
-        } else {
-            text = (message.body as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            context = ""
-            currentWebSelectionOccurrenceIndex = nil
-            currentWebSelectionRect = nil
-        }
-        currentWebSelectedText = text.count > 1 ? text : ""
-        currentWebSelectionContext = currentWebSelectedText.isEmpty ? "" : context
-        if currentWebSelectedText.isEmpty {
-            currentWebSelectionOccurrenceIndex = nil
-            currentWebSelectionRect = nil
-        }
-        aiPanel.setSelectedText(currentWebSelectedText)
-        if currentWebSelectedText.isEmpty {
-            hideSelectionToolbar()
-        } else {
-            showSelectionToolbarForWebSelection(rect: currentWebSelectionRect, text: currentWebSelectedText)
-        }
+        selectionCoordinator.handleWebSelectionChanged(body: message.body)
     }
 
     func webSelectionRect(from value: Any?) -> NSRect? {

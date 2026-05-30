@@ -2,19 +2,17 @@ import Cocoa
 
 extension ReadingNotePanelController {
     func appendAISection(title: String, body: String) {
-        let suffix = markdownFromEditor().hasSuffix("\n") ? "" : "\n"
-        renderMarkdownIntoEditor(markdownFromEditor() + "\(suffix)\n### \(title)\n\n\(body)\n")
+        renderDocumentIntoEditor(documentFromEditor().appendingAISection(title: title, body: body))
         textView.scrollToEndOfDocument(nil)
         commitEditorChange()
     }
 
     func appendAIPlaceholder(title: String) {
         let placeholderText = AppText.localized(" 正在生成...", " Generating...")
-        let suffix = markdownFromEditor().hasSuffix("\n") ? "" : "\n"
-        let rendered = NSMutableAttributedString(attributedString: MarkdownRenderer.render(
-            markdownFromEditor() + "\(suffix)\n### \(title)\n\n",
-            fontSize: 15,
-            textColor: ReadingNoteTheme.primaryText(ReaderTheme.selected)
+        let document = documentFromEditor().appendingAISectionHeader(title: title)
+        let rendered = NSMutableAttributedString(attributedString: ReadingNoteEditorRenderer.renderMarkdown(
+            document.markdown,
+            theme: ReaderTheme.selected
         ))
         rendered.append(aiPlaceholderAttributedString(text: placeholderText))
         rendered.append(NSAttributedString(string: "\n"))
@@ -25,10 +23,9 @@ extension ReadingNotePanelController {
     }
 
     func replaceAIPlaceholder(title: String, body: String) {
-        let replacement = MarkdownRenderer.render(
+        let replacement = ReadingNoteEditorRenderer.renderMarkdown(
             "### \(title)\n\n\(body)\n",
-            fontSize: 15,
-            textColor: ReadingNoteTheme.primaryText(ReaderTheme.selected)
+            theme: ReaderTheme.selected
         )
         guard let range = aiPlaceholderRange() else {
             appendAISection(title: title, body: body)
@@ -73,14 +70,14 @@ extension ReadingNotePanelController {
         let output = NSMutableAttributedString()
         let attachment = NSTextAttachment()
         let symbol = NSImage(systemSymbolName: "hourglass", accessibilityDescription: nil)?
-            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 15, weight: .semibold))
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: Metrics.editorFontSize, weight: .semibold))
         attachment.image = symbol
-        attachment.bounds = NSRect(x: 0, y: -2, width: 15, height: 15)
+        attachment.bounds = NSRect(x: 0, y: -2, width: Metrics.editorFontSize, height: Metrics.editorFontSize)
         output.append(NSAttributedString(attachment: attachment))
         output.append(NSAttributedString(
             string: text,
             attributes: [
-                .font: NSFont.systemFont(ofSize: 15),
+                .font: NSFont.systemFont(ofSize: Metrics.editorFontSize),
                 .foregroundColor: ReadingNoteTheme.secondaryText(ReaderTheme.selected)
             ]
         ))

@@ -3,7 +3,11 @@ import Foundation
 enum ReadingNoteAIInsertionMode {
     case appendSection(title: String)
     case replacePlaceholder(title: String)
-    case replaceSelection(NSRange, renderMarkdown: Bool)
+    case replaceSelection(
+        NSRange,
+        renderMarkdown: Bool,
+        protectedMarkdown: ReadingNoteAIMarkdownImageProtector.ProtectedMarkdown? = nil
+    )
     case replaceSlashTrigger
 
     var usesPlaceholder: Bool {

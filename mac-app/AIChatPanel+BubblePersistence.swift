@@ -16,7 +16,7 @@ extension AIChatPanel {
     func trimVisibleNormalConversationBubblesIfNeeded() {
         let normalBubbleIDs = persistentBubbleIDs.filter { bodyID in
             guard let metadata = bubbleMetadataByID[bodyID] else { return false }
-            return metadata.linkID == nil
+            return isConversationBubble(metadata)
         }
         let excessCount = normalBubbleIDs.count - Self.maxVisibleNormalConversationBubbles
         guard excessCount > 0 else { return }
@@ -29,7 +29,7 @@ extension AIChatPanel {
 
     func removeConversationBubble(bodyID: String) {
         guard let metadata = bubbleMetadataByID[bodyID],
-              metadata.linkID == nil else { return }
+              isConversationBubble(metadata) else { return }
         removeBubbleView(bodyID: bodyID)
         bubbleMetadataByID.removeValue(forKey: bodyID)
         persistentBubbleIDs.removeAll { $0 == bodyID }
@@ -79,7 +79,7 @@ extension AIChatPanel {
             guard let box = view as? ChatBubbleView,
                   let candidateID = bodyIDForBubbleBox(box),
                   let metadata = bubbleMetadataByID[candidateID],
-                  metadata.linkID == nil else {
+                  isConversationBubble(metadata) else {
                 continue
             }
             if !idsToRemove.isEmpty, metadata.role == AppText.userRole {
@@ -121,7 +121,7 @@ extension AIChatPanel {
     func savedConversation() -> SavedAIConversation {
         let normalBubbleIDs = persistentBubbleIDs.filter { bodyID in
             guard let metadata = bubbleMetadataByID[bodyID] else { return false }
-            return metadata.linkID == nil
+            return isConversationBubble(metadata)
         }
         let savedBubbleIDs = Array(normalBubbleIDs.suffix(Self.maxSavedConversationBubbles))
         let bubbles = savedBubbleIDs.compactMap { bubbleMetadataByID[$0] }.map {
@@ -149,6 +149,10 @@ extension AIChatPanel {
         return role == AppText.userRole || role == AppText.aiRole || role == AppText.errorRole
     }
 
+    func isConversationBubble(_ metadata: BubbleMetadata) -> Bool {
+        metadata.linkID == nil
+    }
+
     func notifyConversationChangedIfNeeded() {
         guard !isRestoringSavedConversation else { return }
         onConversationChanged?(savedConversation())
@@ -163,13 +167,17 @@ extension AIChatPanel {
         var sources: [AIConversationSourceLocation] = []
         for bodyID in persistentBubbleIDs {
             guard let metadata = bubbleMetadataByID[bodyID],
-                  metadata.linkID == nil,
-                  let source = metadata.sourceLocation,
+                  let source = conversationSource(for: metadata),
                   !sources.contains(source) else {
                 continue
             }
             sources.append(source)
         }
         return sources
+    }
+
+    func conversationSource(for metadata: BubbleMetadata) -> AIConversationSourceLocation? {
+        guard isConversationBubble(metadata) else { return nil }
+        return metadata.sourceLocation
     }
 }

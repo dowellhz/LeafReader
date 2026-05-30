@@ -6,27 +6,11 @@ extension ReaderWindowController {
         readCurrentWebReadAloudBatch()
     }
 
-    private struct WebReadAloudBatch {
-        let segments: [SpeechPlaybackCoordinator.ReadAloudSegment]
-        let hasMore: Bool
-    }
-
     private func readCurrentWebReadAloudBatch() {
-        let script = """
-        (() => {
-          if (window.leafReaderPrepareReadAloudBatch) {
-            return window.leafReaderPrepareReadAloudBatch();
-          }
-          if (window.leafReaderPrepareReadAloudSegments) {
-            return { segments: window.leafReaderPrepareReadAloudSegments(), hasMore: false };
-          }
-          return { segments: [], hasMore: false };
-        })();
-        """
-        webView.evaluateJavaScript(script) { [weak self] value, _ in
+        webView.evaluateJavaScript(WebReadAloudBatchParser.prepareBatchScript) { [weak self] value, _ in
             DispatchQueue.main.async {
                 guard let self, self.isReadAloudActive else { return }
-                let batch = Self.webReadAloudBatch(from: value)
+                let batch = WebReadAloudBatchParser.batch(from: value)
                 guard !batch.segments.isEmpty else {
                     self.finishReadAloudFromToolbar()
                     return
@@ -66,13 +50,7 @@ extension ReaderWindowController {
             return
         }
         pendingReadAloudWebContinuation = false
-        let script = """
-        (() => {
-          if (!window.leafReaderAdvanceReadAloudBatch) return { ok: false };
-          return window.leafReaderAdvanceReadAloudBatch();
-        })();
-        """
-        webView.evaluateJavaScript(script) { [weak self] _, _ in
+        webView.evaluateJavaScript(WebReadAloudBatchParser.advanceBatchScript) { [weak self] _, _ in
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
                 guard let self,
                       self.isReadAloudActive,
@@ -100,35 +78,12 @@ extension ReaderWindowController {
         guard isReadAloudActive else { return }
         SpeechPlaybackCoordinator.shared.stopSpeaking()
         pendingReadAloudWebContinuation = false
-        isReadAloudPaused = false
+        readAloudState.resumePlayback()
         beginReadAloudLoading()
         scrollWebPage(direction: 1)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
             guard let self, self.isReadAloudActive, self.currentDocumentKind != .pdf else { return }
             self.readCurrentWebReadAloudBatch()
-        }
-    }
-
-    private static func webReadAloudBatch(from value: Any?) -> WebReadAloudBatch {
-        if let dictionary = value as? [String: Any] {
-            return WebReadAloudBatch(
-                segments: webReadAloudSegments(from: dictionary["segments"]),
-                hasMore: dictionary["hasMore"] as? Bool ?? false
-            )
-        }
-        return WebReadAloudBatch(
-            segments: webReadAloudSegments(from: value),
-            hasMore: false
-        )
-    }
-
-    private static func webReadAloudSegments(from value: Any?) -> [SpeechPlaybackCoordinator.ReadAloudSegment] {
-        guard let rows = value as? [[String: Any]] else { return [] }
-        return rows.compactMap { row in
-            let text = (row["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let speechText = (row["speechText"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? text
-            guard !text.isEmpty, !speechText.isEmpty else { return nil }
-            return SpeechPlaybackCoordinator.ReadAloudSegment(speechText: speechText, displayText: text)
         }
     }
 }

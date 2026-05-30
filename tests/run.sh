@@ -10,6 +10,109 @@ run_swift_test() {
   "$output"
 }
 
+LOGIC_APP_SOURCES=()
+
+always_include_logic_app_source() {
+  local base="$1"
+  case "$base" in
+    ReadingNoteEditorViews.swift|SelectionToolbarConfiguration.swift)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+excluded_logic_app_source() {
+  local base="$1"
+  case "$base" in
+    main.swift|\
+    AppDelegate*|\
+    AIChatPanel*|\
+    AISettingsPanel*|\
+    AITextActionRunner.swift|\
+    AIClient.swift|\
+    DebouncedTask.swift|\
+    DiagnosticsPanel*|\
+    DiagnosticsReport.swift|\
+    DocumentLoading*|\
+    DocumentQuestionPromptRequest.swift|\
+    EmbeddingClient.swift|\
+    KokoroTTSBackend.swift|\
+    LeafAlertStyle.swift|\
+    LLMAnswerProvider.swift|\
+    ModalOverlayManager.swift|\
+    PDFDocumentAgentIndex.swift|\
+    PDFEmbeddingStore.swift|\
+    PDFWordRecordStore.swift|\
+    Reader*State.swift|\
+    ReaderDocumentImportCoordinator.swift|\
+    ReaderDropContentView.swift|\
+    ReaderFileDrop.swift|\
+    ReaderTheme*|\
+    ReaderTOCHelper.swift|\
+    ReaderAIPanelCoordinator.swift|\
+    ReaderReadAloudCoordinator.swift|\
+    ReaderSelectionCoordinator.swift|\
+    ReaderWindowController*|\
+    ReaderWindowSupportViews.swift|\
+    ReadingNotePanelController*|\
+    ReadingNoteEditorRenderer.swift|\
+    ReadingNoteTheme.swift|\
+    RecentDocuments*|\
+    SearchOverlayView.swift|\
+    SelectionActionToolbar.swift|\
+    SelectionToolbarCoordinator.swift|\
+    SettingsTabsView.swift|\
+    SpeechPlayback*|\
+    TemplateSymbolImage.swift|\
+    ThemedSettings*|\
+    TTSPreviewCache.swift|\
+    VocabularyContextProvider.swift|\
+    VocabularyDictionaryMetadataService.swift|\
+    VocabularyFrequencyBackfillService.swift|\
+    VocabularyRecordProvider.swift|\
+    VocabularyReviewCardFooterBuilder.swift|\
+    VocabularyReviewCoordinator.swift|\
+    VocabularyReviewScoringService.swift|\
+    VocabularySpeechCoordinator.swift|\
+    WebReadAloudBatchParser.swift|\
+    WebWordRecordStore.swift|\
+    WordRecordSQLite*.swift|\
+    *Button.swift|\
+    *Controls.swift|\
+    *Overlay*.swift|\
+    *Toolbar*.swift|\
+    *View.swift|\
+    *Views.swift)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+contains_ui_dependency() {
+  local source="$1"
+  grep -Eq '\b(NSView|NSWindow|NSButton|NSImageView|NSPanel|NSScrollView|WKWebView|PDFView|PDFAnnotation|AVAudio|NSSavePanel|NSOpenPanel|NSMenu|NSAlert|NSCollectionView|NSTextView|NSVisualEffectView|NSToolbar)\b' "$source"
+}
+
+collect_logic_app_sources() {
+  local source
+  local base
+  LOGIC_APP_SOURCES=()
+
+  while IFS= read -r source; do
+    base="${source##*/}"
+    if always_include_logic_app_source "$base"; then
+      LOGIC_APP_SOURCES+=("$source")
+      continue
+    fi
+    if excluded_logic_app_source "$base" || contains_ui_dependency "$source"; then
+      continue
+    fi
+    LOGIC_APP_SOURCES+=("$source")
+  done < <(find mac-app -maxdepth 1 -name "*.swift" -type f | sort)
+}
+
 SQLITE_WORD_TEST_SOURCES=(
   tests/SQLiteWordRecordStoreTests.swift
   mac-app/VocabularySRS.swift
@@ -24,107 +127,12 @@ REGRESSION_TEST_SOURCES=(
   mac-app/ProcessRunner.swift
   mac-app/AIRequestState.swift
   mac-app/MarkdownRenderer.swift
+  mac-app/MarkdownBlockParser.swift
+  mac-app/MarkdownInlineParser.swift
   mac-app/DocumentIdentity.swift
   mac-app/StoredPDFWordRect.swift
   mac-app/AIConversationStore.swift
   tests/RegressionTests.swift
-)
-
-LOGIC_APP_SOURCES=(
-  mac-app/EmbeddingWarmupPolicy.swift
-  mac-app/PDFPagingPolicy.swift
-  mac-app/PDFBrightnessPolicy.swift
-  mac-app/StoredPDFWordRect.swift
-  mac-app/ReaderSessionPolicy.swift
-  mac-app/ReaderSessionStore.swift
-  mac-app/ReadingNote.swift
-  mac-app/ReadingNoteEditorState.swift
-  mac-app/ReadingNoteAIInsertionMode.swift
-  mac-app/ReadingNoteEditorViews.swift
-  mac-app/ReadingNoteSlashCommand.swift
-  mac-app/ReadingNoteAITextPolicy.swift
-  mac-app/ReadingNoteMarkdownInputPolicy.swift
-  mac-app/MarkdownRenderer.swift
-  mac-app/ReadingNoteMarkdownSerializer.swift
-  mac-app/ReadingNoteTextReplacementPolicy.swift
-  mac-app/ReadingNoteTextPolicy.swift
-  mac-app/ReadingNoteListPresenter.swift
-  mac-app/ReadingNoteStore.swift
-  mac-app/ReadingNoteExporter.swift
-  mac-app/ReaderProgressFormatter.swift
-  mac-app/ReadAloudTextMatcher.swift
-  mac-app/VocabularyTextPolicy.swift
-  mac-app/ReaderAIContextPolicy.swift
-  mac-app/AIResponseParser.swift
-  mac-app/AIResponseTextFormatter.swift
-  mac-app/ECDICTDictionary.swift
-  mac-app/DictionaryLookupService.swift
-  mac-app/AnswerProvider.swift
-  mac-app/EmbeddingActionPolicy.swift
-  mac-app/AppText.swift
-  mac-app/AIProviderDescriptor.swift
-  mac-app/AIModelConfig.swift
-  mac-app/AIChatRequestBuilder.swift
-  mac-app/LocalEncryptedStore.swift
-  mac-app/LocalRuntime.swift
-  mac-app/LocalRuntimeDownloadManifest.swift
-  mac-app/LocalRuntimeDownloadCoordinator.swift
-  mac-app/LocalRuntimeInstallCoordinator.swift
-  mac-app/SpeechVoiceCatalog.swift
-  mac-app/AISettingsStore.swift
-  mac-app/AISettingsStore+Embedding.swift
-  mac-app/AISettingsStore+Speech.swift
-  mac-app/NetworkConnectivityMonitor.swift
-  mac-app/NetworkErrorFormatter.swift
-  mac-app/KokoroWorkerResponseReader.swift
-  mac-app/ProcessRunner.swift
-  mac-app/SpeechTextPolicy.swift
-  mac-app/SpeechTextNormalization.swift
-  mac-app/SpeechSentenceBoundary.swift
-  mac-app/ReadAloudManualAdvanceKeyPolicy.swift
-  mac-app/SpeechSynthesisError.swift
-  mac-app/TTSWaveFile.swift
-  mac-app/VocabularyAudioCache.swift
-  mac-app/PiperTTSBackend.swift
-  mac-app/KokoroVoiceResourceManager.swift
-  mac-app/LocalRuntimeInstaller.swift
-  mac-app/LocalRuntimeDownloadSupport.swift
-  mac-app/SpeechRuntimeDownloadSupport.swift
-  mac-app/SpeechRuntimeManifestFetcher.swift
-  mac-app/SpeechRuntimeCatalog.swift
-  mac-app/SpeechRuntimeModel.swift
-  mac-app/SpeechRuntimeAvailability.swift
-  mac-app/SpeechRuntimeStatus.swift
-  mac-app/SpeechRuntimeInstaller.swift
-  mac-app/SpeechRuntimeDeleter.swift
-  mac-app/SpeechRuntimeDownloadFailureStore.swift
-  mac-app/SpeechRuntimeInferenceFailureStore.swift
-  mac-app/SpeechRuntimePathChecks.swift
-  mac-app/SpeechRuntimeCacheInstallTransaction.swift
-  mac-app/SpeechRuntimeInstallHelpers.swift
-  mac-app/SpeechRuntimeResourceManager.swift
-  mac-app/LocalRuntimeDownloader.swift
-  mac-app/ReadingContextSnapshot.swift
-  mac-app/ReaderDocumentKind.swift
-  mac-app/VocabularyReviewModels.swift
-  mac-app/VocabularyDailyGoalPolicy.swift
-  mac-app/VocabularySRS.swift
-  mac-app/VocabularyExportRecord.swift
-  mac-app/VocabularyReviewQueueBuilder.swift
-  mac-app/VocabularyReviewSession.swift
-  mac-app/VocabularyReviewCardSelector.swift
-  mac-app/ReaderQueryCapability.swift
-  mac-app/RequestAvailabilityPolicy.swift
-  mac-app/SelectionToolbarConfiguration.swift
-  mac-app/VocabularyReviewDisplayRecordLoader.swift
-  mac-app/VocabularyAnswerFormatter.swift
-  mac-app/VocabularyExporter.swift
-  mac-app/ReaderAIContextBuilder.swift
-  mac-app/ReaderAIContextBuilder+PDF.swift
-  mac-app/EPUBPackageParser.swift
-  mac-app/EPUBPathResolver.swift
-  mac-app/EPUBHTMLSanitizer.swift
-  mac-app/EPUBTextDecoder.swift
 )
 
 LOGIC_TEST_SOURCES=(
@@ -142,6 +150,8 @@ node --check mac-app/Resources/reader-web-search.js
 node --check mac-app/Resources/reader-web-marks.js
 node --check mac-app/Resources/reader-web.js
 node tests/ReaderWebScriptTests.js
+
+collect_logic_app_sources
 
 run_swift_test /tmp/leafreader-sqlite-word-tests \
   "${SQLITE_WORD_TEST_SOURCES[@]}" \

@@ -20,6 +20,7 @@ extension ReaderWindowController {
 
         let pageIndex = document.index(for: page)
         if let existing = pdfWordRecordStore?.existingRecord(in: storedWordRecords, pageIndex: pageIndex, bounds: bounds) {
+            pdfView.clearSelection()
             return existing.id
         }
         if let reusable = reusablePDFWordRecord(for: text) {
@@ -40,6 +41,7 @@ extension ReaderWindowController {
             storedWordRecords.append(record)
             addStoredWordAnnotation(record)
             saveStoredWordRecord(record)
+            pdfView.clearSelection()
             return record.id
         }
 
@@ -55,6 +57,8 @@ extension ReaderWindowController {
             dictionaryFrequency: metadata.frequency,
             createdAt: Date()
         )
+        addPendingWordAnnotation(id: id, pageIndex: pageIndex, bounds: bounds, word: text)
+        pdfView.clearSelection()
         return id
     }
 

@@ -262,6 +262,18 @@ enum VocabularyLogicTests {
         try expectEqual(full.displayMode, .full(showsSpeak: true), "configured online state should expose the full toolbar")
     }
 
+    static func testLocalDictionaryFallbackRequiresOfflineState() throws {
+        let timeout = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)
+        try expect(
+            RequestAvailabilityPolicy.shouldUseLocalDictionaryFallback(for: timeout, isOnline: false),
+            "offline network errors should use local dictionary fallback"
+        )
+        try expect(
+            !RequestAvailabilityPolicy.shouldUseLocalDictionaryFallback(for: timeout, isOnline: true),
+            "online network errors should surface the model error instead of silently using local dictionary"
+        )
+    }
+
     static func testVocabularyReviewDisplayRecordLoaderLoadsOnlyCurrentRecord() throws {
         let createdAt = Date(timeIntervalSince1970: 1_700_000_000)
         let record = vocabularyRecord(id: "current", word: "induction", createdAt: createdAt)

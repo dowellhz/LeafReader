@@ -14,6 +14,13 @@ struct AnswerProviderResult: Equatable {
 
     let answer: String
     let source: Source
+    let dictionaryMetadata: VocabularyDictionaryMetadata?
+
+    init(answer: String, source: Source, dictionaryMetadata: VocabularyDictionaryMetadata? = nil) {
+        self.answer = answer
+        self.source = source
+        self.dictionaryMetadata = dictionaryMetadata
+    }
 }
 
 protocol AnswerProvider {
@@ -46,8 +53,12 @@ struct LocalDictionaryAnswerProvider: AnswerProvider {
     }
 
     func answer(for request: AnswerProviderRequest) -> AnswerProviderResult? {
-        if let answer = dictionaryLookupService.markdownAnswer(for: request.text, context: request.context) {
-            return AnswerProviderResult(answer: answer, source: .localDictionary)
+        if let answer = dictionaryLookupService.dictionaryAnswer(for: request.text, context: request.context) {
+            return AnswerProviderResult(
+                answer: answer.markdown,
+                source: .localDictionary,
+                dictionaryMetadata: answer.metadata
+            )
         }
         guard isDictionaryInstalled() else { return nil }
         let word = ECDICTDictionary.lookupKey(request.text)
@@ -74,30 +85,5 @@ struct CompositeAnswerProvider: AnswerProvider {
             }
         }
         return nil
-    }
-}
-
-enum LocalDictionaryTagFormatter {
-    static func suffix(for tags: String?) -> String? {
-        let values = tagValues(from: tags)
-        guard !values.isEmpty else { return nil }
-        let renderedTags = values.map { "`\($0.uppercased())`" }.joined(separator: " ")
-        return "\n\n\(AppText.localized("本地词典 Tags：", "Local dictionary tags:")) \(renderedTags)"
-    }
-
-    static func appendSuffix(to answer: String, suffix: String?) -> String {
-        let trimmedAnswer = answer.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let suffix,
-              !suffix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return trimmedAnswer
-        }
-        return trimmedAnswer + suffix
-    }
-
-    private static func tagValues(from tags: String?) -> [String] {
-        String(tags ?? "")
-            .components(separatedBy: CharacterSet(charactersIn: ",;/| ").union(.whitespacesAndNewlines))
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
     }
 }

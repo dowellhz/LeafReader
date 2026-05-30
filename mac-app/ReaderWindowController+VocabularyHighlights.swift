@@ -4,38 +4,79 @@ import PDFKit
 extension ReaderWindowController {
     func restoreStoredWordAnnotations() {
         guard currentDocumentKind == .pdf else { return }
+        removeAllVocabularyWordAnnotations()
+        highlightedSelectionKeys.removeAll()
         for record in storedWordRecords {
-            addStoredWordAnnotation(record)
+            addPDFVocabularyAnnotation(
+                id: record.id,
+                pageIndex: record.pageIndex,
+                storedBounds: record.bounds.cgRect,
+                word: record.word
+            )
         }
         pdfView.setNeedsDisplay(pdfView.bounds)
     }
 
     func addStoredWordAnnotation(_ record: StoredPDFWordRecord) {
-        guard let page = pdfView.document?.page(at: record.pageIndex) else { return }
-        let bounds = displayBounds(for: record, page: page)
-        let key = pdfWordRecordStore?.recordKey(pageIndex: record.pageIndex, bounds: bounds)
-            ?? "\(record.pageIndex):\(Int(bounds.origin.x.rounded())):\(Int(bounds.origin.y.rounded())):\(Int(bounds.width.rounded())):\(Int(bounds.height.rounded()))"
+        addPDFVocabularyAnnotation(
+            id: record.id,
+            pageIndex: record.pageIndex,
+            storedBounds: record.bounds.cgRect,
+            word: record.word
+        )
+    }
+
+    func addPendingWordAnnotation(id: String, pageIndex: Int, bounds: CGRect, word: String) {
+        addPDFVocabularyAnnotation(id: id, pageIndex: pageIndex, storedBounds: bounds, word: word)
+    }
+
+    func discardPendingWordAnnotations() {
+        restoreStoredWordAnnotations()
+    }
+
+    private func addPDFVocabularyAnnotation(id: String, pageIndex: Int, storedBounds: CGRect, word: String) {
+        guard let page = pdfView.document?.page(at: pageIndex) else { return }
+        let bounds = displayBounds(bounds: storedBounds, word: word, page: page)
+        let key = wordAnnotationKey(pageIndex: pageIndex, bounds: bounds)
         guard !highlightedSelectionKeys.contains(key) else { return }
         highlightedSelectionKeys.insert(key)
 
         let annotation = PDFAnnotation(bounds: wordUnderlineBounds(for: bounds), forType: .highlight, withProperties: nil)
         annotation.color = vocabularySelectionHighlightColor(for: ReaderTheme.selected)
-        annotation.contents = "leaf-word:\(record.id)"
+        annotation.contents = "leaf-word:\(id)"
         page.addAnnotation(annotation)
+        pdfView.setNeedsDisplay(pdfView.bounds)
     }
 
-    func refreshStoredWordAnnotationAppearance() {
-        guard currentDocumentKind == .pdf,
-              let document = pdfView.document else { return }
-        for pageIndex in 0..<document.pageCount {
-            guard let page = document.page(at: pageIndex) else { continue }
+    private func removeAllVocabularyWordAnnotations() {
+        guard let document = pdfView.document else { return }
+        for index in 0..<document.pageCount {
+            guard let page = document.page(at: index) else { continue }
             for annotation in page.annotations where annotation.contents?.hasPrefix("leaf-word:") == true {
                 page.removeAnnotation(annotation)
             }
         }
-        highlightedSelectionKeys.removeAll()
+    }
+
+    private func wordAnnotationKey(pageIndex: Int, bounds: CGRect) -> String {
+        pdfWordRecordStore?.recordKey(pageIndex: pageIndex, bounds: bounds)
+            ?? "\(pageIndex):\(Int(bounds.origin.x.rounded())):\(Int(bounds.origin.y.rounded())):\(Int(bounds.width.rounded())):\(Int(bounds.height.rounded()))"
+    }
+
+    private func displayBounds(bounds storedBounds: CGRect, word: String, page: PDFPage) -> CGRect {
+        precisePDFSelectionBounds(
+            page: page,
+            originalBounds: storedBounds,
+            queryText: word
+        ) ?? storedBounds
+    }
+
+    func displayBounds(for record: StoredPDFWordRecord, page: PDFPage) -> CGRect {
+        displayBounds(bounds: record.bounds.cgRect, word: record.word, page: page)
+    }
+
+    func refreshStoredWordAnnotationAppearance() {
         restoreStoredWordAnnotations()
-        pdfView.setNeedsDisplay(pdfView.bounds)
     }
 
     func vocabularySelectionHighlightColor(for theme: ReaderTheme) -> NSColor {
@@ -50,14 +91,6 @@ extension ReaderWindowController {
             width: bounds.width,
             height: thickness
         ).insetBy(dx: -0.8, dy: 0)
-    }
-
-    func displayBounds(for record: StoredPDFWordRecord, page: PDFPage) -> CGRect {
-        precisePDFSelectionBounds(
-            page: page,
-            originalBounds: record.bounds.cgRect,
-            queryText: record.word
-        ) ?? record.bounds.cgRect
     }
 
     func restoreStoredWebWordHighlights(completion: (() -> Void)? = nil) {

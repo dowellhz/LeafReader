@@ -44,7 +44,7 @@ extension ReaderWindowController {
     }
 
     func showSelectionToolbar(near sourceRect: NSRect, text: String, preferredEdge: SelectionToolbarEdge = .above) {
-        SelectionToolbarCoordinator(owner: self).show(near: sourceRect, text: text, preferredEdge: preferredEdge)
+        selectionToolbarCoordinator.show(near: sourceRect, text: text, preferredEdge: preferredEdge)
     }
 
     func hideSelectionToolbar() {

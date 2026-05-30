@@ -47,6 +47,11 @@ extension ReaderWindowController {
         set { readAloudState.lastProgressPageIndex = newValue }
     }
 
+    var currentReadAloudSelectionText: String {
+        get { readAloudState.currentSelectionText }
+        set { readAloudState.currentSelectionText = newValue }
+    }
+
     var lastReadAloudAISource: AIConversationSourceLocation? {
         get { readAloudState.lastAISource }
         set { readAloudState.lastAISource = newValue }

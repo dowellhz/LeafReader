@@ -79,20 +79,32 @@ extension ReaderWindowController {
     func currentAIConversationSourceLocation() -> AIConversationSourceLocation? {
         if currentDocumentKind == .pdf {
             guard let pageIndex = currentPageIndex() else { return nil }
-            return currentPDFSelectionSourceLocation(pageIndex: pageIndex)
+            let focusedSelection = currentFocusedSelectionForAI()
+            switch focusedSelection?.origin {
+            case .explicitSelection:
+                return currentPDFSelectionSourceLocation(pageIndex: pageIndex)
+                    ?? AIConversationSourceLocation(kind: .pdfPage, index: pageIndex, progress: nil, selectedText: focusedSelection?.text)
+            case .readAloudSegment:
+                return currentPDFReadAloudSourceLocation(pageIndex: pageIndex)
+                    ?? AIConversationSourceLocation(kind: .pdfPage, index: pageIndex, progress: nil, selectedText: focusedSelection?.text)
+            case nil:
+                return AIConversationSourceLocation(kind: .pdfPage, index: pageIndex, progress: nil)
+            }
         }
 
         let index = currentEmbeddingPriorityIndex() ?? 0
-        let selectedText = currentWebSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let focusedSelection = currentFocusedSelectionForAI()
+        let selectedText = focusedSelection?.text.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let isExplicitSelection = focusedSelection?.origin == .explicitSelection
         let source = AIConversationSourceLocation(
             kind: .webProgress,
             index: index,
             progress: min(1, max(0, webScrollProgress)),
             selectedText: selectedText.isEmpty ? nil : selectedText,
-            webContext: currentWebSelectionContext.trimmingCharacters(in: .whitespacesAndNewlines),
-            occurrenceIndex: currentWebSelectionOccurrenceIndex
+            webContext: focusedSelection?.context.trimmingCharacters(in: .whitespacesAndNewlines),
+            occurrenceIndex: isExplicitSelection ? currentWebSelectionOccurrenceIndex : nil
         )
-        if !selectedText.isEmpty {
+        if isExplicitSelection, !selectedText.isEmpty {
             addAISourceUnderline(for: source)
         }
         return source

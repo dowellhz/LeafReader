@@ -132,15 +132,11 @@ extension ReadingNotePanelController {
     }
 
     private func slashCommandTrigger() -> SlashCommandTrigger? {
-        let nsText = textView.string as NSString
-        let location = min(textView.selectedRange().location, nsText.length)
-        guard location > 0,
-              nsText.substring(with: NSRange(location: location - 1, length: 1)) == "/" else {
-            return nil
-        }
-        let lineRange = nsText.lineRange(for: NSRange(location: max(0, location - 1), length: 0))
-        let line = nsText.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
-        return SlashCommandTrigger(isLineCommand: line == "/")
+        guard let trigger = ReadingNoteSlashRangePolicy.trigger(
+            text: textView.string,
+            selection: textView.selectedRange()
+        ) else { return nil }
+        return SlashCommandTrigger(isLineCommand: trigger.isLineCommand)
     }
 
     private func textBeforeCurrentSlashTrigger() -> String {

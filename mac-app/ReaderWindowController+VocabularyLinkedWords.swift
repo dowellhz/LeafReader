@@ -4,6 +4,9 @@ extension ReaderWindowController {
     func updateStoredLinkedWordAnswer(linkID: String, question: String, answer: String) {
         let trimmedAnswer = answer.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedAnswer.isEmpty else {
+            if pendingPDFWordRecords[linkID] != nil {
+                discardPendingWordAnnotations()
+            }
             pendingPDFWordRecords.removeValue(forKey: linkID)
             pendingWebWordRecords.removeValue(forKey: linkID)
             return
@@ -62,7 +65,9 @@ extension ReaderWindowController {
     }
 
     func discardPendingLinkedWord(linkID: String) {
-        pendingPDFWordRecords.removeValue(forKey: linkID)
+        if pendingPDFWordRecords.removeValue(forKey: linkID) != nil {
+            discardPendingWordAnnotations()
+        }
         if pendingWebWordRecords.removeValue(forKey: linkID) != nil {
             removeWebWordHighlight(id: linkID)
         }

@@ -1,4 +1,3 @@
-import AVFoundation
 import Cocoa
 
 extension AIChatPanel {
@@ -41,61 +40,17 @@ extension AIChatPanel {
             return
         }
         appendMessage(ChatMessage(role: "user", content: prompt))
-        let fallbackAnswer = isVocabularyItem
-            ? localOnlyAnswerProvider().answer(for: answerRequest)?.answer
+        let localAnswer = isVocabularyItem ? localOnlyAnswerProvider().answer(for: answerRequest) : nil
+        let fallbackAnswer = localAnswer?.answer
+        let answerSuffix = isVocabularyItem
+            ? localDictionaryTagSuffix(for: text, fallbackMetadata: localAnswer?.dictionaryMetadata)
             : nil
-        let answerSuffix = isVocabularyItem ? localDictionaryTagSuffix(for: text) : nil
         requestAI(
             linkID: linkID,
             linkedQuestion: displayedQuestion,
             fallbackAnswer: fallbackAnswer,
             answerSuffix: answerSuffix
         )
-    }
-
-    @objc func summarizeCurrentContent() {
-        let selected = trimmedText(selectedText)
-        if !selected.isEmpty {
-            askSelectedSummary(selected)
-            return
-        }
-        askCurrentContent(mode: .summary)
-    }
-
-    func askSelectedSummary(_ text: String) {
-        guard !isBusy else { return }
-        guard canUseSelectedModel() else {
-            onSettingsRequired?()
-            return
-        }
-        let displayedQuestion = selectedTextActionTitle(actionTitle: AppText.localized("总结", "Summarize"), text: text)
-        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
-        recordTranscript(role: AppText.userRole, text: displayedQuestion)
-        let title = trimmedText(text)
-        appendMessage(ChatMessage(role: "user", content: AIPromptStore.summaryPrompt(title: title, text: text)))
-        requestAI()
-    }
-
-    @objc func translateCurrentContent() {
-        let selected = trimmedText(selectedText)
-        if !selected.isEmpty {
-            askSelectedTranslation(selected)
-            return
-        }
-        askCurrentContent(mode: .translation)
-    }
-
-    func askSelectedTranslation(_ text: String) {
-        guard !isBusy else { return }
-        guard canUseSelectedModel() else {
-            onSettingsRequired?()
-            return
-        }
-        let displayedQuestion = selectedTextActionTitle(actionTitle: AppText.localized("翻译", "Translate"), text: text)
-        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
-        recordTranscript(role: AppText.userRole, text: displayedQuestion)
-        let title = trimmedText(text)
-        requestTranslation(title: title, text: text)
     }
 
     func selectedTextActionTitle(actionTitle: String, text: String) -> String {
@@ -108,119 +63,6 @@ extension AIChatPanel {
 
     func hasTrimmedText(_ text: String) -> Bool {
         !trimmedText(text).isEmpty
-    }
-
-    enum CurrentContentMode {
-        case summary
-        case translation
-    }
-
-    func askCurrentContent(mode: CurrentContentMode) {
-        guard !isBusy else { return }
-        guard canUseSelectedModel() else {
-            onSettingsRequired?()
-            return
-        }
-        let contentProvider = mode == .translation ? onTranslateCurrentContent : onSummarizeCurrentContent
-        contentProvider? { [weak self] content in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                guard let content,
-                      self.hasTrimmedText(content.text) else {
-                    NSSound.beep()
-                    return
-                }
-
-                let title = mode == .summary ? AppText.localized("总结", "Summarize") : AppText.localized("翻译", "Translate")
-                let displayedQuestion = "\(title): \(content.title)"
-                self.appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: false)
-                self.recordTranscript(role: AppText.userRole, text: displayedQuestion)
-                if mode == .translation {
-                    self.requestTranslation(title: content.title, text: content.text)
-                    return
-                }
-
-                let prompt = AIPromptStore.summaryPrompt(title: content.title, text: content.text)
-                self.appendMessage(ChatMessage(role: "user", content: prompt))
-                self.requestAI()
-            }
-        }
-    }
-
-    func isVocabularySelection(_ text: String) -> Bool {
-        VocabularyTextPolicy.isVocabularySelection(text)
-    }
-
-    func handleLocalDictionaryQuestion(_ text: String) -> Bool {
-        guard isVocabularySelection(text) else { return false }
-        speakSelectedWordIfNeeded(text)
-        let selectedContext = onAskSelectedText?(text) ?? ""
-        let answerRequest = AnswerProviderRequest(text: text, context: selectedContext, linkID: nil)
-        guard let answer = localOnlyAnswerProvider().answer(for: answerRequest)?.answer else {
-            return false
-        }
-
-        let linkID = onSelectedWordQuestionStarted?(text)
-        if let linkID, hasLinkedBubble(id: linkID) {
-            clearSelectedText()
-            scrollToLinkedBubble(id: linkID)
-            return true
-        }
-        let displayedQuestion = vocabularyBubbleTitle(for: text)
-        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
-        recordTranscript(role: AppText.userRole, text: displayedQuestion)
-        let answerBody = appendBubble(role: AppText.aiRole, text: answer, collapsible: false, renderMarkdown: true, linkID: linkID)
-        recordTranscript(role: AppText.aiRole, text: answer)
-        appendMessage(ChatMessage(role: "user", content: wordPrompt(for: text, context: selectedContext)))
-        appendMessage(ChatMessage(role: "assistant", content: answer))
-        if let linkID {
-            onLinkedAnswerCompleted?(linkID, displayedQuestion, answer)
-        }
-        scrollToDictionaryAnswer(answerBody)
-        clearSelectedText()
-        return true
-    }
-
-    func scrollToDictionaryAnswer(_ body: NSTextField) {
-        guard let box = body.superview else { return }
-        DispatchQueue.main.async { [weak self, weak box] in
-            guard let self, let box else { return }
-            self.scrollTranscriptToTop(of: box)
-        }
-    }
-
-    func isSingleEnglishWord(_ text: String) -> Bool {
-        VocabularyTextPolicy.isSingleEnglishWord(text)
-    }
-
-    func speakSelectedWordIfNeeded(_ text: String) {
-        guard AISettingsStore.speakSelectedWordEnabled,
-              isSingleEnglishWord(text) else {
-            return
-        }
-        speakWord(text)
-    }
-
-    func speakWord(_ text: String) {
-        if speechSynthesizer.isSpeaking {
-            speechSynthesizer.stopSpeaking(at: .immediate)
-        }
-        if VocabularyTextPolicy.shouldUseSystemTTSForShortSelection(text) {
-            speechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
-            return
-        }
-        SpeechPlaybackCoordinator.shared.speakText(text) { [weak self] didUseLocalTTS in
-            guard !didUseLocalTTS else { return }
-            self?.speechSynthesizer.speak(SpeechUtteranceFactory.utterance(for: text))
-        }
-    }
-
-    func wordPrompt(for word: String, context: String) -> String {
-        AIPromptStore.wordPrompt(for: word, context: context)
-    }
-
-    func sentencePrompt(for text: String) -> String {
-        AIPromptStore.sentencePrompt(for: text)
     }
 
     func canUseSelectedModel() -> Bool {

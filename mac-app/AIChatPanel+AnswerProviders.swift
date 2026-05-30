@@ -18,7 +18,8 @@ extension AIChatPanel {
         LocalDictionaryAnswerProvider(dictionaryLookupService: dictionaryLookupService)
     }
 
-    func localDictionaryTagSuffix(for word: String) -> String? {
-        LocalDictionaryTagFormatter.suffix(for: dictionaryLookupService.metadata(for: word).tags)
+    func localDictionaryTagSuffix(for word: String, fallbackMetadata: VocabularyDictionaryMetadata?) -> String? {
+        let metadata = fallbackMetadata ?? dictionaryLookupService.metadata(for: word)
+        return VocabularyTagFormatter.suffix(for: metadata.tags)
     }
 }

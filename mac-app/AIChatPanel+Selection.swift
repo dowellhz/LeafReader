@@ -1,6 +1,77 @@
 import Cocoa
 
 extension AIChatPanel {
+    func setSelectedText(_ text: String) {
+        if shouldIgnoreEmptySelectionUpdate(text) {
+            return
+        }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            clearActiveBubbleSelection(restoreRendering: true, clearSelectedTextState: false)
+        }
+        updateSelectedText(trimmed)
+    }
+
+    func clearSelectedText() {
+        clearActiveBubbleSelection(restoreRendering: true, clearSelectedTextState: false)
+        updateSelectedText("")
+    }
+
+    func setSelectedBubbleText(_ text: String) {
+        updateSelectedText(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    func updateSelectedText(_ text: String) {
+        selectedText = text
+        askButton.previewText = text
+        askButton.isEnabled = !text.isEmpty
+    }
+
+    func beginBubbleTextSelection(_ bubble: ChatBubbleTextField) {
+        if let previous = activeBubbleTextField, previous !== bubble {
+            clearActiveBubbleSelection(restoreRendering: true, clearSelectedTextState: false)
+        }
+        activeBubbleSelectionRange = nil
+        activeBubbleSelectedText = ""
+        activeBubbleTextField = bubble
+        updateSelectedText("")
+        onNonFollowUpSelectionInteraction?()
+    }
+
+    func finishBubbleTextSelection(_ bubble: ChatBubbleTextField) {
+        captureBubbleSelection(from: bubble)
+    }
+
+    @discardableResult
+    func captureBubbleSelection(from bubble: ChatBubbleTextField) -> Bool {
+        let selected = bubble.selectedTextValue
+        guard !selected.isEmpty else { return false }
+        activeBubbleSelectionRange = bubble.selectedTextRange
+        activeBubbleSelectedText = selected
+        activeBubbleTextField = bubble
+        setSelectedBubbleText(selected)
+        return true
+    }
+
+    func shouldIgnoreEmptySelectionUpdate(_ text: String) -> Bool {
+        guard text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return false
+        }
+        if isEditingFollowUp || isBusy || Date() < ignoreEmptySelectionUntil {
+            return true
+        }
+        if let responder = window?.firstResponder {
+            if let view = responder as? NSView, view.isDescendant(of: self) {
+                return true
+            }
+            if responder === inputField.currentEditor() {
+                return true
+            }
+        }
+        return false
+    }
+
     func installInteractionMonitor() {
         localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             guard let self, event.window === self.window else { return event }

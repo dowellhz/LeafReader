@@ -118,6 +118,7 @@ final class AITextActionRunner {
                 - 保留原意，不扩写事实，不添加原文没有的信息。
                 - 保持原文语言，不要翻译。英文仍输出英文，中文仍输出中文，中英混合时保留各自语言。
                 - 可以使用标题、列表、引用、粗体、任务列表等 Markdown 结构，让笔记更易读。
+                - 如果原文包含 [[LEAF_IMAGE_n]] 图片占位符，必须原样保留，不要删除、改写、翻译或重新排序。
                 - 不要包裹在代码块里，不解释整理过程，只输出 Markdown 正文。
 
                 【原文】
@@ -129,6 +130,7 @@ final class AITextActionRunner {
             Preserve the original meaning, but output the organized note in English regardless of the source text language.
             Do not add facts that are not in the original text.
             You may use headings, bullet lists, blockquotes, bold text, and task lists to make the note easier to read.
+            If the original text contains [[LEAF_IMAGE_n]] image placeholders, preserve them exactly. Do not delete, rewrite, translate, or reorder them.
             Do not wrap the output in a code block. Output only the Markdown body, with no explanation of your process.
 
             [Original text]

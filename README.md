@@ -64,6 +64,17 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 
 ### 更新记录
 
+#### 1.7.3
+
+- 阅读笔记支持图片资源持久化，插入图片会保存到应用资源目录，重新打开笔记后不再只剩文件名或丢失图片。
+- 改进阅读笔记的 AI 整理流程：向 AI 发送内容时保留图片占位符，整理结果会自动还原图片，避免图片在改写、总结或润色后消失。
+- 重构阅读笔记 Markdown 渲染、序列化、样式策略和 slash 范围处理，减少从富文本反推 Markdown 带来的样式漂移。
+- 放大阅读笔记窗口、正文、元信息和工具栏相关字号，并修复图片按钮可能卡住的问题。
+- 优化朗读选区上下文：没有普通选区时，AI 总结、翻译和问问题会使用当前朗读选中的句子；朗读工具条增加当前句重播按钮。
+- 改进单词查询：AI 结果会复用本地词典 Tags，标签展示更紧凑；网络不可用或模型不可达时更可靠地回退到本地词典。
+- 统一历史单词标注和新标注的下划线颜色，并修复朗读选中句子解析后缺少下划线标记的问题。
+- 调整 AI 气泡正文和标题字号，并整理 AI 面板、词汇、朗读和阅读笔记相关代码边界。
+
 #### 1.7.2
 
 - 改进阅读笔记：支持保存按钮、复制/粘贴快捷键，并修复重新打开后样式和字数统计不同步的问题。
@@ -196,6 +207,17 @@ Regular app releases reuse those files. Regenerated speech archives should only 
 
 ### Changelog
 
+#### 1.7.3
+
+- Made Reading Note images persistent: inserted images are copied into the app's Reading Note asset store and reopen correctly instead of degrading to filenames.
+- Improved AI organize/polish flows for Reading Notes by protecting image placeholders before sending Markdown to AI and restoring them after the response.
+- Refactored Reading Note Markdown rendering, serialization, inline style policy, slash ranges, and line-prefix handling to reduce rich-text-to-Markdown drift.
+- Enlarged the Reading Note window, body text, metadata text, and toolbar sizing, and fixed the image picker action that could freeze the note editor.
+- Improved read-aloud context fallback so Summary, Translate, and Ask use the currently spoken sentence when there is no explicit text selection; added replay for the current read-aloud segment.
+- Improved vocabulary lookup by reusing local dictionary tags in AI word answers, compacting tag display, and falling back to the local dictionary more reliably when the model is unavailable.
+- Kept historical and newly-created vocabulary underline colors consistent, including read-aloud sentence parsing highlights.
+- Adjusted AI bubble body/header font sizing and continued splitting AI panel, vocabulary, read-aloud, and Reading Note code into clearer boundaries.
+
 #### 1.7.2
 
 - Improved Reading Notes with a save button, copy/paste shortcuts, and fixes for reopened styling and word-count refresh.
@@ -270,6 +292,14 @@ Third-party speech models and runtimes remain copyrighted by their respective pr
 - [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) / Kokoro model: Apache License 2.0.
 - [KittenTTS](https://github.com/KittenML/KittenTTS) and [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs): KittenTTS model under Apache License 2.0; Rust runtime copyright belongs to the `kitten_tts_rs` project contributors.
 - [Piper](https://github.com/rhasspy/piper): MIT License; Piper voice model assets follow the metadata shipped with the upstream model package.
+
+## What's New in 1.7.3
+
+- Reading Note images now persist through save, reopen, and AI organize/polish flows.
+- Markdown handling in Reading Notes is cleaner and more stable, with dedicated parsers, render policies, image protection, and asset storage.
+- Read-aloud now supports replaying the current segment and can provide the spoken sentence as AI context when no other text is selected.
+- Vocabulary AI answers reuse local dictionary tags, show tags more compactly, and fall back to local dictionary data more reliably.
+- AI bubbles, Reading Note typography, underline colors, and related UI details were polished for consistency.
 
 ## What's New in 1.7.2
 

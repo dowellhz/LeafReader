@@ -10,14 +10,14 @@ extension ReaderWindowController: VocabularySpeechCoordinatorOwner {
 
     func pauseReadAloudForVocabularySpeech() {
         guard isReadAloudActive, !isReadAloudPaused else { return }
-        isReadAloudPaused = true
+        readAloudState.pausePlayback()
         SpeechPlaybackCoordinator.shared.pauseSpeaking()
         updateReadAloudButton()
     }
 
     func resumeReadAloudAfterVocabularySpeech(shouldResume: Bool) {
         guard shouldResume, isReadAloudActive, isReadAloudPaused else { return }
-        isReadAloudPaused = false
+        readAloudState.resumePlayback()
         SpeechPlaybackCoordinator.shared.resumeSpeaking()
         updateReadAloudButton()
     }

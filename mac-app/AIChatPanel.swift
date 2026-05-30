@@ -146,18 +146,12 @@ final class BubbleDeleteButton: NSButton {
 
 final class AIChatPanel: NSView, NSTextFieldDelegate {
     static let readerBodyFontSize: CGFloat = 15
+    static let bubbleBodyFontSize: CGFloat = 17
     static let maxSavedConversationBubbles = 100
     static let maxContextMessages = 40
     static let maxVisibleNormalConversationBubbles = 120
     static let maxInitialLinkedWordBubbles = 30
     static let maxInitialSavedConversationBubbles = 40
-
-    struct LinkedWordBubble {
-        let id: String
-        let word: String
-        let question: String
-        let answer: String
-    }
 
     let client = AIClient()
     let dictionaryLookupService: DictionaryLookupService = LocalDictionaryLookupService.shared
@@ -177,23 +171,6 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     let speechSynthesizer = AVSpeechSynthesizer()
     let requestState = AIRequestState()
     var lastFailedAIRequest: FailedAIRequest?
-
-    struct BubbleMetadata {
-        var role: String
-        var text: String
-        var renderMarkdown: Bool
-        var collapsible: Bool
-        var linkID: String?
-        var sourceLocation: AIConversationSourceLocation?
-    }
-
-    struct FailedAIRequest {
-        let messages: [ChatMessage]
-        let linkID: String?
-        let linkedQuestion: String?
-        let fallbackAnswer: String?
-        let answerSuffix: String?
-    }
 
     var onAskSelectedText: ((String) -> String?)?
     var onSelectedWordQuestionStarted: ((String) -> String?)?
@@ -260,77 +237,6 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    func setSelectedText(_ text: String) {
-        if shouldIgnoreEmptySelectionUpdate(text) {
-            return
-        }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
-            clearActiveBubbleSelection(restoreRendering: true, clearSelectedTextState: false)
-        }
-        updateSelectedText(trimmed)
-    }
-
-    func clearSelectedText() {
-        clearActiveBubbleSelection(restoreRendering: true, clearSelectedTextState: false)
-        updateSelectedText("")
-    }
-
-    func setSelectedBubbleText(_ text: String) {
-        updateSelectedText(text.trimmingCharacters(in: .whitespacesAndNewlines))
-    }
-
-    func updateSelectedText(_ text: String) {
-        selectedText = text
-        askButton.previewText = text
-        askButton.isEnabled = !text.isEmpty
-    }
-
-    func beginBubbleTextSelection(_ bubble: ChatBubbleTextField) {
-        if let previous = activeBubbleTextField, previous !== bubble {
-            clearActiveBubbleSelection(restoreRendering: true, clearSelectedTextState: false)
-        }
-        activeBubbleSelectionRange = nil
-        activeBubbleSelectedText = ""
-        activeBubbleTextField = bubble
-        updateSelectedText("")
-        onNonFollowUpSelectionInteraction?()
-    }
-
-    func finishBubbleTextSelection(_ bubble: ChatBubbleTextField) {
-        captureBubbleSelection(from: bubble)
-    }
-
-    @discardableResult
-    func captureBubbleSelection(from bubble: ChatBubbleTextField) -> Bool {
-        let selected = bubble.selectedTextValue
-        guard !selected.isEmpty else { return false }
-        activeBubbleSelectionRange = bubble.selectedTextRange
-        activeBubbleSelectedText = selected
-        activeBubbleTextField = bubble
-        setSelectedBubbleText(selected)
-        return true
-    }
-
-    func shouldIgnoreEmptySelectionUpdate(_ text: String) -> Bool {
-        guard text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return false
-        }
-        if isEditingFollowUp || isBusy || Date() < ignoreEmptySelectionUntil {
-            return true
-        }
-        if let responder = window?.firstResponder {
-            if let view = responder as? NSView, view.isDescendant(of: self) {
-                return true
-            }
-            if responder === inputField.currentEditor() {
-                return true
-            }
-        }
-        return false
     }
 
     func setContentVisible(_ visible: Bool) {

@@ -116,8 +116,7 @@ enum ReadingNoteMarkdownSerializer {
             let urlString = (attributes[.link] as? String) ?? (attributes[.link] as? URL)?.absoluteString
             guard let urlString,
                   let url = URL(string: urlString) else { return }
-            let name = url.deletingPathExtension().lastPathComponent
-            value = "![\(name)](\(url.path))"
+            value = ReadingNoteDocument.imageMarkdown(url: url)
             stop.pointee = true
         }
         return value

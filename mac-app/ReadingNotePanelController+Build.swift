@@ -159,14 +159,14 @@ extension ReadingNotePanelController {
 
     private func metadataItem(title: String, value: String) -> NSStackView {
         let titleLabel = NSTextField(labelWithString: title)
-        titleLabel.font = AppFont.semibold(ofSize: 12)
+        titleLabel.font = AppFont.semibold(ofSize: Metrics.metadataFontSize)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.maximumNumberOfLines = 1
         titleLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         titleLabel.setContentHuggingPriority(.required, for: .horizontal)
 
         let valueLabel = NSTextField(labelWithString: value)
-        valueLabel.font = AppFont.semibold(ofSize: 12)
+        valueLabel.font = AppFont.semibold(ofSize: Metrics.metadataFontSize)
         valueLabel.lineBreakMode = .byTruncatingTail
         valueLabel.maximumNumberOfLines = 1
         valueLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
