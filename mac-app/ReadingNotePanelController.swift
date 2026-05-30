@@ -48,6 +48,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
     let onExportNote: (ReadingNote) -> Void
     let onDeleteNote: (ReadingNote) -> Void
     let onDocumentQuestionPrompt: DocumentQuestionPromptHandler?
+    let onModelSettingsRequired: () -> Void
 
     init(
         note: ReadingNote,
@@ -56,7 +57,8 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         onShowNotes: @escaping () -> Void,
         onExportNote: @escaping (ReadingNote) -> Void,
         onDeleteNote: @escaping (ReadingNote) -> Void,
-        onDocumentQuestionPrompt: DocumentQuestionPromptHandler? = nil
+        onDocumentQuestionPrompt: DocumentQuestionPromptHandler? = nil,
+        onModelSettingsRequired: @escaping () -> Void = {}
     ) {
         self.note = note
         self.onSave = onSave
@@ -65,6 +67,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
         self.onExportNote = onExportNote
         self.onDeleteNote = onDeleteNote
         self.onDocumentQuestionPrompt = onDocumentQuestionPrompt
+        self.onModelSettingsRequired = onModelSettingsRequired
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 560, height: 460),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],

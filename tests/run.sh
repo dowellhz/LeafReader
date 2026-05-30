@@ -138,6 +138,8 @@ LOGIC_TEST_SOURCES=(
 )
 
 node --check mac-app/Resources/reader-web-text.js
+node --check mac-app/Resources/reader-web-search.js
+node --check mac-app/Resources/reader-web-marks.js
 node --check mac-app/Resources/reader-web.js
 node tests/ReaderWebScriptTests.js
 

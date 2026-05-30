@@ -104,18 +104,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var embeddingState = ReaderEmbeddingState()
     var aiState = ReaderAIState()
     let sessionSaveTask = DebouncedTask(delay: ReaderSessionPolicy.lastPositionSaveDelay)
-    var storedWordRecords: [StoredPDFWordRecord] = []
-    var pendingPDFWordRecords: [String: PendingPDFWordRecord] = [:]
-    var pdfWordRecordStore: PDFWordRecordStore?
-    var storedWebWordRecords: [StoredWebWordRecord] = []
-    var pendingWebWordRecords: [String: PendingWebWordRecord] = [:]
-    var webWordRecordStore: WebWordRecordStore?
-    var storedReadingNotes: [ReadingNote] = []
-    var readingNotePanelControllers: [String: ReadingNotePanelController] = [:]
+    var vocabularyState = ReaderVocabularyState()
+    var notesState = ReaderNotesState()
     let pdfWordRecordsSaveTask = DebouncedTask(delay: 0.8)
     let webWordRecordsSaveTask = DebouncedTask(delay: 0.8)
     var readAloudState = ReaderReadAloudState()
-    var currentVocabularyExportRecords: [VocabularyExportRecord] = []
     var didRegisterSelectionObserver = false
     var isEditingZoomField = false
     var isEditingPageField = false

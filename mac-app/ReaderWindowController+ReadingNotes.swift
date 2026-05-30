@@ -101,6 +101,8 @@ extension ReaderWindowController {
                 showsEvidenceBubbles: false,
                 completion: completion
             )
+        } onModelSettingsRequired: { [weak self] in
+            self?.openModelSettings()
         }
         readingNotePanelControllers[note.id] = controller
         presentReadingNotePanel(controller)

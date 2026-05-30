@@ -145,7 +145,7 @@ extension ReaderWindowController {
             self?.cancelDocumentAgentPrompt()
         }
         aiPanel.onSettingsRequired = { [weak self] in
-            self?.openAISettings()
+            self?.openModelSettings()
         }
         aiPanel.onConversationChanged = { [weak self] conversation in
             self?.saveAIConversationIfNeeded(conversation)

@@ -94,8 +94,7 @@ extension ReadingNotePanelController {
         renderMarkdownReplacement: Bool = false
     ) {
         guard AISettingsStore.hasAPIKeyForSelectedModel else {
-            statusLabel.stringValue = AppText.localized("请先配置 API Key", "Configure API Key first")
-            NSSound.beep()
+            showMissingModelAPIKeyPrompt()
             return
         }
         let selectionRange = textView.selectedRange()
@@ -197,8 +196,7 @@ extension ReadingNotePanelController {
 
     private func runAskQuestion(_ request: AskRequest) {
         guard AISettingsStore.hasAPIKeyForSelectedModel else {
-            statusLabel.stringValue = AppText.localized("请先配置 API Key", "Configure API Key first")
-            NSSound.beep()
+            showMissingModelAPIKeyPrompt()
             return
         }
         setAskInputVisible(false)
@@ -223,6 +221,12 @@ extension ReadingNotePanelController {
             return
         }
         runAskFallback(request, requestID: requestID)
+    }
+
+    private func showMissingModelAPIKeyPrompt() {
+        statusLabel.stringValue = AppText.localized("请先配置 API Key", "Configure API Key first")
+        NSSound.beep()
+        onModelSettingsRequired()
     }
 
     private func documentQuestionPromptRequest(for request: AskRequest) -> DocumentQuestionPromptRequest {
