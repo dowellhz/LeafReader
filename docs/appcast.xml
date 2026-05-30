@@ -6,21 +6,21 @@
     <description>Leaf Reader macOS app updates.</description>
     <language>zh-CN</language>
     <item>
-      <title>Leaf Reader 1.7.2</title>
-      <sparkle:version>1.7.2</sparkle:version>
-      <sparkle:shortVersionString>1.7.2</sparkle:shortVersionString>
+      <title>Leaf Reader 1.7.3</title>
+      <sparkle:version>1.7.3</sparkle:version>
+      <sparkle:shortVersionString>1.7.3</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <pubDate>Fri, 29 May 2026 18:06:19 +0000</pubDate>
+      <pubDate>Sat, 30 May 2026 16:19:17 +0000</pubDate>
       <description xml:lang="zh"><![CDATA[
-        <ul><li>Leaf Reader 1.7.2 发布。</li></ul>
+        <ul><li>Leaf Reader 1.7.3 发布。</li></ul>
       ]]></description>
       <description xml:lang="en"><![CDATA[
-        <ul><li>Leaf Reader 1.7.2 release.</li></ul>
+        <ul><li>Leaf Reader 1.7.3 release.</li></ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dowellhz/LeafReader/releases/download/v1.7.2/LeafReader-1.7.2.pkg"
-        sparkle:edSignature="uSp+4EWBwnw1W+8WRYuiUahEGBdwB3LAQvUwx1o5LsWcBHQJoU8/jpAFc4ZssDYdAMKaKLBokqWPPBrT2ngtBA=="
-        length="34089703"
+        url="https://github.com/dowellhz/LeafReader/releases/download/v1.7.3/LeafReader-1.7.3.pkg"
+        sparkle:edSignature="N69xHMOngAYg7IOwmniT/Tjmkjz8AJOMlaRW9w6lhyckpxcg+7hHtftBAh8iiTzx7G5RsXZl9hvMf9C1/WAcAQ=="
+        length="34201826"
         type="application/octet-stream" />
     </item>
   </channel>
