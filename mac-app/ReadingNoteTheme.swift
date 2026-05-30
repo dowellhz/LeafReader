@@ -4,7 +4,7 @@ enum ReadingNoteTheme {
     static func panelBackground(_ theme: ReaderTheme) -> NSColor {
         switch theme {
         case .original:
-            return NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1)
+            return NSColor(red: 0.935, green: 0.945, blue: 0.96, alpha: 1)
         case .eyeCare:
             return NSColor(red: 0.87, green: 0.81, blue: 0.61, alpha: 1)
         case .dark:

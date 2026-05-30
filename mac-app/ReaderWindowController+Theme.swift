@@ -46,7 +46,7 @@ extension ReaderWindowController {
     func chromeBackgroundColor(for theme: ReaderTheme) -> NSColor {
         switch theme {
         case .original:
-            return NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1)
+            return NSColor(red: 0.935, green: 0.945, blue: 0.96, alpha: 1)
         case .eyeCare:
             return NSColor(red: 0.90, green: 0.87, blue: 0.76, alpha: 1)
         case .dark:
@@ -57,7 +57,7 @@ extension ReaderWindowController {
     func toolbarBackgroundColor(for theme: ReaderTheme) -> NSColor {
         switch theme {
         case .original:
-            return NSColor.white.withAlphaComponent(0.97)
+            return NSColor(red: 0.972, green: 0.978, blue: 0.986, alpha: 0.98)
         case .eyeCare:
             return NSColor(red: 0.86, green: 0.82, blue: 0.68, alpha: 0.97)
         case .dark:
