@@ -77,10 +77,11 @@ final class ReaderSelectionCoordinator {
     }
 
     private func updateAISelection(explicitText: String) {
-        let aiSelectedText = explicitText.isEmpty
-            ? owner.currentReadAloudSelectionTextForAI()
-            : explicitText
-        owner.aiPanel.setSelectedText(aiSelectedText)
+        let selectedText = ReaderAIContextResolver(
+            explicitSelection: explicitText,
+            readAloudSelection: owner.currentReadAloudSelectionTextForAI()
+        ).preferredSelectionText
+        owner.aiPanel.setSelectedText(selectedText)
     }
 
     private func clearWebSelectionState() {

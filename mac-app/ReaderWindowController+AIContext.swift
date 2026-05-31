@@ -4,15 +4,10 @@ import WebKit
 
 extension ReaderWindowController {
     func currentFocusedSelectionForAI() -> ReaderFocusedSelection? {
-        let explicitText = explicitReaderSelectedTextForAI()
-        let readAloudText = currentReadAloudSelectionTextForAI()
-        let explicitContext = explicitText.isEmpty ? "" : contextForCurrentSelection(selectedText: explicitText)
-        let readAloudContext = readAloudText.isEmpty ? "" : contextForCurrentSelection(selectedText: readAloudText)
-        return ReaderFocusedSelection.make(
-            explicitSelection: explicitText,
-            readAloudSelection: readAloudText,
-            explicitContext: explicitContext,
-            readAloudContext: readAloudContext
+        ReaderFocusedSelection.resolve(
+            explicitSelection: explicitReaderSelectedTextForAI(),
+            readAloudSelection: currentReadAloudSelectionTextForAI(),
+            contextProvider: contextForCurrentSelection(selectedText:)
         )
     }
 

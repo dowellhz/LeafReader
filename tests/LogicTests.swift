@@ -289,24 +289,32 @@ private func testReadingContextSnapshot() throws {
 }
 
 private func testReaderFocusedSelectionPriority() throws {
-    let explicit = ReaderFocusedSelection.make(
+    var requestedContextTexts: [String] = []
+    let explicit = ReaderFocusedSelection.resolve(
         explicitSelection: " selected ",
         readAloudSelection: " spoken ",
-        explicitContext: " selected context ",
-        readAloudContext: " spoken context "
+        contextProvider: { text in
+            requestedContextTexts.append(text)
+            return "\(text) context"
+        }
     )
     try expectEqual(explicit?.origin, .explicitSelection, "explicit reader selection should win over read-aloud selection")
     try expectEqual(explicit?.text, "selected", "focused selection should trim explicit text")
     try expectEqual(explicit?.context, "selected context", "focused selection should use explicit context")
+    try expectEqual(requestedContextTexts, ["selected"], "resolver should only request context for the winning explicit selection")
 
-    let readAloud = ReaderFocusedSelection.make(
+    let readAloud = ReaderFocusedSelection.resolve(
         explicitSelection: " ",
         readAloudSelection: " spoken ",
-        explicitContext: "",
-        readAloudContext: " spoken context "
+        contextProvider: { text in "\(text) context" }
     )
     try expectEqual(readAloud?.origin, .readAloudSegment, "read-aloud selection should be used when there is no explicit selection")
     try expectEqual(readAloud?.text, "spoken", "focused selection should trim read-aloud text")
+    try expectEqual(
+        ReaderAIContextResolver(explicitSelection: " ", readAloudSelection: " spoken ").preferredSelectionText,
+        "spoken",
+        "AI panel selection fallback should use read-aloud text when explicit selection is empty"
+    )
 
     let snapshot = ReadingContextSnapshot(
         title: "Book",
@@ -318,6 +326,68 @@ private func testReaderFocusedSelectionPriority() throws {
     )
     try expectEqual(snapshot.focusedReadingText, "spoken", "read-aloud text should drive focused AI actions")
     try expect(snapshot.contextText.contains("当前朗读内容") || snapshot.contextText.contains("Current read-aloud text"), "context should label read-aloud focused text")
+}
+
+private func testReaderAISourceMatcher() throws {
+    let pdfBoundsSource = AIConversationSourceLocation(
+        kind: .pdfPage,
+        index: 2,
+        progress: nil,
+        selectedText: "different",
+        pdfBounds: [StoredPDFWordRect(CGRect(x: 10, y: 10, width: 30, height: 10))]
+    )
+    let pdfTextSource = AIConversationSourceLocation(
+        kind: .pdfPage,
+        index: 2,
+        progress: nil,
+        selectedText: "Knowing where the trap is",
+        pdfBounds: nil
+    )
+    let pdfMatcher = ReaderAISourceMatcher(
+        currentDocumentKind: .pdf,
+        currentWebProgress: 0,
+        candidates: [pdfBoundsSource, pdfTextSource]
+    )
+    try expectEqual(
+        pdfMatcher.readAloudSource(
+            matching: "unrelated text",
+            pageIndex: 2,
+            pdfBounds: CGRect(x: 12, y: 11, width: 8, height: 4),
+            webProgress: nil
+        ),
+        pdfBoundsSource,
+        "PDF read-aloud source matching should prefer intersecting bounds"
+    )
+    try expectEqual(
+        pdfMatcher.readAloudSource(
+            matching: "Knowing where the trap is - that is the first step",
+            pageIndex: 2,
+            pdfBounds: nil,
+            webProgress: nil
+        ),
+        pdfTextSource,
+        "PDF read-aloud source matching should fall back to selected text overlap"
+    )
+
+    let webSource = AIConversationSourceLocation(
+        kind: .webProgress,
+        index: 0,
+        progress: 0.42,
+        selectedText: nil,
+        webContext: nil,
+        occurrenceIndex: nil
+    )
+    let webMatcher = ReaderAISourceMatcher(
+        currentDocumentKind: .epub,
+        currentWebProgress: 0.40,
+        candidates: [webSource]
+    )
+    try expectEqual(
+        webMatcher.readAloudSource(matching: "spoken web text", pageIndex: nil, pdfBounds: nil, webProgress: nil),
+        webSource,
+        "Web read-aloud source matching should fall back to nearby progress"
+    )
+    try expect(ReaderAISourceMatcher.linkedWordText("imperative", overlapsReadAloudText: "more imperative still"), "linked word text should match spoken phrase")
 }
 
 private func testCapturedPageScrollGuard() throws {
@@ -586,6 +656,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Vocabulary review display record loader", VocabularyLogicTests.testVocabularyReviewDisplayRecordLoaderLoadsOnlyCurrentRecord),
     ("Reading context snapshot", testReadingContextSnapshot),
     ("Reader focused selection priority", testReaderFocusedSelectionPriority),
+    ("Reader AI source matcher", testReaderAISourceMatcher),
     ("Captured page scroll guard", testCapturedPageScrollGuard),
     ("PDF brightness policy", testPDFBrightnessPolicy),
     ("Debounced task", testDebouncedTask),

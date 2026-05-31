@@ -40,4 +40,16 @@ struct ReaderFocusedSelection: Equatable {
 
         return nil
     }
+
+    static func resolve(
+        explicitSelection: String,
+        readAloudSelection: String,
+        contextProvider: ReaderAIContextResolver.ContextProvider
+    ) -> ReaderFocusedSelection? {
+        ReaderAIContextResolver(
+            explicitSelection: explicitSelection,
+            readAloudSelection: readAloudSelection
+        )
+        .focusedSelection(contextProvider: contextProvider)
+    }
 }

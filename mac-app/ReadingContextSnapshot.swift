@@ -39,11 +39,10 @@ struct ReadingContextSnapshot {
             locationLabel: locationLabel,
             visibleText: visibleText,
             nearbyText: nearbyText,
-            focusedSelection: ReaderFocusedSelection.make(
+            focusedSelection: ReaderFocusedSelection.resolve(
                 explicitSelection: selectedText,
                 readAloudSelection: "",
-                explicitContext: selectedContext,
-                readAloudContext: ""
+                contextProvider: { _ in selectedContext }
             )
         )
     }
