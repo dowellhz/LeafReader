@@ -1,6 +1,12 @@
 import Foundation
 
 extension SpeechPlaybackCoordinator {
+    enum ReadAloudNavigationTarget {
+        case current
+        case next
+        case previous
+    }
+
     struct ReadAloudSegment {
         let speechText: String
         let displayText: String

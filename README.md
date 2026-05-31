@@ -64,6 +64,14 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 
 ### 更新记录
 
+#### 1.7.4
+
+- 优化单词查询路径：AI 请求时不再同步触发本地词典慢查询，本地词典 metadata 改为后台补齐，减少浮动菜单点词时的卡顿。
+- 精简 ECDICT 查询策略：多词选区不再检索本地词典，未命中时不做全表扫描，检索依据会跟随主词条删除。
+- 改进朗读浮动控制：上一条、下一条、重播和快捷键会聚焦到当前朗读句子所在页面与位置。
+- 放大选中单词和句子的浮动菜单文字，让解释、总结、翻译等操作更容易点击和阅读。
+- 整理 AI 气泡、单词持久化、朗读导航和词典查询相关代码，移除临时性能监控逻辑。
+
 #### 1.7.3
 
 - 阅读笔记支持图片资源持久化，插入图片会保存到应用资源目录，重新打开笔记后不再只剩文件名或丢失图片。
@@ -293,6 +301,14 @@ Third-party speech models and runtimes remain copyrighted by their respective pr
 - [KittenTTS](https://github.com/KittenML/KittenTTS) and [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs): KittenTTS model under Apache License 2.0; Rust runtime copyright belongs to the `kitten_tts_rs` project contributors.
 - [Piper](https://github.com/rhasspy/piper): MIT License; Piper voice model assets follow the metadata shipped with the upstream model package.
 
+## What's New in 1.7.4
+
+- Faster vocabulary lookup from the floating selection menu: AI requests no longer block on slow local dictionary work, and dictionary metadata is filled in asynchronously.
+- Tighter ECDICT behavior: multi-word selections skip local dictionary lookup, misses no longer fall back to table scans, and lookup keys are deleted with their main entries.
+- Read-aloud navigation now focuses the active spoken sentence when using previous, next, replay, or their keyboard shortcuts.
+- Selection floating menu text is larger for word and sentence actions.
+- Cleaned up AI bubble, vocabulary persistence, read-aloud navigation, and dictionary lookup code, including removal of temporary performance tracing.
+
 ## What's New in 1.7.3
 
 - Reading Note images now persist through save, reopen, and AI organize/polish flows.
@@ -431,7 +447,7 @@ Latest installer:
 
 Local release package path:
 
-`release/1.7.3/LeafReader-1.7.1.pkg`
+`release/1.7.4/LeafReader-1.7.4.pkg`
 
 Build the signed release package without publishing:
 

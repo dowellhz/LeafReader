@@ -83,6 +83,7 @@ final class ReaderReadAloudCoordinator {
 
     func replayCurrentSegment() {
         guard owner.isReadAloudActive, !owner.isReadAloudLoading else { return }
+        focusReadAloudSegment(.current)
         owner.readAloudState.resumePlayback()
         owner.updateReadAloudButton()
         SpeechPlaybackCoordinator.shared.replayCurrentSegment()
@@ -90,6 +91,7 @@ final class ReaderReadAloudCoordinator {
 
     func advanceSegment() {
         guard owner.isReadAloudActive, !owner.isReadAloudLoading else { return }
+        focusReadAloudSegment(.next)
         owner.readAloudState.resumePlayback()
         owner.updateReadAloudButton()
         if resumePendingFromFloatingAdvanceIfNeeded() {
@@ -104,6 +106,7 @@ final class ReaderReadAloudCoordinator {
 
     func replayPreviousSegment() {
         guard owner.isReadAloudActive, !owner.isReadAloudLoading, owner.canReadAloudGoPrevious else { return }
+        focusReadAloudSegment(.previous)
         owner.readAloudState.resumePlayback()
         owner.updateReadAloudButton()
         SpeechPlaybackCoordinator.shared.replayPreviousSegment()
@@ -164,6 +167,11 @@ final class ReaderReadAloudCoordinator {
             return true
         }
         return false
+    }
+
+    private func focusReadAloudSegment(_ target: SpeechPlaybackCoordinator.ReadAloudNavigationTarget) {
+        guard let segment = SpeechPlaybackCoordinator.shared.readAloudSegment(for: target) else { return }
+        owner.focusReadAloudSegment(segment)
     }
 
     private func clearUserSelectionForReadAloudStart() {

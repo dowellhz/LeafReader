@@ -103,6 +103,15 @@ final class ECDICTDictionary {
         return entry
     }
 
+    func cachedLookupOnly(_ query: String) -> ECDICTEntry? {
+        let normalized = Self.lookupKey(query)
+        guard !normalized.isEmpty,
+              let cached = cachedLookup(normalized) else {
+            return nil
+        }
+        return cached
+    }
+
     private func uncachedLookup(_ normalized: String) -> ECDICTEntry? {
         for url in databaseURLs where FileManager.default.fileExists(atPath: url.path) {
             if let entry = lookupSQLite(normalized, databaseURL: url) {

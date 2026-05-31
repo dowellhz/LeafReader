@@ -14,7 +14,14 @@ protocol DictionaryLookupService {
     func lookup(_ query: String) -> ECDICTEntry?
     func markdownAnswer(for query: String, context: String) -> String?
     func dictionaryAnswer(for query: String, context: String) -> VocabularyDictionaryAnswer?
+    func cachedDictionaryAnswer(for query: String, context: String) -> VocabularyDictionaryAnswer?
     func metadata(for word: String) -> VocabularyDictionaryMetadata
+}
+
+extension DictionaryLookupService {
+    func cachedDictionaryAnswer(for query: String, context: String = "") -> VocabularyDictionaryAnswer? {
+        nil
+    }
 }
 
 final class LocalDictionaryLookupService: DictionaryLookupService {
@@ -36,6 +43,14 @@ final class LocalDictionaryLookupService: DictionaryLookupService {
 
     func dictionaryAnswer(for query: String, context: String = "") -> VocabularyDictionaryAnswer? {
         guard let entry = lookup(query) else { return nil }
+        return VocabularyDictionaryAnswer(
+            markdown: ECDICTAnswerFormatter.markdownAnswer(for: entry, context: context),
+            metadata: metadata(for: entry)
+        )
+    }
+
+    func cachedDictionaryAnswer(for query: String, context: String) -> VocabularyDictionaryAnswer? {
+        guard let entry = dictionary.cachedLookupOnly(query) else { return nil }
         return VocabularyDictionaryAnswer(
             markdown: ECDICTAnswerFormatter.markdownAnswer(for: entry, context: context),
             metadata: metadata(for: entry)

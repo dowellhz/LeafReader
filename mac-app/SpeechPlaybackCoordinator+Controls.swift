@@ -177,6 +177,38 @@ extension SpeechPlaybackCoordinator {
         return active
     }
 
+    func readAloudSegment(for target: ReadAloudNavigationTarget) -> ReadAloudSegment? {
+        let work = {
+            self.readAloudSegmentOnMainThread(for: target)
+        }
+        if Thread.isMainThread {
+            return work()
+        }
+        var segment: ReadAloudSegment?
+        DispatchQueue.main.sync {
+            segment = work()
+        }
+        return segment
+    }
+
+    private func readAloudSegmentOnMainThread(for target: ReadAloudNavigationTarget) -> ReadAloudSegment? {
+        guard !activeSpeechSegments.isEmpty else { return nil }
+        let currentIndex = currentSegment?.index ?? lastPlayedSegmentIndex
+        let oneBasedIndex: Int
+        switch target {
+        case .current:
+            oneBasedIndex = currentIndex
+        case .next:
+            oneBasedIndex = min(activeSpeechSegments.count, max(1, currentIndex + 1))
+        case .previous:
+            oneBasedIndex = max(1, currentIndex - 1)
+        }
+        guard oneBasedIndex > 0, oneBasedIndex <= activeSpeechSegments.count else {
+            return nil
+        }
+        return activeSpeechSegments[oneBasedIndex - 1]
+    }
+
     private func allowOneManualAdvanceSegmentIfNeeded() {
         guard manualAdvanceEnabled else { return }
         manualAdvanceSegmentsRemaining = 1

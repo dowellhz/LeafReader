@@ -2,7 +2,7 @@ import Cocoa
 import PDFKit
 
 extension ReaderWindowController {
-    func persistSelectedWordIfNeeded(_ selection: PDFSelection?, text: String, context: String? = nil) -> String? {
+    func persistSelectedWordIfNeeded(_ selection: PDFSelection?, text: String, context: String? = nil) -> WordQuestionStartResult? {
         guard shouldPersistHighlight(for: text),
               let selection,
               let document = pdfView.document,
@@ -10,19 +10,14 @@ extension ReaderWindowController {
             return nil
         }
 
-        let selectionBounds = selection.bounds(for: page)
-        let bounds = precisePDFSelectionBounds(
-            page: page,
-            originalBounds: selectionBounds,
-            queryText: text
-        ) ?? selectionBounds.insetBy(dx: -1.5, dy: -1)
+        let bounds = selection.bounds(for: page).insetBy(dx: -1.5, dy: -1)
         guard bounds.width > 0, bounds.height > 0 else { return nil }
 
         let pageIndex = document.index(for: page)
         if let existing = pdfWordRecordStore?.existingRecord(in: storedWordRecords, pageIndex: pageIndex, bounds: bounds) {
             clearPDFSelectionState()
             pdfView.clearSelection()
-            return existing.id
+            return WordQuestionStartResult(linkID: existing.id, selectedContext: nil)
         }
         if let reusable = reusablePDFWordRecord(for: text) {
             let context = vocabularyContextForCurrentSelection(selectedText: text, precomputedContext: context)
@@ -44,28 +39,29 @@ extension ReaderWindowController {
             saveStoredWordRecord(record)
             clearPDFSelectionState()
             pdfView.clearSelection()
-            return record.id
+            return WordQuestionStartResult(linkID: record.id, selectedContext: context)
         }
 
         let id = UUID().uuidString
-        let metadata = dictionaryMetadata(for: text)
+        let context = vocabularyContextForCurrentSelection(selectedText: text, precomputedContext: context)
         pendingPDFWordRecords[id] = PendingPDFWordRecord(
             id: id,
             word: text.trimmingCharacters(in: .whitespacesAndNewlines),
             pageIndex: pageIndex,
             bounds: StoredPDFWordRect(bounds),
-            context: vocabularyContextForCurrentSelection(selectedText: text, precomputedContext: context),
-            dictionaryTags: metadata.tags,
-            dictionaryFrequency: metadata.frequency,
+            context: context,
+            dictionaryTags: nil,
+            dictionaryFrequency: nil,
             createdAt: Date()
         )
+        backfillDictionaryMetadataAsync(linkID: id, word: text)
         addPendingWordAnnotation(id: id, pageIndex: pageIndex, bounds: bounds, word: text)
         clearPDFSelectionState()
         pdfView.clearSelection()
-        return id
+        return WordQuestionStartResult(linkID: id, selectedContext: context)
     }
 
-    func persistSelectedWebWordIfNeeded(text: String, context precomputedContext: String? = nil) -> String? {
+    func persistSelectedWebWordIfNeeded(text: String, context precomputedContext: String? = nil) -> WordQuestionStartResult? {
         guard shouldPersistHighlight(for: text),
               currentDocumentKind != .pdf else {
             return nil
@@ -78,7 +74,7 @@ extension ReaderWindowController {
             occurrenceIndex: currentWebSelectionOccurrenceIndex
         ) {
             markCurrentWebSelectionAsStoredWord(id: pending.id)
-            return pending.id
+            return WordQuestionStartResult(linkID: pending.id, selectedContext: nil)
         }
         if let existing = webWordRecordStore?.existingRecord(
             in: storedWebWordRecords,
@@ -87,7 +83,7 @@ extension ReaderWindowController {
             occurrenceIndex: currentWebSelectionOccurrenceIndex
         ) {
             markCurrentWebSelectionAsStoredWord(id: existing.id)
-            return existing.id
+            return WordQuestionStartResult(linkID: existing.id, selectedContext: nil)
         }
         if let reusable = reusableWebWordRecord(for: word) {
             let id = UUID().uuidString
@@ -107,23 +103,23 @@ extension ReaderWindowController {
             storedWebWordRecords.append(record)
             markCurrentWebSelectionAsStoredWord(id: id)
             saveStoredWebWordRecord(record)
-            return record.id
+            return WordQuestionStartResult(linkID: record.id, selectedContext: context)
         }
 
         let id = UUID().uuidString
         markCurrentWebSelectionAsStoredWord(id: id)
-        let metadata = dictionaryMetadata(for: word)
         pendingWebWordRecords[id] = PendingWebWordRecord(
             id: id,
             word: word,
             context: context,
             occurrenceIndex: currentWebSelectionOccurrenceIndex,
             scrollProgress: webScrollProgress,
-            dictionaryTags: metadata.tags,
-            dictionaryFrequency: metadata.frequency,
+            dictionaryTags: nil,
+            dictionaryFrequency: nil,
             createdAt: Date()
         )
-        return id
+        backfillDictionaryMetadataAsync(linkID: id, word: word)
+        return WordQuestionStartResult(linkID: id, selectedContext: context)
     }
 
     func dictionaryMetadata(for word: String) -> (tags: String?, frequency: Int?) {

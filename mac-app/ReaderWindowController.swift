@@ -12,8 +12,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let pageIndex: Int
         let bounds: StoredPDFWordRect
         let context: String
-        let dictionaryTags: String?
-        let dictionaryFrequency: Int?
+        var dictionaryTags: String?
+        var dictionaryFrequency: Int?
         let createdAt: Date
     }
 
@@ -23,8 +23,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let context: String
         let occurrenceIndex: Int?
         let scrollProgress: Double
-        let dictionaryTags: String?
-        let dictionaryFrequency: Int?
+        var dictionaryTags: String?
+        var dictionaryFrequency: Int?
         let createdAt: Date
     }
 

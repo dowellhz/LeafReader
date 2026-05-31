@@ -285,8 +285,8 @@ final class SelectionActionToolbar: NSView {
 final class SelectionActionButton: NSButton {
     private enum Metrics {
         static let cornerRadius: CGFloat = 6
-        static let fontSize: CGFloat = 11.5
-        static let symbolPointSize: CGFloat = 11
+        static let fontSize: CGFloat = 13.5
+        static let symbolPointSize: CGFloat = 13
     }
 
     var symbolName: String? {

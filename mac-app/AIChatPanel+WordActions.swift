@@ -10,22 +10,34 @@ extension AIChatPanel {
         isSingleEnglishWord(text)
     }
 
+    func startWordQuestionIfNeeded(text: String) -> WordQuestionStartResult? {
+        guard isVocabularySelection(text) else { return nil }
+        return onSelectedWordQuestionStarted?(WordQuestionRequest(text: text, selectedContext: nil))
+    }
+
+    func contextForWordQuestion(text: String, start: WordQuestionStartResult?) -> String {
+        start?.selectedContext ?? onAskSelectedText?(text) ?? ""
+    }
+
     func handleLocalDictionaryQuestion(_ text: String) -> Bool {
         guard shouldUseLocalDictionary(for: text) else { return false }
         speakSelectedWordIfNeeded(text)
-        let selectedContext = onAskSelectedText?(text) ?? ""
-        let answerRequest = AnswerProviderRequest(text: text, context: selectedContext, linkID: nil)
-        guard let answer = localOnlyAnswerProvider().answer(for: answerRequest)?.answer else {
+        let answerRequest = AnswerProviderRequest(text: text, context: "", linkID: nil)
+        guard let initialAnswer = localOnlyAnswerProvider().answer(for: answerRequest)?.answer else {
             return false
         }
 
-        let wordRequest = WordQuestionRequest(text: text, selectedContext: selectedContext)
-        let linkID = onSelectedWordQuestionStarted?(wordRequest)
+        let wordStart = startWordQuestionIfNeeded(text: text)
+        let linkID = wordStart?.linkID
         if let linkID, hasLinkedBubble(id: linkID) {
             clearSelectedText()
             scrollToLinkedBubble(id: linkID)
             return true
         }
+        let selectedContext = contextForWordQuestion(text: text, start: wordStart)
+        let answer = localOnlyAnswerProvider()
+            .answer(for: AnswerProviderRequest(text: text, context: selectedContext, linkID: linkID))?
+            .answer ?? initialAnswer
         let displayedQuestion = vocabularyBubbleTitle(for: text)
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
         recordTranscript(role: AppText.userRole, text: displayedQuestion, linkID: linkID)

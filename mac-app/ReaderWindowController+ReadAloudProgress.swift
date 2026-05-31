@@ -98,6 +98,15 @@ extension ReaderWindowController {
         }
     }
 
+    func focusReadAloudSegment(_ segment: SpeechPlaybackCoordinator.ReadAloudSegment) {
+        guard currentDocumentKind == .pdf,
+              let pageIndex = segment.pageIndex else { return }
+        let text = segment.matchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? segment.displayText
+            : segment.matchText
+        updateTemporaryReadAloudUnderline(for: text, index: nil, pageIndex: pageIndex)
+    }
+
     func clearTemporaryReadAloudUnderline() {
         for item in temporaryReadAloudUnderlineAnnotations {
             item.page.removeAnnotation(item.annotation)

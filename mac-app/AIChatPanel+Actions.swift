@@ -19,20 +19,20 @@ extension AIChatPanel {
         let isVocabularyItem = isVocabularySelection(text)
         let canUseLocalDictionary = shouldUseLocalDictionary(for: text)
         speakSelectedWordIfNeeded(text)
-        let selectedContext = onAskSelectedText?(text) ?? nil
-        let wordRequest = WordQuestionRequest(text: text, selectedContext: selectedContext)
-        let linkID = isVocabularyItem ? onSelectedWordQuestionStarted?(wordRequest) : nil
+        let wordStart = startWordQuestionIfNeeded(text: text)
+        let linkID = wordStart?.linkID
         if let linkID, hasLinkedBubble(id: linkID) {
             clearSelectedText()
             scrollToLinkedBubble(id: linkID)
             return
         }
-        let prompt = isVocabularyItem ? wordPrompt(for: text, context: selectedContext ?? "") : sentencePrompt(for: text)
+        let selectedContext = contextForWordQuestion(text: text, start: wordStart)
+        let prompt = isVocabularyItem ? wordPrompt(for: text, context: selectedContext) : sentencePrompt(for: text)
         let displayedQuestion = isVocabularyItem ? vocabularyBubbleTitle(for: text) : selectedTextActionTitle(actionTitle: AppText.explainPrefix, text: text)
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
         recordTranscript(role: AppText.userRole, text: displayedQuestion, linkID: linkID)
         clearSelectedText()
-        let answerRequest = AnswerProviderRequest(text: text, context: selectedContext ?? "", linkID: linkID)
+        let answerRequest = AnswerProviderRequest(text: text, context: selectedContext, linkID: linkID)
         if let reusedAnswer = cachedVocabularyAnswerProvider().answer(for: answerRequest) {
             let answer = reusedAnswer.answer
             appendBubble(role: AppText.aiRole, text: answer, collapsible: false, renderMarkdown: true, linkID: linkID)
@@ -42,10 +42,10 @@ extension AIChatPanel {
             return
         }
         appendMessage(ChatMessage(role: "user", content: prompt, linkID: linkID))
-        let localAnswer = canUseLocalDictionary ? localOnlyAnswerProvider().answer(for: answerRequest) : nil
+        let localAnswer = canUseLocalDictionary ? cachedLocalDictionaryAnswer(for: answerRequest) : nil
         let fallbackAnswer = localAnswer?.answer
         let answerSuffix = canUseLocalDictionary
-            ? localDictionaryTagSuffix(for: text, fallbackMetadata: localAnswer?.dictionaryMetadata)
+            ? localDictionaryTagSuffix(fallbackMetadata: localAnswer?.dictionaryMetadata)
             : nil
         requestAI(
             linkID: linkID,

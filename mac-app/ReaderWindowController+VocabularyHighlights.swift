@@ -11,7 +11,8 @@ extension ReaderWindowController {
                 id: record.id,
                 pageIndex: record.pageIndex,
                 storedBounds: record.bounds.cgRect,
-                word: record.word
+                word: record.word,
+                refineBounds: true
             )
         }
         pdfView.setNeedsDisplay(pdfView.bounds)
@@ -22,21 +23,28 @@ extension ReaderWindowController {
             id: record.id,
             pageIndex: record.pageIndex,
             storedBounds: record.bounds.cgRect,
-            word: record.word
+            word: record.word,
+            refineBounds: false
         )
     }
 
     func addPendingWordAnnotation(id: String, pageIndex: Int, bounds: CGRect, word: String) {
-        addPDFVocabularyAnnotation(id: id, pageIndex: pageIndex, storedBounds: bounds, word: word)
+        addPDFVocabularyAnnotation(id: id, pageIndex: pageIndex, storedBounds: bounds, word: word, refineBounds: false)
     }
 
     func discardPendingWordAnnotations() {
         restoreStoredWordAnnotations()
     }
 
-    private func addPDFVocabularyAnnotation(id: String, pageIndex: Int, storedBounds: CGRect, word: String) {
+    private func addPDFVocabularyAnnotation(
+        id: String,
+        pageIndex: Int,
+        storedBounds: CGRect,
+        word: String,
+        refineBounds: Bool
+    ) {
         guard let page = pdfView.document?.page(at: pageIndex) else { return }
-        let bounds = displayBounds(bounds: storedBounds, word: word, page: page)
+        let bounds = refineBounds ? displayBounds(bounds: storedBounds, word: word, page: page) : storedBounds
         let key = wordAnnotationKey(pageIndex: pageIndex, bounds: bounds)
         guard !highlightedSelectionKeys.contains(key) else { return }
         highlightedSelectionKeys.insert(key)
