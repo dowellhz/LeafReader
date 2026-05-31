@@ -11,7 +11,7 @@
 
 当前版本安装包：
 
-[LeafReader-1.7.1.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.1/LeafReader-1.7.1.pkg)
+[LeafReader-1.7.4.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.4/LeafReader-1.7.4.pkg)
 
 ## 首次打开
 

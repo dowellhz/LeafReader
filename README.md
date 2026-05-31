@@ -29,7 +29,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 
 ### 下载
 
-[下载 Leaf Reader 1.7.1 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.7.1/LeafReader-1.7.1.pkg)
+[下载 Leaf Reader 1.7.4 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.7.4/LeafReader-1.7.4.pkg)
 
 ### 系统要求
 
