@@ -16,18 +16,15 @@ extension AIChatPanel {
         persistentBubbleIDs.removeAll()
         lastNotifiedConversationSources.removeAll()
         selectedLinkID = nil
-        transcriptEntries.removeAll()
-        messages = [
-            ChatMessage(role: "system", content: AIPromptStore.systemPrompt())
-        ]
+        conversationContext.reset()
 
         for record in records.suffix(Self.maxInitialLinkedWordBubbles) {
             appendBubble(role: AppText.userRole, text: vocabularyBubbleTitle(for: record.word), collapsible: false, linkID: record.id)
             appendBubble(role: AppText.aiRole, text: record.answer, collapsible: false, renderMarkdown: true, linkID: record.id)
-            recordTranscript(role: AppText.userRole, text: vocabularyBubbleTitle(for: record.word))
-            recordTranscript(role: AppText.aiRole, text: record.answer)
-            appendMessage(ChatMessage(role: "user", content: record.question))
-            appendMessage(ChatMessage(role: "assistant", content: record.answer))
+            recordTranscript(role: AppText.userRole, text: vocabularyBubbleTitle(for: record.word), linkID: record.id)
+            recordTranscript(role: AppText.aiRole, text: record.answer, linkID: record.id)
+            appendMessage(ChatMessage(role: "user", content: record.question, linkID: record.id))
+            appendMessage(ChatMessage(role: "assistant", content: record.answer, linkID: record.id))
         }
     }
 
@@ -51,8 +48,8 @@ extension AIChatPanel {
         let title = vocabularyBubbleTitle(for: record.word)
         appendBubble(role: AppText.userRole, text: title, collapsible: false, linkID: record.id)
         appendBubble(role: AppText.aiRole, text: record.answer, collapsible: false, renderMarkdown: true, linkID: record.id)
-        recordTranscript(role: AppText.userRole, text: title)
-        recordTranscript(role: AppText.aiRole, text: record.answer)
+        recordTranscript(role: AppText.userRole, text: title, linkID: record.id)
+        recordTranscript(role: AppText.aiRole, text: record.answer, linkID: record.id)
     }
 
     func appendReferenceBubbles(_ records: [LinkedWordBubble]) {
@@ -89,6 +86,7 @@ extension AIChatPanel {
         for id in idSet {
             bubbleBoxByLinkID.removeValue(forKey: id)
         }
+        removeLinkedWordHistory(ids: idSet)
         if let selectedLinkID, idSet.contains(selectedLinkID) {
             self.selectedLinkID = nil
         }
@@ -96,5 +94,9 @@ extension AIChatPanel {
         notifyConversationChangedIfNeeded()
         transcriptStack.needsLayout = true
         scheduleTranscriptLayout()
+    }
+
+    func removeLinkedWordHistory(ids: Set<String>) {
+        conversationContext.removeLinkedWordHistory(ids: ids)
     }
 }

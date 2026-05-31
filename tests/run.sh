@@ -136,6 +136,7 @@ REGRESSION_TEST_SOURCES=(
 )
 
 LOGIC_TEST_SOURCES=(
+  tests/AIConversationContextStoreTests.swift
   tests/EPUBLogicTests.swift
   tests/ReadingNoteLogicTests.swift
   tests/ReaderShelfLogicTests.swift

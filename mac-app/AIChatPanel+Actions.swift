@@ -28,18 +28,18 @@ extension AIChatPanel {
         let prompt = isVocabularyItem ? wordPrompt(for: text, context: selectedContext ?? "") : sentencePrompt(for: text)
         let displayedQuestion = isVocabularyItem ? vocabularyBubbleTitle(for: text) : selectedTextActionTitle(actionTitle: AppText.explainPrefix, text: text)
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
-        recordTranscript(role: AppText.userRole, text: displayedQuestion)
+        recordTranscript(role: AppText.userRole, text: displayedQuestion, linkID: linkID)
         clearSelectedText()
         let answerRequest = AnswerProviderRequest(text: text, context: selectedContext ?? "", linkID: linkID)
         if let reusedAnswer = cachedVocabularyAnswerProvider().answer(for: answerRequest) {
             let answer = reusedAnswer.answer
             appendBubble(role: AppText.aiRole, text: answer, collapsible: false, renderMarkdown: true, linkID: linkID)
-            recordTranscript(role: AppText.aiRole, text: answer)
-            appendMessage(ChatMessage(role: "user", content: prompt))
-            appendMessage(ChatMessage(role: "assistant", content: answer))
+            recordTranscript(role: AppText.aiRole, text: answer, linkID: linkID)
+            appendMessage(ChatMessage(role: "user", content: prompt, linkID: linkID))
+            appendMessage(ChatMessage(role: "assistant", content: answer, linkID: linkID))
             return
         }
-        appendMessage(ChatMessage(role: "user", content: prompt))
+        appendMessage(ChatMessage(role: "user", content: prompt, linkID: linkID))
         let localAnswer = isVocabularyItem ? localOnlyAnswerProvider().answer(for: answerRequest) : nil
         let fallbackAnswer = localAnswer?.answer
         let answerSuffix = isVocabularyItem
@@ -148,17 +148,11 @@ extension AIChatPanel {
     }
 
     func transcriptContext() -> String {
-        guard !transcriptEntries.isEmpty else { return AppText.none }
-        let context = transcriptEntries.map { entry in
-            "\(entry.role)：\n\(entry.content)"
-        }.joined(separator: "\n\n")
-        return String(context.suffix(1000))
+        conversationContext.transcriptContext(noneText: AppText.none)
     }
 
-    func recordTranscript(role: String, text: String) {
-        let content = trimmedText(text)
-        guard !content.isEmpty else { return }
-        transcriptEntries.append(TranscriptEntry(role: role, content: content))
+    func recordTranscript(role: String, text: String, linkID: String? = nil) {
+        conversationContext.appendTranscript(role: role, text: text, linkID: linkID)
     }
 
 }

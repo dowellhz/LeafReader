@@ -77,16 +77,10 @@ extension AIChatPanel {
     }
 
     func appendMessage(_ message: ChatMessage) {
-        messages.append(message)
-        trimMessagesIfNeeded()
+        conversationContext.appendMessage(message)
     }
 
     func trimMessagesIfNeeded() {
-        guard messages.count > Self.maxContextMessages + 1 else { return }
-        let systemMessage = messages.first { $0.role == "system" } ?? ChatMessage(role: "system", content: AIPromptStore.systemPrompt())
-        let recentMessages = messages
-            .filter { $0.role != "system" }
-            .suffix(Self.maxContextMessages)
-        messages = [systemMessage] + recentMessages
+        conversationContext.trimMessagesIfNeeded()
     }
 }

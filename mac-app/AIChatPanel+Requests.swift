@@ -52,11 +52,12 @@ extension AIChatPanel {
                         }
                         return
                     }
-                    self.recordTranscript(role: AppText.aiRole, text: finalContent)
-                    self.appendMessage(ChatMessage(role: "assistant", content: finalContent))
+                    self.recordTranscript(role: AppText.aiRole, text: finalContent, linkID: linkID)
+                    self.appendMessage(ChatMessage(role: "assistant", content: finalContent, linkID: linkID))
                     if let assistantBody = assistantBody {
                         self.updateBubble(assistantBody, role: AppText.aiRole, text: finalContent, notify: false)
                         self.persistBubbleIfNeeded(assistantBody)
+                        self.scrollBubbleHeadToTopIfNeeded(linkID: linkID, body: assistantBody)
                     }
                     if let linkID, let linkedQuestion {
                         let visible = AIResponseTextFormatter.visibleAnswer(finalContent)
@@ -172,6 +173,7 @@ extension AIChatPanel {
                 appendMessage(ChatMessage(role: "assistant", content: merged))
                 updateBubble(assistantBody, role: AppText.aiRole, text: merged, renderMarkdown: false, notify: false)
                 persistBubbleIfNeeded(assistantBody)
+                scrollBubbleHeadToTopIfNeeded(linkID: nil, body: assistantBody)
                 return
             }
 

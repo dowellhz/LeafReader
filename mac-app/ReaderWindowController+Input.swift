@@ -262,8 +262,15 @@ extension ReaderWindowController {
             return false
         }
         let key = event.characters ?? event.charactersIgnoringModifiers ?? ""
-        guard ReadAloudManualAdvanceKeyPolicy.accepts(key) else { return false }
-        advanceReadAloudFromFloatingControl()
+        guard let action = ReadAloudManualAdvanceKeyPolicy.action(for: key) else { return false }
+        switch action {
+        case .next:
+            advanceReadAloudFromFloatingControl()
+        case .replayCurrent:
+            replayReadAloudFromFloatingControl()
+        case .replayPrevious:
+            previousReadAloudFromFloatingControl()
+        }
         return true
     }
 

@@ -222,16 +222,31 @@ final class ECDICTDictionary {
     }
 
     private func lookupSQLite(_ key: String, db: OpaquePointer, table: String) -> ECDICTEntry? {
+        if let entry = lookupSQLite(key, db: db, table: table, whereClause: "sw = ?", bindCount: 1) {
+            return entry
+        }
+        return lookupSQLite(key, db: db, table: table, whereClause: "word = ? COLLATE NOCASE", bindCount: 1)
+    }
+
+    private func lookupSQLite(
+        _ key: String,
+        db: OpaquePointer,
+        table: String,
+        whereClause: String,
+        bindCount: Int32
+    ) -> ECDICTEntry? {
         let sql = """
         SELECT word, phonetic, definition, translation, pos, tag, bnc, frq, exchange
         FROM \(table)
-        WHERE lower(word) = ?
+        WHERE \(whereClause)
         LIMIT 1
         """
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return nil }
         defer { sqlite3_finalize(statement) }
-        sqlite3_bind_text(statement, 1, key, -1, SQLITE_TRANSIENT)
+        for index in 1...bindCount {
+            sqlite3_bind_text(statement, index, key, -1, SQLITE_TRANSIENT)
+        }
         guard sqlite3_step(statement) == SQLITE_ROW else { return nil }
         return ECDICTEntry(
             word: stringColumn(statement, 0),

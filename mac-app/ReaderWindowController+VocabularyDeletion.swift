@@ -27,38 +27,58 @@ extension ReaderWindowController {
     }
 
     func removeVocabularyRecords(ids: [String]) {
-        let idSet = Set(ids)
+        let idSet = expandedVocabularyRecordIDs(for: Set(ids))
+        guard !idSet.isEmpty else { return }
+        let idsToRemove = Array(idSet)
+
         pendingPDFWordRecords = pendingPDFWordRecords.filter { !idSet.contains($0.key) }
         pendingWebWordRecords = pendingWebWordRecords.filter { !idSet.contains($0.key) }
 
         if currentDocumentKind == .pdf {
             let removedRecords = storedWordRecords.filter { idSet.contains($0.id) }
-            guard !removedRecords.isEmpty else {
-                aiPanel.removeLinkedWordBubbles(ids: ids)
-                saveCurrentAIConversationBeforeDocumentChange()
-                return
-            }
             for record in removedRecords {
                 guard let page = pdfView.document?.page(at: record.pageIndex) else { continue }
                 for annotation in page.annotations where storedWordID(from: annotation) == record.id {
                     page.removeAnnotation(annotation)
                 }
             }
-            storedWordRecords.removeAll { idSet.contains($0.id) }
-            highlightedSelectionKeys.removeAll()
-            restoreStoredWordAnnotations()
-            deleteStoredWordRecords(ids: ids)
+            if !removedRecords.isEmpty {
+                storedWordRecords.removeAll { idSet.contains($0.id) }
+                highlightedSelectionKeys.removeAll()
+                restoreStoredWordAnnotations()
+            }
+            deleteStoredWordRecords(ids: idsToRemove)
             pdfView.setNeedsDisplay(pdfView.bounds)
         } else {
-            storedWebWordRecords.removeAll { idSet.contains($0.id) }
-            deleteStoredWebWordRecords(ids: ids)
-            restoreStoredWebWordHighlights { [weak self] in
-                guard let self else { return }
-                self.restoreWebAISourceUnderlines(for: self.aiPanel.activeConversationSources())
+            let didRemoveWebRecords = storedWebWordRecords.contains { idSet.contains($0.id) }
+            if didRemoveWebRecords {
+                storedWebWordRecords.removeAll { idSet.contains($0.id) }
+            }
+            deleteStoredWebWordRecords(ids: idsToRemove)
+            if didRemoveWebRecords {
+                restoreStoredWebWordHighlights { [weak self] in
+                    guard let self else { return }
+                    self.restoreWebAISourceUnderlines(for: self.aiPanel.activeConversationSources())
+                }
             }
         }
 
-        aiPanel.removeLinkedWordBubbles(ids: ids)
+        aiPanel.removeLinkedWordBubbles(ids: idsToRemove)
         saveCurrentAIConversationBeforeDocumentChange()
+    }
+
+    private func expandedVocabularyRecordIDs(for ids: Set<String>) -> Set<String> {
+        if currentDocumentKind == .pdf {
+            return VocabularyRecordDeletionPlanner.expandedIDs(
+                requestedIDs: ids,
+                storedRecords: storedWordRecords.map { VocabularyDeletionRecord(id: $0.id, word: $0.word) },
+                pendingRecords: pendingPDFWordRecords.values.map { VocabularyDeletionRecord(id: $0.id, word: $0.word) }
+            )
+        }
+        return VocabularyRecordDeletionPlanner.expandedIDs(
+            requestedIDs: ids,
+            storedRecords: storedWebWordRecords.map { VocabularyDeletionRecord(id: $0.id, word: $0.word) },
+            pendingRecords: pendingWebWordRecords.values.map { VocabularyDeletionRecord(id: $0.id, word: $0.word) }
+        )
     }
 }

@@ -503,8 +503,12 @@ private func testReadAloudTextMatcher() throws {
 }
 
 private func testReadAloudManualAdvanceKeyPolicy() throws {
-    try expect(ReadAloudManualAdvanceKeyPolicy.accepts("\\"), "backslash should trigger manual TTS advance")
-    try expect(ReadAloudManualAdvanceKeyPolicy.accepts("、"), "Chinese enumeration comma should trigger manual TTS advance")
+    try expectEqual(ReadAloudManualAdvanceKeyPolicy.action(for: "\\"), .next, "backslash should trigger manual TTS advance")
+    try expectEqual(ReadAloudManualAdvanceKeyPolicy.action(for: "、"), .next, "Chinese enumeration comma should trigger manual TTS advance")
+    try expectEqual(ReadAloudManualAdvanceKeyPolicy.action(for: "]"), .replayCurrent, "right bracket should replay current TTS segment")
+    try expectEqual(ReadAloudManualAdvanceKeyPolicy.action(for: "】"), .replayCurrent, "Chinese right bracket should replay current TTS segment")
+    try expectEqual(ReadAloudManualAdvanceKeyPolicy.action(for: "["), .replayPrevious, "left bracket should replay previous TTS segment")
+    try expectEqual(ReadAloudManualAdvanceKeyPolicy.action(for: "【"), .replayPrevious, "Chinese left bracket should replay previous TTS segment")
     try expect(!ReadAloudManualAdvanceKeyPolicy.accepts("/"), "slash should not trigger manual TTS advance")
     try expect(!ReadAloudManualAdvanceKeyPolicy.accepts(nil), "nil key should not trigger manual TTS advance")
 }
@@ -593,6 +597,8 @@ private let tests: [(String, () throws -> Void)] = [
     ("Network error long body formatting", AISettingsLogicTests.testNetworkErrorFormattingTruncatesLongBody),
     ("AI response parser non-streaming", AISettingsLogicTests.testAIResponseParserParsesNonStreamingResponses),
     ("AI response parser streaming", AISettingsLogicTests.testAIResponseParserParsesStreamingDeltas),
+    ("AI conversation linked history removal", AIConversationContextStoreTests.testLinkedWordHistoryRemovalKeepsSystemMessage),
+    ("AI conversation context trimming", AIConversationContextStoreTests.testContextTrimsRecentMessages),
     ("ECDICT SQLite lookup", ECDICTLogicTests.testSQLiteLookupAndMarkdownAnswer),
     ("ECDICT CSV lookup", ECDICTLogicTests.testCSVLookup),
     ("ECDICT lookup key normalization", ECDICTLogicTests.testLookupKeyNormalization),

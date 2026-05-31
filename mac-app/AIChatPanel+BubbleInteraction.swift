@@ -68,6 +68,27 @@ extension AIChatPanel {
         scrollView.reflectScrolledClipView(clipView)
     }
 
+    func scrollBubbleHeadToTopIfNeeded(linkID: String?, body: NSTextField?) {
+        let targetBox = linkID.flatMap { bubbleBoxByLinkID[$0] } ?? body?.superview
+        guard let box = targetBox else { return }
+        DispatchQueue.main.async { [weak self, weak box] in
+            guard let self, let box else { return }
+            self.flushTranscriptLayout()
+            guard !self.isBubbleHeadAtTop(box) else { return }
+            self.scrollTranscriptToTop(of: box)
+        }
+    }
+
+    private func isBubbleHeadAtTop(_ box: NSView, tolerance: CGFloat = 6) -> Bool {
+        guard let documentView = scrollView.documentView else { return true }
+        let boxFrame = box.convert(box.bounds, to: documentView)
+        let desiredY = min(
+            max(0, boxFrame.minY - 8),
+            max(0, documentView.bounds.height - scrollView.contentView.bounds.height)
+        )
+        return abs(scrollView.contentView.bounds.minY - desiredY) <= tolerance
+    }
+
     func scrollToConversationSource(_ source: AIConversationSourceLocation, prefersHeaderBubble: Bool = false) {
         let preferredRoles = prefersHeaderBubble
             ? [AppText.userRole, AppText.aiRole]

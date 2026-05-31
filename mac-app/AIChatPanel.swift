@@ -194,10 +194,18 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var lastNotifiedConversationSources: [AIConversationSourceLocation] = []
 
     var selectedText = ""
-    var transcriptEntries: [TranscriptEntry] = []
-    var messages: [ChatMessage] = [
-        ChatMessage(role: "system", content: AIPromptStore.systemPrompt())
-    ]
+    lazy var conversationContext = AIConversationContextStore(
+        maxContextMessages: Self.maxContextMessages,
+        systemPromptProvider: AIPromptStore.systemPrompt
+    )
+    var transcriptEntries: [TranscriptEntry] {
+        get { conversationContext.transcriptEntries }
+        set { conversationContext.replaceTranscriptEntries(newValue) }
+    }
+    var messages: [ChatMessage] {
+        get { conversationContext.messages }
+        set { conversationContext.replaceMessages(newValue) }
+    }
     var isBusy = false
     var pendingStreamText = ""
     var lastStreamUpdateAt = Date.distantPast

@@ -1,8 +1,27 @@
 import Foundation
 
 enum ReadAloudManualAdvanceKeyPolicy {
+    enum Action: Equatable {
+        case next
+        case replayCurrent
+        case replayPrevious
+    }
+
+    static func action(for key: String?) -> Action? {
+        guard let key else { return nil }
+        switch key {
+        case "\\", "、":
+            return .next
+        case "]", "】":
+            return .replayCurrent
+        case "[", "【":
+            return .replayPrevious
+        default:
+            return nil
+        }
+    }
+
     static func accepts(_ key: String?) -> Bool {
-        guard let key else { return false }
-        return key == "\\" || key == "、"
+        action(for: key) != nil
     }
 }

@@ -51,8 +51,8 @@ extension AIChatPanel {
         linkID: String?,
         linkedQuestion: String?
     ) {
-        recordTranscript(role: AppText.aiRole, text: answer)
-        appendMessage(ChatMessage(role: "assistant", content: answer))
+        recordTranscript(role: AppText.aiRole, text: answer, linkID: linkID)
+        appendMessage(ChatMessage(role: "assistant", content: answer, linkID: linkID))
         updateBubble(assistantBody, role: AppText.aiRole, text: answer, notify: false)
         persistBubbleIfNeeded(assistantBody)
         scrollToDictionaryAnswer(assistantBody)

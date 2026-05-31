@@ -3,11 +3,25 @@ import Foundation
 struct ChatMessage: Codable {
     let role: String
     let content: String
+    let linkID: String?
+
+    init(role: String, content: String, linkID: String? = nil) {
+        self.role = role
+        self.content = content
+        self.linkID = linkID
+    }
 }
 
 struct TranscriptEntry: Codable {
     let role: String
     let content: String
+    let linkID: String?
+
+    init(role: String, content: String, linkID: String? = nil) {
+        self.role = role
+        self.content = content
+        self.linkID = linkID
+    }
 }
 
 enum AppText {

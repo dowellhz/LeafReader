@@ -23,11 +23,11 @@ extension AIChatPanel {
         }
         let displayedQuestion = vocabularyBubbleTitle(for: text)
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
-        recordTranscript(role: AppText.userRole, text: displayedQuestion)
+        recordTranscript(role: AppText.userRole, text: displayedQuestion, linkID: linkID)
         let answerBody = appendBubble(role: AppText.aiRole, text: answer, collapsible: false, renderMarkdown: true, linkID: linkID)
-        recordTranscript(role: AppText.aiRole, text: answer)
-        appendMessage(ChatMessage(role: "user", content: wordPrompt(for: text, context: selectedContext)))
-        appendMessage(ChatMessage(role: "assistant", content: answer))
+        recordTranscript(role: AppText.aiRole, text: answer, linkID: linkID)
+        appendMessage(ChatMessage(role: "user", content: wordPrompt(for: text, context: selectedContext), linkID: linkID))
+        appendMessage(ChatMessage(role: "assistant", content: answer, linkID: linkID))
         if let linkID {
             onLinkedAnswerCompleted?(linkID, displayedQuestion, answer)
         }
