@@ -136,7 +136,7 @@ extension ReaderWindowController {
 
     func explicitReaderSelectedTextForAI() -> String {
         if currentDocumentKind == .pdf {
-            return (pdfView.currentSelection?.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return currentPDFSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return currentWebSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
     }

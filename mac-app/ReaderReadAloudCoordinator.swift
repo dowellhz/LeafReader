@@ -167,6 +167,7 @@ final class ReaderReadAloudCoordinator {
     }
 
     private func clearUserSelectionForReadAloudStart() {
+        owner.clearPDFSelectionState()
         owner.pdfView.clearSelection()
         guard owner.currentDocumentKind != .pdf, owner.webView?.isHidden == false else { return }
         owner.webView?.evaluateJavaScript("""

@@ -1,6 +1,11 @@
 import AVFoundation
 import Cocoa
 
+struct WordQuestionRequest {
+    let text: String
+    let selectedContext: String?
+}
+
 final class ChatInputTextField: NSTextField {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.modifierFlags.contains(.command) || event.modifierFlags.contains(.control),
@@ -173,7 +178,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     var lastFailedAIRequest: FailedAIRequest?
 
     var onAskSelectedText: ((String) -> String?)?
-    var onSelectedWordQuestionStarted: ((String) -> String?)?
+    var onSelectedWordQuestionStarted: ((WordQuestionRequest) -> String?)?
     var onLinkedWordAnswerAvailable: ((String) -> String?)?
     var onLinkedAnswerCompleted: ((String, String, String) -> Void)?
     var onLinkedAnswerFailed: ((String) -> Void)?

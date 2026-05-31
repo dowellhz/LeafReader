@@ -143,6 +143,7 @@ extension ReaderWindowController {
         loadedAIConversation = nil
         currentWebPlainText = ""
         webPlainTextGeneration += 1
+        clearPDFSelectionState()
         currentWebSelectedText = ""
         currentWebSelectionContext = ""
         currentWebSelectionOccurrenceIndex = nil

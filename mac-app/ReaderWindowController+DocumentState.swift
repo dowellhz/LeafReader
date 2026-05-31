@@ -31,6 +31,11 @@ extension ReaderWindowController {
         set { documentState.documentLoadGeneration = newValue }
     }
 
+    var currentPDFSelectedText: String {
+        get { documentState.currentPDFSelectedText }
+        set { documentState.currentPDFSelectedText = newValue }
+    }
+
     var currentWebPlainText: String {
         get { documentState.currentWebPlainText }
         set { documentState.currentWebPlainText = newValue }
@@ -114,5 +119,9 @@ extension ReaderWindowController {
     var isRestoringSession: Bool {
         get { documentState.isRestoringSession }
         set { documentState.isRestoringSession = newValue }
+    }
+
+    func clearPDFSelectionState() {
+        currentPDFSelectedText = ""
     }
 }

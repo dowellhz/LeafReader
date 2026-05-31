@@ -6,8 +6,12 @@ extension AIChatPanel {
         VocabularyTextPolicy.isVocabularySelection(text)
     }
 
+    func shouldUseLocalDictionary(for text: String) -> Bool {
+        isSingleEnglishWord(text)
+    }
+
     func handleLocalDictionaryQuestion(_ text: String) -> Bool {
-        guard isVocabularySelection(text) else { return false }
+        guard shouldUseLocalDictionary(for: text) else { return false }
         speakSelectedWordIfNeeded(text)
         let selectedContext = onAskSelectedText?(text) ?? ""
         let answerRequest = AnswerProviderRequest(text: text, context: selectedContext, linkID: nil)
@@ -15,7 +19,8 @@ extension AIChatPanel {
             return false
         }
 
-        let linkID = onSelectedWordQuestionStarted?(text)
+        let wordRequest = WordQuestionRequest(text: text, selectedContext: selectedContext)
+        let linkID = onSelectedWordQuestionStarted?(wordRequest)
         if let linkID, hasLinkedBubble(id: linkID) {
             clearSelectedText()
             scrollToLinkedBubble(id: linkID)

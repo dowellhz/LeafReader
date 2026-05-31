@@ -55,12 +55,16 @@ final class ReaderAIPanelCoordinator {
     }
 
     private func installVocabularyCallbacks() {
-        owner.aiPanel.onSelectedWordQuestionStarted = { [weak owner] text in
+        owner.aiPanel.onSelectedWordQuestionStarted = { [weak owner] request in
             guard let owner else { return nil }
             if owner.currentDocumentKind == .pdf {
-                return owner.persistSelectedWordIfNeeded(owner.pdfView.currentSelection, text: text)
+                return owner.persistSelectedWordIfNeeded(
+                    owner.pdfView.currentSelection,
+                    text: request.text,
+                    context: request.selectedContext
+                )
             }
-            return owner.persistSelectedWebWordIfNeeded(text: text)
+            return owner.persistSelectedWebWordIfNeeded(text: request.text, context: request.selectedContext)
         }
         owner.aiPanel.onLinkedAnswerCompleted = { [weak owner] linkID, question, answer in
             owner?.updateStoredLinkedWordAnswer(linkID: linkID, question: question, answer: answer)

@@ -59,7 +59,7 @@ extension ReaderWindowController {
         pendingAISourceClickWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            let selectedText = self.pdfView.currentSelection?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let selectedText = self.currentPDFSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
             guard selectedText.isEmpty else { return }
             self.ensureAIConversationSourceBubbleLoaded(source)
             self.pendingAIPanelExpansionAction = { [weak self] in

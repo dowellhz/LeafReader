@@ -17,14 +17,16 @@ extension AIChatPanel {
         }
 
         let isVocabularyItem = isVocabularySelection(text)
+        let canUseLocalDictionary = shouldUseLocalDictionary(for: text)
         speakSelectedWordIfNeeded(text)
-        let linkID = isVocabularyItem ? onSelectedWordQuestionStarted?(text) : nil
+        let selectedContext = onAskSelectedText?(text) ?? nil
+        let wordRequest = WordQuestionRequest(text: text, selectedContext: selectedContext)
+        let linkID = isVocabularyItem ? onSelectedWordQuestionStarted?(wordRequest) : nil
         if let linkID, hasLinkedBubble(id: linkID) {
             clearSelectedText()
             scrollToLinkedBubble(id: linkID)
             return
         }
-        let selectedContext = onAskSelectedText?(text) ?? nil
         let prompt = isVocabularyItem ? wordPrompt(for: text, context: selectedContext ?? "") : sentencePrompt(for: text)
         let displayedQuestion = isVocabularyItem ? vocabularyBubbleTitle(for: text) : selectedTextActionTitle(actionTitle: AppText.explainPrefix, text: text)
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true, linkID: linkID)
@@ -40,9 +42,9 @@ extension AIChatPanel {
             return
         }
         appendMessage(ChatMessage(role: "user", content: prompt, linkID: linkID))
-        let localAnswer = isVocabularyItem ? localOnlyAnswerProvider().answer(for: answerRequest) : nil
+        let localAnswer = canUseLocalDictionary ? localOnlyAnswerProvider().answer(for: answerRequest) : nil
         let fallbackAnswer = localAnswer?.answer
-        let answerSuffix = isVocabularyItem
+        let answerSuffix = canUseLocalDictionary
             ? localDictionaryTagSuffix(for: text, fallbackMetadata: localAnswer?.dictionaryMetadata)
             : nil
         requestAI(

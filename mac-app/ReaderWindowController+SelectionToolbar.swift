@@ -15,7 +15,7 @@ extension ReaderWindowController {
 
     func selectedReaderTextForToolbar() -> String {
         if currentDocumentKind == .pdf {
-            return pdfView.currentSelection?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return currentPDFSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return currentWebSelectedText.trimmingCharacters(in: .whitespacesAndNewlines)
     }

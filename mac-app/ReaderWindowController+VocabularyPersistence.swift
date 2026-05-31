@@ -2,7 +2,7 @@ import Cocoa
 import PDFKit
 
 extension ReaderWindowController {
-    func persistSelectedWordIfNeeded(_ selection: PDFSelection?, text: String) -> String? {
+    func persistSelectedWordIfNeeded(_ selection: PDFSelection?, text: String, context: String? = nil) -> String? {
         guard shouldPersistHighlight(for: text),
               let selection,
               let document = pdfView.document,
@@ -20,11 +20,12 @@ extension ReaderWindowController {
 
         let pageIndex = document.index(for: page)
         if let existing = pdfWordRecordStore?.existingRecord(in: storedWordRecords, pageIndex: pageIndex, bounds: bounds) {
+            clearPDFSelectionState()
             pdfView.clearSelection()
             return existing.id
         }
         if let reusable = reusablePDFWordRecord(for: text) {
-            let context = vocabularyContextForCurrentSelection(selectedText: text)
+            let context = vocabularyContextForCurrentSelection(selectedText: text, precomputedContext: context)
             let record = StoredPDFWordRecord(
                 id: UUID().uuidString,
                 word: text.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -41,6 +42,7 @@ extension ReaderWindowController {
             storedWordRecords.append(record)
             addStoredWordAnnotation(record)
             saveStoredWordRecord(record)
+            clearPDFSelectionState()
             pdfView.clearSelection()
             return record.id
         }
@@ -52,23 +54,24 @@ extension ReaderWindowController {
             word: text.trimmingCharacters(in: .whitespacesAndNewlines),
             pageIndex: pageIndex,
             bounds: StoredPDFWordRect(bounds),
-            context: vocabularyContextForCurrentSelection(selectedText: text),
+            context: vocabularyContextForCurrentSelection(selectedText: text, precomputedContext: context),
             dictionaryTags: metadata.tags,
             dictionaryFrequency: metadata.frequency,
             createdAt: Date()
         )
         addPendingWordAnnotation(id: id, pageIndex: pageIndex, bounds: bounds, word: text)
+        clearPDFSelectionState()
         pdfView.clearSelection()
         return id
     }
 
-    func persistSelectedWebWordIfNeeded(text: String) -> String? {
+    func persistSelectedWebWordIfNeeded(text: String, context precomputedContext: String? = nil) -> String? {
         guard shouldPersistHighlight(for: text),
               currentDocumentKind != .pdf else {
             return nil
         }
         let word = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let context = sanitizedVocabularyContext(currentWebSelectionContext)
+        let context = sanitizedVocabularyContext(precomputedContext ?? currentWebSelectionContext)
         if let pending = existingPendingWebWordRecord(
             word: word,
             context: context,
@@ -149,8 +152,8 @@ extension ReaderWindowController {
             .lowercased()
     }
 
-    private func vocabularyContextForCurrentSelection(selectedText: String) -> String {
-        sanitizedVocabularyContext(contextForCurrentSelection(selectedText: selectedText))
+    private func vocabularyContextForCurrentSelection(selectedText: String, precomputedContext: String? = nil) -> String {
+        sanitizedVocabularyContext(precomputedContext ?? contextForCurrentSelection(selectedText: selectedText))
     }
 
     private func sanitizedVocabularyContext(_ context: String) -> String {

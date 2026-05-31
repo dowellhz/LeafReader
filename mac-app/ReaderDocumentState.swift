@@ -7,6 +7,7 @@ struct ReaderDocumentState {
     var sessionStore = ReaderSessionStore(fileMD5: nil)
     var currentDocumentKind: ReaderDocumentKind = .pdf
     var documentLoadGeneration = 0
+    var currentPDFSelectedText = ""
     var currentWebPlainText = ""
     var webPlainTextGeneration = 0
     var currentWebSelectedText = ""

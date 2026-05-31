@@ -26,6 +26,7 @@ extension ReaderWindowController {
         webWordRecordStore = nil
         currentWebPlainText = ""
         webPlainTextGeneration += 1
+        clearPDFSelectionState()
         currentWebSelectedText = ""
         currentWebSelectionRect = nil
         currentDocumentDiagnostics = []
@@ -95,6 +96,7 @@ extension ReaderWindowController {
         currentWebPlainText = document.plainText
         webPlainTextGeneration += 1
         let webPlainTextGeneration = webPlainTextGeneration
+        clearPDFSelectionState()
         currentWebSelectedText = ""
         currentWebSelectionContext = ""
         currentWebSelectionOccurrenceIndex = nil

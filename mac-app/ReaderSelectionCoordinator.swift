@@ -9,6 +9,7 @@ final class ReaderSelectionCoordinator {
     }
 
     func clearForNavigation() {
+        owner.clearPDFSelectionState()
         clearWebSelectionState()
         owner.aiPanel.clearSelectedText()
         owner.hideSelectionToolbar()
@@ -16,6 +17,7 @@ final class ReaderSelectionCoordinator {
     }
 
     func clearForBubbleSelection() {
+        owner.clearPDFSelectionState()
         clearWebSelectionState()
         owner.hideSelectionToolbar()
         clearReaderDocumentSelection()
@@ -31,6 +33,7 @@ final class ReaderSelectionCoordinator {
         let selection = owner.pdfView.currentSelection
         let text = selection?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let selectedText = text.count > 1 ? text : ""
+        owner.currentPDFSelectedText = selectedText
         updateAISelection(explicitText: selectedText)
 
         if selectedText.isEmpty {

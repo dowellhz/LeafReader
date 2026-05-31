@@ -17,6 +17,7 @@ extension ReaderWindowController {
         let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
             clearSearchState()
+            clearPDFSelectionState()
             pdfView.clearSelection()
             clearWebSearchSelection()
             clearSearchSelectionForAI()
@@ -78,6 +79,7 @@ extension ReaderWindowController {
     func showCurrentSearchResult() {
         guard !searchResults.isEmpty else {
             searchOverlay.setResultText("0 / 0")
+            clearPDFSelectionState()
             pdfView.clearSelection()
             clearSearchSelectionForAI()
             return
@@ -160,6 +162,7 @@ extension ReaderWindowController {
     }
 
     func clearSearchSelectionForAI() {
+        clearPDFSelectionState()
         currentWebSelectedText = ""
         currentWebSelectionContext = ""
         currentWebSelectionOccurrenceIndex = nil

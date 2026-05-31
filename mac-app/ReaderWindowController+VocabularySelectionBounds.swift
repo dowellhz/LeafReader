@@ -18,7 +18,7 @@ extension ReaderWindowController {
         var bestBounds: CGRect?
         var bestScore = CGFloat.greatestFiniteMagnitude
 
-        for range in candidates {
+        for range in candidates.prefix(24) {
             guard let candidateSelection = page.selection(for: range) else { continue }
             let candidateBounds = candidateSelection.bounds(for: page).insetBy(dx: -1.5, dy: -1)
             guard candidateBounds.width > 0, candidateBounds.height > 0 else { continue }
