@@ -225,7 +225,10 @@ final class ECDICTDictionary {
         if let entry = lookupSQLite(key, db: db, table: table, whereClause: "sw = ?", bindCount: 1) {
             return entry
         }
-        return lookupSQLite(key, db: db, table: table, whereClause: "word = ? COLLATE NOCASE", bindCount: 1)
+        // Keep this indexed. The bundled lite dictionary stores normalized lookup
+        // keys in `sw`; a NOCASE fallback on `word` does a full scan with the
+        // current schema and makes dictionary misses visibly slow.
+        return lookupSQLite(key, db: db, table: table, whereClause: "word = ?", bindCount: 1)
     }
 
     private func lookupSQLite(

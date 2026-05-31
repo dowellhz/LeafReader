@@ -51,11 +51,12 @@ SELECT
   tag,
   bnc,
   frq,
-  exchange,
+  '',
   '',
   ''
 FROM src.stardict
 WHERE translation <> ''
+  AND instr(trim(word), ' ') = 0
   AND (
     CAST(frq AS INTEGER) BETWEEN 1 AND 50000
     OR tag <> ''
@@ -67,6 +68,16 @@ VACUUM;
 SQL
 
 cp "$TMP_DB" "$DEST_DB"
+MULTI_WORD_COUNT="$(sqlite3 "$DEST_DB" "SELECT count(*) FROM stardict WHERE instr(trim(word), ' ') > 0;")"
+EXCHANGE_COUNT="$(sqlite3 "$DEST_DB" "SELECT count(*) FROM stardict WHERE trim(exchange) <> '';")"
+if [[ "$MULTI_WORD_COUNT" != "0" ]]; then
+  echo "Lite ECDICT contains multi-word entries: $MULTI_WORD_COUNT" >&2
+  exit 1
+fi
+if [[ "$EXCHANGE_COUNT" != "0" ]]; then
+  echo "Lite ECDICT contains exchange lookup hints: $EXCHANGE_COUNT" >&2
+  exit 1
+fi
 sqlite3 "$DEST_DB" "SELECT count(*) FROM stardict;"
 du -sh "$DEST_DB"
 echo "Built lite ECDICT database: $DEST_DB"

@@ -59,6 +59,9 @@ enum ECDICTLogicTests {
         try expectEqual(dictionary?.answer, "**word**\n\n- local", "dictionary provider should return local dictionary answers")
         try expectEqual(dictionary?.source, .localDictionary, "dictionary provider should report dictionary source")
 
+        let phrase = dictionaryProvider.answer(for: AnswerProviderRequest(text: "more than one", context: "context", linkID: nil))
+        try expectEqual(phrase?.answer, nil, "dictionary provider should ignore multi-word selections")
+
         let missingProvider = LocalDictionaryAnswerProvider(
             dictionaryLookupService: MockDictionaryLookupService(answer: nil, metadata: VocabularyDictionaryMetadata(tags: nil, frequency: nil)),
             isDictionaryInstalled: { true }

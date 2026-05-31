@@ -53,6 +53,7 @@ struct LocalDictionaryAnswerProvider: AnswerProvider {
     }
 
     func answer(for request: AnswerProviderRequest) -> AnswerProviderResult? {
+        guard VocabularyTextPolicy.isSingleEnglishWord(request.text) else { return nil }
         if let answer = dictionaryLookupService.dictionaryAnswer(for: request.text, context: request.context) {
             return AnswerProviderResult(
                 answer: answer.markdown,
