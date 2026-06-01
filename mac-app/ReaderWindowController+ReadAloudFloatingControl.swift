@@ -1,8 +1,18 @@
 import Cocoa
 
 extension ReaderWindowController {
-    private static let readAloudFloatingControlSize = NSSize(width: 462, height: 40)
-    private static let readAloudFloatingControlBottomInset: CGFloat = 14
+    private enum FloatingControlMetrics {
+        static let controlSize = NSSize(width: 462, height: 40)
+        static let shortcutHintSize = NSSize(width: 360, height: 126)
+        static let bottomInset: CGFloat = 14
+        static let shortcutHintSpacing: CGFloat = 8
+        static let shortcutHintDisplayDuration: TimeInterval = 6
+        static let fadeDuration: TimeInterval = 0.16
+    }
+
+    private enum FloatingControlDefaults {
+        static let hasShownShortcutHintKey = "hasShownReadAloudShortcutHint"
+    }
 
     func installReadAloudFloatingControlIfNeeded() {
         guard readAloudFloatingControlView == nil else { return }
@@ -10,7 +20,7 @@ extension ReaderWindowController {
         configureReadAloudFloatingControlActions(control)
         control.isHidden = true
         control.applyTheme(ReaderTheme.selected)
-        control.frame = NSRect(origin: .zero, size: Self.readAloudFloatingControlSize)
+        control.frame = NSRect(origin: .zero, size: FloatingControlMetrics.controlSize)
 
         let controlWindow = NSWindow(
             contentRect: control.frame,
@@ -72,8 +82,10 @@ extension ReaderWindowController {
         updateReadAloudFloatingControlWindowFrame()
         if isReadAloudActive {
             showReadAloudFloatingControlWindow()
+            showReadAloudShortcutHintIfNeeded(mode: readAloudAdvanceMode)
         } else {
             readAloudFloatingControlWindow?.orderOut(nil)
+            dismissReadAloudShortcutHint()
         }
         updateReadAloudSoftHintPosition()
     }
@@ -89,6 +101,7 @@ extension ReaderWindowController {
         }
         controlWindow.level = parentWindow.level
         controlWindow.orderFront(nil)
+        updateReadAloudShortcutHintWindowFrame()
     }
 
     func updateReadAloudFloatingControlWindowFrame() {
@@ -98,12 +111,98 @@ extension ReaderWindowController {
         let pointInWindow = pdfContainer.convert(
             NSPoint(
                 x: pdfContainer.bounds.midX - size.width / 2,
-                y: pdfContainer.bounds.minY + Self.readAloudFloatingControlBottomInset
+                y: pdfContainer.bounds.minY + FloatingControlMetrics.bottomInset
             ),
             to: nil
         )
         let pointInScreen = parentWindow.convertPoint(toScreen: pointInWindow)
         controlWindow.setFrameOrigin(pointInScreen)
+        updateReadAloudShortcutHintWindowFrame()
+    }
+
+    private func installReadAloudShortcutHintIfNeeded() {
+        guard readAloudShortcutHintWindow == nil else { return }
+        let hint = ReadAloudShortcutHintView(frame: NSRect(origin: .zero, size: FloatingControlMetrics.shortcutHintSize))
+        hint.text = AppText.localized("按键功能说明", "Key Function Guide")
+        hint.applyTheme(ReaderTheme.selected)
+        hint.alphaValue = 0
+
+        let hintWindow = NSWindow(
+            contentRect: hint.frame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        hintWindow.contentView = hint
+        hintWindow.backgroundColor = .clear
+        hintWindow.isOpaque = false
+        hintWindow.hasShadow = false
+        hintWindow.hidesOnDeactivate = false
+        hintWindow.ignoresMouseEvents = true
+        hintWindow.collectionBehavior = [.fullScreenAuxiliary, .ignoresCycle]
+        hintWindow.isReleasedWhenClosed = false
+
+        readAloudShortcutHintView = hint
+        readAloudShortcutHintWindow = hintWindow
+    }
+
+    private func showReadAloudShortcutHintIfNeeded(mode: ReadAloudAdvanceMode) {
+        guard mode == .manual,
+              !UserDefaults.standard.bool(forKey: FloatingControlDefaults.hasShownShortcutHintKey),
+              let parentWindow = window else { return }
+        installReadAloudShortcutHintIfNeeded()
+        guard let hintWindow = readAloudShortcutHintWindow,
+              let hintView = readAloudShortcutHintView else { return }
+
+        UserDefaults.standard.set(true, forKey: FloatingControlDefaults.hasShownShortcutHintKey)
+        hintView.applyTheme(ReaderTheme.selected)
+        updateReadAloudShortcutHintWindowFrame()
+        if hintWindow.parent !== parentWindow {
+            hintWindow.parent?.removeChildWindow(hintWindow)
+            parentWindow.addChildWindow(hintWindow, ordered: .above)
+        }
+        hintWindow.level = parentWindow.level
+        hintWindow.orderFront(nil)
+
+        readAloudShortcutHintDismissWorkItem?.cancel()
+        hintView.alphaValue = 0
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = FloatingControlMetrics.fadeDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            hintView.animator().alphaValue = 1
+        }
+
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.dismissReadAloudShortcutHint()
+        }
+        readAloudShortcutHintDismissWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + FloatingControlMetrics.shortcutHintDisplayDuration, execute: workItem)
+    }
+
+    private func updateReadAloudShortcutHintWindowFrame() {
+        guard let controlWindow = readAloudFloatingControlWindow,
+              let hintWindow = readAloudShortcutHintWindow else { return }
+        let controlFrame = controlWindow.frame
+        let hintSize = hintWindow.frame.size
+        let origin = NSPoint(
+            x: controlFrame.midX - hintSize.width / 2,
+            y: controlFrame.maxY + FloatingControlMetrics.shortcutHintSpacing
+        )
+        hintWindow.setFrameOrigin(origin)
+    }
+
+    private func dismissReadAloudShortcutHint() {
+        readAloudShortcutHintDismissWorkItem?.cancel()
+        readAloudShortcutHintDismissWorkItem = nil
+        guard let hintWindow = readAloudShortcutHintWindow,
+              let hintView = readAloudShortcutHintView else { return }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = FloatingControlMetrics.fadeDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            hintView.animator().alphaValue = 0
+        } completionHandler: {
+            hintWindow.orderOut(nil)
+        }
     }
 
     @objc func toggleReadAloudFromFloatingControl() {

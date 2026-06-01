@@ -274,6 +274,7 @@ final class ReadAloudFloatingControlView: NSView {
             previousButton,
             symbolName: "chevron.left",
             label: AppText.localized("上一句", "Previous sentence"),
+            shortcut: "[",
             isEnabled: !isLoading && canGoPrevious
         )
         configureIconButton(
@@ -292,12 +293,14 @@ final class ReadAloudFloatingControlView: NSView {
             replayButton,
             symbolName: "arrow.counterclockwise",
             label: AppText.localized("重播当前句", "Replay current sentence"),
+            shortcut: "]",
             isEnabled: !isLoading
         )
         configureIconButton(
             nextButton,
             symbolName: "chevron.right",
             label: AppText.localized("下一句", "Next sentence"),
+            shortcut: "\\",
             isEnabled: !isLoading
         )
         configureIconButton(
@@ -323,11 +326,16 @@ final class ReadAloudFloatingControlView: NSView {
         _ button: ReadAloudFloatingControlButton,
         symbolName: String,
         label: String,
+        shortcut: String? = nil,
         isEnabled: Bool
     ) {
         button.image = TemplateSymbolImage.make(symbolName, accessibilityDescription: label)
         button.isEnabled = isEnabled
-        button.toolTip = label
+        if let shortcut {
+            button.toolTip = AppText.localized("\(label)（\(shortcut)）", "\(label) (\(shortcut))")
+        } else {
+            button.toolTip = label
+        }
     }
 
     private func applyModeButtonTitleColor(_ color: NSColor?) {

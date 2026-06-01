@@ -92,6 +92,21 @@ extension ReaderWindowController {
         set { readAloudState.floatingControlWindow = newValue }
     }
 
+    var readAloudShortcutHintView: ReadAloudShortcutHintView? {
+        get { readAloudState.shortcutHintView }
+        set { readAloudState.shortcutHintView = newValue }
+    }
+
+    var readAloudShortcutHintWindow: NSWindow? {
+        get { readAloudState.shortcutHintWindow }
+        set { readAloudState.shortcutHintWindow = newValue }
+    }
+
+    var readAloudShortcutHintDismissWorkItem: DispatchWorkItem? {
+        get { readAloudState.shortcutHintDismissWorkItem }
+        set { readAloudState.shortcutHintDismissWorkItem = newValue }
+    }
+
     var pendingReadAloudPDFContinuation: PendingReadAloudPDFContinuation? {
         get { readAloudState.pendingPDFContinuation }
         set { readAloudState.pendingPDFContinuation = newValue }

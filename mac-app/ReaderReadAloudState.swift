@@ -20,6 +20,9 @@ struct ReaderReadAloudState {
     var softHintCenterXConstraint: NSLayoutConstraint?
     var floatingControlView: ReadAloudFloatingControlView?
     var floatingControlWindow: NSWindow?
+    var shortcutHintView: ReadAloudShortcutHintView?
+    var shortcutHintWindow: NSWindow?
+    var shortcutHintDismissWorkItem: DispatchWorkItem?
     var pendingPDFContinuation: ReaderWindowController.PendingReadAloudPDFContinuation?
     var pendingWebContinuation = false
     var speechLanguageHint: AISettingsStore.SpeechLanguageHint?
