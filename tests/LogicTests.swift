@@ -267,6 +267,22 @@ private func testAIResponseTextFormatter() throws {
     try expectEqual(AIResponseTextFormatter.translationChunks(from: longText).count, 2, "long unparagraphized translations should split in two")
 }
 
+private func testAIConversationMarkdownExporter() throws {
+    let markdown = AIConversationMarkdownExporter.markdown(
+        title: "Dune",
+        bubbles: [
+            SavedAIConversationBubble(role: AppText.userRole, text: "Explain this.", collapsible: false, renderMarkdown: false, sourceLocation: nil),
+            SavedAIConversationBubble(role: AppText.aiRole, text: "## Answer\n\nUse context.", collapsible: false, renderMarkdown: true, sourceLocation: nil),
+            SavedAIConversationBubble(role: AppText.aiRole, text: "   ", collapsible: false, renderMarkdown: true, sourceLocation: nil)
+        ],
+        exportedAt: Date(timeIntervalSince1970: 1_700_000_000)
+    )
+    try expect(markdown.contains("# Dune - "), "export should include document title")
+    try expect(markdown.contains("- \(AppText.localized("气泡数", "Bubbles"))：3"), "export should include bubble count")
+    try expect(markdown.contains("## \(AppText.localized("用户", "User"))\n\nExplain this."), "export should include user bubble")
+    try expect(markdown.contains("## AI\n\n## Answer\n\nUse context."), "export should include AI markdown body unchanged")
+}
+
 private func testEmbeddingActionPolicy() throws {
     try expectEqual(EmbeddingActionPolicy.statusClearDelay, 1.5, "embedding status clear delay should remain explicit")
 }
@@ -657,6 +673,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Reader AI context text cleanup", testReaderAIContextTextCleanup),
     ("Reader AI context policy", testReaderAIContextPolicy),
     ("AI response text formatter", testAIResponseTextFormatter),
+    ("AI conversation markdown exporter", testAIConversationMarkdownExporter),
     ("Embedding action policy", testEmbeddingActionPolicy),
     ("Selection toolbar configuration", VocabularyLogicTests.testSelectionToolbarConfiguration),
     ("Vocabulary review display record loader", VocabularyLogicTests.testVocabularyReviewDisplayRecordLoaderLoadsOnlyCurrentRecord),

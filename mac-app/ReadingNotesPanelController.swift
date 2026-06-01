@@ -16,6 +16,7 @@ final class ReadingNotesPanelController: NSObject {
         static let rowDeleteWidth: CGFloat = 48
         static let rowHorizontalInset: CGFloat = 16
         static let rowColumnSpacing: CGFloat = 14
+        static let searchHeight: CGFloat = 32
     }
 
     private enum ActionButtonRole {
@@ -32,12 +33,14 @@ final class ReadingNotesPanelController: NSObject {
     private let rootView = NSView()
     private let iconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: AppText.localized("阅读笔记", "Reading Notes"))
+    private let searchField = NSSearchField()
     private let stack = ReadingNotesStackView()
     private let summaryLabel = NSTextField(labelWithString: "")
     private var exportButton: NSButton?
     private var closeButton: NSButton?
     private var notes: [ReadingNote] = []
     private var rows: [ReadingNoteListRowViewModel] = []
+    private var searchQuery = ""
 
     override init() {
         super.init()
@@ -107,6 +110,7 @@ final class ReadingNotesPanelController: NSObject {
 
         summaryLabel.font = AppFont.semibold(ofSize: 13)
         summaryLabel.translatesAutoresizingMaskIntoConstraints = false
+        configureSearchField()
 
         let scrollView = buildScrollView()
         let exportButton = actionButton(title: AppText.localized("导出 MD", "Export MD"), action: #selector(exportTapped(_:)))
@@ -114,7 +118,7 @@ final class ReadingNotesPanelController: NSObject {
         self.exportButton = exportButton
         self.closeButton = closeButton
 
-        for view in [iconView, titleLabel, summaryLabel, scrollView, exportButton, closeButton] {
+        for view in [iconView, titleLabel, searchField, summaryLabel, scrollView, exportButton, closeButton] {
             rootView.addSubview(view)
         }
         installConstraints(scrollView: scrollView, exportButton: exportButton, closeButton: closeButton)
@@ -188,8 +192,12 @@ final class ReadingNotesPanelController: NSObject {
             titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 12),
             titleLabel.centerYAnchor.constraint(equalTo: iconView.centerYAnchor),
             titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: exportButton.leadingAnchor, constant: -18),
-            summaryLabel.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: Metrics.headerLeading),
-            summaryLabel.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 14),
+            searchField.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: Metrics.headerLeading),
+            searchField.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 14),
+            searchField.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -Metrics.headerLeading),
+            searchField.heightAnchor.constraint(equalToConstant: Metrics.searchHeight),
+            summaryLabel.leadingAnchor.constraint(equalTo: searchField.leadingAnchor),
+            summaryLabel.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 10),
             summaryLabel.trailingAnchor.constraint(equalTo: rootView.trailingAnchor, constant: -Metrics.headerLeading),
             scrollView.topAnchor.constraint(equalTo: summaryLabel.bottomAnchor, constant: 12),
             scrollView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor, constant: Metrics.outerMargin),
@@ -215,7 +223,7 @@ final class ReadingNotesPanelController: NSObject {
             stack.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
-        summaryLabel.stringValue = ReadingNoteListPresenter.summaryText(noteCount: rows.count)
+        summaryLabel.stringValue = summaryText()
         guard !rows.isEmpty else {
             stack.addArrangedSubview(emptyStateLabel())
             return
@@ -332,7 +340,10 @@ final class ReadingNotesPanelController: NSObject {
     }
 
     private func emptyStateLabel() -> NSTextField {
-        let empty = NSTextField(labelWithString: AppText.localized("当前书还没有阅读笔记。", "No reading notes for this book yet."))
+        let text = searchQuery.isEmpty
+            ? AppText.localized("当前书还没有阅读笔记。", "No reading notes for this book yet.")
+            : AppText.localized("没有匹配的阅读笔记。", "No matching reading notes.")
+        let empty = NSTextField(labelWithString: text)
         empty.font = NSFont.systemFont(ofSize: 15)
         empty.textColor = ReadingNoteTheme.secondaryText(ReaderTheme.selected)
         return empty
@@ -370,6 +381,7 @@ final class ReadingNotesPanelController: NSObject {
         rootView.layer?.borderColor = ReadingNoteTheme.panelBorder(theme).cgColor
         iconView.contentTintColor = ReadingNoteTheme.accent(theme)
         titleLabel.textColor = ReadingNoteTheme.primaryText(theme)
+        searchField.textColor = ReadingNoteTheme.primaryText(theme)
         summaryLabel.textColor = ReadingNoteTheme.secondaryText(theme)
         styleActionButton(exportButton, role: .primary, theme: theme)
         styleActionButton(closeButton, role: .secondary, theme: theme)
@@ -389,7 +401,37 @@ final class ReadingNotesPanelController: NSObject {
 
     private func updateData(_ notes: [ReadingNote]) {
         self.notes = ReadingNoteListPresenter.sortedNotes(notes)
-        self.rows = ReadingNoteListPresenter.rows(for: notes)
+        applySearchQuery(searchQuery)
+    }
+
+    private func configureSearchField() {
+        searchField.placeholderString = AppText.localized("搜索笔记", "Search notes")
+        searchField.font = AppFont.semibold(ofSize: 13)
+        searchField.target = self
+        searchField.action = #selector(searchChanged(_:))
+        searchField.sendsSearchStringImmediately = true
+        searchField.sendsWholeSearchString = false
+        searchField.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    private func applySearchQuery(_ query: String) {
+        searchQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        rows = ReadingNoteListPresenter.rows(for: notes, query: searchQuery)
+    }
+
+    private func summaryText() -> String {
+        guard !searchQuery.isEmpty else {
+            return ReadingNoteListPresenter.summaryText(noteCount: rows.count)
+        }
+        return AppText.localized(
+            "找到 \(rows.count) / \(notes.count) 条笔记",
+            "\(rows.count) of \(notes.count) note(s)"
+        )
+    }
+
+    @objc private func searchChanged(_ sender: NSSearchField) {
+        applySearchQuery(sender.stringValue)
+        refreshContent()
     }
 
 }

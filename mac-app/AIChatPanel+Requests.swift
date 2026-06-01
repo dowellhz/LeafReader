@@ -5,14 +5,36 @@ extension AIChatPanel {
         linkID: String? = nil,
         linkedQuestion: String? = nil,
         fallbackAnswer: String? = nil,
-        answerSuffix: String? = nil
+        answerSuffix: String? = nil,
+        replacing assistantBodyToReplace: NSTextField? = nil
     ) {
         trimMessagesIfNeeded()
         let requestID = UUID()
         let requestMessages = messages
         lastFailedAIRequest = nil
         setBusy(true, text: AppText.thinking)
-        let assistantBody = appendBubble(role: AppText.aiRole, text: AppText.generating, linkID: linkID, persist: false)
+        let regenerationRequest = linkID == nil
+            ? RegenerationRequest(messages: requestMessages, fallbackAnswer: fallbackAnswer, answerSuffix: answerSuffix)
+            : nil
+        let assistantBody: NSTextField
+        if let assistantBodyToReplace {
+            assistantBody = assistantBodyToReplace
+            updateBubble(
+                assistantBody,
+                role: AppText.aiRole,
+                text: AppText.generating,
+                renderMarkdown: true,
+                notify: false
+            )
+        } else {
+            assistantBody = appendBubble(
+                role: AppText.aiRole,
+                text: AppText.generating,
+                linkID: linkID,
+                regenerationRequest: regenerationRequest,
+                persist: false
+            )
+        }
         requestState.begin(id: requestID, assistantBody: assistantBody)
         var streamedText = ""
         requestState.currentStreamTask = llmAnswerProvider.answerStream(messages: messages, onDelta: { [weak self, weak assistantBody] delta in
@@ -123,6 +145,23 @@ extension AIChatPanel {
             linkedQuestion: request.linkedQuestion,
             fallbackAnswer: request.fallbackAnswer,
             answerSuffix: request.answerSuffix
+        )
+    }
+
+    @objc func regenerateBubble(_ sender: NSButton) {
+        guard !isBusy,
+              let bodyID = sender.identifier?.rawValue,
+              let metadata = bubbleMetadataByID[bodyID],
+              let request = metadata.regenerationRequest,
+              let body = textField(forBodyID: bodyID) else {
+            return
+        }
+        messages = request.messages
+        trimMessagesIfNeeded()
+        requestAI(
+            fallbackAnswer: request.fallbackAnswer,
+            answerSuffix: request.answerSuffix,
+            replacing: body
         )
     }
 

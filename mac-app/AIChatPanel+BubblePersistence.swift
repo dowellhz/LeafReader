@@ -118,6 +118,16 @@ extension AIChatPanel {
             .first { bubbleMetadataByID[$0] != nil }
     }
 
+    func textField(forBodyID bodyID: String) -> NSTextField? {
+        for view in transcriptStack.arrangedSubviews {
+            guard let box = view as? ChatBubbleView else { continue }
+            if let textField = box.subviews.compactMap({ $0 as? NSTextField }).first(where: { $0.identifier?.rawValue == bodyID }) {
+                return textField
+            }
+        }
+        return nil
+    }
+
     func savedConversation() -> SavedAIConversation {
         let normalBubbleIDs = persistentBubbleIDs.filter { bodyID in
             guard let metadata = bubbleMetadataByID[bodyID] else { return false }

@@ -159,6 +159,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     let askButton = GradientButton(title: "", target: nil, action: nil)
     let summaryButton = CapsuleChromeButton(title: "", target: nil, action: nil)
     let translateButton = CapsuleChromeButton(title: "", target: nil, action: nil)
+    let exportConversationButton = CapsuleChromeButton(title: "", target: nil, action: nil)
     let scrollView = NSScrollView()
     let transcriptStack = FlippedStackView()
     let statusRow = NSView()

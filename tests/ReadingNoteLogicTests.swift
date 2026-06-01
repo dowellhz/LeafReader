@@ -167,6 +167,13 @@ enum ReadingNoteLogicTests {
         try expectEqual(rows[0].titleText, "PDF note title", "PDF row should use display title")
         try expectEqual(rows[1].locationText, AppText.localized("网页位置", "Web location"), "web row should show web location")
         try expectEqual(rows[1].titleText, "Web note title", "web row should use display title")
+
+        let titleMatches = ReadingNoteListPresenter.rows(for: [newer, older], query: "web note")
+        try expectEqual(titleMatches.map(\.id), ["note-new"], "reading note search should match title text")
+        let quoteMatches = ReadingNoteListPresenter.rows(for: [newer, older], query: "pdf fallback")
+        try expectEqual(quoteMatches.map(\.id), ["note-old"], "reading note search should match quote text")
+        let locationMatches = ReadingNoteListPresenter.rows(for: [newer, older], query: "第 7")
+        try expectEqual(locationMatches.map(\.id), ["note-old"], "reading note search should match location text")
     }
 
     static func testReadingNoteQuoteSoftLineBreaks() throws {

@@ -9,6 +9,7 @@ extension AIChatPanel {
         renderMarkdown: Bool = true,
         linkID: String? = nil,
         sourceLocation: AIConversationSourceLocation? = nil,
+        regenerationRequest: RegenerationRequest? = nil,
         persist: Bool? = nil
     ) -> NSTextField {
         let box = ChatBubbleView()
@@ -33,13 +34,22 @@ extension AIChatPanel {
             renderMarkdown: renderMarkdown,
             collapsible: collapsible,
             linkID: linkID,
-            sourceLocation: effectiveSourceLocation
+            sourceLocation: effectiveSourceLocation,
+            regenerationRequest: regenerationRequest
         )
 
         box.addSubview(body)
         let deleteButton = makeBubbleDeleteButton(bodyID: bodyID, role: role)
         if let deleteButton {
             box.addSubview(deleteButton)
+        }
+        let copyButton = makeBubbleCopyMarkdownButton(bodyID: bodyID, role: role)
+        if let copyButton {
+            box.addSubview(copyButton)
+        }
+        let regenerateButton = makeBubbleRegenerateButton(bodyID: bodyID, role: role, linkID: linkID, request: regenerationRequest)
+        if let regenerateButton {
+            box.addSubview(regenerateButton)
         }
         let sourceLabel: NSTextField?
         if role == AppText.aiRole, let effectiveSourceLocation {
@@ -108,12 +118,30 @@ extension AIChatPanel {
                 deleteButton.heightAnchor.constraint(equalToConstant: 30)
             ])
         }
+        if let regenerateButton {
+            constraints.append(contentsOf: [
+                regenerateButton.topAnchor.constraint(equalTo: box.topAnchor, constant: 8),
+                regenerateButton.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -8),
+                regenerateButton.widthAnchor.constraint(equalToConstant: 30),
+                regenerateButton.heightAnchor.constraint(equalToConstant: 30)
+            ])
+        }
+        if let copyButton {
+            let trailingAnchor = regenerateButton?.leadingAnchor ?? box.trailingAnchor
+            constraints.append(contentsOf: [
+                copyButton.topAnchor.constraint(equalTo: box.topAnchor, constant: 8),
+                copyButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: regenerateButton == nil ? -8 : -4),
+                copyButton.widthAnchor.constraint(equalToConstant: 30),
+                copyButton.heightAnchor.constraint(equalToConstant: 30)
+            ])
+        }
         if let sourceLabel {
-            let sourceTrailingAnchor = deleteButton?.leadingAnchor ?? box.trailingAnchor
+            let sourceTrailingAnchor = deleteButton?.leadingAnchor ?? copyButton?.leadingAnchor ?? regenerateButton?.leadingAnchor ?? box.trailingAnchor
+            let sourceTrailingConstant: CGFloat = (deleteButton == nil && copyButton == nil && regenerateButton == nil) ? -12 : -8
             constraints.append(contentsOf: [
                 sourceLabel.topAnchor.constraint(equalTo: box.topAnchor, constant: 10),
                 sourceLabel.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 12),
-                sourceLabel.trailingAnchor.constraint(lessThanOrEqualTo: sourceTrailingAnchor, constant: deleteButton == nil ? -12 : -8),
+                sourceLabel.trailingAnchor.constraint(lessThanOrEqualTo: sourceTrailingAnchor, constant: sourceTrailingConstant),
                 body.topAnchor.constraint(equalTo: sourceLabel.bottomAnchor, constant: 8)
             ])
         } else {
@@ -129,7 +157,7 @@ extension AIChatPanel {
                 speakerButton.heightAnchor.constraint(equalToConstant: 54)
             ])
         } else {
-            constraints.append(body.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: deleteButton == nil ? -12 : -50))
+            constraints.append(body.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: (deleteButton == nil && copyButton == nil && regenerateButton == nil) ? -12 : -82))
         }
         NSLayoutConstraint.activate(constraints)
 
@@ -153,6 +181,44 @@ extension AIChatPanel {
         button.imagePosition = .imageOnly
         button.identifier = NSUserInterfaceItemIdentifier(bodyID)
         button.toolTip = AppText.localized("删除这段气泡", "Delete this bubble")
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }
+
+    func makeBubbleRegenerateButton(bodyID: String, role: String, linkID: String?, request: RegenerationRequest?) -> NSButton? {
+        guard role == AppText.aiRole,
+              linkID == nil,
+              request != nil else {
+            return nil
+        }
+        let button = BubbleDeleteButton(title: "", target: self, action: #selector(regenerateBubble(_:)))
+        button.image = NSImage(
+            systemSymbolName: "arrow.clockwise",
+            accessibilityDescription: AppText.localized("重新生成", "Regenerate")
+        )
+        button.isBordered = false
+        button.contentTintColor = secondaryTextColor
+        button.imageScaling = .scaleProportionallyDown
+        button.imagePosition = .imageOnly
+        button.identifier = NSUserInterfaceItemIdentifier(bodyID)
+        button.toolTip = AppText.localized("重新生成这段回答", "Regenerate this answer")
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }
+
+    func makeBubbleCopyMarkdownButton(bodyID: String, role: String) -> NSButton? {
+        guard role == AppText.aiRole else { return nil }
+        let button = BubbleDeleteButton(title: "", target: self, action: #selector(copyBubbleMarkdown(_:)))
+        button.image = NSImage(
+            systemSymbolName: "doc.on.doc",
+            accessibilityDescription: AppText.localized("复制 Markdown", "Copy Markdown")
+        )
+        button.isBordered = false
+        button.contentTintColor = secondaryTextColor
+        button.imageScaling = .scaleProportionallyDown
+        button.imagePosition = .imageOnly
+        button.identifier = NSUserInterfaceItemIdentifier(bodyID)
+        button.toolTip = AppText.localized("复制这段回答的 Markdown", "Copy this answer as Markdown")
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
     }
@@ -185,7 +251,8 @@ extension AIChatPanel {
                 renderMarkdown: renderMarkdown,
                 collapsible: existingMetadata?.collapsible ?? false,
                 linkID: existingMetadata?.linkID,
-                sourceLocation: existingMetadata?.sourceLocation
+                sourceLocation: existingMetadata?.sourceLocation,
+                regenerationRequest: existingMetadata?.regenerationRequest
             )
         }
         body.attributedStringValue = bubbleString(role: role, text: text, renderMarkdown: renderMarkdown)

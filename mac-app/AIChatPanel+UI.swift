@@ -32,6 +32,15 @@ extension AIChatPanel {
         translateButton.action = #selector(translateCurrentContent)
         translateButton.translatesAutoresizingMaskIntoConstraints = false
 
+        exportConversationButton.title = AppText.localized("导出", "Export")
+        exportConversationButton.controlSize = .regular
+        exportConversationButton.font = AppFont.semibold(ofSize: 13)
+        exportConversationButton.isDark = isDarkMode
+        exportConversationButton.target = self
+        exportConversationButton.action = #selector(exportConversationTapped(_:))
+        exportConversationButton.toolTip = AppText.localized("导出当前 AI 对话为 Markdown", "Export current AI conversation as Markdown")
+        exportConversationButton.translatesAutoresizingMaskIntoConstraints = false
+
         scrollView.hasVerticalScroller = true
         scrollView.drawsBackground = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -86,7 +95,7 @@ extension AIChatPanel {
 
         inputBar.addSubview(inputField)
         inputBar.addSubview(sendButton)
-        for view in [askButton, summaryButton, translateButton, scrollView, statusRow, inputBar] {
+        for view in [askButton, summaryButton, translateButton, exportConversationButton, scrollView, statusRow, inputBar] {
             addSubview(view)
         }
 
@@ -98,13 +107,18 @@ extension AIChatPanel {
 
             summaryButton.topAnchor.constraint(equalTo: askButton.bottomAnchor, constant: 10),
             summaryButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            summaryButton.trailingAnchor.constraint(equalTo: centerXAnchor, constant: -5),
+            summaryButton.trailingAnchor.constraint(equalTo: translateButton.leadingAnchor, constant: -8),
             summaryButton.heightAnchor.constraint(equalToConstant: 32),
+            summaryButton.widthAnchor.constraint(equalTo: translateButton.widthAnchor),
+            summaryButton.widthAnchor.constraint(equalTo: exportConversationButton.widthAnchor),
 
             translateButton.topAnchor.constraint(equalTo: summaryButton.topAnchor),
-            translateButton.leadingAnchor.constraint(equalTo: centerXAnchor, constant: 5),
-            translateButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            translateButton.trailingAnchor.constraint(equalTo: exportConversationButton.leadingAnchor, constant: -8),
             translateButton.heightAnchor.constraint(equalTo: summaryButton.heightAnchor),
+
+            exportConversationButton.topAnchor.constraint(equalTo: summaryButton.topAnchor),
+            exportConversationButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            exportConversationButton.heightAnchor.constraint(equalTo: summaryButton.heightAnchor),
 
             scrollView.topAnchor.constraint(equalTo: summaryButton.bottomAnchor, constant: 14),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
@@ -154,8 +168,11 @@ extension AIChatPanel {
         sendButton.image = NSImage(systemSymbolName: "arrow.up.circle.fill", accessibilityDescription: AppText.send)
         summaryButton.title = AppText.localized("总结", "Summarize")
         translateButton.title = AppText.localized("翻译", "Translate")
+        exportConversationButton.title = AppText.localized("导出", "Export")
+        exportConversationButton.toolTip = AppText.localized("导出当前 AI 对话为 Markdown", "Export current AI conversation as Markdown")
         summaryButton.needsDisplay = true
         translateButton.needsDisplay = true
+        exportConversationButton.needsDisplay = true
         askButton.needsDisplay = true
         if !messages.isEmpty, messages[0].role == "system" {
             messages[0] = ChatMessage(role: "system", content: AIPromptStore.systemPrompt())
