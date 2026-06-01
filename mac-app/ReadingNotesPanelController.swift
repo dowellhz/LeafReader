@@ -68,6 +68,14 @@ final class ReadingNotesPanelController: NSObject {
         center(panel, relativeTo: parent)
         panel.orderFrontRegardless()
         panel.makeKeyAndOrderFront(nil)
+        focusSearchField()
+    }
+
+    private func focusSearchField() {
+        DispatchQueue.main.async { [weak self, weak panel] in
+            guard let self, let panel else { return }
+            panel.makeFirstResponder(self.searchField)
+        }
     }
 
     func update(notes: [ReadingNote]) {
@@ -89,7 +97,7 @@ final class ReadingNotesPanelController: NSObject {
     }
 
     private func buildPanel() -> NSWindow {
-        let panel = NSPanel(
+        let panel = ReadingNotesPanel(
             contentRect: NSRect(origin: .zero, size: Metrics.panelSize),
             styleMask: [.borderless],
             backing: .buffered,
@@ -438,4 +446,9 @@ final class ReadingNotesPanelController: NSObject {
 
 private final class ReadingNotesStackView: NSStackView {
     override var isFlipped: Bool { true }
+}
+
+private final class ReadingNotesPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
 }

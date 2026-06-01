@@ -110,34 +110,11 @@ extension AIChatPanel {
             body.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 12),
             body.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -12)
         ]
-        if let deleteButton {
-            constraints.append(contentsOf: [
-                deleteButton.topAnchor.constraint(equalTo: box.topAnchor, constant: 8),
-                deleteButton.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -8),
-                deleteButton.widthAnchor.constraint(equalToConstant: 30),
-                deleteButton.heightAnchor.constraint(equalToConstant: 30)
-            ])
-        }
-        if let regenerateButton {
-            constraints.append(contentsOf: [
-                regenerateButton.topAnchor.constraint(equalTo: box.topAnchor, constant: 8),
-                regenerateButton.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -8),
-                regenerateButton.widthAnchor.constraint(equalToConstant: 30),
-                regenerateButton.heightAnchor.constraint(equalToConstant: 30)
-            ])
-        }
-        if let copyButton {
-            let trailingAnchor = regenerateButton?.leadingAnchor ?? box.trailingAnchor
-            constraints.append(contentsOf: [
-                copyButton.topAnchor.constraint(equalTo: box.topAnchor, constant: 8),
-                copyButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: regenerateButton == nil ? -8 : -4),
-                copyButton.widthAnchor.constraint(equalToConstant: 30),
-                copyButton.heightAnchor.constraint(equalToConstant: 30)
-            ])
-        }
+        let headerButtons = [deleteButton, copyButton, regenerateButton].compactMap { $0 }
+        let headerLeadingButton = installBubbleHeaderButtons(headerButtons, in: box, constraints: &constraints)
         if let sourceLabel {
-            let sourceTrailingAnchor = deleteButton?.leadingAnchor ?? copyButton?.leadingAnchor ?? regenerateButton?.leadingAnchor ?? box.trailingAnchor
-            let sourceTrailingConstant: CGFloat = (deleteButton == nil && copyButton == nil && regenerateButton == nil) ? -12 : -8
+            let sourceTrailingAnchor = headerLeadingButton?.leadingAnchor ?? box.trailingAnchor
+            let sourceTrailingConstant: CGFloat = headerLeadingButton == nil ? -12 : -8
             constraints.append(contentsOf: [
                 sourceLabel.topAnchor.constraint(equalTo: box.topAnchor, constant: 10),
                 sourceLabel.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 12),
@@ -157,7 +134,7 @@ extension AIChatPanel {
                 speakerButton.heightAnchor.constraint(equalToConstant: 54)
             ])
         } else {
-            constraints.append(body.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: (deleteButton == nil && copyButton == nil && regenerateButton == nil) ? -12 : -82))
+            constraints.append(body.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -12))
         }
         NSLayoutConstraint.activate(constraints)
 
@@ -169,6 +146,24 @@ extension AIChatPanel {
 
         scheduleTranscriptLayout(scrollTarget: box, forceScroll: true)
         return body
+    }
+
+    private func installBubbleHeaderButtons(
+        _ buttons: [NSButton],
+        in box: ChatBubbleView,
+        constraints: inout [NSLayoutConstraint]
+    ) -> NSButton? {
+        var previousLeadingAnchor: NSLayoutXAxisAnchor?
+        for button in buttons {
+            constraints.append(contentsOf: [
+                button.topAnchor.constraint(equalTo: box.topAnchor, constant: 8),
+                button.trailingAnchor.constraint(equalTo: previousLeadingAnchor ?? box.trailingAnchor, constant: previousLeadingAnchor == nil ? -8 : -4),
+                button.widthAnchor.constraint(equalToConstant: 30),
+                button.heightAnchor.constraint(equalToConstant: 30)
+            ])
+            previousLeadingAnchor = button.leadingAnchor
+        }
+        return buttons.last
     }
 
     func makeBubbleDeleteButton(bodyID: String, role: String) -> NSButton? {
