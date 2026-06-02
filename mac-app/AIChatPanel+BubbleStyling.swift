@@ -271,7 +271,7 @@ extension AIChatPanel {
                 updated.addAttribute(NSAttributedString.Key.foregroundColor, value: primaryTextColor, range: NSRange(location: 0, length: updated.length))
                 body.attributedStringValue = updated
             }
-            for button in box.subviews.compactMap({ $0 as? NSButton }) where button.action == #selector(deleteBubble(_:)) {
+            for button in box.subviews.compactMap({ $0 as? NSButton }) where isBubbleHeaderAction(button.action) {
                 button.contentTintColor = secondaryTextColor
             }
             for button in box.subviews.compactMap({ $0 as? WordSpeakerButton }) {
@@ -286,6 +286,12 @@ extension AIChatPanel {
         updateLinkedBubbleSelection()
         transcriptStack.needsLayout = true
         scheduleTranscriptLayout()
+    }
+
+    private func isBubbleHeaderAction(_ action: Selector?) -> Bool {
+        action == #selector(deleteBubble(_:))
+            || action == #selector(copyBubbleMarkdown(_:))
+            || action == #selector(regenerateBubble(_:))
     }
 
     private func bubbleBody(in box: NSView) -> NSTextField? {
