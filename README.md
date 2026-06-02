@@ -29,7 +29,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 
 ### 下载
 
-[下载 Leaf Reader 1.7.4 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.7.4/LeafReader-1.7.4.pkg)
+[下载 Leaf Reader 1.7.5 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.7.5/LeafReader-1.7.5.pkg)
 
 ### 系统要求
 
@@ -63,6 +63,14 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 常规应用版本会复用这些模型文件。只有模型文件变化时才需要重新发布语音模型归档，并同步更新 `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag`。
 
 ### 更新记录
+
+#### 1.7.5
+
+- 新增阅读笔记导出选项，支持 Markdown、HTML 和 PDF，并可只导出收藏笔记。
+- 改进 PDF 朗读分段匹配，重复文本和跨页/跨句朗读时能更准确地高亮当前句子。
+- 修复 PDF 断行连字符单词保存和高亮，例如 `Nine-\ntenths` 会作为 `Nine-tenths` 处理。
+- 收窄 PDF 单词下划线范围，避免跨行选词时生成过长下划线。
+- 更新代码索引和相关逻辑测试。
 
 #### 1.7.4
 
@@ -178,7 +186,7 @@ Website: <https://leafreader.space/>
 
 ### Download
 
-[Leaf Reader 1.7.4 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.7.4/LeafReader-1.7.4.pkg)
+[Leaf Reader 1.7.5 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.7.5/LeafReader-1.7.5.pkg)
 
 ### System Requirements
 
@@ -300,6 +308,14 @@ Third-party speech models and runtimes remain copyrighted by their respective pr
 - [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) / Kokoro model: Apache License 2.0.
 - [KittenTTS](https://github.com/KittenML/KittenTTS) and [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs): KittenTTS model under Apache License 2.0; Rust runtime copyright belongs to the `kitten_tts_rs` project contributors.
 - [Piper](https://github.com/rhasspy/piper): MIT License; Piper voice model assets follow the metadata shipped with the upstream model package.
+
+## What's New in 1.7.5
+
+- Added richer Reading Notes export options for Markdown, HTML, and PDF, including favorite-only export scope.
+- Improved PDF read-aloud segment matching so repeated text and spoken sentence highlights land on the intended location.
+- Fixed PDF line-broken hyphenated vocabulary words, so selections such as `Nine-\ntenths` are saved and queried as `Nine-tenths`.
+- Tightened PDF vocabulary underline bounds to avoid overly long lines when a word crosses a line break.
+- Updated code indexes and focused logic coverage for the new export and vocabulary behavior.
 
 ## What's New in 1.7.4
 
@@ -437,28 +453,28 @@ Regenerate the code map after larger refactors:
 
 ### Release
 
-Current version: `1.7.4`
+Current version: `1.7.5`
 
-Git tag: `v1.7.4`
+Git tag: `v1.7.5`
 
 Latest installer:
 
-[Leaf Reader-1.7.4.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.4/LeafReader-1.7.4.pkg)
+[Leaf Reader-1.7.5.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.5/LeafReader-1.7.5.pkg)
 
 Local release package path:
 
-`release/1.7.4/LeafReader-1.7.4.pkg`
+`release/1.7.5/LeafReader-1.7.5.pkg`
 
 Build the signed release package without publishing:
 
 ```sh
-./scripts/release_pkg.sh 1.7.4
+./scripts/release_pkg.sh 1.7.5
 ```
 
 Run the full publish flow from a clean working tree:
 
 ```sh
-./scripts/publish_release.sh 1.7.4
+./scripts/publish_release.sh 1.7.5
 ```
 
 The publish script runs tests, builds/signs/notarizes the pkg, commits version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-models` only when publishing changed speech model archives in `docs/tts/`.
