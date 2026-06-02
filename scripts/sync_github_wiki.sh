@@ -8,6 +8,8 @@ WIKI_WORKTREE="${WIKI_WORKTREE:-/private/tmp/leafreader-wiki-sync}"
 PUSH=0
 WIKI_PAGES=(
   Home.md
+  Chinese.md
+  English.md
   Getting-Started.md
   Architecture.md
   Feature-Map.md
@@ -113,6 +115,8 @@ copy_page() {
 }
 
 copy_page "getting-started.md" "Getting-Started.md"
+copy_page "zh.md" "Chinese.md"
+copy_page "en.md" "English.md"
 copy_page "architecture.md" "Architecture.md"
 copy_page "feature-map.md" "Feature-Map.md"
 copy_page "development-tasks.md" "Development-Tasks.md"
@@ -134,17 +138,44 @@ copy_page "type-index.md" "Type-Index.md"
 CURRENT_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$ROOT_DIR/mac-app/Info.plist")"
 
 cat > "$WIKI_WORKTREE/Home.md" <<EOF
-# Leaf Reader Code Wiki
+# Leaf Reader Wiki
 
-This wiki explains the codebase structure and stable engineering workflows for Leaf Reader.
+Leaf Reader Wiki keeps Chinese user documentation and English/engineering documentation as separate entry points.
 
-## Current Version Status
+## 文档状态 / Current Version
 
-- Current version: \`$CURRENT_VERSION\`
+- 当前版本 / Current version: \`$CURRENT_VERSION\`
 - Git tag: \`v$CURRENT_VERSION\`
 - Website: [leafreader.space](https://leafreader.space)
 - Appcast: [docs/appcast.xml](https://dowellhz.github.io/LeafReader/appcast.xml)
 - Latest installer: [LeafReader-$CURRENT_VERSION.pkg](https://github.com/dowellhz/LeafReader/releases/download/v$CURRENT_VERSION/LeafReader-$CURRENT_VERSION.pkg)
+
+## 中文文档
+
+- [中文入口](Chinese)
+- [安装与入门](Getting-Started)
+- [阅读笔记](Reading-Notes)
+- [快捷键](Shortcuts)
+- [AI 使用](AI-Chat)
+- [背单词与单词高亮](Word-Highlights)
+- [TTS 与朗读](TTS-And-Read-Aloud)
+- [故障排查](Troubleshooting)
+
+## English & Engineering
+
+- [English Index](English)
+- [Architecture](Architecture)
+- [Feature Map](Feature-Map)
+- [Development Tasks](Development-Tasks)
+- [Document Loading](Document-Loading)
+- [AI Analysis Cache](AI-Analysis-Cache)
+- [Release Process](Release-Process)
+- [Release Checklist](Release-Checklist)
+- [Release Runbook](Release-Runbook)
+- [Security](Security)
+- [Troubleshooting](Troubleshooting)
+- [Code Map](Code-Map)
+- [Type Index](Type-Index)
 
 ## Common Commands
 
@@ -154,27 +185,6 @@ This wiki explains the codebase structure and stable engineering workflows for L
 ./scripts/publish_release.sh <version>
 ./scripts/update_wiki.sh --push
 ~~~
-
-## Pages
-
-- [Architecture](Architecture)
-- [Getting Started](Getting-Started)
-- [Feature Map](Feature-Map)
-- [Development Tasks](Development-Tasks)
-- [Document Loading](Document-Loading)
-- [Reading Notes](Reading-Notes)
-- [Shortcuts](Shortcuts)
-- [AI Chat](AI-Chat)
-- [AI Analysis Cache](AI-Analysis-Cache)
-- [Word Highlights](Word-Highlights)
-- [TTS And Read Aloud](TTS-And-Read-Aloud)
-- [Release Process](Release-Process)
-- [Release Checklist](Release-Checklist)
-- [Release Runbook](Release-Runbook)
-- [Security](Security)
-- [Troubleshooting](Troubleshooting)
-- [Code Map](Code-Map)
-- [Type Index](Type-Index)
 
 ## Maintenance
 
@@ -189,20 +199,26 @@ This wiki explains the codebase structure and stable engineering workflows for L
 EOF
 
 cat > "$WIKI_WORKTREE/_Sidebar.md" <<'EOF'
-## Leaf Reader Wiki
+## 中文文档
 
-- [Home](Home)
+- [首页](Home)
+- [中文入口](Chinese)
+- [安装与入门](Getting-Started)
+- [阅读笔记](Reading-Notes)
+- [快捷键](Shortcuts)
+- [AI 使用](AI-Chat)
+- [背单词](Word-Highlights)
+- [TTS 与朗读](TTS-And-Read-Aloud)
+- [故障排查](Troubleshooting)
+
+## English & Engineering
+
+- [English Index](English)
 - [Architecture](Architecture)
-- [Getting Started](Getting-Started)
 - [Feature Map](Feature-Map)
 - [Development Tasks](Development-Tasks)
 - [Document Loading](Document-Loading)
-- [Reading Notes](Reading-Notes)
-- [Shortcuts](Shortcuts)
-- [AI Chat](AI-Chat)
 - [AI Analysis Cache](AI-Analysis-Cache)
-- [Word Highlights](Word-Highlights)
-- [TTS And Read Aloud](TTS-And-Read-Aloud)
 - [Release Process](Release-Process)
 - [Release Checklist](Release-Checklist)
 - [Release Runbook](Release-Runbook)
