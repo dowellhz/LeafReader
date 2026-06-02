@@ -68,11 +68,12 @@ extension ReaderWindowController {
             prepareAIForSelectionAction(text: text)
             aiPanel.startQuestion()
         case .addWord:
-            guard selectionToolbarContextAction(for: text) == .addWord else {
+            let wordText = selectedVocabularyTextForToolbar(fallback: text)
+            guard vocabularySpeakerWord(wordText) != nil else {
                 NSSound.beep()
                 return
             }
-            prepareAIForSelectionAction(text: text)
+            prepareAIForSelectionAction(text: wordText)
             aiPanel.startQuestion()
         case .summarize:
             prepareAIForSelectionAction(text: text)
@@ -92,11 +93,13 @@ extension ReaderWindowController {
     }
 
     func selectionToolbarContextAction(for text: String) -> SelectionActionToolbar.ContextAction {
-        vocabularySpeakerWord(text) == nil ? .summarize : .addWord
+        let wordText = selectedVocabularyTextForToolbar(fallback: text)
+        return vocabularySpeakerWord(wordText) == nil ? .summarize : .addWord
     }
 
     func configureSelectionToolbarActions(for text: String) {
-        let isVocabulary = vocabularySpeakerWord(text) != nil
+        let wordText = selectedVocabularyTextForToolbar(fallback: text)
+        let isVocabulary = vocabularySpeakerWord(wordText) != nil
         let capabilityState = ReaderCapabilityState.make(
             isOnline: NetworkConnectivityMonitor.shared.isOnline,
             hasModelAPIKey: AISettingsStore.hasAPIKeyForSelectedModel,
@@ -132,6 +135,13 @@ extension ReaderWindowController {
     private func prepareAIForSelectionAction(text: String) {
         aiPanel.setSelectedText(text)
         setAIPanelCollapsed(false, animated: true)
+    }
+
+    private func selectedVocabularyTextForToolbar(fallback text: String) -> String {
+        guard currentDocumentKind == .pdf else {
+            return VocabularyTextPolicy.normalizedVocabularyText(text)
+        }
+        return vocabularyTextForCurrentPDFSelection(selection: pdfView.currentSelection, fallback: text)
     }
 
     func showSelectionToolbarWindow(frameInContent: NSRect) {

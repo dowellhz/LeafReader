@@ -3,7 +3,8 @@ import PDFKit
 
 extension ReaderWindowController {
     func persistSelectedWordIfNeeded(_ selection: PDFSelection?, text: String, context: String? = nil) -> WordQuestionStartResult? {
-        guard shouldPersistHighlight(for: text),
+        let word = vocabularyTextForCurrentPDFSelection(selection: selection, fallback: text)
+        guard shouldPersistHighlight(for: word),
               let selection,
               let document = pdfView.document,
               let page = selection.pages.first else {
@@ -14,7 +15,7 @@ extension ReaderWindowController {
         let bounds = precisePDFSelectionBounds(
             page: page,
             originalBounds: rawBounds,
-            queryText: text
+            queryText: word
         ) ?? rawBounds
         guard bounds.width > 0, bounds.height > 0 else { return nil }
 
@@ -24,11 +25,11 @@ extension ReaderWindowController {
             pdfView.clearSelection()
             return WordQuestionStartResult(linkID: existing.id, selectedContext: nil)
         }
-        if let reusable = reusablePDFWordRecord(for: text) {
-            let context = vocabularyContextForCurrentSelection(selectedText: text, precomputedContext: context)
+        if let reusable = reusablePDFWordRecord(for: word) {
+            let context = vocabularyContextForCurrentSelection(selectedText: word, precomputedContext: context)
             let record = StoredPDFWordRecord(
                 id: UUID().uuidString,
-                word: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                word: word,
                 pageIndex: pageIndex,
                 bounds: StoredPDFWordRect(bounds),
                 context: context,
@@ -48,10 +49,10 @@ extension ReaderWindowController {
         }
 
         let id = UUID().uuidString
-        let context = vocabularyContextForCurrentSelection(selectedText: text, precomputedContext: context)
+        let context = vocabularyContextForCurrentSelection(selectedText: word, precomputedContext: context)
         pendingPDFWordRecords[id] = PendingPDFWordRecord(
             id: id,
-            word: text.trimmingCharacters(in: .whitespacesAndNewlines),
+            word: word,
             pageIndex: pageIndex,
             bounds: StoredPDFWordRect(bounds),
             context: context,
@@ -59,8 +60,8 @@ extension ReaderWindowController {
             dictionaryFrequency: nil,
             createdAt: Date()
         )
-        backfillDictionaryMetadataAsync(linkID: id, word: text)
-        addPendingWordAnnotation(id: id, pageIndex: pageIndex, bounds: bounds, word: text)
+        backfillDictionaryMetadataAsync(linkID: id, word: word)
+        addPendingWordAnnotation(id: id, pageIndex: pageIndex, bounds: bounds, word: word)
         clearPDFSelectionState()
         pdfView.clearSelection()
         return WordQuestionStartResult(linkID: id, selectedContext: context)

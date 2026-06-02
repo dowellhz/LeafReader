@@ -89,6 +89,8 @@ enum VocabularyLogicTests {
     static func testVocabularyTextPolicy() throws {
         try expect(VocabularyTextPolicy.isSingleEnglishWord("high-pitched"), "hyphenated words should count as one vocabulary word")
         try expect(VocabularyTextPolicy.isSingleEnglishWord("reader’s"), "curly apostrophes should be accepted in vocabulary words")
+        try expect(!VocabularyTextPolicy.isSingleEnglishWord("Nine-"), "trailing hyphen should not be saved as a complete word")
+        try expectEqual(VocabularyTextPolicy.speakableWord("Nine-\ntenths"), "Nine-tenths", "PDF line-broken hyphenated words should be saved as one word")
         try expect(!VocabularyTextPolicy.isSingleEnglishWord("two words"), "phrases should not count as a single word")
         try expectEqual(VocabularyTextPolicy.speakableWord(" high-pitched "), "high-pitched", "speakable words should be trimmed")
 
@@ -108,6 +110,11 @@ enum VocabularyLogicTests {
             VocabularyTextPolicy.pdfSearchQueries(for: "Nine-\ntenths"),
             ["Nine-\ntenths", "Nine- tenths", "Nine-tenths"],
             "PDF search should include line-broken hyphen variants"
+        )
+        try expectEqual(
+            VocabularyTextPolicy.pdfSearchQueries(for: "Nine-tenths"),
+            ["Nine-tenths", "Nine-\ntenths", "Nine- tenths"],
+            "normalized hyphenated words should still search PDF line-break variants"
         )
         try expect(
             VocabularyTextPolicy.pdfSearchQueries(for: "Nine-\ntenths").contains("Nine-tenths"),

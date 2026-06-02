@@ -1,8 +1,9 @@
 import Foundation
 
 enum VocabularyTextPolicy {
-    private static let singleWordPattern = #"^[A-Za-z][A-Za-z'’–—-]*$"#
-    private static let vocabularySelectionPattern = #"^[A-Za-z][A-Za-z'’–—-]*(\s+[A-Za-z][A-Za-z'’–—-]*){0,4}$"#
+    private static let wordTokenPattern = #"[A-Za-z](?:[A-Za-z]|['’–—-](?=[A-Za-z]))*"#
+    private static let singleWordPattern = #"^"# + wordTokenPattern + #"$"#
+    private static let vocabularySelectionPattern = #"^"# + wordTokenPattern + #"(\s+"# + wordTokenPattern + #"){0,4}$"#
     private static let wordBoundaryBefore = #"(?<![A-Za-z'’–—-])"#
     private static let wordBoundaryAfter = #"(?![A-Za-z'’–—-])"#
 
@@ -13,19 +14,23 @@ enum VocabularyTextPolicy {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    static func normalizedVocabularyText(_ text: String) -> String {
+        collapsedWhitespace(joinLineBrokenHyphens(text))
+    }
+
     static func isSingleEnglishWord(_ text: String) -> Bool {
-        let value = normalized(text)
+        let value = normalizedVocabularyText(text)
         guard value.count <= maxSingleWordLength else { return false }
         return value.range(of: singleWordPattern, options: .regularExpression) != nil
     }
 
     static func speakableWord(_ text: String) -> String? {
-        let value = normalized(text)
+        let value = normalizedVocabularyText(text)
         return isSingleEnglishWord(value) ? value : nil
     }
 
     static func isVocabularySelection(_ text: String) -> Bool {
-        let value = normalized(text)
+        let value = normalizedVocabularyText(text)
         guard value.count <= maxVocabularySelectionLength else { return false }
         let words = value.split { $0.isWhitespace || $0.isNewline }
         guard (1...5).contains(words.count) else { return false }
@@ -51,15 +56,26 @@ enum VocabularyTextPolicy {
         return #"(?i)"# + wordBoundaryBefore + escaped + wordBoundaryAfter
     }
 
+    static func boundedPrefixPattern(for prefix: String) -> String {
+        wordBoundaryBefore + NSRegularExpression.escapedPattern(for: normalized(prefix))
+    }
+
+    static func lineBrokenHyphenWordPattern(prefix: String) -> String {
+        boundedPrefixPattern(for: prefix) + #"[‐‑‒–—-]\s*"# + wordTokenPattern
+    }
+
     static func pdfSearchQueries(for query: String) -> [String] {
         let value = normalized(query)
         guard !value.isEmpty else { return [] }
 
+        let joined = collapsedWhitespace(joinLineBrokenHyphens(value))
         var results: [String] = []
         appendUnique(value, to: &results)
         appendUnique(collapsedWhitespace(value), to: &results)
-        appendUnique(joinLineBrokenHyphens(value), to: &results)
-        appendUnique(collapsedWhitespace(joinLineBrokenHyphens(value)), to: &results)
+        appendUnique(joined, to: &results)
+        for lineBreakVariant in lineBreakHyphenVariants(for: joined) {
+            appendUnique(lineBreakVariant, to: &results)
+        }
         return results
     }
 
@@ -80,6 +96,15 @@ enum VocabularyTextPolicy {
         value
             .replacingOccurrences(of: #"[‐‑‒–—-]\s+"#, with: "-", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func lineBreakHyphenVariants(for value: String) -> [String] {
+        let normalizedValue = collapsedWhitespace(value)
+        guard normalizedValue.contains("-") else { return [] }
+        return [
+            normalizedValue.replacingOccurrences(of: "-", with: "-\n"),
+            normalizedValue.replacingOccurrences(of: "-", with: "- ")
+        ]
     }
 
     private static func appendUnique(_ value: String, to results: inout [String]) {
