@@ -14,8 +14,14 @@ Leaf Reader 的中文使用说明入口。
 
 ## 开发与发布
 
+- [架构](architecture.md)
 - [功能地图](feature-map.md)
 - [开发任务](development-tasks.md)
-- [发布流程](release-runbook.md)
+- [文档加载](document-loading.md)
+- [AI 分析缓存](ai-analysis-cache.md)
+- [发布流程](release-process.md)
+- [发布检查清单](release-checklist.md)
+- [发布运行手册](release-runbook.md)
+- [安全](security.md)
 - [代码地图](code-map.md)
 - [类型索引](type-index.md)

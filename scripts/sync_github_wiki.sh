@@ -160,6 +160,17 @@ Leaf Reader Wiki keeps Chinese user documentation and English/engineering docume
 - [背单词与单词高亮](Word-Highlights)
 - [TTS 与朗读](TTS-And-Read-Aloud)
 - [故障排查](Troubleshooting)
+- [架构](Architecture)
+- [功能地图](Feature-Map)
+- [开发任务](Development-Tasks)
+- [文档加载](Document-Loading)
+- [AI 分析缓存](AI-Analysis-Cache)
+- [发布流程](Release-Process)
+- [发布检查清单](Release-Checklist)
+- [发布运行手册](Release-Runbook)
+- [安全](Security)
+- [代码地图](Code-Map)
+- [类型索引](Type-Index)
 
 ## English & Engineering
 
@@ -210,6 +221,17 @@ cat > "$WIKI_WORKTREE/_Sidebar.md" <<'EOF'
 - [背单词](Word-Highlights)
 - [TTS 与朗读](TTS-And-Read-Aloud)
 - [故障排查](Troubleshooting)
+- [架构](Architecture)
+- [功能地图](Feature-Map)
+- [开发任务](Development-Tasks)
+- [文档加载](Document-Loading)
+- [AI 分析缓存](AI-Analysis-Cache)
+- [发布流程](Release-Process)
+- [发布检查清单](Release-Checklist)
+- [发布运行手册](Release-Runbook)
+- [安全](Security)
+- [代码地图](Code-Map)
+- [类型索引](Type-Index)
 
 ## English & Engineering
 
