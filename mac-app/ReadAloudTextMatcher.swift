@@ -5,7 +5,12 @@ enum ReadAloudTextMatcher {
     private static let minimumPartialQueryTokens = 6
     private static let minimumPartialPageTokens = 4
 
-    static func range(of query: String, in pageText: String, searchRange: NSRange? = nil) -> NSRange? {
+    static func range(
+        of query: String,
+        in pageText: String,
+        searchRange: NSRange? = nil,
+        allowsPartialFallback: Bool = true
+    ) -> NSRange? {
         let fullRange = NSRange(pageText.startIndex..<pageText.endIndex, in: pageText)
         let targetRange = searchRange ?? fullRange
         let exactRange = (pageText as NSString).range(
@@ -42,6 +47,7 @@ enum ReadAloudTextMatcher {
         if let tokenRange = tokenRange(of: query, in: pageText, searchRange: targetRange) {
             return tokenRange
         }
+        guard allowsPartialFallback else { return nil }
         return partialTokenRange(of: query, in: pageText, searchRange: targetRange)
     }
 

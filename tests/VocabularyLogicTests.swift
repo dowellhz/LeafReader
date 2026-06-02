@@ -104,6 +104,16 @@ enum VocabularyLogicTests {
         let sampleRange = NSRange(location: 0, length: (sample as NSString).length)
         try expectEqual(searchRegex.matches(in: sample, range: sampleRange).count, 1, "bounded search should match the exact hyphenated word only")
 
+        try expectEqual(
+            VocabularyTextPolicy.pdfSearchQueries(for: "Nine-\ntenths"),
+            ["Nine-\ntenths", "Nine- tenths", "Nine-tenths"],
+            "PDF search should include line-broken hyphen variants"
+        )
+        try expect(
+            VocabularyTextPolicy.pdfSearchQueries(for: "Nine-\ntenths").contains("Nine-tenths"),
+            "PDF search should match hyphenated words when PDFKit inserts a line break"
+        )
+
         let emphasisPattern = VocabularyTextPolicy.emphasisPattern(for: "high-pitched")
         let emphasisRegex = try NSRegularExpression(pattern: emphasisPattern, options: [.caseInsensitive])
         try expectEqual(emphasisRegex.matches(in: sample, range: sampleRange).count, 1, "emphasis should use the same word boundary rule")

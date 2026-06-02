@@ -24,12 +24,12 @@ extension ReaderWindowController {
             pageIndex: record.pageIndex,
             storedBounds: record.bounds.cgRect,
             word: record.word,
-            refineBounds: false
+            refineBounds: true
         )
     }
 
     func addPendingWordAnnotation(id: String, pageIndex: Int, bounds: CGRect, word: String) {
-        addPDFVocabularyAnnotation(id: id, pageIndex: pageIndex, storedBounds: bounds, word: word, refineBounds: false)
+        addPDFVocabularyAnnotation(id: id, pageIndex: pageIndex, storedBounds: bounds, word: word, refineBounds: true)
     }
 
     func discardPendingWordAnnotations() {

@@ -9,11 +9,6 @@ final class PDFReadAloudBatchBuilder {
         let lastPage: PDFPage
     }
 
-    private struct PageText {
-        let pageIndex: Int
-        let text: String
-    }
-
     private weak var pdfView: PDFView?
     private let titleProvider: () -> String
 
@@ -35,7 +30,7 @@ final class PDFReadAloudBatchBuilder {
         guard let text else { return nil }
 
         var pages = [page]
-        var pageTexts: [PageText] = []
+        var pageTexts: [PDFReadAloudPageText] = []
         var pageTextCache: [Int: String] = [:]
         pageTextCache[pageIndex] = page.string ?? ""
 
@@ -45,13 +40,13 @@ final class PDFReadAloudBatchBuilder {
            let nextText = textForFullPage(nextPage) {
             pages.append(nextPage)
             pageTextCache[nextPageIndex] = nextPage.string ?? ""
-            pageTexts.append(PageText(pageIndex: pageIndex, text: text))
-            pageTexts.append(PageText(pageIndex: nextPageIndex, text: nextText))
+            pageTexts.append(Self.pageText(pageIndex: pageIndex, text: text, cache: pageTextCache))
+            pageTexts.append(Self.pageText(pageIndex: nextPageIndex, text: nextText, cache: pageTextCache))
         } else {
-            pageTexts.append(PageText(pageIndex: pageIndex, text: text))
+            pageTexts.append(Self.pageText(pageIndex: pageIndex, text: text, cache: pageTextCache))
         }
 
-        let segments = Self.segments(from: pageTexts)
+        let segments = Self.playbackSegments(from: PDFReadAloudSegmentMatcher.segments(from: pageTexts))
         guard !segments.isEmpty else { return nil }
         return Batch(
             pages: pages,
@@ -170,23 +165,26 @@ final class PDFReadAloudBatchBuilder {
         return document.page(at: pageIndex + 1)
     }
 
-    private static func segments(from pageTexts: [PageText]) -> [SpeechPlaybackCoordinator.ReadAloudSegment] {
-        var segments: [SpeechPlaybackCoordinator.ReadAloudSegment] = []
-        for pageText in pageTexts {
-            let text = pageText.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !text.isEmpty else { continue }
-            for sourceSegment in SpeechTextPolicy.segments(for: text) {
-                let speechText = SpeechTextPolicy.normalizedReadAloudInput(sourceSegment)
-                guard !speechText.isEmpty else { continue }
-                segments.append(SpeechPlaybackCoordinator.ReadAloudSegment(
-                    speechText: speechText,
-                    displayText: speechText,
-                    matchText: sourceSegment,
-                    pageIndex: pageText.pageIndex
-                ))
-            }
+    private static func pageText(pageIndex: Int, text: String, cache: [Int: String]) -> PDFReadAloudPageText {
+        PDFReadAloudPageText(
+            pageIndex: pageIndex,
+            speechSourceText: text,
+            fullPageText: cache[pageIndex] ?? text
+        )
+    }
+
+    private static func playbackSegments(
+        from matchedSegments: [PDFReadAloudMatchedSegment]
+    ) -> [SpeechPlaybackCoordinator.ReadAloudSegment] {
+        matchedSegments.map { segment in
+            SpeechPlaybackCoordinator.ReadAloudSegment(
+                speechText: segment.speechText,
+                displayText: segment.speechText,
+                matchText: segment.sourceText,
+                matchRange: segment.range,
+                pageIndex: segment.pageIndex
+            )
         }
-        return segments
     }
 
     private static func wordCount(in text: String) -> Int {

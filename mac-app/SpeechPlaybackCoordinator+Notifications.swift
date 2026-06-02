@@ -1,6 +1,18 @@
 import Foundation
 
 extension SpeechPlaybackCoordinator {
+    enum ReadingSegmentUserInfoKey {
+        static let active = "active"
+        static let waitingForManualAdvance = "waitingForManualAdvance"
+        static let index = "index"
+        static let total = "total"
+        static let text = "text"
+        static let matchText = "matchText"
+        static let matchRangeLocation = "matchRangeLocation"
+        static let matchRangeLength = "matchRangeLength"
+        static let pageIndex = "pageIndex"
+    }
+
     static func readAloudSegments(for text: String) -> [String] {
         SpeechTextPolicy.readAloudSegments(for: text)
     }
@@ -9,20 +21,27 @@ extension SpeechPlaybackCoordinator {
         NotificationCenter.default.post(
             name: Self.readingSegmentDidChangeNotification,
             object: self,
-            userInfo: ["active": true, "waitingForManualAdvance": true]
+            userInfo: [
+                ReadingSegmentUserInfoKey.active: true,
+                ReadingSegmentUserInfoKey.waitingForManualAdvance: true
+            ]
         )
     }
 
     func postReadingSegment(_ segment: PlaybackSegment) {
         var userInfo: [String: Any] = [
-            "active": true,
-            "index": segment.index,
-            "total": segment.total,
-            "text": segment.text,
-            "matchText": segment.matchText
+            ReadingSegmentUserInfoKey.active: true,
+            ReadingSegmentUserInfoKey.index: segment.index,
+            ReadingSegmentUserInfoKey.total: segment.total,
+            ReadingSegmentUserInfoKey.text: segment.text,
+            ReadingSegmentUserInfoKey.matchText: segment.matchText
         ]
+        if let matchRange = segment.matchRange {
+            userInfo[ReadingSegmentUserInfoKey.matchRangeLocation] = matchRange.location
+            userInfo[ReadingSegmentUserInfoKey.matchRangeLength] = matchRange.length
+        }
         if let pageIndex = segment.pageIndex {
-            userInfo["pageIndex"] = pageIndex
+            userInfo[ReadingSegmentUserInfoKey.pageIndex] = pageIndex
         }
         NotificationCenter.default.post(
             name: Self.readingSegmentDidChangeNotification,
@@ -35,7 +54,7 @@ extension SpeechPlaybackCoordinator {
         NotificationCenter.default.post(
             name: Self.readingSegmentDidChangeNotification,
             object: self,
-            userInfo: ["active": false]
+            userInfo: [ReadingSegmentUserInfoKey.active: false]
         )
     }
 }

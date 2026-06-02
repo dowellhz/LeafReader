@@ -73,6 +73,7 @@ extension SpeechPlaybackCoordinator {
                         speechText: segment.speechText,
                         text: segment.displayText,
                         matchText: segment.matchText,
+                        matchRange: segment.matchRange,
                         index: segmentIndex + 1 + indexOffset,
                         total: allSegments.count,
                         pageIndex: segment.pageIndex

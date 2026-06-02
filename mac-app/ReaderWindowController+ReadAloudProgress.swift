@@ -1,6 +1,28 @@
 import Cocoa
 import PDFKit
 
+private struct SpeechProgressPayload {
+    let text: String
+    let matchText: String
+    let index: Int?
+    let pageIndex: Int?
+    let matchRange: NSRange?
+
+    init(notification: Notification) {
+        let userInfo = notification.userInfo ?? [:]
+        text = userInfo[SpeechPlaybackCoordinator.ReadingSegmentUserInfoKey.text] as? String ?? ""
+        matchText = userInfo[SpeechPlaybackCoordinator.ReadingSegmentUserInfoKey.matchText] as? String ?? text
+        index = userInfo[SpeechPlaybackCoordinator.ReadingSegmentUserInfoKey.index] as? Int
+        pageIndex = userInfo[SpeechPlaybackCoordinator.ReadingSegmentUserInfoKey.pageIndex] as? Int
+        if let location = userInfo[SpeechPlaybackCoordinator.ReadingSegmentUserInfoKey.matchRangeLocation] as? Int,
+           let length = userInfo[SpeechPlaybackCoordinator.ReadingSegmentUserInfoKey.matchRangeLength] as? Int {
+            matchRange = NSRange(location: location, length: length)
+        } else {
+            matchRange = nil
+        }
+    }
+}
+
 extension ReaderWindowController {
     private static let temporaryReadAloudHighlightColor = NSColor(red: 0.56, green: 0.78, blue: 0.49, alpha: 0.32)
 
@@ -14,13 +36,13 @@ extension ReaderWindowController {
     }
 
     @objc private func handleSpeechProgress(_ notification: Notification) {
-        let isActive = notification.userInfo?["active"] as? Bool ?? false
+        let isActive = notification.userInfo?[SpeechPlaybackCoordinator.ReadingSegmentUserInfoKey.active] as? Bool ?? false
         guard isActive else {
             guard !isReadAloudActive else { return }
             restoreTitleAfterSpeechPlayback()
             return
         }
-        if notification.userInfo?["waitingForManualAdvance"] as? Bool == true {
+        if notification.userInfo?[SpeechPlaybackCoordinator.ReadingSegmentUserInfoKey.waitingForManualAdvance] as? Bool == true {
             pauseReadAloudForManualAdvance()
             return
         }
@@ -30,21 +52,25 @@ extension ReaderWindowController {
             readAloudOriginalToolTip = titleLabel.toolTip
         }
 
-        let text = notification.userInfo?["text"] as? String ?? ""
-        let matchText = notification.userInfo?["matchText"] as? String ?? text
-        let index = notification.userInfo?["index"] as? Int
-        let pageIndex = notification.userInfo?["pageIndex"] as? Int
+        let payload = SpeechProgressPayload(notification: notification)
         let previousReadAloudSelectionText = currentReadAloudSelectionText
-        currentReadAloudSelectionText = matchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? text : matchText
+        currentReadAloudSelectionText = payload.matchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? payload.text
+            : payload.matchText
         refreshAISelectionFromReadAloudIfNeeded(previousText: previousReadAloudSelectionText)
-        canReadAloudGoPrevious = (index ?? 1) > 1
+        canReadAloudGoPrevious = (payload.index ?? 1) > 1
         updateReadAloudFloatingControl()
-        if let pageIndex {
+        if let pageIndex = payload.pageIndex {
             turnPDFReadAloudPageIfNeeded(to: pageIndex)
             lastReadAloudProgressPageIndex = pageIndex
         }
-        titleLabel.toolTip = text
-        updateTemporaryReadAloudUnderline(for: matchText, index: index, pageIndex: pageIndex)
+        titleLabel.toolTip = payload.text
+        updateTemporaryReadAloudUnderline(
+            for: payload.matchText,
+            index: payload.index,
+            pageIndex: payload.pageIndex,
+            matchRange: payload.matchRange
+        )
     }
 
     func restoreTitleAfterSpeechPlayback() {
@@ -89,10 +115,10 @@ extension ReaderWindowController {
         lastReadAloudProgressPageIndex = nil
     }
 
-    private func updateTemporaryReadAloudUnderline(for text: String, index: Int?, pageIndex: Int?) {
+    private func updateTemporaryReadAloudUnderline(for text: String, index: Int?, pageIndex: Int?, matchRange: NSRange? = nil) {
         clearTemporaryReadAloudUnderline()
         if currentDocumentKind == .pdf {
-            underlinePDFSegment(text, preferredDocumentPageIndex: pageIndex)
+            underlinePDFSegment(text, preferredDocumentPageIndex: pageIndex, matchRange: matchRange)
         } else {
             underlineWebSegment(text, index: index)
         }
@@ -104,7 +130,7 @@ extension ReaderWindowController {
         let text = segment.matchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? segment.displayText
             : segment.matchText
-        updateTemporaryReadAloudUnderline(for: text, index: nil, pageIndex: pageIndex)
+        updateTemporaryReadAloudUnderline(for: text, index: nil, pageIndex: pageIndex, matchRange: segment.matchRange)
     }
 
     func clearTemporaryReadAloudUnderline() {
@@ -116,7 +142,7 @@ extension ReaderWindowController {
         webView?.evaluateJavaScript("window.leafReaderClearTTSUnderline && window.leafReaderClearTTSUnderline();")
     }
 
-    private func underlinePDFSegment(_ text: String, preferredDocumentPageIndex: Int?) {
+    private func underlinePDFSegment(_ text: String, preferredDocumentPageIndex: Int?, matchRange: NSRange? = nil) {
         let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return }
         if let preferredDocumentPageIndex,
@@ -127,6 +153,10 @@ extension ReaderWindowController {
             let preferredCandidateIndex = readAloudPDFPages.enumerated()
                 .first { $0.element === page }?
                 .offset ?? readAloudPDFCandidatePageIndex
+            if let matchRange,
+               underlinePDFSegment(text: query, page: page, candidatePageIndex: preferredCandidateIndex, range: matchRange) {
+                return
+            }
             if underlinePDFSegment(
                 text: query,
                 page: page,
@@ -143,6 +173,13 @@ extension ReaderWindowController {
             return
         }
         _ = underlinePDFSegment(text: query, in: candidatePages, usesCursor: false)
+    }
+
+    private func underlinePDFSegment(text query: String, page: PDFPage, candidatePageIndex: Int, range nsRange: NSRange) -> Bool {
+        guard let selection = page.selection(for: nsRange) else {
+            return false
+        }
+        return underlinePDFSelection(selection, query: query, page: page, candidatePageIndex: candidatePageIndex, range: nsRange)
     }
 
     private func turnPDFReadAloudPageIfNeeded(to pageIndex: Int) {
@@ -188,9 +225,12 @@ extension ReaderWindowController {
               ) else {
             return false
         }
-        guard let selection = page.selection(for: nsRange) else {
-            return false
-        }
+        guard let selection = page.selection(for: nsRange) else { return false }
+        return underlinePDFSelection(selection, query: query, page: page, candidatePageIndex: candidatePageIndex, range: nsRange)
+    }
+
+    private func underlinePDFSelection(_ selection: PDFSelection, query: String, page: PDFPage, candidatePageIndex: Int, range nsRange: NSRange) -> Bool {
+        let documentPageIndex = pdfView.document?.index(for: page)
         var segmentBounds = CGRect.null
         for lineSelection in selection.selectionsByLine() {
             let bounds = lineSelection.bounds(for: page)

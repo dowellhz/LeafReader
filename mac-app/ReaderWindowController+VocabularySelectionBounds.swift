@@ -11,14 +11,15 @@ extension ReaderWindowController {
             return nil
         }
 
-        let candidates = pdfTextRanges(matching: normalizedQuery, in: pageText)
+        let candidates = VocabularyTextPolicy.pdfSearchQueries(for: normalizedQuery)
+            .flatMap { pdfTextRanges(matching: $0, in: pageText) }
         guard !candidates.isEmpty else { return nil }
 
         let originalCenter = CGPoint(x: originalBounds.midX, y: originalBounds.midY)
         var bestBounds: CGRect?
         var bestScore = CGFloat.greatestFiniteMagnitude
 
-        for range in candidates.prefix(24) {
+        for range in candidates.prefix(36) {
             guard let candidateSelection = page.selection(for: range) else { continue }
             let candidateBounds = candidateSelection.bounds(for: page).insetBy(dx: -1.5, dy: -1)
             guard candidateBounds.width > 0, candidateBounds.height > 0 else { continue }

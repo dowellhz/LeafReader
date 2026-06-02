@@ -235,18 +235,17 @@ extension ReaderWindowController {
     }
 
     func exportSingleReadingNoteMarkdown(_ note: ReadingNote) {
-        let savePanel = readingNotesSavePanel(fileNameSuffix: "note")
-        savePanel.beginSheetModal(for: window ?? NSWindow()) { response in
-            guard response == .OK, let url = savePanel.url else { return }
-            do {
-                let output = ReadingNoteExporter.markdown(documentTitle: note.documentTitle, notes: [note])
-                try output.write(to: url, atomically: true, encoding: .utf8)
-            } catch {
-                let alert = NSAlert(error: error)
-                alert.applyLeafStyle()
-                alert.runModal()
-            }
-        }
+        let coordinator = ReadingNoteExportCoordinator()
+        guard let request = coordinator.request(allowsScopeSelection: false, parent: window) else { return }
+        coordinator.beginExport(
+            ReadingNoteExportCoordinator.ExportPackage(
+                notes: [note],
+                documentTitle: note.documentTitle,
+                request: request,
+                fileNameSuffix: "note"
+            ),
+            parent: window
+        )
     }
 
     @objc func exportReadingNotesMarkdown(_ sender: Any?) {
@@ -254,29 +253,22 @@ extension ReaderWindowController {
             NSSound.beep()
             return
         }
-        let savePanel = readingNotesSavePanel(fileNameSuffix: "notes")
-        savePanel.beginSheetModal(for: window ?? NSWindow()) { [weak self] response in
-            guard response == .OK, let url = savePanel.url, let self else { return }
-            do {
-                let output = ReadingNoteExporter.markdown(
-                    documentTitle: self.documentTitleForAI(),
-                    notes: self.storedReadingNotes.sortedByCreatedAt()
-                )
-                try output.write(to: url, atomically: true, encoding: .utf8)
-            } catch {
-                let alert = NSAlert(error: error)
-                alert.applyLeafStyle()
-                alert.runModal()
-            }
+        let coordinator = ReadingNoteExportCoordinator()
+        guard let request = coordinator.request(allowsScopeSelection: true, parent: window) else { return }
+        let notes = request.scope.filter(storedReadingNotes.sortedByCreatedAt())
+        guard !notes.isEmpty else {
+            coordinator.showNoNotesAlert(scope: request.scope)
+            return
         }
-    }
-
-    private func readingNotesSavePanel(fileNameSuffix: String) -> NSSavePanel {
-        let savePanel = NSSavePanel()
-        savePanel.canCreateDirectories = true
-        savePanel.allowedContentTypes = []
-        savePanel.nameFieldStringValue = "\(safeExportFileName(documentTitleForAI()))-\(fileNameSuffix).md"
-        return savePanel
+        coordinator.beginExport(
+            ReadingNoteExportCoordinator.ExportPackage(
+                notes: notes,
+                documentTitle: documentTitleForAI(),
+                request: request,
+                fileNameSuffix: request.scope.fileNameSuffix
+            ),
+            parent: window
+        )
     }
 
     private func readingNoteLocatorForCurrentSelection(quote: String) -> ReadingNote.Locator {
