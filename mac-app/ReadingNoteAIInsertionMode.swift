@@ -8,6 +8,12 @@ enum ReadingNoteAIInsertionMode {
         renderMarkdown: Bool,
         protectedMarkdown: ReadingNoteAIMarkdownImageProtector.ProtectedMarkdown? = nil
     )
+    case replaceRange(
+        NSRange,
+        renderMarkdown: Bool,
+        prefix: String = "",
+        protectedMarkdown: ReadingNoteAIMarkdownImageProtector.ProtectedMarkdown? = nil
+    )
     case replaceSlashTrigger
 
     var usesPlaceholder: Bool {

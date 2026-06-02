@@ -650,6 +650,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Reading note quote soft line breaks", ReadingNoteLogicTests.testReadingNoteQuoteSoftLineBreaks),
     ("Reading note PDF line gaps preserve paragraph breaks", ReadingNoteLogicTests.testReadingNotePDFLineGapsPreserveParagraphBreaks),
     ("Reading note slash command groups", ReadingNoteLogicTests.testReadingNoteSlashCommandGroups),
+    ("Reading note templates", ReadingNoteLogicTests.testReadingNoteTemplates),
     ("Reading note slash range policy", ReadingNoteLogicTests.testReadingNoteSlashRangePolicy),
     ("Reading note AI markdown body", ReadingNoteLogicTests.testReadingNoteAIMarkdownBodyStripsFence),
     ("Reading note AI markdown image protector", ReadingNoteLogicTests.testReadingNoteAIMarkdownImageProtector),

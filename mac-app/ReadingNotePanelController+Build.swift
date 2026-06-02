@@ -192,8 +192,10 @@ extension ReadingNotePanelController {
         italic.font = NSFontManager.shared.convert(AppFont.semibold(ofSize: 16), toHaveTrait: .italicFontMask)
         let list = iconButton(symbol: "list.bullet", action: #selector(listTapped(_:)))
         let check = iconButton(symbol: "checklist", action: #selector(checklistTapped(_:)))
+        let template = iconButton(symbol: "doc.plaintext", action: #selector(templateTapped(_:)))
+        template.toolTip = AppText.localized("插入阅读笔记模板", "Insert reading note template")
         let image = iconButton(symbol: "photo", action: #selector(imageTapped(_:)))
-        let buttons = [save, undo, redo, toolbarSeparator(), bold, italic, list, check, image]
+        let buttons = [save, undo, redo, toolbarSeparator(), bold, italic, list, check, template, image]
         let stack = NSStackView(views: buttons)
         stack.orientation = .horizontal
         stack.alignment = .centerY

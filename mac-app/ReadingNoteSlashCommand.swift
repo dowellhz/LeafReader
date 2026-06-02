@@ -8,6 +8,7 @@ enum ReadingNoteSlashCommand: String, CaseIterable {
     case heading4
     case bulletedList
     case numberedList
+    case template
     case aiContinue
     case aiExplain
     case aiTranslate
@@ -23,6 +24,7 @@ enum ReadingNoteSlashCommand: String, CaseIterable {
         case .heading4: return AppText.localized("标题 4", "Heading 4")
         case .bulletedList: return AppText.localized("项目列表", "Bulleted list")
         case .numberedList: return AppText.localized("编号列表", "Numbered list")
+        case .template: return AppText.localized("阅读笔记模板", "Reading note template")
         case .aiContinue: return AppText.localized("AI 补全", "AI complete")
         case .aiExplain: return AppText.localized("AI 解析选中内容", "AI explain selection")
         case .aiTranslate: return AppText.localized("AI 翻译选中内容", "AI translate selection")
@@ -40,6 +42,7 @@ enum ReadingNoteSlashCommand: String, CaseIterable {
         case .heading4: return "#### "
         case .bulletedList: return "- "
         case .numberedList: return "1. "
+        case .template: return "模板"
         case .aiContinue: return "AI"
         case .aiExplain: return "AI"
         case .aiTranslate: return "AI"
@@ -52,13 +55,13 @@ enum ReadingNoteSlashCommand: String, CaseIterable {
         switch self {
         case .aiContinue, .aiExplain, .aiTranslate, .aiSummarize, .aiOrganize:
             return true
-        case .text, .heading1, .heading2, .heading3, .heading4, .bulletedList, .numberedList:
+        case .text, .heading1, .heading2, .heading3, .heading4, .bulletedList, .numberedList, .template:
             return false
         }
     }
 
     static var blockCommands: [ReadingNoteSlashCommand] {
-        [.text, .heading1, .heading2, .heading3, .heading4, .bulletedList, .numberedList]
+        [.text, .heading1, .heading2, .heading3, .heading4, .bulletedList, .numberedList, .template]
     }
 
     static var aiCommands: [ReadingNoteSlashCommand] {

@@ -65,6 +65,16 @@ extension ReadingNotePanelController {
             action: #selector(toggleFavoriteTapped(_:))
         ))
         menu.addItem(.separator())
+        let templateMenu = NSMenu()
+        ReadingNoteTemplate.allCases.forEach { template in
+            let item = menuItem(title: template.title, action: #selector(templateMenuItemTapped(_:)))
+            item.representedObject = template.rawValue
+            templateMenu.addItem(item)
+        }
+        let templateItem = NSMenuItem(title: AppText.localized("套用模板", "Apply Template"), action: nil, keyEquivalent: "")
+        templateItem.submenu = templateMenu
+        menu.addItem(templateItem)
+        menu.addItem(.separator())
         menu.addItem(menuItem(title: AppText.localized("导出当前笔记...", "Export This Note..."), action: #selector(exportCurrentNoteTapped(_:))))
         menu.addItem(menuItem(title: AppText.localized("复制 Markdown", "Copy Markdown"), action: #selector(copyMarkdownTapped(_:))))
         menu.addItem(.separator())
@@ -90,6 +100,12 @@ extension ReadingNotePanelController {
         statusLabel.stringValue = note.isFavorite
             ? AppText.localized("已收藏", "Favorited")
             : AppText.localized("已取消收藏", "Favorite removed")
+    }
+
+    @objc func templateMenuItemTapped(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let template = ReadingNoteTemplate(rawValue: raw) else { return }
+        applyTemplate(template)
     }
 
     @objc func deleteCurrentNoteTapped(_ sender: NSMenuItem) {

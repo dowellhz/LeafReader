@@ -230,7 +230,7 @@ enum ReadingNoteLogicTests {
     static func testReadingNoteSlashCommandGroups() throws {
         try expectEqual(
             ReadingNoteSlashCommand.blockCommands,
-            [.text, .heading1, .heading2, .heading3, .heading4, .bulletedList, .numberedList],
+            [.text, .heading1, .heading2, .heading3, .heading4, .bulletedList, .numberedList, .template],
             "slash command menu should expose basic blocks in a stable order"
         )
         try expectEqual(
@@ -239,8 +239,49 @@ enum ReadingNoteLogicTests {
             "slash command menu should expose AI commands in a stable order"
         )
         try expectEqual(ReadingNoteSlashCommand.heading2.marker, "## ", "heading command should map to markdown marker")
+        try expectEqual(ReadingNoteSlashCommand.template.marker, "模板", "template command should show a readable marker")
         try expect(ReadingNoteSlashCommand.aiContinue.isAICommand, "AI completion command should be marked as AI")
         try expect(!ReadingNoteSlashCommand.bulletedList.isAICommand, "block command should not be marked as AI")
+    }
+
+    static func testReadingNoteTemplates() throws {
+        let quote = "The door stood ajar."
+        let markdown = ReadingNoteTemplate.reading.markdown(quote: quote)
+        try expect(
+            markdown.contains("## \(AppText.localized("原文", "Original"))"),
+            "reading template should include original text section"
+        )
+        try expect(markdown.contains("> The door stood ajar."), "reading template should preserve the selected quote")
+        try expect(
+            markdown.contains("## \(AppText.localized("核心思想", "Core Idea"))"),
+            "reading template should include core idea section"
+        )
+
+        let defaultMarkdown = ReadingNoteMarkdown.defaultBody(quote: quote)
+        try expect(
+            ReadingNoteTemplateInsertionPolicy.shouldReplaceExistingMarkdown(
+                currentMarkdown: defaultMarkdown,
+                defaultMarkdown: defaultMarkdown
+            ),
+            "template should replace the untouched default reading note body"
+        )
+        try expect(
+            !ReadingNoteTemplateInsertionPolicy.shouldReplaceExistingMarkdown(
+                currentMarkdown: "\(defaultMarkdown)\n用户补充",
+                defaultMarkdown: defaultMarkdown
+            ),
+            "template should not replace existing user content"
+        )
+        try expectEqual(
+            ReadingNoteTemplateInsertionPolicy.spacerBeforeInsertion(existingText: "已有内容"),
+            "\n\n",
+            "template insertion should separate existing text with a paragraph gap"
+        )
+        try expectEqual(
+            ReadingNoteTemplateInsertionPolicy.spacerBeforeInsertion(existingText: "已有内容\n"),
+            "\n",
+            "template insertion should keep exactly one blank line after a single newline"
+        )
     }
 
     static func testReadingNoteSlashRangePolicy() throws {
@@ -623,6 +664,10 @@ enum ReadingNoteLogicTests {
         try expect(
             !ReadingNoteAIInsertionMode.replaceSelection(NSRange(location: 0, length: 1), renderMarkdown: true).usesPlaceholder,
             "selection insertion should not mark placeholder usage"
+        )
+        try expect(
+            !ReadingNoteAIInsertionMode.replaceRange(NSRange(location: 0, length: 0), renderMarkdown: true).usesPlaceholder,
+            "range insertion should not mark placeholder usage"
         )
     }
 

@@ -135,6 +135,30 @@ extension ReadingNotePanelController {
         }
     }
 
+    func runTemplatePolish(_ template: ReadingNoteTemplate, markdown: String) {
+        removeAIPlaceholder()
+        let requestID = editorState.beginAIRequest()
+        let title = AppText.localized("模板润色", "Template polish")
+        let insertionMode = templateInsertionMode()
+        setRunning(true, title: title)
+        aiToolbarContainer.isHidden = true
+        aiRunner.run(action: .polish, text: markdown, noteContext: textView.string) { [weak self] result in
+            guard let self else { return }
+            guard self.editorState.canApplyAIResult(requestID) else { return }
+            self.editorState.finishAIRequest(requestID)
+            self.setRunning(false, title: "")
+            switch result {
+            case .success(let output):
+                let value = output.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !value.isEmpty else { return }
+                self.applyAIOutput(value, insertionMode: insertionMode)
+                self.statusLabel.stringValue = template.insertionStatus
+            case .failure(let error):
+                self.statusLabel.stringValue = self.userFacingError(error)
+            }
+        }
+    }
+
     private struct AIActionRequestContext {
         let text: String
         let insertionMode: ReadingNoteAIInsertionMode
@@ -189,6 +213,24 @@ extension ReadingNotePanelController {
         return .replacePlaceholder(title: title)
     }
 
+    private func templateInsertionMode() -> ReadingNoteAIInsertionMode {
+        let currentMarkdown = markdownFromEditor()
+        let defaultMarkdown = ReadingNoteMarkdown.defaultBody(quote: note.quote)
+        if ReadingNoteTemplateInsertionPolicy.shouldReplaceExistingMarkdown(
+            currentMarkdown: currentMarkdown,
+            defaultMarkdown: defaultMarkdown
+        ) {
+            let textLength = (textView.string as NSString).length
+            return .replaceRange(NSRange(location: 0, length: textLength), renderMarkdown: true)
+        }
+
+        let selection = textView.selectedRange()
+        let nsText = textView.string as NSString
+        let textBeforeSelection = nsText.substring(to: min(selection.location, nsText.length))
+        let spacer = ReadingNoteTemplateInsertionPolicy.spacerBeforeInsertion(existingText: textBeforeSelection)
+        return .replaceRange(selection, renderMarkdown: true, prefix: spacer)
+    }
+
     private func applyAIOutput(_ value: String, insertionMode: ReadingNoteAIInsertionMode) {
         switch insertionMode {
         case .appendSection(let title):
@@ -197,18 +239,25 @@ extension ReadingNotePanelController {
             replaceAIPlaceholder(title: title, body: value)
         case .replaceSelection(let range, let renderMarkdown, let protectedMarkdown):
             if renderMarkdown {
-                replaceSelectionWithMarkdown(value, selectionRange: range, protectedMarkdown: protectedMarkdown)
+                replaceRangeWithMarkdown(value, range: range, protectedMarkdown: protectedMarkdown)
             } else {
                 replaceSelectedText(in: range, with: value)
+            }
+        case .replaceRange(let range, let renderMarkdown, let prefix, let protectedMarkdown):
+            let output = prefix.isEmpty ? value : "\(prefix)\(value)"
+            if renderMarkdown {
+                replaceRangeWithMarkdown(output, range: range, protectedMarkdown: protectedMarkdown)
+            } else {
+                replaceText(in: range, with: output)
             }
         case .replaceSlashTrigger:
             replaceCurrentSlashTrigger(with: value)
         }
     }
 
-    private func replaceSelectionWithMarkdown(
+    private func replaceRangeWithMarkdown(
         _ value: String,
-        selectionRange: NSRange,
+        range: NSRange,
         protectedMarkdown: ReadingNoteAIMarkdownImageProtector.ProtectedMarkdown?
     ) {
         var markdown = ReadingNoteAITextPolicy.markdownBody(from: value)
@@ -219,7 +268,7 @@ extension ReadingNotePanelController {
             markdown,
             theme: ReaderTheme.selected
         )
-        replaceSelectedText(in: selectionRange, with: rendered)
+        replaceText(in: range, with: rendered)
     }
 
     private func protectedMarkdownForAI(

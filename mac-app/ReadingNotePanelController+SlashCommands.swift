@@ -52,6 +52,9 @@ extension ReadingNotePanelController {
             replaceCurrentSlashLineWithMarkdownBlock(.heading4)
         case .bulletedList, .numberedList:
             replaceCurrentSlashLineWithEditablePrefix(command.marker)
+        case .template:
+            replaceCurrentSlashLine(with: "")
+            applyTemplate(.reading)
         case .aiContinue:
             runSlashContinuation()
         case .aiExplain:

@@ -36,6 +36,17 @@ extension ReadingNotePanelController {
         applyLinePrefix(displayPrefix: "☐ ")
     }
 
+    @objc func templateTapped(_ sender: NSButton) {
+        let menu = NSMenu()
+        ReadingNoteTemplate.allCases.forEach { template in
+            let item = NSMenuItem(title: template.title, action: #selector(templateMenuItemTapped(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = template.rawValue
+            menu.addItem(item)
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: sender.bounds.minX, y: sender.bounds.maxY + 4), in: sender)
+    }
+
     @objc func imageTapped(_ sender: NSButton) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
@@ -76,6 +87,17 @@ extension ReadingNotePanelController {
             selection: textView.selectedRange()
         ) else { return }
         replaceText(in: trigger.triggerRange, with: value)
+    }
+
+    func applyTemplate(_ template: ReadingNoteTemplate) {
+        guard AISettingsStore.hasAPIKeyForSelectedModel else {
+            statusLabel.stringValue = AppText.localized("请先配置 API Key", "Configure API Key first")
+            NSSound.beep()
+            onModelSettingsRequired()
+            return
+        }
+        let templateMarkdown = template.markdown(quote: note.quote)
+        runTemplatePolish(template, markdown: templateMarkdown)
     }
 
     func replaceCurrentSlashLineWithMarkdownBlock(_ block: MarkdownRenderer.Block) {
