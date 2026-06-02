@@ -11,6 +11,7 @@ extension SpeechPlaybackCoordinator {
         let speechText: String
         let displayText: String
         let matchText: String
+        let matchRange: NSRange?
         let pageIndex: Int?
         let speechLanguageHint: AISettingsStore.SpeechLanguageHint?
 
@@ -18,12 +19,14 @@ extension SpeechPlaybackCoordinator {
             speechText: String,
             displayText: String? = nil,
             matchText: String? = nil,
+            matchRange: NSRange? = nil,
             pageIndex: Int? = nil,
             speechLanguageHint: AISettingsStore.SpeechLanguageHint? = nil
         ) {
             self.speechText = speechText
             self.displayText = displayText ?? speechText
             self.matchText = matchText ?? displayText ?? speechText
+            self.matchRange = matchRange
             self.pageIndex = pageIndex
             self.speechLanguageHint = speechLanguageHint
         }
@@ -33,6 +36,7 @@ extension SpeechPlaybackCoordinator {
                 speechText: speechText,
                 displayText: displayText,
                 matchText: matchText,
+                matchRange: matchRange,
                 pageIndex: pageIndex,
                 speechLanguageHint: hint
             )

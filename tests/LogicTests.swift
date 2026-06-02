@@ -516,6 +516,47 @@ private func testReadAloudTextMatcher() throws {
     let partialQuery = "This opening sentence contains enough distinctive words for partial matching near the page edge and then continues on the next page."
     let partialRange = ReadAloudTextMatcher.range(of: partialQuery, in: partialPage)
     try expect(partialRange != nil, "read-aloud matching should fall back to a stable partial token range")
+    let strictPartialRange = ReadAloudTextMatcher.range(of: partialQuery, in: partialPage, allowsPartialFallback: false)
+    try expect(strictPartialRange == nil, "strict source matching should not accept partial read-aloud ranges")
+
+    let repeatedPage = """
+    They have tried to take the life of my son!
+    A scraping metal racket vibrated through the tower, shook
+    the parapet beneath his arms.
+    They have tried to take the life of my son!
+    The men were already boiling in from the field.
+    """
+    let repeatedQuery = """
+    They have tried to take the life of my son!
+    A scraping metal racket vibrated through the tower, shook
+    the parapet beneath his arms.
+    """
+    guard let repeatedRange = ReadAloudTextMatcher.range(of: repeatedQuery, in: repeatedPage) else {
+        throw TestFailure(description: "full repeated-page query should match")
+    }
+    try expectEqual(repeatedRange.location, 0, "full segment matching should not collapse to a later repeated sentence")
+
+    let matcherPage = """
+    They have tried to take the life of my son! A scraping metal racket vibrated through the tower, shook the parapet beneath his arms while the guards waited below.
+    They have tried to take the life of my son! The men were already boiling in from the field when he reached the yellow domed room and carried their spacebags.
+    """
+    let matcherSource = """
+    They have tried to take the life of my son! A scraping metal racket vibrated through the tower, shook the parapet beneath his arms while the guards waited below.
+    They have tried to take the life of my son! The men were already boiling in from the field when he reached the yellow domed room and carried their spacebags.
+    """
+    let matchedSegments = PDFReadAloudSegmentMatcher.segments(from: [
+        PDFReadAloudPageText(
+            pageIndex: 160,
+            speechSourceText: matcherSource,
+            fullPageText: matcherPage
+        )
+    ])
+    try expect(matchedSegments.count >= 2, "PDF read-aloud matcher should preserve sentence-level segments")
+    try expectEqual(matchedSegments[0].range?.location, 0, "first repeated sentence should match its first occurrence")
+    try expect(
+        (matchedSegments[1].range?.location ?? 0) > (matchedSegments[0].range?.location ?? 0),
+        "next PDF read-aloud segment should continue searching after the previous match"
+    )
 }
 
 private func testReadAloudManualAdvanceKeyPolicy() throws {
@@ -645,6 +686,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Reading note store round trip", ReadingNoteLogicTests.testReadingNoteStoreRoundTrip),
     ("Reading note store unavailable database", ReadingNoteLogicTests.testReadingNoteStoreUnavailableDatabase),
     ("Reading note exporter fallback quote", ReadingNoteLogicTests.testReadingNoteExporterFallbackQuote),
+    ("Reading note exporter HTML and scope", ReadingNoteLogicTests.testReadingNoteExporterHTMLAndScope),
     ("Reading note display title uses first markdown line", ReadingNoteLogicTests.testReadingNoteDisplayTitleUsesFirstMarkdownLine),
     ("Reading note list presenter rows", ReadingNoteLogicTests.testReadingNoteListPresenterRows),
     ("Reading note quote soft line breaks", ReadingNoteLogicTests.testReadingNoteQuoteSoftLineBreaks),

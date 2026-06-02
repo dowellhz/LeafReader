@@ -38,6 +38,61 @@ extension ReaderWindowController {
         }
     }
 
+    func speakPDFSelectionFromToolbar(text: String) -> Bool {
+        guard currentDocumentKind == .pdf,
+              canStartReadAloudWithLocalTTS(),
+              let selection = pdfView.currentSelection,
+              let document = pdfView.document,
+              let firstPage = selection.pages.first else {
+            return false
+        }
+        let selectedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !selectedText.isEmpty else { return false }
+        let firstPageIndex = document.index(for: firstPage)
+        guard firstPageIndex != NSNotFound else { return false }
+
+        let pages = selection.pages
+        var pageTextCache: [Int: String] = [:]
+        for page in pages {
+            let index = document.index(for: page)
+            guard index != NSNotFound else { continue }
+            pageTextCache[index] = page.string ?? ""
+        }
+
+        readAloudPDFPages = pages
+        readAloudPDFPageTextCache = pageTextCache
+        readAloudPDFCandidatePageIndex = 0
+        readAloudPDFSearchLocation = 0
+
+        let speechText = SpeechTextPolicy.normalizedReadAloudInput(selectedText)
+        guard !speechText.isEmpty else { return false }
+        beginReadAloudLoading()
+        let matchRange = ReadAloudTextMatcher.range(
+            of: selectedText,
+            in: pageTextCache[firstPageIndex] ?? "",
+            allowsPartialFallback: false
+        )
+        let segment = SpeechPlaybackCoordinator.ReadAloudSegment(
+            speechText: speechText,
+            displayText: speechText,
+            matchText: selectedText,
+            matchRange: matchRange,
+            pageIndex: firstPageIndex,
+            speechLanguageHint: readAloudSpeechLanguageHint
+        )
+        SpeechPlaybackCoordinator.shared.speakText(segments: [segment]) { [weak self] didUseLocalTTS in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                self.handleReadAloudStartResult(didUseLocalTTS: didUseLocalTTS)
+            }
+        } finished: { [weak self] in
+            DispatchQueue.main.async {
+                self?.finishReadAloudFromToolbar()
+            }
+        }
+        return true
+    }
+
     func resumePendingPDFReadAloudIfNeeded(trigger: ReadAloudContinuationTrigger = .automatic) {
         guard currentDocumentKind == .pdf,
               isReadAloudActive,

@@ -11,14 +11,14 @@ extension ReaderWindowController {
             return
         }
         guard source.kind == .pdfPage,
-              let page = pdfView.document?.page(at: source.index),
-              let boundsList = source.pdfBounds,
-              !boundsList.isEmpty else {
+              let page = pdfView.document?.page(at: source.index) else {
             return
         }
+        let boundsList = aiSourceDisplayBounds(for: source, page: page)
+        guard !boundsList.isEmpty else { return }
 
         for (lineIndex, rect) in boundsList.prefix(Self.maxAISourceUnderlineLines).enumerated() {
-            let bounds = rect.cgRect.insetBy(dx: -1.5, dy: -1)
+            let bounds = rect.insetBy(dx: -1.5, dy: -1)
             guard !bounds.isEmpty else { continue }
             let key = aiSourceUnderlineKey(source: source, lineIndex: lineIndex, bounds: bounds)
             guard !aiSourceUnderlineKeys.contains(key) else { continue }
@@ -250,6 +250,34 @@ extension ReaderWindowController {
 
     private func isAISourceUnderline(_ annotation: PDFAnnotation) -> Bool {
         annotation.contents?.hasPrefix("\(Self.aiSourceUnderlinePrefix):") == true
+    }
+
+    private func aiSourceDisplayBounds(for source: AIConversationSourceLocation, page: PDFPage) -> [CGRect] {
+        if let selectedText = source.selectedText?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !selectedText.isEmpty,
+           let bounds = aiSourceTextBounds(selectedText, page: page),
+           !bounds.isEmpty {
+            return bounds
+        }
+        return source.pdfBounds?.map(\.cgRect).filter { !$0.isEmpty } ?? []
+    }
+
+    private func aiSourceTextBounds(_ selectedText: String, page: PDFPage) -> [CGRect]? {
+        guard let pageText = page.string,
+              let range = ReadAloudTextMatcher.range(
+                of: selectedText,
+                in: pageText,
+                allowsPartialFallback: false
+              ),
+              let selection = page.selection(for: range) else {
+            return nil
+        }
+        let bounds = selection
+            .selectionsByLine()
+            .filter { $0.pages.contains(page) }
+            .map { $0.bounds(for: page) }
+            .filter { !$0.isEmpty }
+        return bounds.isEmpty ? nil : bounds
     }
 
     private func aiSourceUnderlineKey(source: AIConversationSourceLocation, lineIndex: Int, bounds: CGRect) -> String {

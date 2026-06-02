@@ -6,6 +6,7 @@ extension SpeechPlaybackCoordinator {
         let speechText: String
         let text: String
         let matchText: String
+        let matchRange: NSRange?
         let index: Int
         let total: Int
         let pageIndex: Int?

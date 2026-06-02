@@ -51,10 +51,41 @@ enum VocabularyTextPolicy {
         return #"(?i)"# + wordBoundaryBefore + escaped + wordBoundaryAfter
     }
 
+    static func pdfSearchQueries(for query: String) -> [String] {
+        let value = normalized(query)
+        guard !value.isEmpty else { return [] }
+
+        var results: [String] = []
+        appendUnique(value, to: &results)
+        appendUnique(collapsedWhitespace(value), to: &results)
+        appendUnique(joinLineBrokenHyphens(value), to: &results)
+        appendUnique(collapsedWhitespace(joinLineBrokenHyphens(value)), to: &results)
+        return results
+    }
+
     static func emphasisPattern(for word: String) -> String {
         let value = normalized(word)
         let escaped = NSRegularExpression.escapedPattern(for: value)
         guard isSingleEnglishWord(value) else { return escaped }
         return wordBoundaryBefore + escaped + wordBoundaryAfter
+    }
+
+    private static func collapsedWhitespace(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func joinLineBrokenHyphens(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: #"[‐‑‒–—-]\s+"#, with: "-", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func appendUnique(_ value: String, to results: inout [String]) {
+        guard !value.isEmpty else { return }
+        if !results.contains(where: { $0.caseInsensitiveCompare(value) == .orderedSame }) {
+            results.append(value)
+        }
     }
 }

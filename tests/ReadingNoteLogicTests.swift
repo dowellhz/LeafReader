@@ -105,6 +105,52 @@ enum ReadingNoteLogicTests {
         try expect(markdown.contains("> Line one\n> Line two"), "empty note body should fall back to quoted selection")
     }
 
+    static func testReadingNoteExporterHTMLAndScope() throws {
+        var favorite = ReadingNote(
+            id: "note-favorite",
+            documentID: "doc-1",
+            documentTitle: "Book",
+            documentKind: "pdf",
+            quote: "Quoted",
+            markdown: "## 解析\n\n> Quote & context\n\n- point\n\n![Image](file:///tmp/Reading%20Note.png)",
+            locator: ReadingNote.Locator(
+                pdfFragments: [ReadingNote.PDFFragment(pageIndex: 2, bounds: StoredPDFWordRect(.zero))],
+                webAnchor: nil
+            ),
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        favorite.isFavorite = true
+        let regular = ReadingNote(
+            id: "note-regular",
+            documentID: "doc-1",
+            documentTitle: "Book",
+            documentKind: "pdf",
+            quote: "Regular",
+            markdown: "Regular body",
+            locator: ReadingNote.Locator(pdfFragments: nil, webAnchor: nil),
+            createdAt: Date(timeIntervalSince1970: 1_700_000_010),
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_010)
+        )
+
+        try expectEqual(
+            ReadingNoteExporter.Scope.favorites.filter([favorite, regular]).map(\.id),
+            ["note-favorite"],
+            "favorite export scope should include only favorite notes"
+        )
+
+        let html = ReadingNoteExporter.html(
+            documentTitle: "Book & Notes",
+            notes: [favorite],
+            exportedAt: Date(timeIntervalSince1970: 1_700_000_100)
+        )
+        try expect(html.contains("<title>Book &amp; Notes</title>"), "HTML export should escape document title")
+        try expect(html.contains("<h2>解析</h2>"), "HTML export should render markdown headings")
+        try expect(html.contains("<blockquote>Quote &amp; context</blockquote>"), "HTML export should render and escape blockquotes")
+        try expect(html.contains("<li>point</li>"), "HTML export should render list items")
+        try expect(html.contains("<img src=\"file:///tmp/Reading%20Note.png\""), "HTML export should preserve image URLs")
+    }
+
     static func testReadingNoteDisplayTitleUsesFirstMarkdownLine() throws {
         let note = ReadingNote(
             id: "note-1",

@@ -78,7 +78,9 @@ extension ReaderWindowController {
             prepareAIForSelectionAction(text: text)
             aiPanel.summarizeCurrentContent()
         case .speak:
-            speakVocabularyTexts([text])
+            if currentDocumentKind != .pdf || !speakPDFSelectionFromToolbar(text: text) {
+                speakVocabularyTexts([text])
+            }
         case .note:
             createReadingNoteFromCurrentSelection(text: text)
         case .copy:

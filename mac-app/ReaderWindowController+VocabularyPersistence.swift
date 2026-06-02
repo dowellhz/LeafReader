@@ -10,7 +10,12 @@ extension ReaderWindowController {
             return nil
         }
 
-        let bounds = selection.bounds(for: page).insetBy(dx: -1.5, dy: -1)
+        let rawBounds = selection.bounds(for: page).insetBy(dx: -1.5, dy: -1)
+        let bounds = precisePDFSelectionBounds(
+            page: page,
+            originalBounds: rawBounds,
+            queryText: text
+        ) ?? rawBounds
         guard bounds.width > 0, bounds.height > 0 else { return nil }
 
         let pageIndex = document.index(for: page)

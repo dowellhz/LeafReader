@@ -70,6 +70,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
                     speechText: $0,
                     displayText: speechSegments.count == 1 && !displayText.isEmpty ? displayText : $0,
                     matchText: speechSegments.count == 1 && !matchText.isEmpty ? matchText : $0,
+                    matchRange: speechSegments.count == 1 ? segment.matchRange : nil,
                     pageIndex: segment.pageIndex,
                     speechLanguageHint: segment.speechLanguageHint
                 )
