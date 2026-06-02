@@ -44,7 +44,19 @@ Leaf Reader 的使用入门、工程文档、发布流程和故障排查入口�
 
 [**Development Tasks** - Entry points for common engineering work.](development-tasks.md){ .card }
 
+[**Document Loading** - PDF, EPUB, DOCX, HTML loading and rendering flow.](document-loading.md){ .card }
+
+[**AI Analysis Cache** - Document indexing, embedding cache, and AI analysis state.](ai-analysis-cache.md){ .card }
+
+[**Release Process** - Version bump, package build, signing, appcast, and publish flow.](release-process.md){ .card }
+
+[**Release Checklist** - Pre-release checks for package, update, docs, and runtime assets.](release-checklist.md){ .card }
+
 [**Release Runbook** - Build, sign, publish, and verify releases.](release-runbook.md){ .card }
+
+[**Security** - Secrets, signing credentials, generated artifacts, and incident handling.](security.md){ .card }
+
+[**Troubleshooting** - Recurring update, certificate, paging, AI, data, and wiki sync issues.](troubleshooting.md){ .card }
 
 [**Code Map** - Generated module summary.](code-map.md){ .card }
 
