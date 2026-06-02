@@ -214,6 +214,42 @@ enum VocabularyLogicTests {
         )
     }
 
+    static func testVocabularyLearningStats() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: now)!
+        let older = calendar.date(byAdding: .day, value: -3, to: now)!
+
+        var reviewedToday = VocabularySRSState.initial(createdAt: older)
+        reviewedToday.reviewCount = 3
+        reviewedToday.lapseCount = 1
+        reviewedToday.lastReviewedAt = now
+
+        var mastered = VocabularySRSState.initial(createdAt: older)
+        mastered.reviewCount = 2
+        mastered.lastReviewedAt = yesterday
+        mastered.activeRecallStreak = 3
+        mastered.intervalDays = 7
+        mastered.dueDate = Date().addingTimeInterval(86_400)
+
+        let stats = VocabularyLearningStatsCalculator.stats(
+            records: [
+                vocabularyRecord(id: "today", word: "today", createdAt: older, srs: reviewedToday),
+                vocabularyRecord(id: "mastered", word: "mastered", createdAt: older, srs: mastered),
+                vocabularyRecord(id: "new", word: "new", createdAt: now)
+            ],
+            now: now,
+            calendar: calendar
+        )
+
+        try expectEqual(stats.totalCount, 3, "stats should count all vocabulary records")
+        try expectEqual(stats.reviewedTodayCount, 1, "stats should count records reviewed today")
+        try expectEqual(stats.masteredCount, 1, "stats should count mastered records")
+        try expectEqual(stats.recallRatePercent, 80, "stats should estimate recall rate from review lapses")
+        try expectEqual(stats.streakDays, 2, "stats should count consecutive active review days ending today")
+    }
+
     static func testSelectionToolbarConfiguration() throws {
         let offlineState = ReaderCapabilityState(
             isOnline: false,
@@ -299,7 +335,8 @@ enum VocabularyLogicTests {
     private static func vocabularyRecord(
         id: String,
         word: String,
-        createdAt: Date
+        createdAt: Date,
+        srs: VocabularySRSState? = nil
     ) -> VocabularyExportRecord {
         VocabularyExportRecord(
             ids: [id],
@@ -310,7 +347,7 @@ enum VocabularyLogicTests {
             location: "",
             context: "",
             createdAt: createdAt,
-            srs: VocabularySRSState.initial(createdAt: createdAt)
+            srs: srs ?? VocabularySRSState.initial(createdAt: createdAt)
         )
     }
 }

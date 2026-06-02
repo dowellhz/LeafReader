@@ -5,6 +5,7 @@ private struct VocabularyPanelViews {
     let title: NSTextField
     let filterControl: SettingsTabsView
     let summaryLabel: NSTextField
+    let statsContainer: NSStackView
     let reviewContainer: NSView
     let scrollView: NSScrollView
     let stack: NSStackView
@@ -75,6 +76,7 @@ extension VocabularyPanelController {
         let title = makeTitleLabel(primaryText: primaryText)
         let filterControl = makeFilterControl(owner: owner)
         let summaryLabel = makeSummaryLabel(owner: owner, records: records, secondaryText: secondaryText)
+        let statsContainer = makeStatsContainer(owner: owner, records: records, theme: theme)
         let (scrollView, stack) = makeVocabularyList(panelBackground: panelBackground)
         let reviewContainer = makeReviewContainer(panelBackground: panelBackground)
         owner.populateVocabularyStack(stack, records: records, filter: .due, isDark: theme == .dark)
@@ -110,6 +112,7 @@ extension VocabularyPanelController {
             title: title,
             filterControl: filterControl,
             summaryLabel: summaryLabel,
+            statsContainer: statsContainer,
             reviewContainer: reviewContainer,
             scrollView: scrollView,
             stack: stack,
@@ -169,6 +172,65 @@ extension VocabularyPanelController {
         return summaryLabel
     }
 
+    private func makeStatsContainer(
+        owner: ReaderWindowController,
+        records: [VocabularyExportRecord],
+        theme: ReaderTheme
+    ) -> NSStackView {
+        let stats = VocabularyLearningStatsCalculator.stats(records: records)
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.alignment = .height
+        stack.distribution = .fillEqually
+        stack.spacing = 8
+        stack.identifier = NSUserInterfaceItemIdentifier(VocabularyLearningStatsPresenter.containerIdentifier)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        VocabularyLearningStatsPresenter.items(for: stats)
+            .map { vocabularyStatCard(item: $0, owner: owner, theme: theme) }
+            .forEach(stack.addArrangedSubview)
+        return stack
+    }
+
+    private func vocabularyStatCard(
+        item: VocabularyLearningStatDisplayItem,
+        owner: ReaderWindowController,
+        theme: ReaderTheme
+    ) -> NSView {
+        let card = NSView()
+        card.wantsLayer = true
+        card.layer?.cornerRadius = 10
+        card.layer?.backgroundColor = owner.vocabularyCardBackgroundColor(for: theme).cgColor
+        card.layer?.borderWidth = 1
+        card.layer?.borderColor = owner.vocabularyCardBorderColor(for: theme).cgColor
+        card.translatesAutoresizingMaskIntoConstraints = false
+
+        let valueLabel = NSTextField(labelWithString: item.value)
+        valueLabel.font = AppFont.semibold(ofSize: 18)
+        valueLabel.textColor = owner.vocabularyPrimaryTextColor(for: theme)
+        valueLabel.alignment = .center
+        valueLabel.identifier = NSUserInterfaceItemIdentifier(item.valueIdentifier)
+        valueLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        let titleLabel = NSTextField(labelWithString: item.title)
+        titleLabel.font = AppFont.semibold(ofSize: 11)
+        titleLabel.textColor = owner.vocabularySecondaryTextColor(for: theme)
+        titleLabel.alignment = .center
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        card.addSubview(valueLabel)
+        card.addSubview(titleLabel)
+        NSLayoutConstraint.activate([
+            valueLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 10),
+            valueLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 8),
+            valueLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -8),
+            titleLabel.topAnchor.constraint(equalTo: valueLabel.bottomAnchor, constant: 4),
+            titleLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 8),
+            titleLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -8)
+        ])
+        return card
+    }
+
     private func makeVocabularyList(panelBackground: NSColor) -> (NSScrollView, NSStackView) {
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
@@ -208,6 +270,7 @@ extension VocabularyPanelController {
             views.title,
             views.filterControl,
             views.summaryLabel,
+            views.statsContainer,
             views.reviewContainer,
             views.scrollView,
             views.reviewPriorityPopup,
@@ -234,13 +297,17 @@ extension VocabularyPanelController {
             views.summaryLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 34),
             views.summaryLabel.topAnchor.constraint(equalTo: views.icon.bottomAnchor, constant: 14),
             views.summaryLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -34),
+            views.statsContainer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 30),
+            views.statsContainer.topAnchor.constraint(equalTo: views.summaryLabel.bottomAnchor, constant: 10),
+            views.statsContainer.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -30),
+            views.statsContainer.heightAnchor.constraint(equalToConstant: 62),
 
-            views.reviewContainer.topAnchor.constraint(equalTo: views.summaryLabel.bottomAnchor, constant: 12),
+            views.reviewContainer.topAnchor.constraint(equalTo: views.statsContainer.bottomAnchor, constant: 12),
             views.reviewContainer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 30),
             views.reviewContainer.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -30),
             views.reviewContainer.bottomAnchor.constraint(equalTo: views.closeButton.topAnchor, constant: -14),
 
-            views.scrollView.topAnchor.constraint(equalTo: views.summaryLabel.bottomAnchor, constant: 12),
+            views.scrollView.topAnchor.constraint(equalTo: views.statsContainer.bottomAnchor, constant: 12),
             views.scrollView.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 30),
             views.scrollView.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -30),
             views.scrollView.bottomAnchor.constraint(equalTo: views.closeButton.topAnchor, constant: -14),

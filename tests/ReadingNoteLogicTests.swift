@@ -54,6 +54,7 @@ enum ReadingNoteLogicTests {
         try expectEqual(loaded.count, 1, "reading note should load by document")
         try expectEqual(loaded[0].id, "note-1", "loaded note should preserve id")
         try expectEqual(loaded[0].locator.pdfFragments?.first?.pageIndex, 3, "loaded note should preserve PDF locator")
+        try expect(!loaded[0].isFavorite, "new reading note should default to not favorited")
         try expectEqual(
             loaded[0].locator.pdfFragments?.first?.bounds,
             StoredPDFWordRect(CGRect(x: 10, y: 20, width: 30, height: 40)),
@@ -62,10 +63,12 @@ enum ReadingNoteLogicTests {
 
         note.markdown = "Updated\n"
         note.updatedAt = createdAt.addingTimeInterval(60)
+        note.isFavorite = true
         try expect(store.upsert(note), "reading note should update")
         loaded = store.load(documentID: "doc-1")
         try expectEqual(loaded.count, 1, "upsert should replace the existing note")
         try expectEqual(loaded[0].markdown, "Updated\n", "updated note should preserve markdown")
+        try expect(loaded[0].isFavorite, "updated note should preserve favorite state")
 
         try expect(store.delete(id: "note-1"), "reading note should delete")
         try expectEqual(store.load(documentID: "doc-1").count, 0, "deleted note should no longer load")
@@ -163,12 +166,19 @@ enum ReadingNoteLogicTests {
 
         let rows = ReadingNoteListPresenter.rows(for: [newer, older])
         try expectEqual(rows.map(\.id), ["note-old", "note-new"], "reading note rows should sort by creation time")
+        try expect(!rows[0].isFavorite, "row should expose favorite state")
         try expectEqual(rows[0].locationText, AppText.localized("第 7 页", "p. 7"), "PDF row should show page location")
         try expectEqual(rows[0].titleText, "PDF note title", "PDF row should use display title")
         try expectEqual(rows[1].locationText, AppText.localized("网页位置", "Web location"), "web row should show web location")
         try expectEqual(rows[1].titleText, "Web note title", "web row should use display title")
 
-        let titleMatches = ReadingNoteListPresenter.rows(for: [newer, older], query: "web note")
+        var favoritedNewer = newer
+        favoritedNewer.isFavorite = true
+        let favoritedRows = ReadingNoteListPresenter.rows(for: [favoritedNewer, older])
+        try expectEqual(favoritedRows.map(\.id), ["note-new", "note-old"], "favorite notes should be pinned before older notes")
+        try expect(favoritedRows[0].isFavorite, "favorite row should expose favorite state")
+
+        let titleMatches = ReadingNoteListPresenter.rows(for: [favoritedNewer, older], query: "web note")
         try expectEqual(titleMatches.map(\.id), ["note-new"], "reading note search should match title text")
         let quoteMatches = ReadingNoteListPresenter.rows(for: [newer, older], query: "pdf fallback")
         try expectEqual(quoteMatches.map(\.id), ["note-old"], "reading note search should match quote text")

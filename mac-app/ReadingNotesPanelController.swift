@@ -7,15 +7,8 @@ final class ReadingNotesPanelController: NSObject {
         static let headerTop: CGFloat = 34
         static let headerLeading: CGFloat = 34
         static let headerIconSize: CGFloat = 30
-        static let rowHeight: CGFloat = 74
-        static let rowIconSize: CGFloat = 42
-        static let rowIconSymbolSize: CGFloat = 18
         static let actionButtonWidth: CGFloat = 88
         static let actionButtonHeight: CGFloat = 32
-        static let rowPageWidth: CGFloat = 56
-        static let rowDeleteWidth: CGFloat = 48
-        static let rowHorizontalInset: CGFloat = 16
-        static let rowColumnSpacing: CGFloat = 14
         static let searchHeight: CGFloat = 32
     }
 
@@ -26,6 +19,7 @@ final class ReadingNotesPanelController: NSObject {
 
     var onOpenNote: ((ReadingNote) -> Void)?
     var onDeleteNote: ((ReadingNote) -> Void)?
+    var onToggleFavorite: ((ReadingNote) -> Void)?
     var onExport: (() -> Void)?
     var onClose: (() -> Void)?
 
@@ -244,97 +238,17 @@ final class ReadingNotesPanelController: NSObject {
     }
 
     private func noteRow(_ rowViewModel: ReadingNoteListRowViewModel) -> NSView {
-        let theme = ReaderTheme.selected
-        let row = NSView()
-        row.wantsLayer = true
-        row.layer?.cornerRadius = 8
-        row.layer?.backgroundColor = ReadingNoteTheme.cardBackground(theme).cgColor
-        row.translatesAutoresizingMaskIntoConstraints = false
-        row.heightAnchor.constraint(equalToConstant: Metrics.rowHeight).isActive = true
-
-        let iconContainer = rowIconContainer(theme: theme)
-        let icon = rowIcon(theme: theme)
-        iconContainer.addSubview(icon)
-
-        let locationLabel = NSTextField(labelWithString: rowViewModel.locationText)
-        locationLabel.font = AppFont.semibold(ofSize: 15)
-        locationLabel.textColor = ReadingNoteTheme.primaryText(theme)
-        locationLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        let quoteLabel = NSTextField(labelWithString: rowViewModel.titleText)
-        quoteLabel.font = NSFont.systemFont(ofSize: 14)
-        quoteLabel.textColor = ReadingNoteTheme.primaryText(theme)
-        quoteLabel.lineBreakMode = .byTruncatingTail
-        quoteLabel.maximumNumberOfLines = 2
-        quoteLabel.translatesAutoresizingMaskIntoConstraints = false
-        quoteLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        quoteLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-        let openButton = rowOpenButton(noteID: rowViewModel.id)
-        let deleteButton = rowDeleteButton(noteID: rowViewModel.id, theme: theme)
-
-        for view in [iconContainer, locationLabel, quoteLabel, openButton, deleteButton] {
-            row.addSubview(view)
+        let row = ReadingNoteRowView(rowViewModel: rowViewModel, theme: ReaderTheme.selected)
+        row.onOpen = { [weak self] in
+            self?.noteAction(rowViewModel.id, handler: self?.onOpenNote)
         }
-        NSLayoutConstraint.activate([
-            iconContainer.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: Metrics.rowHorizontalInset),
-            iconContainer.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            iconContainer.widthAnchor.constraint(equalToConstant: Metrics.rowIconSize),
-            iconContainer.heightAnchor.constraint(equalToConstant: Metrics.rowIconSize),
-            icon.centerXAnchor.constraint(equalTo: iconContainer.centerXAnchor),
-            icon.centerYAnchor.constraint(equalTo: iconContainer.centerYAnchor),
-            locationLabel.leadingAnchor.constraint(equalTo: iconContainer.trailingAnchor, constant: Metrics.rowColumnSpacing),
-            locationLabel.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            locationLabel.widthAnchor.constraint(equalToConstant: Metrics.rowPageWidth),
-            quoteLabel.leadingAnchor.constraint(equalTo: locationLabel.trailingAnchor, constant: Metrics.rowColumnSpacing),
-            quoteLabel.trailingAnchor.constraint(equalTo: deleteButton.leadingAnchor, constant: -Metrics.rowColumnSpacing),
-            quoteLabel.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            openButton.topAnchor.constraint(equalTo: row.topAnchor),
-            openButton.leadingAnchor.constraint(equalTo: row.leadingAnchor),
-            openButton.trailingAnchor.constraint(equalTo: deleteButton.leadingAnchor, constant: -8),
-            openButton.bottomAnchor.constraint(equalTo: row.bottomAnchor),
-            deleteButton.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -Metrics.rowHorizontalInset),
-            deleteButton.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            deleteButton.widthAnchor.constraint(equalToConstant: Metrics.rowDeleteWidth),
-            deleteButton.heightAnchor.constraint(equalToConstant: 32)
-        ])
+        row.onToggleFavorite = { [weak self] in
+            self?.noteAction(rowViewModel.id, handler: self?.onToggleFavorite)
+        }
+        row.onDelete = { [weak self] in
+            self?.noteAction(rowViewModel.id, handler: self?.onDeleteNote)
+        }
         return row
-    }
-
-    private func rowIconContainer(theme: ReaderTheme) -> NSView {
-        let view = NSView()
-        view.wantsLayer = true
-        view.layer?.cornerRadius = 8
-        view.layer?.backgroundColor = ReadingNoteTheme.insetBackground(theme).cgColor
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }
-
-    private func rowIcon(theme: ReaderTheme) -> NSImageView {
-        let icon = NSImageView()
-        icon.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: nil)?
-            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: Metrics.rowIconSymbolSize, weight: .semibold))
-        icon.contentTintColor = ReadingNoteTheme.accent(theme)
-        icon.translatesAutoresizingMaskIntoConstraints = false
-        return icon
-    }
-
-    private func rowOpenButton(noteID: String) -> NSButton {
-        let button = NSButton(title: "", target: self, action: #selector(noteTapped(_:)))
-        button.identifier = NSUserInterfaceItemIdentifier(noteID)
-        button.isBordered = false
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
-    }
-
-    private func rowDeleteButton(noteID: String, theme: ReaderTheme) -> NSButton {
-        let button = NSButton(title: AppText.localized("删除", "Delete"), target: self, action: #selector(deleteTapped(_:)))
-        button.identifier = NSUserInterfaceItemIdentifier(noteID)
-        button.isBordered = false
-        button.font = AppFont.semibold(ofSize: 13)
-        button.contentTintColor = ReadingNoteTheme.secondaryText(theme)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
     }
 
     private func actionButton(title: String, action: Selector) -> NSButton {
@@ -357,20 +271,13 @@ final class ReadingNotesPanelController: NSObject {
         return empty
     }
 
-    @objc private func noteTapped(_ sender: NSButton) {
-        guard let id = sender.identifier?.rawValue,
-              let note = notes.first(where: { $0.id == id }) else { return }
-        onOpenNote?(note)
-    }
-
     @objc private func exportTapped(_ sender: NSButton) {
         onExport?()
     }
 
-    @objc private func deleteTapped(_ sender: NSButton) {
-        guard let id = sender.identifier?.rawValue,
-              let note = notes.first(where: { $0.id == id }) else { return }
-        onDeleteNote?(note)
+    private func noteAction(_ id: String, handler: ((ReadingNote) -> Void)?) {
+        guard let note = notes.first(where: { $0.id == id }) else { return }
+        handler?(note)
     }
 
     @objc private func closeTapped(_ sender: NSButton) {

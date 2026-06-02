@@ -119,6 +119,7 @@ SQLITE_WORD_TEST_SOURCES=(
   mac-app/StoredPDFWordRect.swift
   mac-app/PDFWordRecordStore.swift
   mac-app/WebWordRecordStore.swift
+  mac-app/SQLiteSchemaMigrator.swift
   mac-app/WordRecordSQLiteRowMapper.swift
   mac-app/WordRecordSQLiteStore.swift
 )

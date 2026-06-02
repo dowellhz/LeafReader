@@ -4,11 +4,12 @@ struct ReadingNoteListRowViewModel: Equatable {
     let id: String
     let locationText: String
     let titleText: String
+    let isFavorite: Bool
 }
 
 enum ReadingNoteListPresenter {
     static func sortedNotes(_ notes: [ReadingNote]) -> [ReadingNote] {
-        notes.sortedByCreatedAt()
+        notes.sortedForReadingNoteList()
     }
 
     static func rows(for notes: [ReadingNote]) -> [ReadingNoteListRowViewModel] {
@@ -38,7 +39,8 @@ enum ReadingNoteListPresenter {
         ReadingNoteListRowViewModel(
             id: note.id,
             locationText: locationText(for: note),
-            titleText: ReadingNoteTextPolicy.compactInlineText(note.displayTitle, maxLength: 96)
+            titleText: ReadingNoteTextPolicy.compactInlineText(note.displayTitle, maxLength: 96),
+            isFavorite: note.isFavorite
         )
     }
 

@@ -169,30 +169,27 @@ final class WordRecordSQLiteStore {
         CREATE INDEX IF NOT EXISTS idx_web_word_records_word ON web_word_records(document_id, word);
         """
         executeRaw(sql, operation: "create word record tables")
-        executeRaw(
-            "ALTER TABLE web_word_records ADD COLUMN occurrence_index INTEGER",
-            operation: "migrate web word occurrence index",
-            allowDuplicateColumn: true
-        )
-        executeRaw(
-            "ALTER TABLE pdf_word_records ADD COLUMN dictionary_tags TEXT",
-            operation: "migrate PDF word dictionary tags",
-            allowDuplicateColumn: true
-        )
-        executeRaw(
-            "ALTER TABLE web_word_records ADD COLUMN dictionary_tags TEXT",
-            operation: "migrate web word dictionary tags",
-            allowDuplicateColumn: true
-        )
-        executeRaw(
-            "ALTER TABLE pdf_word_records ADD COLUMN dictionary_frequency INTEGER",
-            operation: "migrate PDF word dictionary frequency",
-            allowDuplicateColumn: true
-        )
-        executeRaw(
-            "ALTER TABLE web_word_records ADD COLUMN dictionary_frequency INTEGER",
-            operation: "migrate web word dictionary frequency",
-            allowDuplicateColumn: true
+        migrateColumns()
+    }
+
+    private func migrateColumns() {
+        ensureColumn(table: "web_word_records", name: "occurrence_index", definition: "INTEGER")
+        ensureColumn(table: "pdf_word_records", name: "dictionary_tags", definition: "TEXT")
+        ensureColumn(table: "web_word_records", name: "dictionary_tags", definition: "TEXT")
+        ensureColumn(table: "pdf_word_records", name: "dictionary_frequency", definition: "INTEGER")
+        ensureColumn(table: "web_word_records", name: "dictionary_frequency", definition: "INTEGER")
+    }
+
+    private func ensureColumn(table: String, name: String, definition: String) {
+        SQLiteSchemaMigrator.ensureColumn(
+            db: db,
+            table: table,
+            name: name,
+            definition: definition,
+            logFailure: logSQLiteFailure,
+            execute: { [weak self] sql, operation in
+                self?.executeRaw(sql, operation: operation) ?? false
+            }
         )
     }
 
@@ -326,7 +323,7 @@ final class WordRecordSQLiteStore {
     }
 
     @discardableResult
-    private func executeRaw(_ sql: String, operation: String, allowDuplicateColumn: Bool = false) -> Bool {
+    private func executeRaw(_ sql: String, operation: String) -> Bool {
         var errorMessage: UnsafeMutablePointer<Int8>?
         let result = sqlite3_exec(db, sql, nil, nil, &errorMessage)
         if result == SQLITE_OK {
@@ -335,9 +332,6 @@ final class WordRecordSQLiteStore {
         let message = errorMessage.map { String(cString: $0) } ?? sqliteErrorMessage()
         if let errorMessage {
             sqlite3_free(errorMessage)
-        }
-        if allowDuplicateColumn && message.localizedCaseInsensitiveContains("duplicate column") {
-            return true
         }
         NSLog("LeafReader word records: SQLite %@ failed (%d, error=%@)", operation, result, message)
         return false

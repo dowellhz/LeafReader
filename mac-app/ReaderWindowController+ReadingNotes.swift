@@ -124,6 +124,9 @@ extension ReaderWindowController {
         controller.onDeleteNote = { [weak self] note in
             self?.deleteReadingNote(note)
         }
+        controller.onToggleFavorite = { [weak self] note in
+            self?.toggleReadingNoteFavorite(note)
+        }
         controller.onExport = { [weak self] in
             self?.exportReadingNotesMarkdown(nil)
         }
@@ -209,6 +212,14 @@ extension ReaderWindowController {
             removeWebReadingNoteHighlight(id: note.id)
         }
         readingNotesPanelController?.update(notes: storedReadingNotes)
+    }
+
+    func toggleReadingNoteFavorite(_ note: ReadingNote) {
+        var updated = note
+        updated.isFavorite.toggle()
+        updated.updatedAt = Date()
+        saveReadingNote(updated)
+        readingNotePanelControllers[note.id]?.note = updated
     }
 
     func deleteReadingNoteWithConfirmation(_ note: ReadingNote) {

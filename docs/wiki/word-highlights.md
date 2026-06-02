@@ -29,6 +29,9 @@ Select word
 - PDF words store page index and PDF bounds.
 - EPUB/DOCX words store text context, occurrence index, and scroll progress.
 - Web text lookup normalizes whitespace to improve restore accuracy across rendered HTML.
+- The vocabulary panel shows learning stats for the current book: total words, reviewed today, mastered words, estimated recall rate, and active review streak.
+- The estimated recall rate is derived from SRS review and lapse counts; it is a compact progress signal, not a full per-review history.
+- SQLite schema migrations use `SQLiteSchemaMigrator.ensureColumn` so new columns are added only when missing instead of relying on duplicate-column errors.
 
 ## Related Files
 
@@ -37,5 +40,7 @@ Select word
 - `mac-app/ReaderWindowController+VocabularyReviewUI.swift`
 - `mac-app/ReaderWindowController+VocabularyReviewSRS.swift`
 - `mac-app/WordRecordSQLiteStore.swift`
+- `mac-app/VocabularyLearningStats.swift`
+- `mac-app/SQLiteSchemaMigrator.swift`
 - `mac-app/VocabularySRS.swift`
 - `mac-app/VocabularyExporter.swift`

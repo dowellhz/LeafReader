@@ -45,9 +45,23 @@ Use this page when the task starts from a product feature instead of a file name
 
 - `mac-app/ReaderWindowController+Vocabulary*.swift`: vocabulary capture, review UI, navigation, export, persistence.
 - `mac-app/VocabularySRS.swift`: spaced repetition scoring.
+- `mac-app/VocabularyLearningStats.swift`: current-book learning stats and stat card presentation items.
 - `mac-app/WordRecordSQLiteStore.swift`: persistent vocabulary record database.
 - `mac-app/PDFWordRecordStore.swift` and `mac-app/WebWordRecordStore.swift`: document-specific word records.
 - `mac-app/VocabularyExporter.swift`: Markdown and Anki CSV export.
+
+## Reading Notes
+
+- `mac-app/ReaderWindowController+ReadingNotes.swift`: note creation, saving, navigation, export, deletion, and favorite toggling.
+- `mac-app/ReadingNoteStore.swift`: persistent note database and schema migration.
+- `mac-app/ReadingNotesPanelController.swift`: reading note list panel, search, and row callbacks.
+- `mac-app/ReadingNoteRowView.swift`: note list row UI with open, favorite, and delete actions.
+- `mac-app/ReadingNotePanelController*.swift`: note editor, Markdown editing, images, AI actions, and note menu actions.
+- `mac-app/ReadingNoteListPresenter.swift`: list sorting, search filtering, and row view models.
+
+## Persistence Helpers
+
+- `mac-app/SQLiteSchemaMigrator.swift`: shared SQLite column migration helper used by reading notes and vocabulary records.
 
 ## TTS And Read Aloud
 

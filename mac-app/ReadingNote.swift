@@ -10,6 +10,7 @@ struct ReadingNote: Codable, Identifiable {
     let locator: Locator
     let createdAt: Date
     var updatedAt: Date
+    var isFavorite: Bool = false
 
     struct Locator: Codable {
         var pdfFragments: [PDFFragment]?
@@ -37,6 +38,18 @@ extension ReadingNote {
 }
 
 extension Sequence where Element == ReadingNote {
+    func sortedForReadingNoteList() -> [ReadingNote] {
+        sorted {
+            if $0.isFavorite != $1.isFavorite {
+                return $0.isFavorite && !$1.isFavorite
+            }
+            if $0.createdAt == $1.createdAt {
+                return $0.id < $1.id
+            }
+            return $0.createdAt < $1.createdAt
+        }
+    }
+
     func sortedByCreatedAt() -> [ReadingNote] {
         sorted {
             if $0.createdAt == $1.createdAt {

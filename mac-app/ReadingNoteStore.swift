@@ -40,7 +40,7 @@ final class ReadingNoteStore {
         locked {
             guard let db else { return [] }
             let sql = """
-            SELECT id, document_id, document_title, document_kind, quote, markdown, locator_json, created_at, updated_at
+            SELECT id, document_id, document_title, document_kind, quote, markdown, locator_json, created_at, updated_at, is_favorite
             FROM reading_notes
             WHERE document_id = ?
             ORDER BY created_at ASC, id ASC
@@ -73,7 +73,8 @@ final class ReadingNoteStore {
                     markdown: markdown,
                     locator: locator,
                     createdAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 7)),
-                    updatedAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 8))
+                    updatedAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 8)),
+                    isFavorite: sqlite3_column_int(statement, 9) != 0
                 ))
             }
             return notes
@@ -86,9 +87,9 @@ final class ReadingNoteStore {
             guard let db else { return false }
             let sql = """
             INSERT OR REPLACE INTO reading_notes(
-                id, document_id, document_title, document_kind, quote, markdown, locator_json, created_at, updated_at
+                id, document_id, document_title, document_kind, quote, markdown, locator_json, created_at, updated_at, is_favorite
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             var statement: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
@@ -105,6 +106,7 @@ final class ReadingNoteStore {
             bind(encodeLocator(note.locator) ?? "{}", at: 7, statement: statement)
             sqlite3_bind_double(statement, 8, note.createdAt.timeIntervalSince1970)
             sqlite3_bind_double(statement, 9, note.updatedAt.timeIntervalSince1970)
+            sqlite3_bind_int(statement, 10, note.isFavorite ? 1 : 0)
             guard sqlite3_step(statement) == SQLITE_DONE else {
                 logSQLiteFailure("upsert note")
                 return false
@@ -145,10 +147,19 @@ final class ReadingNoteStore {
             markdown TEXT NOT NULL,
             locator_json TEXT NOT NULL,
             created_at REAL NOT NULL,
-            updated_at REAL NOT NULL
+            updated_at REAL NOT NULL,
+            is_favorite INTEGER NOT NULL DEFAULT 0
         );
         CREATE INDEX IF NOT EXISTS idx_reading_notes_document ON reading_notes(document_id, created_at);
         """, operation: "create reading notes table")
+        SQLiteSchemaMigrator.ensureColumn(
+            db: db,
+            table: "reading_notes",
+            name: "is_favorite",
+            definition: "INTEGER NOT NULL DEFAULT 0",
+            logFailure: logSQLiteFailure,
+            execute: execute
+        )
     }
 
     private func execute(sql: String, operation: String) -> Bool {

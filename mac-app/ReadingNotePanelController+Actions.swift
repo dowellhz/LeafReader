@@ -58,6 +58,13 @@ extension ReadingNotePanelController {
 
     @objc func moreTapped(_ sender: NSButton) {
         let menu = NSMenu()
+        menu.addItem(menuItem(
+            title: note.isFavorite
+                ? AppText.localized("取消收藏", "Remove Favorite")
+                : AppText.localized("收藏并置顶", "Favorite and Pin"),
+            action: #selector(toggleFavoriteTapped(_:))
+        ))
+        menu.addItem(.separator())
         menu.addItem(menuItem(title: AppText.localized("导出当前笔记...", "Export This Note..."), action: #selector(exportCurrentNoteTapped(_:))))
         menu.addItem(menuItem(title: AppText.localized("复制 Markdown", "Copy Markdown"), action: #selector(copyMarkdownTapped(_:))))
         menu.addItem(.separator())
@@ -75,6 +82,14 @@ extension ReadingNotePanelController {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(note.markdown, forType: .string)
         statusLabel.stringValue = AppText.localized("已复制 Markdown", "Markdown copied")
+    }
+
+    @objc func toggleFavoriteTapped(_ sender: NSMenuItem) {
+        note.isFavorite.toggle()
+        save()
+        statusLabel.stringValue = note.isFavorite
+            ? AppText.localized("已收藏", "Favorited")
+            : AppText.localized("已取消收藏", "Favorite removed")
     }
 
     @objc func deleteCurrentNoteTapped(_ sender: NSMenuItem) {

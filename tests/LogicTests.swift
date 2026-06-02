@@ -565,6 +565,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Vocabulary SRS", VocabularyLogicTests.testVocabularySRS),
     ("Vocabulary review card selector", VocabularyLogicTests.testVocabularyReviewCardSelector),
     ("Vocabulary daily goal policy", VocabularyLogicTests.testVocabularyDailyGoalPolicy),
+    ("Vocabulary learning stats", VocabularyLogicTests.testVocabularyLearningStats),
     ("Vocabulary answer formatter", VocabularyLogicTests.testVocabularyAnswerFormatter),
     ("Recent document sorting/import", ReaderShelfLogicTests.testRecentDocumentSortingAndImport),
     ("Dropped document actions", ReaderShelfLogicTests.testDroppedDocumentActions),
