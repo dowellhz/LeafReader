@@ -115,7 +115,7 @@ final class ReadingNotesPanelController: NSObject {
         configureSearchField()
 
         let scrollView = buildScrollView()
-        let exportButton = actionButton(title: AppText.localized("导出 MD", "Export MD"), action: #selector(exportTapped(_:)))
+        let exportButton = actionButton(title: AppText.localized("导出笔记", "Export Notes"), action: #selector(exportTapped(_:)))
         let closeButton = actionButton(title: AppText.close, action: #selector(closeTapped(_:)))
         self.exportButton = exportButton
         self.closeButton = closeButton

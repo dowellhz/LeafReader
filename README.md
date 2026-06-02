@@ -64,6 +64,13 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 
 ### 更新记录
 
+#### 1.7.6
+
+- 改进 AI 对话导出，支持 Markdown、HTML 和 PDF，并让导出按钮跟随当前主题配色。
+- 合并阅读笔记导出流程到系统保存面板，隐藏标签栏，并把范围和文件类型放在同一个选择区域。
+- 修复 AI 对话和阅读笔记导出的 HTML/PDF Markdown 渲染，标题、列表和 `**加粗**` 等内容会显示为实际样式。
+- 将阅读笔记导出入口改名为“导出笔记”，并整理导出相关代码和测试。
+
 #### 1.7.5
 
 - 新增阅读笔记导出选项，支持 Markdown、HTML 和 PDF，并可只导出收藏笔记。
@@ -308,6 +315,13 @@ Third-party speech models and runtimes remain copyrighted by their respective pr
 - [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) / Kokoro model: Apache License 2.0.
 - [KittenTTS](https://github.com/KittenML/KittenTTS) and [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs): KittenTTS model under Apache License 2.0; Rust runtime copyright belongs to the `kitten_tts_rs` project contributors.
 - [Piper](https://github.com/rhasspy/piper): MIT License; Piper voice model assets follow the metadata shipped with the upstream model package.
+
+## What's New in 1.7.6
+
+- AI conversation export now supports Markdown, HTML, and PDF, and the export button follows the current theme.
+- Reading Notes export now uses one save panel with scope and file type selectors, without the macOS tags field.
+- HTML and PDF exports render Markdown content instead of showing raw syntax, including headings, lists, and `**bold**` text.
+- Renamed the Reading Notes export action to Export Notes and cleaned up shared export rendering coverage.
 
 ## What's New in 1.7.5
 

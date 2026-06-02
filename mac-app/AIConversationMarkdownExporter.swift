@@ -22,6 +22,11 @@ enum AIConversationMarkdownExporter {
         return lines.joined(separator: "\n")
     }
 
+    static func html(title: String, bubbles: [SavedAIConversationBubble], exportedAt: Date = Date()) -> String {
+        let markdown = markdown(title: title, bubbles: bubbles, exportedAt: exportedAt)
+        return MarkdownHTMLExporter.document(title: title, markdown: markdown)
+    }
+
     private static func headingText(for role: String) -> String {
         if role == AppText.userRole {
             return AppText.localized("用户", "User")
@@ -31,4 +36,5 @@ enum AIConversationMarkdownExporter {
         }
         return role
     }
+
 }

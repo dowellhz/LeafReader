@@ -170,6 +170,9 @@ extension AIChatPanel {
         translateButton.title = AppText.localized("翻译", "Translate")
         exportConversationButton.title = AppText.localized("导出", "Export")
         exportConversationButton.toolTip = AppText.localized("导出当前 AI 对话为 Markdown", "Export current AI conversation as Markdown")
+        summaryButton.invalidateIntrinsicContentSize()
+        translateButton.invalidateIntrinsicContentSize()
+        exportConversationButton.invalidateIntrinsicContentSize()
         summaryButton.needsDisplay = true
         translateButton.needsDisplay = true
         exportConversationButton.needsDisplay = true

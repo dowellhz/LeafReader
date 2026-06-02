@@ -236,14 +236,11 @@ extension ReaderWindowController {
 
     func exportSingleReadingNoteMarkdown(_ note: ReadingNote) {
         let coordinator = ReadingNoteExportCoordinator()
-        guard let request = coordinator.request(allowsScopeSelection: false, parent: window) else { return }
         coordinator.beginExport(
-            ReadingNoteExportCoordinator.ExportPackage(
-                notes: [note],
-                documentTitle: note.documentTitle,
-                request: request,
-                fileNameSuffix: "note"
-            ),
+            notes: [note],
+            documentTitle: note.documentTitle,
+            allowsScopeSelection: false,
+            fileNameSuffix: "note",
             parent: window
         )
     }
@@ -254,19 +251,11 @@ extension ReaderWindowController {
             return
         }
         let coordinator = ReadingNoteExportCoordinator()
-        guard let request = coordinator.request(allowsScopeSelection: true, parent: window) else { return }
-        let notes = request.scope.filter(storedReadingNotes.sortedByCreatedAt())
-        guard !notes.isEmpty else {
-            coordinator.showNoNotesAlert(scope: request.scope)
-            return
-        }
         coordinator.beginExport(
-            ReadingNoteExportCoordinator.ExportPackage(
-                notes: notes,
-                documentTitle: documentTitleForAI(),
-                request: request,
-                fileNameSuffix: request.scope.fileNameSuffix
-            ),
+            notes: storedReadingNotes.sortedByCreatedAt(),
+            documentTitle: documentTitleForAI(),
+            allowsScopeSelection: true,
+            fileNameSuffix: ReadingNoteExporter.Scope.all.fileNameSuffix,
             parent: window
         )
     }

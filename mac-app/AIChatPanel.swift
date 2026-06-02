@@ -273,6 +273,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
         askButton.layer?.shadowColor = aiAccentColor.cgColor
         summaryButton.theme = theme
         translateButton.theme = theme
+        exportConversationButton.theme = theme
         loadingDots.accentColor = aiAccentColor
         sendButton.contentTintColor = sendButtonTintColor
         cancelRequestButton.contentTintColor = secondaryTextColor

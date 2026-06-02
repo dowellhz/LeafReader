@@ -281,6 +281,19 @@ private func testAIConversationMarkdownExporter() throws {
     try expect(markdown.contains("- \(AppText.localized("气泡数", "Bubbles"))：3"), "export should include bubble count")
     try expect(markdown.contains("## \(AppText.localized("用户", "User"))\n\nExplain this."), "export should include user bubble")
     try expect(markdown.contains("## AI\n\n## Answer\n\nUse context."), "export should include AI markdown body unchanged")
+
+    let html = AIConversationMarkdownExporter.html(
+        title: "Dune & Notes",
+        bubbles: [
+            SavedAIConversationBubble(role: AppText.userRole, text: "Use <context>.", collapsible: false, renderMarkdown: false, sourceLocation: nil),
+            SavedAIConversationBubble(role: AppText.aiRole, text: "## Answer\n\n- **原文** point", collapsible: false, renderMarkdown: true, sourceLocation: nil)
+        ],
+        exportedAt: Date(timeIntervalSince1970: 1_700_000_000)
+    )
+    try expect(html.contains("<title>Dune &amp; Notes</title>"), "HTML export should escape the title")
+    try expect(html.contains("Use &lt;context&gt;."), "HTML export should escape bubble text")
+    try expect(html.contains("<h2>Answer</h2>"), "HTML export should render markdown headings")
+    try expect(html.contains("<li><strong>原文</strong> point</li>"), "HTML export should render markdown lists and bold text")
 }
 
 private func testEmbeddingActionPolicy() throws {

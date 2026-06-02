@@ -1,6 +1,34 @@
 import Cocoa
 import UniformTypeIdentifiers
 
+private enum AIConversationExportFormat: Int, CaseIterable {
+    case markdown
+    case pdf
+    case html
+
+    var title: String {
+        switch self {
+        case .markdown:
+            return "Markdown"
+        case .pdf:
+            return "PDF"
+        case .html:
+            return "HTML"
+        }
+    }
+
+    var fileExtension: String {
+        switch self {
+        case .markdown:
+            return "md"
+        case .pdf:
+            return "pdf"
+        case .html:
+            return "html"
+        }
+    }
+}
+
 extension AIChatPanel {
     @objc func copyBubbleMarkdown(_ sender: NSButton) {
         guard let bodyID = sender.identifier?.rawValue,
@@ -23,16 +51,18 @@ extension AIChatPanel {
         let savePanel = NSSavePanel()
         savePanel.title = AppText.localized("导出 AI 对话", "Export AI Conversation")
         savePanel.nameFieldStringValue = defaultConversationExportFilename()
-        if let markdownType = UTType(filenameExtension: "md") {
-            savePanel.allowedContentTypes = [markdownType]
-        }
+        savePanel.showsTagField = false
+        savePanel.allowedContentTypes = conversationExportContentTypes()
+        let formatPopup = makeConversationExportFormatPopup()
+        savePanel.accessoryView = makeConversationExportAccessoryView(formatPopup: formatPopup)
         savePanel.canCreateDirectories = true
         savePanel.begin { [weak self] response in
             guard response == .OK,
                   let url = savePanel.url else {
                 return
             }
-            self?.writeConversationMarkdown(to: url, bubbles: bubbles)
+            let format = AIConversationExportFormat(rawValue: formatPopup.indexOfSelectedItem) ?? .markdown
+            self?.writeConversation(to: url, format: format, bubbles: bubbles)
         }
     }
 
@@ -53,12 +83,23 @@ extension AIChatPanel {
         }
     }
 
-    private func writeConversationMarkdown(to url: URL, bubbles: [SavedAIConversationBubble]) {
+    private func writeConversation(to url: URL, format: AIConversationExportFormat, bubbles: [SavedAIConversationBubble]) {
         let title = AppText.localized("当前文档", "Current Document")
-        let markdown = AIConversationMarkdownExporter.markdown(title: title, bubbles: bubbles)
+        let outputURL = urlForConversationExport(url, format: format)
         do {
-            try markdown.write(to: url, atomically: true, encoding: .utf8)
-            statusLabel.stringValue = AppText.localized("已导出 Markdown", "Markdown exported")
+            switch format {
+            case .markdown:
+                let markdown = AIConversationMarkdownExporter.markdown(title: title, bubbles: bubbles)
+                try markdown.write(to: outputURL, atomically: true, encoding: .utf8)
+            case .html:
+                let html = AIConversationMarkdownExporter.html(title: title, bubbles: bubbles)
+                try html.write(to: outputURL, atomically: true, encoding: .utf8)
+            case .pdf:
+                let html = AIConversationMarkdownExporter.html(title: title, bubbles: bubbles)
+                let data = try ReadingNotePDFExporter.data(html: html)
+                try data.write(to: outputURL, options: .atomic)
+            }
+            statusLabel.stringValue = AppText.localized("已导出", "Exported")
         } catch {
             statusLabel.stringValue = AppText.localized("导出失败", "Export failed")
             NSLog("LeafReader AI conversation export failed: %@", error.localizedDescription)
@@ -69,5 +110,43 @@ extension AIChatPanel {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmm"
         return "LeafReader-AI-\(formatter.string(from: Date())).md"
+    }
+
+    private func conversationExportContentTypes() -> [UTType] {
+        AIConversationExportFormat.allCases.compactMap { format in
+            UTType(filenameExtension: format.fileExtension)
+        }
+    }
+
+    private func makeConversationExportFormatPopup() -> NSPopUpButton {
+        let popup = NSPopUpButton(frame: .zero, pullsDown: false)
+        popup.addItems(withTitles: AIConversationExportFormat.allCases.map(\.title))
+        popup.selectItem(at: AIConversationExportFormat.markdown.rawValue)
+        popup.translatesAutoresizingMaskIntoConstraints = false
+        return popup
+    }
+
+    private func makeConversationExportAccessoryView(formatPopup: NSPopUpButton) -> NSView {
+        let label = NSTextField(labelWithString: AppText.localized("文件类型：", "File type:"))
+        label.alignment = .right
+        label.translatesAutoresizingMaskIntoConstraints = false
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 34))
+        container.addSubview(label)
+        container.addSubview(formatPopup)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            label.centerYAnchor.constraint(equalTo: formatPopup.centerYAnchor),
+            label.widthAnchor.constraint(equalToConstant: 92),
+            formatPopup.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 8),
+            formatPopup.topAnchor.constraint(equalTo: container.topAnchor, constant: 4),
+            formatPopup.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            formatPopup.widthAnchor.constraint(greaterThanOrEqualToConstant: 180)
+        ])
+        return container
+    }
+
+    private func urlForConversationExport(_ url: URL, format: AIConversationExportFormat) -> URL {
+        url.deletingPathExtension().appendingPathExtension(format.fileExtension)
     }
 }
