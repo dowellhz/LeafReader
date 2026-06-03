@@ -16,35 +16,22 @@ extension AIChatPanel {
     }
 
     func askSelectedSummary(_ text: String) {
-        guard !isBusy else { return }
-        guard canUseSelectedModel() else {
-            onSettingsRequired?()
-            return
-        }
-        let displayedQuestion = selectedTextActionTitle(actionTitle: AppText.localized("总结", "Summarize"), text: text)
-        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
-        recordTranscript(role: AppText.userRole, text: displayedQuestion)
         let title = trimmedText(text)
-        appendMessage(ChatMessage(role: "user", content: AIPromptStore.summaryPrompt(title: title, text: text)))
-        requestAI()
+        askSelectedTextAction(
+            title: AppText.localized("总结", "Summarize"),
+            text: text,
+            prompt: AIPromptStore.summaryPrompt(title: title, text: text)
+        )
     }
 
     @objc func analyzeDifficultSentenceCurrentContent() {
         let selected = trimmedText(selectedText)
-        guard !selected.isEmpty, !isBusy else { return }
-        guard canUseSelectedModel() else {
-            onSettingsRequired?()
-            return
-        }
-
-        let displayedQuestion = selectedTextActionTitle(
-            actionTitle: AppText.localized("难句", "Difficult sentence"),
-            text: selected
+        guard !selected.isEmpty else { return }
+        askSelectedTextAction(
+            title: AppText.localized("难句", "Difficult sentence"),
+            text: selected,
+            prompt: AIPromptStore.difficultSentencePrompt(for: selected)
         )
-        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
-        recordTranscript(role: AppText.userRole, text: displayedQuestion)
-        appendMessage(ChatMessage(role: "user", content: AIPromptStore.difficultSentencePrompt(for: selected)))
-        requestAI()
     }
 
     @objc func translateCurrentContent() {
@@ -57,16 +44,29 @@ extension AIChatPanel {
     }
 
     func askSelectedTranslation(_ text: String) {
+        let title = trimmedText(text)
+        askSelectedTextAction(title: AppText.localized("翻译", "Translate"), text: text) { [weak self] in
+            self?.requestTranslation(title: title, text: text)
+        }
+    }
+
+    func askSelectedTextAction(title: String, text: String, prompt: String) {
+        askSelectedTextAction(title: title, text: text) { [weak self] in
+            self?.appendMessage(ChatMessage(role: "user", content: prompt))
+            self?.requestAI()
+        }
+    }
+
+    private func askSelectedTextAction(title: String, text: String, sendRequest: () -> Void) {
         guard !isBusy else { return }
         guard canUseSelectedModel() else {
             onSettingsRequired?()
             return
         }
-        let displayedQuestion = selectedTextActionTitle(actionTitle: AppText.localized("翻译", "Translate"), text: text)
+        let displayedQuestion = selectedTextActionTitle(actionTitle: title, text: text)
         appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
         recordTranscript(role: AppText.userRole, text: displayedQuestion)
-        let title = trimmedText(text)
-        requestTranslation(title: title, text: text)
+        sendRequest()
     }
 
     func askCurrentContent(mode: CurrentContentMode) {

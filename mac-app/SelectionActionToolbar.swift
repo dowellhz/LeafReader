@@ -185,45 +185,35 @@ final class SelectionActionToolbar: NSView {
     func setDisplayMode(_ mode: DisplayMode) {
         switch mode {
         case .full(let showsSpeak):
-            explainButton.isHidden = false
-            difficultSentenceButton.isHidden = false
-            translateButton.isHidden = false
+            setAIActionButtonsHidden(false)
             contextButton.isHidden = false
             speakButton.isHidden = !showsSpeak
             noteButton.isHidden = false
             copyButton.isHidden = false
             configureModelButton.isHidden = true
         case .offlineWord:
-            explainButton.isHidden = true
-            difficultSentenceButton.isHidden = true
-            translateButton.isHidden = true
+            setAIActionButtonsHidden(true)
             contextButton.isHidden = false
             speakButton.isHidden = false
             noteButton.isHidden = true
             copyButton.isHidden = false
             configureModelButton.isHidden = true
         case .offlineCopyOnly:
-            explainButton.isHidden = true
-            difficultSentenceButton.isHidden = true
-            translateButton.isHidden = true
+            setAIActionButtonsHidden(true)
             contextButton.isHidden = true
             speakButton.isHidden = true
             noteButton.isHidden = true
             copyButton.isHidden = false
             configureModelButton.isHidden = true
         case .needsModelKeyWord:
-            explainButton.isHidden = true
-            difficultSentenceButton.isHidden = true
-            translateButton.isHidden = true
+            setAIActionButtonsHidden(true)
             contextButton.isHidden = false
             speakButton.isHidden = false
             noteButton.isHidden = true
             copyButton.isHidden = false
             configureModelButton.isHidden = false
         case .needsModelKeyCopyOnly:
-            explainButton.isHidden = true
-            difficultSentenceButton.isHidden = true
-            translateButton.isHidden = true
+            setAIActionButtonsHidden(true)
             contextButton.isHidden = true
             speakButton.isHidden = true
             noteButton.isHidden = true
@@ -231,6 +221,12 @@ final class SelectionActionToolbar: NSView {
             configureModelButton.isHidden = false
         }
         needsLayout = true
+    }
+
+    private func setAIActionButtonsHidden(_ hidden: Bool) {
+        explainButton.isHidden = hidden
+        difficultSentenceButton.isHidden = hidden
+        translateButton.isHidden = hidden
     }
 
     private func configureStack() {
