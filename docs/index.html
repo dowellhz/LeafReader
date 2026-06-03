@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Leaf Reader 1.7.6</title>
-  <meta name="description" content="Leaf Reader 1.7.6 is a native macOS reader for PDF, EPUB, and DOCX documents with AI reading and vocabulary tools.">
+  <title>Leaf Reader 1.7.7</title>
+  <meta name="description" content="Leaf Reader 1.7.7 is a native macOS reader for PDF, EPUB, and DOCX documents with AI reading and vocabulary tools.">
   <style>
     :root {
       color-scheme: light;
@@ -361,11 +361,11 @@
           <h1>Leaf Reader</h1>
           <p class="lead" data-i18n="hero.lead">原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX，集成 AI 问答、翻译、总结和背单词工作流。</p>
           <div class="actions">
-            <a class="button primary" href="https://github.com/dowellhz/LeafReader/releases/download/v1.7.6/LeafReader-1.7.6.pkg" data-i18n="hero.download">下载 1.7.6</a>
+            <a class="button primary" href="https://github.com/dowellhz/LeafReader/releases/download/v1.7.7/LeafReader-1.7.7.pkg" data-i18n="hero.download">下载 1.7.7</a>
             <a class="button secondary" href="manual/getting-started/" data-i18n="hero.gettingStarted">安装与入门</a>
             <a class="button secondary" href="https://github.com/dowellhz/LeafReader" data-i18n="hero.source">查看源码</a>
           </div>
-          <div class="meta" data-i18n="hero.meta">当前版本 1.7.6。阅读器需要 macOS 12.0 Monterey 或更高版本，支持 Apple Silicon 和 Intel Mac；本地 TTS runtime 当前仅支持 Apple Silicon，Kokoro 需要 macOS 14.0 或更高版本。安装包已 Developer ID 签名并通过 Apple 公证。</div>
+          <div class="meta" data-i18n="hero.meta">当前版本 1.7.7。阅读器需要 macOS 12.0 Monterey 或更高版本，支持 Apple Silicon 和 Intel Mac；本地 TTS runtime 当前仅支持 Apple Silicon，Kokoro 需要 macOS 14.0 或更高版本。安装包已 Developer ID 签名并通过 Apple 公证。</div>
         </div>
         <div class="hero-image">
           <img src="assets/reader-light-ai-word.png?v=20260524" alt="Leaf Reader AI word learning screen">
@@ -463,10 +463,10 @@
       <section class="section" id="download">
         <div class="release">
           <div>
-            <h2>Leaf Reader 1.7.6</h2>
-            <p data-i18n="release.body">修复 Piper runtime 打包和启动问题，细分朗读模型与运行时状态提示，并加强发布前校验。</p>
+            <h2>Leaf Reader 1.7.7</h2>
+            <p data-i18n="release.body">新增难句解析入口，可从阅读笔记和正文选区直接请求 AI 拆解句子结构、从句关系和逐层翻译。</p>
           </div>
-          <a class="button primary" href="https://github.com/dowellhz/LeafReader/releases/download/v1.7.6/LeafReader-1.7.6.pkg" data-i18n="release.download">下载安装包</a>
+          <a class="button primary" href="https://github.com/dowellhz/LeafReader/releases/download/v1.7.7/LeafReader-1.7.7.pkg" data-i18n="release.download">下载安装包</a>
         </div>
       </section>
     </main>
@@ -486,10 +486,10 @@
           "nav.docs": "文档",
           "nav.download": "下载",
           "hero.lead": "原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX，集成 AI 问答、翻译、总结和背单词工作流。",
-          "hero.download": "下载 1.7.6",
+          "hero.download": "下载 1.7.7",
           "hero.gettingStarted": "安装与入门",
           "hero.source": "查看源码",
-          "hero.meta": "当前版本 1.7.6。阅读器需要 macOS 12.0 Monterey 或更高版本，支持 Apple Silicon 和 Intel Mac；本地 TTS runtime 当前仅支持 Apple Silicon，Kokoro 需要 macOS 14.0 或更高版本。安装包已 Developer ID 签名并通过 Apple 公证。",
+          "hero.meta": "当前版本 1.7.7。阅读器需要 macOS 12.0 Monterey 或更高版本，支持 Apple Silicon 和 Intel Mac；本地 TTS runtime 当前仅支持 Apple Silicon，Kokoro 需要 macOS 14.0 或更高版本。安装包已 Developer ID 签名并通过 Apple 公证。",
           "features.title": "功能",
           "features.formats.title": "多格式阅读",
           "features.formats.body": "打开 PDF、EPUB、DOCX，恢复阅读进度、缩放和页码位置。",
@@ -524,7 +524,7 @@
           "faq.privacy.body": "不会。文档保存在本机，只有使用 AI 功能时才会把相关文本发送到你配置的模型服务。详见 <a href=\"manual/ai-chat/\">AI 文档</a>。",
           "faq.update.title": "为什么检查更新失败？",
           "faq.update.body": "可能是网络、证书、Appcast 或旧版本更新地址问题。可查看<a href=\"manual/troubleshooting/\">故障排查</a>。",
-          "release.body": "修复 Piper runtime 打包和启动问题，细分朗读模型与运行时状态提示，并加强发布前校验。",
+          "release.body": "新增难句解析入口，可从阅读笔记和正文选区直接请求 AI 拆解句子结构、从句关系和逐层翻译。",
           "release.download": "下载安装包"
         },
         en: {
@@ -571,7 +571,7 @@
           "faq.privacy.body": "No. Documents stay on your Mac. Only relevant text is sent to your configured model service when you use AI features. See the <a href=\"manual/ai-chat/\">AI docs</a>.",
           "faq.update.title": "Why can update checks fail?",
           "faq.update.body": "Common causes include network access, certificates, Appcast availability, or old update URLs. See <a href=\"manual/troubleshooting/\">Troubleshooting</a>.",
-          "release.body": "Fixes Piper runtime packaging and startup, clarifies speech model and runtime status, and strengthens release-time checks.",
+          "release.body": "Adds Difficult Sentence analysis from Reading Notes and main text selections, covering sentence structure, clauses, and layered translation.",
           "release.download": "Download Installer"
         }
       };

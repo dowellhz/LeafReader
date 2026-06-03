@@ -64,6 +64,12 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 
 ### 更新记录
 
+#### 1.7.7
+
+- 新增难句解析入口：阅读笔记选中文本和正文选中句子后都可以直接请求 AI 拆解难句。
+- 难句解析会按句子结构、主谓宾/从句/修饰关系、逐层翻译、常见表达和写法原因输出。
+- 整理选中文本 AI 动作的共用流程，减少总结、翻译和难句解析之间的重复逻辑。
+
 #### 1.7.6
 
 - 改进 AI 对话导出，支持 Markdown、HTML 和 PDF，并让导出按钮跟随当前主题配色。
@@ -193,7 +199,7 @@ Website: <https://leafreader.space/>
 
 ### Download
 
-[Leaf Reader 1.7.6 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.7.6/LeafReader-1.7.6.pkg)
+[Leaf Reader 1.7.7 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.7.7/LeafReader-1.7.7.pkg)
 
 ### System Requirements
 
@@ -315,6 +321,12 @@ Third-party speech models and runtimes remain copyrighted by their respective pr
 - [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) / Kokoro model: Apache License 2.0.
 - [KittenTTS](https://github.com/KittenML/KittenTTS) and [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs): KittenTTS model under Apache License 2.0; Rust runtime copyright belongs to the `kitten_tts_rs` project contributors.
 - [Piper](https://github.com/rhasspy/piper): MIT License; Piper voice model assets follow the metadata shipped with the upstream model package.
+
+## What's New in 1.7.7
+
+- Added a Difficult Sentence action for selected text in Reading Notes and for selected sentences in the main reader.
+- Difficult sentence analysis now asks AI for sentence structure, subject/verb/object and clauses, layered translation, common expressions, and why the sentence is written that way.
+- Refactored selected-text AI action handling to share the common summary, translation, and difficult sentence request flow.
 
 ## What's New in 1.7.6
 
@@ -467,28 +479,28 @@ Regenerate the code map after larger refactors:
 
 ### Release
 
-Current version: `1.7.6`
+Current version: `1.7.7`
 
-Git tag: `v1.7.6`
+Git tag: `v1.7.7`
 
 Latest installer:
 
-[Leaf Reader-1.7.6.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.6/LeafReader-1.7.6.pkg)
+[Leaf Reader-1.7.7.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.7/LeafReader-1.7.7.pkg)
 
 Local release package path:
 
-`release/1.7.6/LeafReader-1.7.5.pkg`
+`release/1.7.7/LeafReader-1.7.7.pkg`
 
 Build the signed release package without publishing:
 
 ```sh
-./scripts/release_pkg.sh 1.7.6
+./scripts/release_pkg.sh 1.7.7
 ```
 
 Run the full publish flow from a clean working tree:
 
 ```sh
-./scripts/publish_release.sh 1.7.6
+./scripts/publish_release.sh 1.7.7
 ```
 
 The publish script runs tests, builds/signs/notarizes the pkg, commits version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-models` only when publishing changed speech model archives in `docs/tts/`.
