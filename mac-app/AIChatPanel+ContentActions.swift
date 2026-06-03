@@ -29,6 +29,24 @@ extension AIChatPanel {
         requestAI()
     }
 
+    @objc func analyzeDifficultSentenceCurrentContent() {
+        let selected = trimmedText(selectedText)
+        guard !selected.isEmpty, !isBusy else { return }
+        guard canUseSelectedModel() else {
+            onSettingsRequired?()
+            return
+        }
+
+        let displayedQuestion = selectedTextActionTitle(
+            actionTitle: AppText.localized("难句", "Difficult sentence"),
+            text: selected
+        )
+        appendBubble(role: AppText.userRole, text: displayedQuestion, collapsible: true)
+        recordTranscript(role: AppText.userRole, text: displayedQuestion)
+        appendMessage(ChatMessage(role: "user", content: AIPromptStore.difficultSentencePrompt(for: selected)))
+        requestAI()
+    }
+
     @objc func translateCurrentContent() {
         let selected = trimmedText(selectedText)
         if !selected.isEmpty {

@@ -220,7 +220,7 @@ extension ReadingNotePanelController {
         aiToolbarContainer.layer?.shadowOpacity = 0.16
         aiToolbarContainer.layer?.shadowRadius = 12
         aiToolbarContainer.layer?.shadowOffset = NSSize(width: 0, height: -2)
-        aiToolbarContainer.frame = NSRect(x: 0, y: 0, width: 318, height: 38)
+        aiToolbarContainer.frame = NSRect(x: 0, y: 0, width: 360, height: 38)
 
         aiToolbar.orientation = .horizontal
         aiToolbar.alignment = .centerY
@@ -281,7 +281,7 @@ extension ReadingNotePanelController {
         button.font = AppFont.semibold(ofSize: 13)
         button.target = self
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.widthAnchor.constraint(equalToConstant: 58).isActive = true
+        button.widthAnchor.constraint(equalToConstant: 52).isActive = true
         button.heightAnchor.constraint(equalToConstant: 30).isActive = true
         switch button {
         case explainButton:
@@ -292,6 +292,8 @@ extension ReadingNotePanelController {
             button.action = #selector(summarizeSelection(_:))
         case polishButton:
             button.action = #selector(polishSelection(_:))
+        case difficultSentenceButton:
+            button.action = #selector(analyzeDifficultSentence(_:))
         case askButton:
             button.action = #selector(showAskInput(_:))
         default:

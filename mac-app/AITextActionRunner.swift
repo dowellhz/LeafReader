@@ -3,6 +3,7 @@ import Foundation
 final class AITextActionRunner {
     enum Action {
         case explain
+        case difficultSentence
         case translate
         case summarize
         case polish
@@ -106,6 +107,8 @@ final class AITextActionRunner {
         switch action {
         case .explain:
             return AIPromptStore.sentencePrompt(for: text)
+        case .difficultSentence:
+            return AIPromptStore.difficultSentencePrompt(for: text)
         case .translate:
             return AIPromptStore.translationPrompt(title: text, text: text)
         case .summarize:

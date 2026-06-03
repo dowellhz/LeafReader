@@ -668,6 +668,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Network error long body formatting", AISettingsLogicTests.testNetworkErrorFormattingTruncatesLongBody),
     ("AI response parser non-streaming", AISettingsLogicTests.testAIResponseParserParsesNonStreamingResponses),
     ("AI response parser streaming", AISettingsLogicTests.testAIResponseParserParsesStreamingDeltas),
+    ("Difficult sentence prompt sections", AISettingsLogicTests.testDifficultSentencePromptContainsRequiredSections),
     ("AI conversation linked history removal", AIConversationContextStoreTests.testLinkedWordHistoryRemovalKeepsSystemMessage),
     ("AI conversation context trimming", AIConversationContextStoreTests.testContextTrimsRecentMessages),
     ("ECDICT SQLite lookup", ECDICTLogicTests.testSQLiteLookupAndMarkdownAnswer),

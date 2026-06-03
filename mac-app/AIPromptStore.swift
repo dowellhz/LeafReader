@@ -6,6 +6,7 @@ enum AIPromptStore {
         let compactSystem: String
         let word: String
         let sentence: String
+        let difficultSentence: String
         let summary: String
         let translation: String
         let followUp: String
@@ -18,6 +19,7 @@ enum AIPromptStore {
             case legacySystem2 = "system2"
             case word
             case sentence
+            case difficultSentence
             case summary
             case translation
             case followUp
@@ -30,6 +32,7 @@ enum AIPromptStore {
             compactSystem: String,
             word: String,
             sentence: String,
+            difficultSentence: String,
             summary: String,
             translation: String,
             followUp: String,
@@ -40,6 +43,7 @@ enum AIPromptStore {
             self.compactSystem = compactSystem
             self.word = word
             self.sentence = sentence
+            self.difficultSentence = difficultSentence
             self.summary = summary
             self.translation = translation
             self.followUp = followUp
@@ -55,6 +59,8 @@ enum AIPromptStore {
                 ?? system
             word = try container.decode(String.self, forKey: .word)
             sentence = try container.decode(String.self, forKey: .sentence)
+            difficultSentence = try container.decodeIfPresent(String.self, forKey: .difficultSentence)
+                ?? sentence
             summary = try container.decode(String.self, forKey: .summary)
             translation = try container.decode(String.self, forKey: .translation)
             followUp = try container.decode(String.self, forKey: .followUp)
@@ -93,6 +99,10 @@ enum AIPromptStore {
 
     static func sentencePrompt(for text: String) -> String {
         render(languageConfig.sentence, values: ["text": text])
+    }
+
+    static func difficultSentencePrompt(for text: String) -> String {
+        render(languageConfig.difficultSentence, values: ["text": text])
     }
 
     static func summaryPrompt(title: String, text: String) -> String {
@@ -219,6 +229,7 @@ enum AIPromptStore {
             compactSystem: "你是一名英语阅读和词汇助手。回答要紧凑：不要连续空行，不要大段铺开，除非用户要求展开。",
             word: "翻译下单词：{{word}}\n\n这个词在文章中的上下文：\n{{context}}\n\n输出要求：不要在回答第一行重复输出单词标题，直接从发音开始。",
             sentence: "你是英语老师，翻译并解释下面这段英文：\n\n{{text}}",
+            difficultSentence: "请解析下面英文难句，输出紧凑 Markdown，不要连续空行，不要 Markdown 表格。\n必须包含：\n## 句子结构拆解\n## 主谓宾、从句、修饰关系\n## 逐层翻译\n## 常见表达解释\n## 为什么这么写\n\n【英文】\n{{text}}",
             summary: "请总结下面的当前阅读内容：\n\n标题：{{title}}\n\n正文：\n{{text}}",
             translation: "请把下面内容翻译成自然中文。目标语言：简体中文。只输出中文译文，不要输出英文原文，不要复述原文。除人名、地名、书名、机构名等专有名词外，所有英文句子都必须翻译成中文。每个段落直接从文字开始，不要在段首添加空格或缩进。不要分析、解释、总结，也不要添加标题或多余说明，不要使用 Markdown 或 **粗体** 标记。严格保持原文段落结构和换行位置，不要合并段落，也不要额外拆分段落。\n\n{{text}}",
             followUp: "下面是 AI view 上下文：\n{{context}}\n\n用户继续追问：\n{{text}}",
@@ -230,6 +241,7 @@ enum AIPromptStore {
             compactSystem: "You are an English reading and vocabulary assistant. Keep answers compact: no consecutive blank lines, no padded sections, and no long answer unless the user asks for detail.",
             word: "Explain this word: {{word}}\n\nContext from the article:\n{{context}}\n\nOutput requirement: do not repeat the word as a first-line title. Start directly with pronunciation.",
             sentence: "Explain this English passage:\n\n{{text}}",
+            difficultSentence: "Analyze this difficult English sentence in compact Markdown. Do not use tables or consecutive blank lines.\nInclude these sections:\n## Sentence structure\n## Subject, verb, object, clauses, and modifiers\n## Layered translation\n## Common expressions\n## Why it is written this way\n\n[English]\n{{text}}",
             summary: "Summarize the current reading content:\n\nTitle: {{title}}\n\nText:\n{{text}}",
             translation: "Translate the following content into clear, natural English. Output only the translation. Do not analyze, explain, summarize, add a title, add extra notes, or use Markdown or **bold** markers. Strictly preserve the original paragraph structure and line breaks. Do not merge paragraphs or split them into extra paragraphs.\n\n{{text}}",
             followUp: "AI view context:\n{{context}}\n\nUser follow-up:\n{{text}}",

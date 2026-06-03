@@ -16,6 +16,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
     let translateButton = NSButton(title: AppText.localized("翻译", "Translate"), target: nil, action: nil)
     let summarizeButton = NSButton(title: AppText.localized("总结", "Summarize"), target: nil, action: nil)
     let polishButton = NSButton(title: AppText.localized("整理", "Organize"), target: nil, action: nil)
+    let difficultSentenceButton = NSButton(title: AppText.localized("难句", "Syntax"), target: nil, action: nil)
     let askButton = NSButton(title: AppText.localized("问 AI", "Ask AI"), target: nil, action: nil)
     let askInputContainer = NSView()
     let askInputField = ReadingNoteAskTextField(string: "")
@@ -28,7 +29,7 @@ final class ReadingNotePanelController: NSWindowController, NSWindowDelegate, NS
     let editorContainer = NSView()
     var topIconButtons: [NSButton] = []
     var aiActionButtons: [NSButton] {
-        [explainButton, translateButton, summarizeButton, polishButton, askButton]
+        [explainButton, translateButton, summarizeButton, polishButton, difficultSentenceButton, askButton]
     }
     let editorState = ReadingNoteEditorState()
     weak var scrollView: NSScrollView?

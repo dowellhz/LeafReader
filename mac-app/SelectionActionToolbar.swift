@@ -12,6 +12,7 @@ final class SelectionActionToolbar: NSView {
 
     var onTranslate: (() -> Void)?
     var onExplain: (() -> Void)?
+    var onDifficultSentence: (() -> Void)?
     var onAddWord: (() -> Void)?
     var onSummarize: (() -> Void)?
     var onSpeak: (() -> Void)?
@@ -29,6 +30,12 @@ final class SelectionActionToolbar: NSView {
     private let explainButton = SelectionActionButton(
         title: AppText.localized("解释", "Explain"),
         symbolName: "text.bubble",
+        target: nil,
+        action: nil
+    )
+    private let difficultSentenceButton = SelectionActionButton(
+        title: AppText.localized("难句", "Syntax"),
+        symbolName: "text.magnifyingglass",
         target: nil,
         action: nil
     )
@@ -65,7 +72,16 @@ final class SelectionActionToolbar: NSView {
     private var contextAction: ContextAction = .summarize
 
     private var actionButtons: [SelectionActionButton] {
-        [explainButton, translateButton, contextButton, speakButton, noteButton, copyButton, configureModelButton]
+        [
+            explainButton,
+            difficultSentenceButton,
+            translateButton,
+            contextButton,
+            speakButton,
+            noteButton,
+            copyButton,
+            configureModelButton
+        ]
     }
 
     typealias ContextAction = SelectionToolbarContextAction
@@ -85,6 +101,7 @@ final class SelectionActionToolbar: NSView {
         addSubview(stack)
 
         configureButton(explainButton, action: #selector(explainTapped))
+        configureButton(difficultSentenceButton, action: #selector(difficultSentenceTapped))
         configureButton(translateButton, action: #selector(translateTapped))
         configureButton(contextButton, action: #selector(contextTapped))
         configureButton(speakButton, action: #selector(speakTapped))
@@ -137,6 +154,7 @@ final class SelectionActionToolbar: NSView {
     func refreshLanguage() {
         translateButton.title = AppText.localized("翻译", "Translate")
         explainButton.title = AppText.localized("解释", "Explain")
+        difficultSentenceButton.title = AppText.localized("难句", "Syntax")
         contextButton.title = contextAction == .addWord
             ? AppText.localized("单词", "Word")
             : AppText.localized("总结", "Summarize")
@@ -168,6 +186,7 @@ final class SelectionActionToolbar: NSView {
         switch mode {
         case .full(let showsSpeak):
             explainButton.isHidden = false
+            difficultSentenceButton.isHidden = false
             translateButton.isHidden = false
             contextButton.isHidden = false
             speakButton.isHidden = !showsSpeak
@@ -176,6 +195,7 @@ final class SelectionActionToolbar: NSView {
             configureModelButton.isHidden = true
         case .offlineWord:
             explainButton.isHidden = true
+            difficultSentenceButton.isHidden = true
             translateButton.isHidden = true
             contextButton.isHidden = false
             speakButton.isHidden = false
@@ -184,6 +204,7 @@ final class SelectionActionToolbar: NSView {
             configureModelButton.isHidden = true
         case .offlineCopyOnly:
             explainButton.isHidden = true
+            difficultSentenceButton.isHidden = true
             translateButton.isHidden = true
             contextButton.isHidden = true
             speakButton.isHidden = true
@@ -192,6 +213,7 @@ final class SelectionActionToolbar: NSView {
             configureModelButton.isHidden = true
         case .needsModelKeyWord:
             explainButton.isHidden = true
+            difficultSentenceButton.isHidden = true
             translateButton.isHidden = true
             contextButton.isHidden = false
             speakButton.isHidden = false
@@ -200,6 +222,7 @@ final class SelectionActionToolbar: NSView {
             configureModelButton.isHidden = false
         case .needsModelKeyCopyOnly:
             explainButton.isHidden = true
+            difficultSentenceButton.isHidden = true
             translateButton.isHidden = true
             contextButton.isHidden = true
             speakButton.isHidden = true
@@ -225,6 +248,8 @@ final class SelectionActionToolbar: NSView {
             onTranslate?()
         case explainButton:
             onExplain?()
+        case difficultSentenceButton:
+            onDifficultSentence?()
         case contextButton:
             switch contextAction {
             case .addWord:
@@ -259,6 +284,10 @@ final class SelectionActionToolbar: NSView {
 
     @objc private func explainTapped() {
         onExplain?()
+    }
+
+    @objc private func difficultSentenceTapped() {
+        onDifficultSentence?()
     }
 
     @objc private func contextTapped() {

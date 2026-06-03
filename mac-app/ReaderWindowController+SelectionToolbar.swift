@@ -5,6 +5,7 @@ extension ReaderWindowController {
     enum SelectionToolbarAction {
         case translate
         case explain
+        case difficultSentence
         case addWord
         case summarize
         case speak
@@ -67,6 +68,9 @@ extension ReaderWindowController {
         case .explain:
             prepareAIForSelectionAction(text: text)
             aiPanel.startQuestion()
+        case .difficultSentence:
+            prepareAIForSelectionAction(text: text)
+            aiPanel.analyzeDifficultSentenceCurrentContent()
         case .addWord:
             let wordText = selectedVocabularyTextForToolbar(fallback: text)
             guard vocabularySpeakerWord(wordText) != nil else {

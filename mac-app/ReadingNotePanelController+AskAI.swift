@@ -51,6 +51,10 @@ extension ReadingNotePanelController {
         )
     }
 
+    @objc func analyzeDifficultSentence(_ sender: NSButton) {
+        runAIAction(.difficultSentence, title: AppText.localized("难句", "Difficult sentence"))
+    }
+
     @objc func showAskInput(_ sender: NSButton) {
         let selected = selectedText()
         guard !selected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {

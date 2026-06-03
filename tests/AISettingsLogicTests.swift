@@ -1398,6 +1398,31 @@ enum AISettingsLogicTests {
         )
     }
 
+    static func testDifficultSentencePromptContainsRequiredSections() throws {
+        let prompt = AIPromptStore.difficultSentencePrompt(for: "This is the sentence.")
+        try expect(prompt.contains("This is the sentence."), "difficult sentence prompt should include selected text")
+        try expect(
+            prompt.contains("句子结构拆解") || prompt.contains("Sentence structure"),
+            "difficult sentence prompt should ask for sentence structure"
+        )
+        try expect(
+            prompt.contains("主谓宾") || prompt.contains("Subject, verb, object"),
+            "difficult sentence prompt should ask for subject, verb, object, clauses, and modifiers"
+        )
+        try expect(
+            prompt.contains("逐层翻译") || prompt.contains("Layered translation"),
+            "difficult sentence prompt should ask for layered translation"
+        )
+        try expect(
+            prompt.contains("常见表达") || prompt.contains("Common expressions"),
+            "difficult sentence prompt should ask for common expressions"
+        )
+        try expect(
+            prompt.contains("为什么这么写") || prompt.contains("Why it is written this way"),
+            "difficult sentence prompt should ask why the sentence is written that way"
+        )
+    }
+
     static func testEmbeddingKeyIsolation() throws {
         var store = EmbeddingKeyStore()
         store.saveEmbeddingKey("openai-key", optionID: "openai")

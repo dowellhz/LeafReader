@@ -111,6 +111,9 @@ final class ReaderAIPanelCoordinator {
         owner.selectionActionToolbar.onExplain = { [weak owner] in
             owner?.runSelectionToolbarAction(.explain)
         }
+        owner.selectionActionToolbar.onDifficultSentence = { [weak owner] in
+            owner?.runSelectionToolbarAction(.difficultSentence)
+        }
         owner.selectionActionToolbar.onAddWord = { [weak owner] in
             owner?.runSelectionToolbarAction(.addWord)
         }
