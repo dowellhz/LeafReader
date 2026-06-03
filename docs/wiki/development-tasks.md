@@ -61,6 +61,7 @@ Run:
 
 ```sh
 ./scripts/check.sh --no-build
+./scripts/check_ui_theme.sh --warnings-as-errors
 ./scripts/build_app.sh
 ```
 
@@ -71,6 +72,7 @@ UI rule:
 - Controls created after startup must use the current theme at creation time and must also be updated by the surface's theme refresh path.
 - If a control is inside a dynamic row, bubble, note, or popup accessory view, theme refresh must walk existing subviews and update it.
 - Save panels and other macOS accessory views should hide irrelevant system fields, such as tags, when they are not part of the app workflow.
+- `./scripts/check_ui_theme.sh` fails high-confidence icon tint misses by default; fixed `NSColor(...)` usage is reported as warning unless `--warnings-as-errors` is passed.
 
 Watch for:
 
