@@ -44,6 +44,41 @@ Watch for:
 - Long selected text producing oversized bubble titles.
 - Translation chunks losing paragraph spacing or indentation.
 
+## Change UI Controls Or Theme Styling
+
+Start with the local surface that owns the controls, then check the shared theme helpers:
+
+- `mac-app/ReaderTheme.swift`
+- `mac-app/ReaderTheme+Palette.swift`
+- `mac-app/ReaderWindowController+Theme.swift`
+- `mac-app/AIChatPanel+BubbleStyling.swift`
+- `mac-app/ReadingNotePanelController+Theme.swift`
+- `mac-app/ReadingNotesPanelController.swift`
+- `mac-app/AISettingsPanelController+Theme.swift`
+- `mac-app/ExportPanelSupport.swift`
+
+Run:
+
+```sh
+./scripts/check.sh --no-build
+./scripts/build_app.sh
+```
+
+UI rule:
+
+- Every new visible control must define or inherit colors for all reader modes: original, eyeCare, and dark.
+- Icon-only buttons must set `contentTintColor` from the active theme, not a fixed system color.
+- Controls created after startup must use the current theme at creation time and must also be updated by the surface's theme refresh path.
+- If a control is inside a dynamic row, bubble, note, or popup accessory view, theme refresh must walk existing subviews and update it.
+- Save panels and other macOS accessory views should hide irrelevant system fields, such as tags, when they are not part of the app workflow.
+
+Watch for:
+
+- Adding a button that looks correct on first render but does not change after switching to eyeCare or dark mode.
+- Updating text colors but missing SF Symbol tint, border color, hover/background color, or disabled state.
+- Styling only the app-level toolbar while leaving AI bubbles, reading notes, settings, or export panels on their previous colors.
+- Introducing a new themed control without adding it to the relevant `setTheme`, `applyTheme`, or `restyle...` traversal.
+
 ## Change Whole-Book AI Analysis
 
 Start with:

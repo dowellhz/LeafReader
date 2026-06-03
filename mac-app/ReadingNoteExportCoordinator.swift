@@ -13,9 +13,9 @@ final class ReadingNoteExportCoordinator {
         fileNameSuffix: String,
         parent: NSWindow?
     ) {
-        let scopePopup = exportPopup(titles: ReadingNoteExporter.Scope.allCases.map(\.title))
+        let scopePopup = ExportPanelSupport.popup(for: ReadingNoteExporter.Scope.allCases.map(\.title))
         scopePopup.isEnabled = allowsScopeSelection
-        let formatPopup = exportPopup(titles: ReadingNoteExporter.Format.allCases.map(\.title))
+        let formatPopup = ExportPanelSupport.popup(for: ReadingNoteExporter.Format.allCases.map(\.title))
         let savePanel = savePanel(
             documentTitle: documentTitle,
             suffix: fileNameSuffix,
@@ -28,10 +28,18 @@ final class ReadingNoteExportCoordinator {
         )
         savePanel.beginSheetModal(for: parent ?? NSWindow()) { response in
             guard response == .OK, let url = savePanel.url else { return }
+            let formatIndex = ExportPanelSupport.selectedIndex(
+                from: formatPopup,
+                count: ReadingNoteExporter.Format.allCases.count
+            )
+            let scopeIndex = ExportPanelSupport.selectedIndex(
+                from: scopePopup,
+                count: ReadingNoteExporter.Scope.allCases.count
+            )
             let request = Request(
-                format: ReadingNoteExporter.Format.allCases[safe: formatPopup.indexOfSelectedItem] ?? .markdown,
+                format: ReadingNoteExporter.Format.allCases[safe: formatIndex] ?? .markdown,
                 scope: allowsScopeSelection
-                    ? (ReadingNoteExporter.Scope.allCases[safe: scopePopup.indexOfSelectedItem] ?? .all)
+                    ? (ReadingNoteExporter.Scope.allCases[safe: scopeIndex] ?? .all)
                     : .all
             )
             let exportNotes = request.scope.filter(notes)
@@ -67,7 +75,7 @@ final class ReadingNoteExportCoordinator {
         let savePanel = NSSavePanel()
         savePanel.canCreateDirectories = true
         savePanel.showsTagField = false
-        savePanel.allowedContentTypes = []
+        savePanel.allowedContentTypes = ExportPanelSupport.contentTypes(for: Self.formatOptions())
         savePanel.nameFieldStringValue = Self.fileName(
             documentTitle: documentTitle,
             suffix: suffix,
@@ -76,70 +84,19 @@ final class ReadingNoteExportCoordinator {
         return savePanel
     }
 
-    private func exportPopup(titles: [String]) -> NSPopUpButton {
-        let popup = NSPopUpButton(frame: .zero, pullsDown: false)
-        popup.addItems(withTitles: titles)
-        popup.translatesAutoresizingMaskIntoConstraints = false
-        return popup
-    }
-
     private func accessoryView(
         allowsScopeSelection: Bool,
         scopePopup: NSPopUpButton,
         formatPopup: NSPopUpButton
     ) -> NSView {
-        let rowHeight: CGFloat = 32
-        let rowSpacing: CGFloat = 8
-        let rows = allowsScopeSelection ? 2 : 1
-        let height = CGFloat(rows) * rowHeight + CGFloat(rows - 1) * rowSpacing
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: height))
-
-        let formatRow = accessoryRow(title: AppText.localized("文件类型：", "File type:"), control: formatPopup)
-        container.addSubview(formatRow)
-
+        let formatRow = (title: AppText.localized("文件类型：", "File type:"), control: formatPopup)
         if allowsScopeSelection {
-            let scopeRow = accessoryRow(title: AppText.localized("范围：", "Scope:"), control: scopePopup)
-            container.addSubview(scopeRow)
-            NSLayoutConstraint.activate([
-                scopeRow.topAnchor.constraint(equalTo: container.topAnchor),
-                scopeRow.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-                scopeRow.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                scopeRow.heightAnchor.constraint(equalToConstant: rowHeight),
-                formatRow.topAnchor.constraint(equalTo: scopeRow.bottomAnchor, constant: rowSpacing)
-            ])
-        } else {
-            NSLayoutConstraint.activate([
-                formatRow.topAnchor.constraint(equalTo: container.topAnchor)
+            return ExportPanelSupport.accessoryView(rows: [
+                (title: AppText.localized("范围：", "Scope:"), control: scopePopup),
+                formatRow
             ])
         }
-
-        NSLayoutConstraint.activate([
-            formatRow.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            formatRow.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            formatRow.heightAnchor.constraint(equalToConstant: rowHeight)
-        ])
-        return container
-    }
-
-    private func accessoryRow(title: String, control: NSView) -> NSView {
-        let label = NSTextField(labelWithString: title)
-        label.alignment = .right
-        label.translatesAutoresizingMaskIntoConstraints = false
-
-        let row = NSView()
-        row.translatesAutoresizingMaskIntoConstraints = false
-        row.addSubview(label)
-        row.addSubview(control)
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: row.leadingAnchor),
-            label.centerYAnchor.constraint(equalTo: control.centerYAnchor),
-            label.widthAnchor.constraint(equalToConstant: 92),
-            control.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 8),
-            control.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-            control.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            control.widthAnchor.constraint(greaterThanOrEqualToConstant: 180)
-        ])
-        return row
+        return ExportPanelSupport.accessoryView(rows: [formatRow])
     }
 
     private static func fileName(
@@ -151,7 +108,15 @@ final class ReadingNoteExportCoordinator {
     }
 
     private static func url(_ url: URL, matching format: ReadingNoteExporter.Format) -> URL {
-        url.deletingPathExtension().appendingPathExtension(format.fileExtension)
+        ExportPanelSupport.outputURL(url, matching: formatOption(for: format))
+    }
+
+    private static func formatOptions() -> [ExportPanelSupport.FormatOption] {
+        ReadingNoteExporter.Format.allCases.map(formatOption)
+    }
+
+    private static func formatOption(for format: ReadingNoteExporter.Format) -> ExportPanelSupport.FormatOption {
+        ExportPanelSupport.FormatOption(title: format.title, fileExtension: format.fileExtension)
     }
 
     private static func write(

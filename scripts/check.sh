@@ -26,6 +26,9 @@ git diff --check
 echo "==> Checking wiki"
 ./scripts/check_wiki.sh
 
+echo "==> Checking UI theme coverage"
+./scripts/check_ui_theme.sh
+
 echo "==> Running tests"
 ./tests/run.sh
 

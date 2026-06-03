@@ -1,5 +1,4 @@
 import Cocoa
-import UniformTypeIdentifiers
 
 private enum AIConversationExportFormat: Int, CaseIterable {
     case markdown
@@ -27,6 +26,10 @@ private enum AIConversationExportFormat: Int, CaseIterable {
             return "html"
         }
     }
+
+    var option: ExportPanelSupport.FormatOption {
+        ExportPanelSupport.FormatOption(title: title, fileExtension: fileExtension)
+    }
 }
 
 extension AIChatPanel {
@@ -52,16 +55,26 @@ extension AIChatPanel {
         savePanel.title = AppText.localized("导出 AI 对话", "Export AI Conversation")
         savePanel.nameFieldStringValue = defaultConversationExportFilename()
         savePanel.showsTagField = false
-        savePanel.allowedContentTypes = conversationExportContentTypes()
-        let formatPopup = makeConversationExportFormatPopup()
-        savePanel.accessoryView = makeConversationExportAccessoryView(formatPopup: formatPopup)
+        savePanel.allowedContentTypes = ExportPanelSupport.contentTypes(for: conversationExportFormatOptions())
+        let formatPopup = ExportPanelSupport.popup(
+            for: AIConversationExportFormat.allCases.map(\.title),
+            selectedIndex: AIConversationExportFormat.markdown.rawValue
+        )
+        savePanel.accessoryView = ExportPanelSupport.accessoryView(rows: [
+            (title: AppText.localized("文件类型：", "File type:"), control: formatPopup)
+        ])
         savePanel.canCreateDirectories = true
         savePanel.begin { [weak self] response in
             guard response == .OK,
                   let url = savePanel.url else {
                 return
             }
-            let format = AIConversationExportFormat(rawValue: formatPopup.indexOfSelectedItem) ?? .markdown
+            let index = ExportPanelSupport.selectedIndex(
+                from: formatPopup,
+                count: AIConversationExportFormat.allCases.count,
+                defaultIndex: AIConversationExportFormat.markdown.rawValue
+            )
+            let format = AIConversationExportFormat(rawValue: index) ?? .markdown
             self?.writeConversation(to: url, format: format, bubbles: bubbles)
         }
     }
@@ -112,41 +125,11 @@ extension AIChatPanel {
         return "LeafReader-AI-\(formatter.string(from: Date())).md"
     }
 
-    private func conversationExportContentTypes() -> [UTType] {
-        AIConversationExportFormat.allCases.compactMap { format in
-            UTType(filenameExtension: format.fileExtension)
-        }
-    }
-
-    private func makeConversationExportFormatPopup() -> NSPopUpButton {
-        let popup = NSPopUpButton(frame: .zero, pullsDown: false)
-        popup.addItems(withTitles: AIConversationExportFormat.allCases.map(\.title))
-        popup.selectItem(at: AIConversationExportFormat.markdown.rawValue)
-        popup.translatesAutoresizingMaskIntoConstraints = false
-        return popup
-    }
-
-    private func makeConversationExportAccessoryView(formatPopup: NSPopUpButton) -> NSView {
-        let label = NSTextField(labelWithString: AppText.localized("文件类型：", "File type:"))
-        label.alignment = .right
-        label.translatesAutoresizingMaskIntoConstraints = false
-
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 34))
-        container.addSubview(label)
-        container.addSubview(formatPopup)
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            label.centerYAnchor.constraint(equalTo: formatPopup.centerYAnchor),
-            label.widthAnchor.constraint(equalToConstant: 92),
-            formatPopup.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 8),
-            formatPopup.topAnchor.constraint(equalTo: container.topAnchor, constant: 4),
-            formatPopup.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            formatPopup.widthAnchor.constraint(greaterThanOrEqualToConstant: 180)
-        ])
-        return container
+    private func conversationExportFormatOptions() -> [ExportPanelSupport.FormatOption] {
+        AIConversationExportFormat.allCases.map(\.option)
     }
 
     private func urlForConversationExport(_ url: URL, format: AIConversationExportFormat) -> URL {
-        url.deletingPathExtension().appendingPathExtension(format.fileExtension)
+        ExportPanelSupport.outputURL(url, matching: format.option)
     }
 }

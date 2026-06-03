@@ -121,6 +121,9 @@ extension ReaderWindowController {
                 button.contentTintColor = theme.secondaryTextColor
             }
         }
+        if let imageView = view as? NSImageView {
+            imageView.contentTintColor = theme.secondaryTextColor
+        }
         if view !== aiPanel, view !== searchOverlay {
             for subview in view.subviews {
                 applyChromeTheme(to: subview, theme: theme)
