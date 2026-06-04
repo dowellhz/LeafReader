@@ -18,6 +18,23 @@ enum VocabularyTextPolicy {
         collapsedWhitespace(joinLineBrokenHyphens(text))
     }
 
+    static func normalizedPDFVocabularyText(
+        _ text: String,
+        isKnownWord: (String) -> Bool = { _ in false }
+    ) -> String {
+        guard containsLineBrokenHyphen(text) else {
+            return normalizedVocabularyText(text)
+        }
+        let candidates = lineBrokenHyphenNormalizationCandidates(for: text)
+        let dehyphenated = candidates.dehyphenated
+        let hyphenated = candidates.hyphenated
+        if isSingleEnglishWord(dehyphenated),
+           (isKnownWord(dehyphenated) || shouldPreferDehyphenatedLineBreak(original: text, dehyphenated: dehyphenated)) {
+            return dehyphenated
+        }
+        return hyphenated
+    }
+
     static func isSingleEnglishWord(_ text: String) -> Bool {
         let value = normalizedVocabularyText(text)
         guard value.count <= maxSingleWordLength else { return false }
@@ -79,6 +96,21 @@ enum VocabularyTextPolicy {
         return results
     }
 
+    static func lineBrokenDehyphenatedSearchPattern(for query: String) -> String? {
+        let value = normalized(query)
+        guard isSingleEnglishWord(value), !value.contains("-"), value.count >= 4 else {
+            return nil
+        }
+        let characters = Array(value)
+        let variants = (1..<characters.count).map { index in
+            NSRegularExpression.escapedPattern(for: String(characters[..<index]))
+                + #"[‐‑‒–—-]\s*"#
+                + NSRegularExpression.escapedPattern(for: String(characters[index...]))
+        }
+        guard !variants.isEmpty else { return nil }
+        return #"(?i)"# + wordBoundaryBefore + "(?:" + variants.joined(separator: "|") + ")" + wordBoundaryAfter
+    }
+
     static func emphasisPattern(for word: String) -> String {
         let value = normalized(word)
         let escaped = NSRegularExpression.escapedPattern(for: value)
@@ -92,10 +124,37 @@ enum VocabularyTextPolicy {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private static func containsLineBrokenHyphen(_ value: String) -> Bool {
+        value.range(of: #"[‐‑‒–—-]\s+"#, options: .regularExpression) != nil
+    }
+
+    private static func lineBrokenHyphenNormalizationCandidates(for value: String) -> (hyphenated: String, dehyphenated: String) {
+        (
+            hyphenated: collapsedWhitespace(joinLineBrokenHyphens(value)),
+            dehyphenated: collapsedWhitespace(removeLineBrokenHyphens(value))
+        )
+    }
+
     private static func joinLineBrokenHyphens(_ value: String) -> String {
         value
             .replacingOccurrences(of: #"[‐‑‒–—-]\s+"#, with: "-", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func removeLineBrokenHyphens(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: #"[‐‑‒–—-]\s+"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func shouldPreferDehyphenatedLineBreak(original: String, dehyphenated: String) -> Bool {
+        guard isSingleEnglishWord(dehyphenated),
+              let match = original.range(of: #"(?i)[A-Za-z]+[‐‑‒–—-]\s+[A-Za-z]+"#, options: .regularExpression) else {
+            return false
+        }
+        let prefix = String(original[match])
+            .replacingOccurrences(of: #"[‐‑‒–—-]\s+.*$"#, with: "", options: .regularExpression)
+        return prefix.count <= 3
     }
 
     private static func lineBreakHyphenVariants(for value: String) -> [String] {

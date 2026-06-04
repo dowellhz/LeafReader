@@ -3,7 +3,7 @@ import PDFKit
 
 extension ReaderWindowController {
     func vocabularyTextForCurrentPDFSelection(selection: PDFSelection?, fallback: String) -> String {
-        let normalizedFallback = VocabularyTextPolicy.normalizedVocabularyText(fallback)
+        let normalizedFallback = normalizedPDFVocabularyText(fallback)
         if VocabularyTextPolicy.speakableWord(normalizedFallback) != nil {
             return normalizedFallback
         }
@@ -63,9 +63,22 @@ extension ReaderWindowController {
 
     func pdfTextRanges(matching query: String, in pageText: String) -> [NSRange] {
         let nsText = pageText as NSString
-        guard let pattern = VocabularyTextPolicy.boundedSearchPattern(for: query) else { return [] }
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
-        return regex.matches(in: pageText, range: NSRange(location: 0, length: nsText.length)).map(\.range)
+        let patterns = [
+            VocabularyTextPolicy.boundedSearchPattern(for: query),
+            VocabularyTextPolicy.lineBrokenDehyphenatedSearchPattern(for: query)
+        ].compactMap { $0 }
+        guard !patterns.isEmpty else { return [] }
+
+        var ranges: [NSRange] = []
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            for match in regex.matches(in: pageText, range: NSRange(location: 0, length: nsText.length)) {
+                if !ranges.contains(where: { NSEqualRanges($0, match.range) }) {
+                    ranges.append(match.range)
+                }
+            }
+        }
+        return ranges
     }
 
     private func lineBrokenHyphenWordNearSelection(
@@ -105,7 +118,7 @@ extension ReaderWindowController {
                 intersectionInset: CGSize(width: 10, height: 8)
             )
             if score < bestScore {
-                let value = VocabularyTextPolicy.normalizedVocabularyText(nsText.substring(with: match.range))
+                let value = normalizedPDFVocabularyText(nsText.substring(with: match.range))
                 if VocabularyTextPolicy.speakableWord(value) != nil {
                     bestScore = score
                     bestText = value
@@ -114,6 +127,13 @@ extension ReaderWindowController {
         }
 
         return bestText
+    }
+
+    private func normalizedPDFVocabularyText(_ text: String) -> String {
+        VocabularyTextPolicy.normalizedPDFVocabularyText(text) { candidate in
+            let metadata = VocabularyDictionaryMetadataService.metadata(for: candidate)
+            return metadata.frequency != nil || metadata.tags != nil
+        }
     }
 
     private func tightSelectionBounds(_ selection: PDFSelection, page: PDFPage, originalBounds: CGRect) -> CGRect {

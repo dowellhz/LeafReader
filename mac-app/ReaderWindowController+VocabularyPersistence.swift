@@ -20,6 +20,7 @@ extension ReaderWindowController {
         guard bounds.width > 0, bounds.height > 0 else { return nil }
 
         let pageIndex = document.index(for: page)
+        recordPersonalVocabularyQuery(word)
         if let existing = pdfWordRecordStore?.existingRecord(in: storedWordRecords, pageIndex: pageIndex, bounds: bounds) {
             clearPDFSelectionState()
             pdfView.clearSelection()
@@ -73,6 +74,7 @@ extension ReaderWindowController {
             return nil
         }
         let word = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        recordPersonalVocabularyQuery(word)
         let context = sanitizedVocabularyContext(precomputedContext ?? currentWebSelectionContext)
         if let pending = existingPendingWebWordRecord(
             word: word,

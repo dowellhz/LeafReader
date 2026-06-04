@@ -116,6 +116,16 @@ extension ReaderWindowController {
         set { documentState.lastPageIndex = newValue }
     }
 
+    var lastPersonalVocabularyPDFPageIndex: Int? {
+        get { documentState.lastPersonalVocabularyPDFPageIndex }
+        set { documentState.lastPersonalVocabularyPDFPageIndex = newValue }
+    }
+
+    var lastPersonalVocabularyWebProgressBucket: Int? {
+        get { documentState.lastPersonalVocabularyWebProgressBucket }
+        set { documentState.lastPersonalVocabularyWebProgressBucket = newValue }
+    }
+
     var isRestoringSession: Bool {
         get { documentState.isRestoringSession }
         set { documentState.isRestoringSession = newValue }

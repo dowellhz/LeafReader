@@ -91,6 +91,23 @@ enum VocabularyLogicTests {
         try expect(VocabularyTextPolicy.isSingleEnglishWord("reader’s"), "curly apostrophes should be accepted in vocabulary words")
         try expect(!VocabularyTextPolicy.isSingleEnglishWord("Nine-"), "trailing hyphen should not be saved as a complete word")
         try expectEqual(VocabularyTextPolicy.speakableWord("Nine-\ntenths"), "Nine-tenths", "PDF line-broken hyphenated words should be saved as one word")
+        try expectEqual(VocabularyTextPolicy.normalizedPDFVocabularyText("con-\ntemptuous"), "contemptuous", "PDF line-broken plain words should drop the layout hyphen")
+        try expectEqual(VocabularyTextPolicy.normalizedPDFVocabularyText("Nine-\ntenths"), "Nine-tenths", "PDF line-broken true hyphenated words should keep the hyphen")
+        try expectEqual(
+            VocabularyTextPolicy.normalizedPDFVocabularyText("fam-\niliar") { $0 == "familiar" },
+            "familiar",
+            "dictionary-backed PDF normalization should prefer known dehyphenated words"
+        )
+        guard let dehyphenatedPattern = VocabularyTextPolicy.lineBrokenDehyphenatedSearchPattern(for: "wavered") else {
+            throw TestFailure(description: "dehyphenated PDF search pattern should be built")
+        }
+        let dehyphenatedRegex = try NSRegularExpression(pattern: dehyphenatedPattern)
+        let splitWordSample = "The cat wa-\nvered across the moonlight."
+        try expectEqual(
+            dehyphenatedRegex.matches(in: splitWordSample, range: NSRange(location: 0, length: (splitWordSample as NSString).length)).count,
+            1,
+            "dehyphenated PDF search should match layout-split words"
+        )
         try expect(!VocabularyTextPolicy.isSingleEnglishWord("two words"), "phrases should not count as a single word")
         try expectEqual(VocabularyTextPolicy.speakableWord(" high-pitched "), "high-pitched", "speakable words should be trimmed")
 
@@ -124,6 +141,94 @@ enum VocabularyLogicTests {
         let emphasisPattern = VocabularyTextPolicy.emphasisPattern(for: "high-pitched")
         let emphasisRegex = try NSRegularExpression(pattern: emphasisPattern, options: [.caseInsensitive])
         try expectEqual(emphasisRegex.matches(in: sample, range: sampleRange).count, 1, "emphasis should use the same word boundary rule")
+    }
+
+    static func testPersonalVocabularyTokenizerAndPolicy() throws {
+        let counts = PersonalVocabularyTokenizer.lemmaCounts(in: """
+        The Reader’s dogs, and high-pitched dogs, Nine-tenths.
+        FREE eBOOKS AT PLANET eBOOK.COM
+        21
+        ashes—a gigantic—their wa-
+        vered con-
+        temptuous ing
+        """)
+        try expect(counts["the"] == nil, "tokenizer should skip common function words")
+        try expect(counts["and"] == nil, "tokenizer should skip conjunction stop words")
+        try expect(counts["free"] == nil, "tokenizer should skip Planet eBook footer lines")
+        try expect(counts["planet"] == nil, "tokenizer should skip Project Gutenberg footer text")
+        try expect(counts["com"] == nil, "tokenizer should skip URL suffix fragments")
+        try expect(counts["ing"] == nil, "tokenizer should skip suffix fragments")
+        try expectEqual(counts["reader"], 1, "tokenizer should normalize possessives")
+        try expectEqual(counts["dogs"], 2, "tokenizer should aggregate repeated words")
+        try expectEqual(counts["high-pitched"], 1, "tokenizer should keep internal hyphenated words")
+        try expectEqual(counts["nine-tenths"], 1, "tokenizer should keep fraction-like hyphenated words")
+        try expectEqual(counts["ashes"], 1, "tokenizer should not join words across em dashes")
+        try expectEqual(counts["gigantic"], 1, "tokenizer should split em dash compounds")
+        try expectEqual(counts["wavered"], 1, "tokenizer should join short-prefix PDF layout hyphenation")
+        try expectEqual(counts["contemptuous"], 1, "tokenizer should join common PDF layout hyphenation")
+        try expect(counts["wa"] == nil, "tokenizer should not keep layout-hyphen prefixes")
+        try expect(counts["vered"] == nil, "tokenizer should not keep layout-hyphen suffixes")
+        try expect(!PersonalVocabularyTokenizer.isStoredLemmaTrackable("the"), "stored stop words should be treated as cleanup noise")
+        try expect(!PersonalVocabularyTokenizer.isStoredLemmaTrackable("ebook"), "stored footer fragments should be treated as cleanup noise")
+        try expect(PersonalVocabularyTokenizer.isStoredLemmaTrackable("gravity"), "valid stored lemmas should remain trackable")
+
+        let knownByRepeatedExposure = PersonalVocabularyProfilePolicy.status(
+            seenCount: 4,
+            unqueriedSeenCount: 4,
+            postQueryUnqueriedSeenCount: 0,
+            queriedCount: 0,
+            reviewCorrectCount: 0,
+            reviewWrongCount: 0,
+            documentsSeen: 1
+        )
+        try expectEqual(knownByRepeatedExposure, .known, "repeated unqueried exposure should become known")
+
+        let likelyKnown = PersonalVocabularyProfilePolicy.status(
+            seenCount: 3,
+            unqueriedSeenCount: 3,
+            postQueryUnqueriedSeenCount: 0,
+            queriedCount: 0,
+            reviewCorrectCount: 0,
+            reviewWrongCount: 0,
+            documentsSeen: 3
+        )
+        try expectEqual(likelyKnown, .likelyKnown, "low-count multi-document unqueried exposure should become likely known")
+
+        let learning = PersonalVocabularyProfilePolicy.status(
+            seenCount: 30,
+            unqueriedSeenCount: 30,
+            postQueryUnqueriedSeenCount: 0,
+            queriedCount: 1,
+            reviewCorrectCount: 0,
+            reviewWrongCount: 0,
+            documentsSeen: 3
+        )
+        try expectEqual(learning, .learning, "queried words should be treated as learning")
+
+        let recoveredKnown = PersonalVocabularyProfilePolicy.status(
+            seenCount: 34,
+            unqueriedSeenCount: 34,
+            postQueryUnqueriedSeenCount: 4,
+            queriedCount: 1,
+            reviewCorrectCount: 0,
+            reviewWrongCount: 0,
+            documentsSeen: 1
+        )
+        try expectEqual(recoveredKnown, .known, "queried words should recover to known after repeated unqueried reading")
+
+        let observed = PersonalVocabularyProfilePolicy.status(
+            seenCount: 1,
+            unqueriedSeenCount: 1,
+            postQueryUnqueriedSeenCount: 0,
+            queriedCount: 0,
+            reviewCorrectCount: 0,
+            reviewWrongCount: 0,
+            documentsSeen: 1
+        )
+        try expectEqual(observed, .observed, "low-signal seen words should be observed")
+
+        try expectEqual(PersonalVocabularyExposurePolicy.webProgressBucket(0.123), 24, "web progress bucket should be stable")
+        try expectEqual(PersonalVocabularyExposurePolicy.webProgressBucket(2), 200, "web progress bucket should clamp high")
     }
 
     static func testVocabularyExporter() throws {

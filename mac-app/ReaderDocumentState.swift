@@ -24,5 +24,7 @@ struct ReaderDocumentState {
     var originalPDFCropBoxes: [Int: CGRect] = [:]
     var lastWebProgressSave = Date.distantPast
     var lastPageIndex: Int?
+    var lastPersonalVocabularyPDFPageIndex: Int?
+    var lastPersonalVocabularyWebProgressBucket: Int?
     var isRestoringSession = false
 }

@@ -124,6 +124,12 @@ SQLITE_WORD_TEST_SOURCES=(
   mac-app/WordRecordSQLiteStore.swift
 )
 
+PERSONAL_VOCABULARY_TEST_SOURCES=(
+  tests/PersonalVocabularyProfileStoreTests.swift
+  mac-app/PersonalVocabularyProfile.swift
+  mac-app/PersonalVocabularyProfileStore.swift
+)
+
 REGRESSION_TEST_SOURCES=(
   mac-app/ProcessRunner.swift
   mac-app/AIRequestState.swift
@@ -158,6 +164,10 @@ collect_logic_app_sources
 run_swift_test /tmp/leafreader-sqlite-word-tests \
   "${SQLITE_WORD_TEST_SOURCES[@]}" \
   -framework Cocoa \
+  -lsqlite3
+
+run_swift_test /tmp/leafreader-personal-vocabulary-tests \
+  "${PERSONAL_VOCABULARY_TEST_SOURCES[@]}" \
   -lsqlite3
 
 run_swift_test /tmp/leafreader-pdf-embedding-store-tests \

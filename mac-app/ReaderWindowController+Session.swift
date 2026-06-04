@@ -284,6 +284,7 @@ extension ReaderWindowController {
         guard let url = currentFileURL else { return }
         guard currentDocumentKind == .pdf else {
             saveWebProgress()
+            recordPersonalVocabularyExposureForCurrentPosition()
             RecentDocumentsStore.updateProgress(url: url, kind: currentDocumentKind, progress: webScrollProgress)
             return
         }
@@ -301,6 +302,7 @@ extension ReaderWindowController {
         }
         sessionStore.savePDFProgress(pageIndex: pageIndex, scale: pdfView.scaleFactor, anchorPoint: anchor?.point)
         sessionStore.saveFarthestPDFProgress(pageIndex: pageIndex, scale: pdfView.scaleFactor, anchorPoint: anchor?.point)
+        recordPersonalVocabularyExposureForCurrentPosition()
         let pageCount = max(1, pdfView.document?.pageCount ?? 1)
         RecentDocumentsStore.updateProgress(
             url: url,

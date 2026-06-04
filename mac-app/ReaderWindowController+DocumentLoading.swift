@@ -152,6 +152,8 @@ extension ReaderWindowController {
         pendingWebWordRecords.removeAll()
         storedReadingNotes.removeAll()
         readingNotePanelControllers.removeAll()
+        lastPersonalVocabularyPDFPageIndex = nil
+        lastPersonalVocabularyWebProgressBucket = nil
         cancelScheduledEmbeddingWarmup()
         accumulatedPDFTrackpadScroll = 0
         didTurnPageForCurrentPDFTrackpadGesture = false
