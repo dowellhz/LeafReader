@@ -78,6 +78,10 @@ extension AISettingsPanelController {
         )
         speedPopup.target = self
         speedPopup.action = #selector(speechSpeedChanged(_:))
+        for fieldLabel in [runtimeLabel, voiceLabel, speedLabel] {
+            fieldLabel.setContentHuggingPriority(.required, for: .vertical)
+            fieldLabel.setContentCompressionResistancePriority(.required, for: .vertical)
+        }
 
         let kokoroCard = settingsSpeechRowCard()
         let kittenCard = settingsSpeechRowCard()
@@ -285,10 +289,12 @@ extension AISettingsPanelController {
         let runtimeProgressWidth: CGFloat = 120
         let downloadButtonWidth: CGFloat = 112
         let actionButtonWidth: CGFloat = 68
+        let fieldLabelHeight: CGFloat = 22
         return [
             section.runtimeLabel.topAnchor.constraint(equalTo: page.topAnchor, constant: 4),
             section.runtimeLabel.leadingAnchor.constraint(equalTo: page.leadingAnchor),
             section.runtimeLabel.trailingAnchor.constraint(lessThanOrEqualTo: page.trailingAnchor),
+            section.runtimeLabel.heightAnchor.constraint(equalToConstant: fieldLabelHeight),
             section.runtimePopup.topAnchor.constraint(equalTo: section.runtimeLabel.bottomAnchor, constant: 8),
             section.runtimePopup.leadingAnchor.constraint(equalTo: page.leadingAnchor),
             section.runtimePopup.trailingAnchor.constraint(equalTo: page.trailingAnchor),
@@ -296,6 +302,7 @@ extension AISettingsPanelController {
             section.voiceLabel.topAnchor.constraint(equalTo: section.runtimePopup.bottomAnchor, constant: 14),
             section.voiceLabel.leadingAnchor.constraint(equalTo: page.leadingAnchor),
             section.voiceLabel.trailingAnchor.constraint(lessThanOrEqualTo: page.trailingAnchor),
+            section.voiceLabel.heightAnchor.constraint(equalToConstant: fieldLabelHeight),
             section.voicePopup.topAnchor.constraint(equalTo: section.voiceLabel.bottomAnchor, constant: 8),
             section.voicePopup.leadingAnchor.constraint(equalTo: page.leadingAnchor),
             section.voicePopup.trailingAnchor.constraint(equalTo: page.trailingAnchor),
@@ -303,6 +310,7 @@ extension AISettingsPanelController {
             section.speedLabel.topAnchor.constraint(equalTo: section.voicePopup.bottomAnchor, constant: 14),
             section.speedLabel.leadingAnchor.constraint(equalTo: page.leadingAnchor),
             section.speedLabel.trailingAnchor.constraint(lessThanOrEqualTo: page.trailingAnchor),
+            section.speedLabel.heightAnchor.constraint(equalToConstant: fieldLabelHeight),
             section.speedPopup.topAnchor.constraint(equalTo: section.speedLabel.bottomAnchor, constant: 8),
             section.speedPopup.leadingAnchor.constraint(equalTo: page.leadingAnchor),
             section.speedPopup.trailingAnchor.constraint(equalTo: page.trailingAnchor),
