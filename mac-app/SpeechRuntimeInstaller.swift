@@ -100,6 +100,9 @@ extension SpeechRuntimeResourceManager {
             let voiceDirectory = directory.appendingPathComponent("Voices", isDirectory: true)
             isValid = (requiredPathsExist(runtime.requiredPaths(in: directory)) || bundledRuntimePathsExist(for: runtime))
                 && piperAnyVoicePathsExist(in: voiceDirectory)
+        case .supertonic:
+            isValid = SpeechRuntimePathChecks.supertonicRuntimePathsExist(in: directory)
+                && SupertonicMLXTTSBackend.modelPathsExist(in: runtime.modelDirectory(in: directory))
         }
         guard isValid else {
             throw NSError(

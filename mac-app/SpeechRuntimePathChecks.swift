@@ -28,6 +28,13 @@ enum SpeechRuntimePathChecks {
             && directoryExists(eSpeakDataDirectory)
     }
 
+    static func supertonicRuntimePathsExist(in directory: URL) -> Bool {
+        let scriptURL = Runtime.supertonic.executableURL(in: directory)
+        let packageURL = directory.appendingPathComponent("supertonic_mlx", isDirectory: true)
+        return FileManager.default.fileExists(atPath: scriptURL.path)
+            && directoryExists(packageURL)
+    }
+
     static func piperVoicePathsExist(voiceID: String = SpeechVoiceCatalog.defaultPiperVoiceID) -> Bool {
         piperVoicePathsExist(in: Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory), voiceID: voiceID)
     }

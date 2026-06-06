@@ -5,6 +5,7 @@ extension SpeechPlaybackCoordinator {
         case kokoroCoreML
         case kitten
         case piper
+        case supertonic
         case none
 
         init(runtime: SpeechRuntimeResourceManager.Runtime) {
@@ -15,6 +16,8 @@ extension SpeechPlaybackCoordinator {
                 self = .kitten
             case .piper:
                 self = .piper
+            case .supertonic:
+                self = .supertonic
             }
         }
 
@@ -26,6 +29,8 @@ extension SpeechPlaybackCoordinator {
                 return .kitten
             case .piper:
                 return .piper
+            case .supertonic:
+                return .supertonic
             case .none:
                 return nil
             }
@@ -50,6 +55,8 @@ extension SpeechPlaybackCoordinator {
             return .kitten
         case "piper", "piper-tts":
             return .piper
+        case "supertonic", "supertonic-mlx":
+            return .supertonic
         case "kokoro", "kokoro-coreml", "coreml":
             return .kokoroCoreML
         default:
@@ -60,6 +67,8 @@ extension SpeechPlaybackCoordinator {
                 return .piper
             case .kokoro:
                 return .kokoroCoreML
+            case .supertonic:
+                return .supertonic
             case .none:
                 return .none
             }

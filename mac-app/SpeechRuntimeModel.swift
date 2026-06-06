@@ -7,13 +7,14 @@ extension SpeechRuntimeResourceManager {
         case kokoro
         case kitten
         case piper
+        case supertonic
 
         private static let releaseDownloadsBaseURL = "https://github.com/dowellhz/LeafReader/releases"
         // Speech model archives are versioned independently from app releases. Only move
         // this tag when publishing new model assets with scripts/publish_release.sh --with-speech-models.
         static let runtimeAssetsReleaseTag = "v1.5.10"
 
-        static let displayOrder: [Runtime] = [.kitten, .piper, .kokoro]
+        static let displayOrder: [Runtime] = [.kitten, .piper, .supertonic, .kokoro]
 
         var id: String {
             switch self {
@@ -23,6 +24,8 @@ extension SpeechRuntimeResourceManager {
                 return "kitten"
             case .piper:
                 return "piper"
+            case .supertonic:
+                return "supertonic"
             }
         }
 
@@ -34,6 +37,8 @@ extension SpeechRuntimeResourceManager {
                 return "KittenTTS"
             case .piper:
                 return "Piper"
+            case .supertonic:
+                return "Supertonic"
             }
         }
 
@@ -45,6 +50,8 @@ extension SpeechRuntimeResourceManager {
                 return "74 MB"
             case .piper:
                 return "约 112 MB"
+            case .supertonic:
+                return AppText.localized("手动安装", "Manual install")
             }
         }
 
@@ -56,6 +63,8 @@ extension SpeechRuntimeResourceManager {
                 return AppText.localized("模型小，只有英文", "Small model, English only")
             case .piper:
                 return AppText.localized("模型中等，英语质量好", "Medium model, good English quality")
+            case .supertonic:
+                return AppText.localized("Supertonic 3 MLX，多语言本地朗读", "Supertonic 3 MLX, multilingual local speech")
             }
         }
 
@@ -67,6 +76,8 @@ extension SpeechRuntimeResourceManager {
                 return OperatingSystemVersion(majorVersion: 12, minorVersion: 0, patchVersion: 0)
             case .piper:
                 return OperatingSystemVersion(majorVersion: 12, minorVersion: 0, patchVersion: 0)
+            case .supertonic:
+                return OperatingSystemVersion(majorVersion: 14, minorVersion: 0, patchVersion: 0)
             }
         }
 
@@ -78,6 +89,8 @@ extension SpeechRuntimeResourceManager {
                 return "macOS 12.0"
             case .piper:
                 return "macOS 12.0"
+            case .supertonic:
+                return "macOS 14.0"
             }
         }
 
@@ -117,6 +130,8 @@ extension SpeechRuntimeResourceManager {
                 return Self.releaseAssetURL(fileName: "kitten-tts-rs-macos-arm64.tar.gz")
             case .piper:
                 return Self.releaseAssetURL(fileName: "piper-tts-macos-arm64.tar.gz")
+            case .supertonic:
+                return URL(string: "https://github.com/ailuntx/supertonic-mlx/archive/refs/heads/main.tar.gz")!
             }
         }
 
@@ -170,6 +185,8 @@ extension SpeechRuntimeResourceManager {
                 return directory.appendingPathComponent(kittenModelDirectoryName, isDirectory: true)
             case .piper:
                 return Self.piperVoiceCacheRoot
+            case .supertonic:
+                return directory.appendingPathComponent("supertonic-3-mlx", isDirectory: true)
             }
         }
 
@@ -181,6 +198,8 @@ extension SpeechRuntimeResourceManager {
                 return directory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server")
             case .piper:
                 return directory.appendingPathComponent("piper/piper")
+            case .supertonic:
+                return directory.appendingPathComponent("scripts/infer_mlx.py")
             }
         }
 
@@ -199,6 +218,12 @@ extension SpeechRuntimeResourceManager {
             case .piper:
                 return [
                     executableURL(in: directory)
+                ]
+            case .supertonic:
+                return [
+                    executableURL(in: directory),
+                    directory.appendingPathComponent("supertonic_mlx", isDirectory: true),
+                    modelDirectory(in: directory)
                 ]
             }
         }
@@ -225,6 +250,8 @@ extension SpeechRuntimeResourceManager {
                 return root.appendingPathComponent("kittentts-rs-runtime", isDirectory: true)
             case .piper:
                 return root.appendingPathComponent("piper-tts-runtime", isDirectory: true)
+            case .supertonic:
+                return root.appendingPathComponent("supertonic-mlx", isDirectory: true)
             }
         }
     }

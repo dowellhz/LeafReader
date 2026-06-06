@@ -7,21 +7,27 @@ struct AISettingsSpeechSection {
     let kokoroStatusLabel: NSTextField
     let kittenStatusLabel: NSTextField
     let piperStatusLabel: NSTextField
+    let supertonicStatusLabel: NSTextField
     let kokoroProgressIndicator: NSProgressIndicator
     let kittenProgressIndicator: NSProgressIndicator
     let piperProgressIndicator: NSProgressIndicator
+    let supertonicProgressIndicator: NSProgressIndicator
     let kokoroDownloadButton: NSButton
     let kittenDownloadButton: NSButton
     let piperDownloadButton: NSButton
+    let supertonicDownloadButton: NSButton
     let kokoroPauseButton: NSButton
     let kittenPauseButton: NSButton
     let piperPauseButton: NSButton
+    let supertonicPauseButton: NSButton
     let kokoroCancelButton: NSButton
     let kittenCancelButton: NSButton
     let piperCancelButton: NSButton
+    let supertonicCancelButton: NSButton
     let kokoroDeleteButton: NSButton
     let kittenDeleteButton: NSButton
     let piperDeleteButton: NSButton
+    let supertonicDeleteButton: NSButton
     let pageViews: [NSView]
 
     fileprivate let titleLabel: NSTextField
@@ -31,9 +37,11 @@ struct AISettingsSpeechSection {
     fileprivate let kokoroCard: NSView
     fileprivate let kittenCard: NSView
     fileprivate let piperCard: NSView
+    fileprivate let supertonicCard: NSView
     fileprivate let kokoroLabel: NSTextField
     fileprivate let kittenLabel: NSTextField
     fileprivate let piperLabel: NSTextField
+    fileprivate let supertonicLabel: NSTextField
 }
 
 extension AISettingsPanelController {
@@ -76,6 +84,7 @@ extension AISettingsPanelController {
         let kokoroCard = settingsSpeechRowCard()
         let kittenCard = settingsSpeechRowCard()
         let piperCard = settingsSpeechRowCard()
+        let supertonicCard = settingsSpeechRowCard()
         let kokoroLabel = label("Kokoro", size: settingsFontSize, weight: .semibold, color: primaryText)
         let kokoroStatusLabel = label(SpeechRuntimeResourceManager.statusText(for: .kokoro), size: settingsFontSize, color: secondaryText)
         let kokoroProgressIndicator = speechDownloadProgressIndicator()
@@ -148,6 +157,30 @@ extension AISettingsPanelController {
             action: #selector(deletePiperSpeechRuntime(_:))
         )
 
+        let supertonicLabel = label("Supertonic", size: settingsFontSize, weight: .semibold, color: primaryText)
+        let supertonicStatusLabel = label(SpeechRuntimeResourceManager.statusText(for: .supertonic), size: settingsFontSize, color: secondaryText)
+        let supertonicProgressIndicator = speechDownloadProgressIndicator()
+        let supertonicDownloadButton = settingsActionButton(
+            title: AppText.localized("下载 Supertonic", "Download Supertonic"),
+            target: self,
+            action: #selector(downloadSupertonicSpeechRuntime(_:))
+        )
+        let supertonicPauseButton = settingsActionButton(
+            title: AppText.localized("暂停", "Pause"),
+            target: self,
+            action: #selector(pauseSupertonicSpeechRuntimeDownload(_:))
+        )
+        let supertonicCancelButton = settingsActionButton(
+            title: AppText.localized("取消", "Cancel"),
+            target: self,
+            action: #selector(cancelSupertonicSpeechRuntimeDownload(_:))
+        )
+        let supertonicDeleteButton = settingsActionButton(
+            title: AppText.localized("删除", "Delete"),
+            target: self,
+            action: #selector(deleteSupertonicSpeechRuntime(_:))
+        )
+
         configureSpeechRuntimeRowState(
             runtime: .kokoro,
             progressIndicator: kokoroProgressIndicator,
@@ -172,16 +205,26 @@ extension AISettingsPanelController {
             cancelButton: piperCancelButton,
             deleteButton: piperDeleteButton
         )
+        configureSpeechRuntimeRowState(
+            runtime: .supertonic,
+            progressIndicator: supertonicProgressIndicator,
+            downloadButton: supertonicDownloadButton,
+            pauseButton: supertonicPauseButton,
+            cancelButton: supertonicCancelButton,
+            deleteButton: supertonicDeleteButton
+        )
 
         let pageViews: [NSView] = [
             titleLabel, runtimeLabel, runtimePopup, voiceLabel, voicePopup, speedLabel, speedPopup,
-            kokoroCard, kittenCard, piperCard,
+            kokoroCard, kittenCard, piperCard, supertonicCard,
             kokoroLabel, kokoroStatusLabel, kokoroProgressIndicator,
             kokoroDownloadButton, kokoroPauseButton, kokoroCancelButton, kokoroDeleteButton,
             kittenLabel, kittenStatusLabel, kittenProgressIndicator,
             kittenDownloadButton, kittenPauseButton, kittenCancelButton, kittenDeleteButton,
             piperLabel, piperStatusLabel, piperProgressIndicator,
-            piperDownloadButton, piperPauseButton, piperCancelButton, piperDeleteButton
+            piperDownloadButton, piperPauseButton, piperCancelButton, piperDeleteButton,
+            supertonicLabel, supertonicStatusLabel, supertonicProgressIndicator,
+            supertonicDownloadButton, supertonicPauseButton, supertonicCancelButton, supertonicDeleteButton
         ]
 
         return AISettingsSpeechSection(
@@ -191,21 +234,27 @@ extension AISettingsPanelController {
             kokoroStatusLabel: kokoroStatusLabel,
             kittenStatusLabel: kittenStatusLabel,
             piperStatusLabel: piperStatusLabel,
+            supertonicStatusLabel: supertonicStatusLabel,
             kokoroProgressIndicator: kokoroProgressIndicator,
             kittenProgressIndicator: kittenProgressIndicator,
             piperProgressIndicator: piperProgressIndicator,
+            supertonicProgressIndicator: supertonicProgressIndicator,
             kokoroDownloadButton: kokoroDownloadButton,
             kittenDownloadButton: kittenDownloadButton,
             piperDownloadButton: piperDownloadButton,
+            supertonicDownloadButton: supertonicDownloadButton,
             kokoroPauseButton: kokoroPauseButton,
             kittenPauseButton: kittenPauseButton,
             piperPauseButton: piperPauseButton,
+            supertonicPauseButton: supertonicPauseButton,
             kokoroCancelButton: kokoroCancelButton,
             kittenCancelButton: kittenCancelButton,
             piperCancelButton: piperCancelButton,
+            supertonicCancelButton: supertonicCancelButton,
             kokoroDeleteButton: kokoroDeleteButton,
             kittenDeleteButton: kittenDeleteButton,
             piperDeleteButton: piperDeleteButton,
+            supertonicDeleteButton: supertonicDeleteButton,
             pageViews: pageViews,
             titleLabel: titleLabel,
             runtimeLabel: runtimeLabel,
@@ -214,9 +263,11 @@ extension AISettingsPanelController {
             kokoroCard: kokoroCard,
             kittenCard: kittenCard,
             piperCard: piperCard,
+            supertonicCard: supertonicCard,
             kokoroLabel: kokoroLabel,
             kittenLabel: kittenLabel,
-            piperLabel: piperLabel
+            piperLabel: piperLabel,
+            supertonicLabel: supertonicLabel
         )
     }
 
@@ -271,7 +322,11 @@ extension AISettingsPanelController {
             section.piperCard.leadingAnchor.constraint(equalTo: section.kittenCard.leadingAnchor),
             section.piperCard.trailingAnchor.constraint(equalTo: section.kittenCard.trailingAnchor),
             section.piperCard.heightAnchor.constraint(equalToConstant: rowHeight),
-            section.kokoroCard.topAnchor.constraint(equalTo: section.piperCard.bottomAnchor, constant: rowGap),
+            section.supertonicCard.topAnchor.constraint(equalTo: section.piperCard.bottomAnchor, constant: rowGap),
+            section.supertonicCard.leadingAnchor.constraint(equalTo: section.kittenCard.leadingAnchor),
+            section.supertonicCard.trailingAnchor.constraint(equalTo: section.kittenCard.trailingAnchor),
+            section.supertonicCard.heightAnchor.constraint(equalToConstant: rowHeight),
+            section.kokoroCard.topAnchor.constraint(equalTo: section.supertonicCard.bottomAnchor, constant: rowGap),
             section.kokoroCard.leadingAnchor.constraint(equalTo: section.kittenCard.leadingAnchor),
             section.kokoroCard.trailingAnchor.constraint(equalTo: section.kittenCard.trailingAnchor),
             section.kokoroCard.heightAnchor.constraint(equalToConstant: rowHeight),
@@ -362,6 +417,35 @@ extension AISettingsPanelController {
             section.piperDeleteButton.trailingAnchor.constraint(equalTo: section.piperCard.trailingAnchor, constant: -rowInset),
             section.piperDeleteButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
             section.piperDeleteButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
+
+            section.supertonicLabel.centerYAnchor.constraint(equalTo: section.supertonicCard.centerYAnchor),
+            section.supertonicLabel.leadingAnchor.constraint(equalTo: section.kokoroLabel.leadingAnchor),
+            section.supertonicLabel.widthAnchor.constraint(equalToConstant: runtimeNameWidth),
+            section.supertonicStatusLabel.centerYAnchor.constraint(equalTo: section.supertonicLabel.centerYAnchor),
+            section.supertonicStatusLabel.leadingAnchor.constraint(equalTo: section.supertonicLabel.trailingAnchor, constant: 12),
+            section.supertonicStatusLabel.widthAnchor.constraint(equalToConstant: runtimeStatusWidth),
+            section.supertonicProgressIndicator.centerYAnchor.constraint(equalTo: section.supertonicLabel.centerYAnchor),
+            section.supertonicProgressIndicator.leadingAnchor.constraint(equalTo: section.supertonicStatusLabel.trailingAnchor, constant: runtimeProgressGap),
+            section.supertonicProgressIndicator.widthAnchor.constraint(lessThanOrEqualToConstant: runtimeProgressWidth),
+            section.supertonicProgressIndicator.widthAnchor.constraint(greaterThanOrEqualToConstant: 48),
+            section.supertonicProgressIndicator.trailingAnchor.constraint(lessThanOrEqualTo: section.supertonicPauseButton.leadingAnchor, constant: -8),
+            section.supertonicProgressIndicator.heightAnchor.constraint(equalToConstant: 8),
+            section.supertonicDownloadButton.centerYAnchor.constraint(equalTo: section.supertonicLabel.centerYAnchor),
+            section.supertonicDownloadButton.trailingAnchor.constraint(equalTo: section.supertonicCard.trailingAnchor, constant: -rowInset),
+            section.supertonicDownloadButton.widthAnchor.constraint(equalToConstant: downloadButtonWidth),
+            section.supertonicDownloadButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
+            section.supertonicPauseButton.centerYAnchor.constraint(equalTo: section.supertonicLabel.centerYAnchor),
+            section.supertonicPauseButton.trailingAnchor.constraint(equalTo: section.supertonicCancelButton.leadingAnchor, constant: -8),
+            section.supertonicPauseButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
+            section.supertonicPauseButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
+            section.supertonicCancelButton.centerYAnchor.constraint(equalTo: section.supertonicLabel.centerYAnchor),
+            section.supertonicCancelButton.trailingAnchor.constraint(equalTo: section.supertonicCard.trailingAnchor, constant: -rowInset),
+            section.supertonicCancelButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
+            section.supertonicCancelButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
+            section.supertonicDeleteButton.centerYAnchor.constraint(equalTo: section.supertonicLabel.centerYAnchor),
+            section.supertonicDeleteButton.trailingAnchor.constraint(equalTo: section.supertonicCard.trailingAnchor, constant: -rowInset),
+            section.supertonicDeleteButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
+            section.supertonicDeleteButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
             section.kokoroCard.bottomAnchor.constraint(lessThanOrEqualTo: page.bottomAnchor, constant: -8)
         ]
     }
@@ -382,5 +466,8 @@ extension AISettingsPanelController {
         pauseButton.isHidden = !isDownloading
         cancelButton.isHidden = !isDownloading
         deleteButton.isHidden = !isDownloaded
+        if runtime == .supertonic, !isDownloaded {
+            downloadButton.isHidden = true
+        }
     }
 }

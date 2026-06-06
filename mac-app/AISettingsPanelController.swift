@@ -80,21 +80,27 @@ final class AISettingsPanelController {
     weak var kokoroSpeechStatusLabel: NSTextField?
     weak var kittenSpeechStatusLabel: NSTextField?
     weak var piperSpeechStatusLabel: NSTextField?
+    weak var supertonicSpeechStatusLabel: NSTextField?
     weak var kokoroSpeechProgressIndicator: NSProgressIndicator?
     weak var kittenSpeechProgressIndicator: NSProgressIndicator?
     weak var piperSpeechProgressIndicator: NSProgressIndicator?
+    weak var supertonicSpeechProgressIndicator: NSProgressIndicator?
     weak var kokoroSpeechDownloadButton: NSButton?
     weak var kittenSpeechDownloadButton: NSButton?
     weak var piperSpeechDownloadButton: NSButton?
+    weak var supertonicSpeechDownloadButton: NSButton?
     weak var kokoroSpeechPauseButton: NSButton?
     weak var kittenSpeechPauseButton: NSButton?
     weak var piperSpeechPauseButton: NSButton?
+    weak var supertonicSpeechPauseButton: NSButton?
     weak var kokoroSpeechCancelButton: NSButton?
     weak var kittenSpeechCancelButton: NSButton?
     weak var piperSpeechCancelButton: NSButton?
+    weak var supertonicSpeechCancelButton: NSButton?
     weak var kokoroSpeechDeleteButton: NSButton?
     weak var kittenSpeechDeleteButton: NSButton?
     weak var piperSpeechDeleteButton: NSButton?
+    weak var supertonicSpeechDeleteButton: NSButton?
     weak var cacheStatusLabel: NSTextField?
     weak var currentIndexStatusLabel: NSTextField?
     var cacheRefreshTimer: Timer?

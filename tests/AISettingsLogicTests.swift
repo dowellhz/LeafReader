@@ -247,50 +247,60 @@ enum AISettingsLogicTests {
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Jasper", "KittenTTS voice should default to Jasper")
             try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "af_heart", "Kokoro voice should default to Heart")
             try expectEqual(AISettingsStore.selectedPiperSpeechVoiceID, "en_US-lessac-high", "Piper voice should default to Lessac High")
+            try expectEqual(AISettingsStore.selectedSupertonicSpeechVoiceID, "M1", "Supertonic voice should default to M1")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "speech speed should default to normal")
             try expect(AISettingsStore.speechVoiceOptions(runtimeID: "kitten").contains { $0.id == "Jasper" }, "KittenTTS voice options should include Jasper")
             try expect(AISettingsStore.speechVoiceOptions(runtimeID: "kokoro").contains { $0.id == "af_heart" }, "Kokoro voice options should include Heart")
             try expect(AISettingsStore.speechVoiceOptions(runtimeID: "piper").contains { $0.id == "en_US-lessac-high" }, "Piper voice options should include Lessac High")
+            try expect(AISettingsStore.speechVoiceOptions(runtimeID: "supertonic").contains { $0.id == "M1" }, "Supertonic voice options should include M1")
 
-            AISettingsStore.saveSelectedSpeechRuntimeID("kitten")
+            AISettingsStore.saveSelectedSpeechRuntimeID("supertonic")
             AISettingsStore.saveKittenSpeechVoiceID("Bella")
             AISettingsStore.saveKokoroSpeechVoiceID("zf_001")
             AISettingsStore.savePiperSpeechVoiceID("en_US-lessac-high")
+            AISettingsStore.saveSupertonicSpeechVoiceID("F2")
             AISettingsStore.saveSpeechSpeedID("slow")
-            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "valid speech runtime should save")
+            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "supertonic", "valid Supertonic speech runtime should save")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Bella", "valid KittenTTS voice should save")
             try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "zf_001", "valid Kokoro voice should save")
             try expectEqual(AISettingsStore.selectedPiperSpeechVoiceID, "en_US-lessac-high", "valid Piper voice should save")
+            try expectEqual(AISettingsStore.selectedSupertonicSpeechVoiceID, "F2", "valid Supertonic voice should save")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "slow", "valid speech speed should save")
 
             AISettingsStore.saveSelectedSpeechRuntimeID("missing-runtime")
             AISettingsStore.saveKittenSpeechVoiceID("Dragon")
             AISettingsStore.saveKokoroSpeechVoiceID("Dragon")
             AISettingsStore.savePiperSpeechVoiceID("Dragon")
+            AISettingsStore.saveSupertonicSpeechVoiceID("Dragon")
             AISettingsStore.saveSpeechSpeedID("warp")
-            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "invalid speech runtime should be ignored")
+            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "supertonic", "invalid speech runtime should be ignored")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Bella", "invalid KittenTTS voice should be ignored")
             try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "zf_001", "invalid Kokoro voice should be ignored")
             try expectEqual(AISettingsStore.selectedPiperSpeechVoiceID, "en_US-lessac-high", "invalid Piper voice should be ignored")
+            try expectEqual(AISettingsStore.selectedSupertonicSpeechVoiceID, "F2", "invalid Supertonic voice should be ignored")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "slow", "invalid speech speed should be ignored")
 
             AISettingsStore.saveSpeechVoiceID("Luna", runtimeID: "kitten")
             AISettingsStore.saveSpeechVoiceID("zf_002", runtimeID: "kokoro")
             AISettingsStore.saveSpeechVoiceID("en_US-lessac-high", runtimeID: "piper")
+            AISettingsStore.saveSpeechVoiceID("M4", runtimeID: "supertonic")
             try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "kitten"), "Luna", "generic KittenTTS voice save should use the KittenTTS list")
             try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "kokoro"), "zf_002", "generic Kokoro voice save should use the Kokoro list")
             try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "piper"), "en_US-lessac-high", "generic Piper voice save should use the Piper list")
+            try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "supertonic"), "M4", "generic Supertonic voice save should use the Supertonic list")
             try expectEqual(AISettingsStore.speechVoiceTitle(for: "zf_002", runtimeID: "kokoro"), AppText.localized("中文女声 2", "Chinese Female 2"), "Kokoro preview should use the display voice title")
 
             defaults.set(" missing-runtime ", forKey: AISettingsStore.selectedSpeechRuntimeKey)
             defaults.set(" Dragon ", forKey: AISettingsStore.kittenSpeechVoiceKey)
             defaults.set(" Dragon ", forKey: AISettingsStore.kokoroSpeechVoiceKey)
             defaults.set(" Dragon ", forKey: AISettingsStore.piperSpeechVoiceKey)
+            defaults.set(" Dragon ", forKey: AISettingsStore.supertonicSpeechVoiceKey)
             defaults.set(" warp ", forKey: AISettingsStore.speechSpeedKey)
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "invalid stored speech runtime should fall back")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Jasper", "invalid stored KittenTTS voice should fall back")
             try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "af_heart", "invalid stored Kokoro voice should fall back")
             try expectEqual(AISettingsStore.selectedPiperSpeechVoiceID, "en_US-lessac-high", "invalid stored Piper voice should fall back")
+            try expectEqual(AISettingsStore.selectedSupertonicSpeechVoiceID, "M1", "invalid stored Supertonic voice should fall back")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "invalid stored speech speed should fall back")
         }
     }
@@ -489,10 +499,12 @@ enum AISettingsLogicTests {
         let kittenURL = SpeechRuntimeResourceManager.Runtime.kitten.downloadURL.absoluteString
         let kokoroURL = SpeechRuntimeResourceManager.Runtime.kokoro.downloadURL.absoluteString
         let piperURL = SpeechRuntimeResourceManager.Runtime.piper.downloadURL.absoluteString
+        let supertonicURL = SpeechRuntimeResourceManager.Runtime.supertonic.downloadURL.absoluteString
 
         try expect(kittenURL.hasSuffix("/kitten-tts-rs-macos-arm64.tar.gz"), "KittenTTS should use the release asset archive")
         try expect(kokoroURL.hasSuffix("/kokoro-coreml-macos-arm64.tar.gz"), "Kokoro should use the release asset archive")
         try expect(piperURL.hasSuffix("/piper-tts-macos-arm64.tar.gz"), "Piper should use the release asset archive")
+        try expect(supertonicURL.contains("github.com/ailuntx/supertonic-mlx"), "Supertonic should reference the upstream MLX runtime source")
         try expect(kittenURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "KittenTTS should use the stable speech runtime asset release")
         try expect(kokoroURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Kokoro should use the stable speech runtime asset release")
         try expect(piperURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Piper should use the stable speech runtime asset release")
@@ -503,7 +515,7 @@ enum AISettingsLogicTests {
 
     static func testSpeechRuntimeLocalRuntimeDescriptors() throws {
         let descriptors = SpeechRuntimeResourceManager.Runtime.localRuntimeDescriptors
-        try expectEqual(descriptors.map(\.id), ["kitten", "piper", "kokoro"], "speech runtime descriptors should preserve display order")
+        try expectEqual(descriptors.map(\.id), ["kitten", "piper", "supertonic", "kokoro"], "speech runtime descriptors should preserve display order")
 
         let piper = SpeechRuntimeResourceManager.Runtime.piper
         let descriptor = piper.localRuntimeDescriptor
@@ -521,7 +533,7 @@ enum AISettingsLogicTests {
 
     static func testSpeechRuntimeLocalRuntimeDownloadPlans() throws {
         let plans = SpeechRuntimeResourceManager.Runtime.localRuntimeDownloadPlans
-        try expectEqual(plans.map(\.descriptor.id), ["kitten", "piper", "kokoro"], "speech runtime download plans should preserve display order")
+        try expectEqual(plans.map(\.descriptor.id), ["kitten", "piper", "supertonic", "kokoro"], "speech runtime download plans should preserve display order")
 
         let piper = SpeechRuntimeResourceManager.Runtime.piper
         let plan = piper.localRuntimeDownloadPlan
@@ -535,7 +547,7 @@ enum AISettingsLogicTests {
         let registry = SpeechRuntimeResourceManager.Runtime.localRuntimeRegistry
         try expectEqual(
             registry.descriptors.map(\.id),
-            ["kitten", "piper", "kokoro"],
+            ["kitten", "piper", "supertonic", "kokoro"],
             "speech runtime registry should preserve descriptor display order"
         )
 

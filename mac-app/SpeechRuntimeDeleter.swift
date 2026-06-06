@@ -22,6 +22,8 @@ enum SpeechRuntimeDeleter {
             }
         case .kitten:
             break
+        case .supertonic:
+            break
         }
     }
 

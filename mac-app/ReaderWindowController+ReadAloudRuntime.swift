@@ -162,10 +162,10 @@ extension ReaderWindowController {
         if let preferredRuntime = SpeechRuntimeResourceManager.Runtime.runtime(for: AISettingsStore.selectedSpeechRuntimeID) {
             return missingSpeechRuntimeInformativeText(for: preferredRuntime)
         }
-        return AppText.localized(
-            "朗读需要先下载 Kokoro、KittenTTS 或 Piper 模型。",
-            "Read aloud requires downloading a Kokoro, KittenTTS, or Piper speech model first."
-        )
+            return AppText.localized(
+            "朗读需要先安装 Kokoro、KittenTTS、Piper 或 Supertonic 模型。",
+            "Read aloud requires installing a Kokoro, KittenTTS, Piper, or Supertonic speech model first."
+            )
     }
 
     private func missingSpeechRuntimeInformativeText(for runtime: SpeechRuntimeResourceManager.Runtime) -> String {
@@ -221,10 +221,29 @@ extension ReaderWindowController {
                     "The Kokoro runtime is installed, but the Kokoro speech model still needs to be downloaded."
                 )
             }
+        case .supertonic:
+            let hasRuntime = runtime.installDirectories.contains {
+                SpeechRuntimePathChecks.supertonicRuntimePathsExist(in: $0)
+            }
+            let hasModel = runtime.installDirectories.contains {
+                SupertonicMLXTTSBackend.modelPathsExist(in: runtime.modelDirectory(in: $0))
+            } || ProcessInfo.processInfo.environment["LEAFREADER_SUPERTONIC_MLX_MODEL"].map {
+                SupertonicMLXTTSBackend.modelPathsExist(in: URL(fileURLWithPath: $0))
+            } == true
+            if hasRuntime && !hasModel {
+                return AppText.localized(
+                    "Supertonic MLX 代码已安装，但还需要放置 mlx-community/supertonic-3 模型目录。",
+                    "The Supertonic MLX runtime is installed, but the mlx-community/supertonic-3 model directory is still missing."
+                )
+            }
+            return AppText.localized(
+                "Supertonic 需要手动安装 supertonic-mlx 代码和 mlx-community/supertonic-3 模型目录。",
+                "Supertonic requires manually installing the supertonic-mlx code and mlx-community/supertonic-3 model directory."
+            )
         }
         return AppText.localized(
-            "朗读需要先下载 Kokoro、KittenTTS 或 Piper 模型。",
-            "Read aloud requires downloading a Kokoro, KittenTTS, or Piper speech model first."
+            "朗读需要先安装 Kokoro、KittenTTS、Piper 或 Supertonic 模型。",
+            "Read aloud requires installing a Kokoro, KittenTTS, Piper, or Supertonic speech model first."
         )
     }
 }

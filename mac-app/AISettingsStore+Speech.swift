@@ -6,13 +6,15 @@ extension AISettingsStore {
     static let kittenSpeechVoiceKey = "kittenSpeechVoice"
     static let kokoroSpeechVoiceKey = "kokoroSpeechVoice"
     static let piperSpeechVoiceKey = "piperSpeechVoice"
+    static let supertonicSpeechVoiceKey = "supertonicSpeechVoice"
 
     private static let defaultSpeechRuntimeID = "kitten"
     private static let defaultSpeechSpeedID = "normal"
     static let defaultKittenSpeechVoiceID = SpeechVoiceCatalog.defaultKittenVoiceID
     static let defaultKokoroSpeechVoiceID = SpeechVoiceCatalog.defaultKokoroVoiceID
     static let defaultPiperSpeechVoiceID = SpeechVoiceCatalog.defaultPiperVoiceID
-    private static let validSpeechRuntimeIDs = Set(["kokoro", "kitten", "piper"])
+    static let defaultSupertonicSpeechVoiceID = SpeechVoiceCatalog.defaultSupertonicVoiceID
+    private static let validSpeechRuntimeIDs = Set(["kokoro", "kitten", "piper", "supertonic"])
     private static let validSpeechSpeedIDs = Set(["fast", "normal", "slow", "verySlow"])
     static let kokoroEnglishSpeechVoiceIDs = SpeechVoiceCatalog.kokoroEnglishVoiceIDs
     static let kokoroChineseSpeechVoiceIDs = SpeechVoiceCatalog.kokoroChineseVoiceIDs
@@ -80,6 +82,10 @@ extension AISettingsStore {
         SpeechVoiceCatalog.piperVoiceOptions
     }
 
+    static var supertonicSpeechVoiceOptions: [(title: String, id: String)] {
+        SpeechVoiceCatalog.supertonicVoiceOptions
+    }
+
     static func kokoroSpeechVoiceOptions(languageHint: SpeechLanguageHint?) -> [(title: String, id: String)] {
         SpeechVoiceCatalog.kokoroVoiceOptions(languageHint: languageHint)
     }
@@ -91,6 +97,9 @@ extension AISettingsStore {
         if isPiperSpeechRuntime(runtimeID) {
             return piperSpeechVoiceOptions
         }
+        if isSupertonicSpeechRuntime(runtimeID) {
+            return supertonicSpeechVoiceOptions
+        }
         return kittenSpeechVoiceOptions
     }
 
@@ -101,6 +110,9 @@ extension AISettingsStore {
         if isPiperSpeechRuntime(runtimeID) {
             return piperSpeechVoiceOptions
         }
+        if isSupertonicSpeechRuntime(runtimeID) {
+            return supertonicSpeechVoiceOptions
+        }
         return kittenSpeechVoiceOptions
     }
 
@@ -110,6 +122,9 @@ extension AISettingsStore {
         }
         if isPiperSpeechRuntime(runtimeID) {
             return selectedPiperSpeechVoiceID
+        }
+        if isSupertonicSpeechRuntime(runtimeID) {
+            return selectedSupertonicSpeechVoiceID
         }
         return selectedKittenSpeechVoiceID
     }
@@ -140,6 +155,11 @@ extension AISettingsStore {
         return SpeechVoiceCatalog.selectedPiperVoiceID(value)
     }
 
+    static var selectedSupertonicSpeechVoiceID: String {
+        let value = nonEmptyTrimmed(defaults.string(forKey: supertonicSpeechVoiceKey)) ?? defaultSupertonicSpeechVoiceID
+        return SpeechVoiceCatalog.isValidSupertonicVoiceID(value) ? value : defaultSupertonicSpeechVoiceID
+    }
+
     static func saveKittenSpeechVoiceID(_ id: String) {
         guard SpeechVoiceCatalog.isValidKittenVoiceID(id) else { return }
         defaults.set(id, forKey: kittenSpeechVoiceKey)
@@ -158,11 +178,19 @@ extension AISettingsStore {
         defaults.synchronize()
     }
 
+    static func saveSupertonicSpeechVoiceID(_ id: String) {
+        guard SpeechVoiceCatalog.isValidSupertonicVoiceID(id) else { return }
+        defaults.set(id, forKey: supertonicSpeechVoiceKey)
+        defaults.synchronize()
+    }
+
     static func saveSpeechVoiceID(_ id: String, runtimeID: String?) {
         if isKokoroSpeechRuntime(runtimeID) {
             saveKokoroSpeechVoiceID(id)
         } else if isPiperSpeechRuntime(runtimeID) {
             savePiperSpeechVoiceID(id)
+        } else if isSupertonicSpeechRuntime(runtimeID) {
+            saveSupertonicSpeechVoiceID(id)
         } else {
             saveKittenSpeechVoiceID(id)
         }
@@ -201,11 +229,24 @@ extension AISettingsStore {
         }
     }
 
+    static var supertonicSpeechSpeedMultiplier: Double {
+        switch selectedSpeechSpeedID {
+        case "fast": return 1.25
+        case "slow": return 0.82
+        case "verySlow": return 0.7
+        default: return 1.05
+        }
+    }
+
     private static func isKokoroSpeechRuntime(_ runtimeID: String?) -> Bool {
         runtimeID == SpeechRuntimeResourceManager.Runtime.kokoro.id
     }
 
     private static func isPiperSpeechRuntime(_ runtimeID: String?) -> Bool {
         runtimeID == SpeechRuntimeResourceManager.Runtime.piper.id
+    }
+
+    private static func isSupertonicSpeechRuntime(_ runtimeID: String?) -> Bool {
+        runtimeID == SpeechRuntimeResourceManager.Runtime.supertonic.id
     }
 }

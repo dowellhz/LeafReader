@@ -30,6 +30,8 @@ extension SpeechPlaybackCoordinator {
                 self.kittenBackend.stop()
             case .piper:
                 self.piperBackend.stop()
+            case .supertonic:
+                self.supertonicBackend.stop()
             case .none:
                 break
             }
@@ -135,6 +137,14 @@ extension SpeechPlaybackCoordinator {
                 voiceID: voiceID,
                 lengthScale: options.piperLengthScale
             )
+        case .supertonic:
+            result = supertonicBackend.synthesizeResult(
+                text: text,
+                outputURL: outputURL,
+                voiceID: voiceID,
+                languageHint: languageHint,
+                speed: options.speedMultiplier
+            )
         case .none:
             result = .failure(.unsupportedLanguage(AppText.localized("当前朗读引擎", "Selected speech runtime")))
         }
@@ -208,12 +218,19 @@ extension SpeechPlaybackCoordinator {
         case .kokoroCoreML:
             kittenBackend.stop()
             piperBackend.stop()
+            supertonicBackend.stop()
         case .kitten:
             kokoroBackend.stop()
             piperBackend.stop()
+            supertonicBackend.stop()
         case .piper:
             kokoroBackend.stop()
             kittenBackend.stop()
+            supertonicBackend.stop()
+        case .supertonic:
+            kokoroBackend.stop()
+            kittenBackend.stop()
+            piperBackend.stop()
         case .none:
             stopRuntimeProcesses()
         }
@@ -224,6 +241,7 @@ extension SpeechPlaybackCoordinator {
         kokoroBackend.stop()
         kittenBackend.stop()
         piperBackend.stop()
+        supertonicBackend.stop()
         activeBackend = nil
     }
 
@@ -248,6 +266,7 @@ extension SpeechPlaybackCoordinator {
         kokoroBackend.stop()
         kittenBackend.stop()
         piperBackend.stop()
+        supertonicBackend.stop()
         activeBackend = nil
     }
 }

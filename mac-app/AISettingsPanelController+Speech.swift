@@ -32,6 +32,10 @@ extension AISettingsPanelController {
         downloadSpeechRuntime(.piper, button: sender)
     }
 
+    @objc func downloadSupertonicSpeechRuntime(_ sender: NSButton) {
+        downloadSpeechRuntime(.supertonic, button: sender)
+    }
+
     @objc func deleteKokoroSpeechRuntime(_ sender: NSButton) {
         deleteSpeechRuntime(.kokoro)
     }
@@ -42,6 +46,10 @@ extension AISettingsPanelController {
 
     @objc func deletePiperSpeechRuntime(_ sender: NSButton) {
         deleteSpeechRuntime(.piper)
+    }
+
+    @objc func deleteSupertonicSpeechRuntime(_ sender: NSButton) {
+        deleteSpeechRuntime(.supertonic)
     }
 
     @objc func pauseKokoroSpeechRuntimeDownload(_ sender: NSButton) {
@@ -56,6 +64,10 @@ extension AISettingsPanelController {
         toggleSpeechRuntimeDownloadPaused(.piper)
     }
 
+    @objc func pauseSupertonicSpeechRuntimeDownload(_ sender: NSButton) {
+        toggleSpeechRuntimeDownloadPaused(.supertonic)
+    }
+
     @objc func cancelKokoroSpeechRuntimeDownload(_ sender: NSButton) {
         cancelSpeechRuntimeDownload(.kokoro)
     }
@@ -66,6 +78,10 @@ extension AISettingsPanelController {
 
     @objc func cancelPiperSpeechRuntimeDownload(_ sender: NSButton) {
         cancelSpeechRuntimeDownload(.piper)
+    }
+
+    @objc func cancelSupertonicSpeechRuntimeDownload(_ sender: NSButton) {
+        cancelSpeechRuntimeDownload(.supertonic)
     }
 
     @objc func speechRuntimeChanged(_ sender: NSPopUpButton) {
@@ -111,11 +127,13 @@ extension AISettingsPanelController {
         let kokoro = runtimeStatus(.kokoro)
         let kitten = runtimeStatus(.kitten)
         let piper = runtimeStatus(.piper)
+        let supertonic = runtimeStatus(.supertonic)
         updateRuntimeControls(runtime: .kokoro, status: kokoro, controls: kokoroRuntimeControls)
         updateRuntimeControls(runtime: .kitten, status: kitten, controls: kittenRuntimeControls)
         updateRuntimeControls(runtime: .piper, status: piper, controls: piperRuntimeControls)
+        updateRuntimeControls(runtime: .supertonic, status: supertonic, controls: supertonicRuntimeControls)
         refreshSpeechRuntimePopup()
-        updateSpeechDownloadRefreshTimer(isDownloading: kokoro.downloading || kitten.downloading || piper.downloading)
+        updateSpeechDownloadRefreshTimer(isDownloading: kokoro.downloading || kitten.downloading || piper.downloading || supertonic.downloading)
     }
 
     private var kokoroRuntimeControls: RuntimeControls {
@@ -151,6 +169,17 @@ extension AISettingsPanelController {
         )
     }
 
+    private var supertonicRuntimeControls: RuntimeControls {
+        RuntimeControls(
+            statusLabel: supertonicSpeechStatusLabel,
+            progressIndicator: supertonicSpeechProgressIndicator,
+            downloadButton: supertonicSpeechDownloadButton,
+            pauseButton: supertonicSpeechPauseButton,
+            cancelButton: supertonicSpeechCancelButton,
+            deleteButton: supertonicSpeechDeleteButton
+        )
+    }
+
     private func runtimeStatus(_ runtime: SpeechRuntimeResourceManager.Runtime) -> RuntimeStatus {
         RuntimeStatus(
             downloaded: SpeechRuntimeResourceManager.isDownloaded(runtime),
@@ -173,6 +202,9 @@ extension AISettingsPanelController {
         controls.pauseButton?.isHidden = !status.downloading
         controls.cancelButton?.isHidden = !status.downloading
         controls.deleteButton?.isHidden = !status.downloaded || status.downloading
+        if runtime == .supertonic, !status.downloaded {
+            controls.downloadButton?.isHidden = true
+        }
     }
 
     private func toggleSpeechRuntimeDownloadPaused(_ runtime: SpeechRuntimeResourceManager.Runtime) {
@@ -396,6 +428,8 @@ extension AISettingsPanelController {
                     self.kittenSpeechStatusLabel?.stringValue = AppText.localized("下载失败", "Download failed")
                 case .piper:
                     self.piperSpeechStatusLabel?.stringValue = AppText.localized("下载失败", "Download failed")
+                case .supertonic:
+                    self.supertonicSpeechStatusLabel?.stringValue = AppText.localized("下载失败", "Download failed")
                 }
                 self.showSpeechDownloadError(error)
             }
