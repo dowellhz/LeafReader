@@ -10,6 +10,7 @@ extension SpeechRuntimeResourceManager {
         case supertonic
 
         private static let releaseDownloadsBaseURL = "https://github.com/dowellhz/LeafReader/releases"
+        private static let websiteSpeechModelsBaseURL = "https://leafreader.space/tts"
         // Speech model archives are versioned independently from app releases. Only move
         // this tag when publishing new model assets with scripts/publish_release.sh --with-speech-models.
         static let runtimeAssetsReleaseTag = "v1.5.10"
@@ -131,12 +132,21 @@ extension SpeechRuntimeResourceManager {
             case .piper:
                 return Self.releaseAssetURL(fileName: "piper-tts-macos-arm64.tar.gz")
             case .supertonic:
-                return URL(string: "https://huggingface.co/FluidInference/supertonic-3-coreml")!
+                return Self.websiteSpeechModelURL(fileName: "supertonic-coreml-macos-arm64.tar.gz")
             }
         }
 
         static var modelManifestURL: URL {
             releaseAssetURL(fileName: "speech-models-manifest.json")
+        }
+
+        var manifestURL: URL {
+            switch self {
+            case .supertonic:
+                return Self.websiteSpeechModelURL(fileName: "speech-models-manifest.json")
+            case .kokoro, .kitten, .piper:
+                return Self.modelManifestURL
+            }
         }
 
         private static var userInstallRoot: URL {
@@ -242,6 +252,10 @@ extension SpeechRuntimeResourceManager {
 
         private static func releaseAssetURL(fileName: String) -> URL {
             URL(string: "\(releaseDownloadsBaseURL)/download/\(runtimeAssetsReleaseTag)/\(fileName)")!
+        }
+
+        private static func websiteSpeechModelURL(fileName: String) -> URL {
+            URL(string: "\(websiteSpeechModelsBaseURL)/\(fileName)")!
         }
 
         private func runtimeDirectory(in root: URL) -> URL {

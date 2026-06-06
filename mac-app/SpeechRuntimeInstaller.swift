@@ -61,6 +61,9 @@ extension SpeechRuntimeResourceManager {
             } else if runtime == .piper {
                 let cacheDirectories = try installBundledPiperVoiceCache(from: runtime.installDirectory)
                 try writeInstallManifest(runtime: runtime, cacheDirectories: cacheDirectories)
+            } else if runtime == .supertonic {
+                let cacheDirectories = try installBundledSupertonicModelCache(from: runtime.installDirectory)
+                try writeInstallManifest(runtime: runtime, cacheDirectories: cacheDirectories)
             } else {
                 try writeInstallManifest(runtime: runtime, cacheDirectories: [])
             }
@@ -102,6 +105,11 @@ extension SpeechRuntimeResourceManager {
                 && piperAnyVoicePathsExist(in: voiceDirectory)
         case .supertonic:
             isValid = SpeechRuntimePathChecks.supertonicRuntimePathsExist(in: directory)
+                && SupertonicCoreMLTTSBackend.modelPathsExist(
+                    in: directory
+                        .appendingPathComponent("Models", isDirectory: true)
+                        .appendingPathComponent("supertonic-3", isDirectory: true)
+                )
         }
         guard isValid else {
             throw NSError(
@@ -153,6 +161,27 @@ extension SpeechRuntimeResourceManager {
             .appendingPathComponent(".piper-voices-backup-\(UUID().uuidString)", isDirectory: true)
         var transaction = KokoroCacheInstallTransaction(fileManager: fileManager)
         try transaction.replace(source: source, destination: cacheRoot, backup: backup)
+        transaction.commit()
+        return transaction.installedDirectories
+    }
+
+    static func installBundledSupertonicModelCache(from installDirectory: URL) throws -> [URL] {
+        let fileManager = FileManager.default
+        let source = installDirectory
+            .appendingPathComponent("Models", isDirectory: true)
+            .appendingPathComponent("supertonic-3", isDirectory: true)
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: source.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return []
+        }
+
+        let destination = Runtime.supertonicCoreMLModelCacheDirectory
+        try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let backup = destination
+            .deletingLastPathComponent()
+            .appendingPathComponent(".supertonic-3-backup-\(UUID().uuidString)", isDirectory: true)
+        var transaction = KokoroCacheInstallTransaction(fileManager: fileManager)
+        try transaction.replace(source: source, destination: destination, backup: backup)
         transaction.commit()
         return transaction.installedDirectories
     }

@@ -25,7 +25,7 @@ enum SpeechRuntimeCatalog {
             minimumSystemVersion: runtime.minimumSystemVersion,
             minimumSystemVersionText: runtime.minimumSystemVersionText,
             downloadURL: runtime.downloadURL,
-            manifestURL: Runtime.modelManifestURL,
+            manifestURL: runtime.manifestURL,
             installDirectory: runtime.installDirectory,
             bundledInstallDirectory: runtime.bundledInstallDirectory,
             installDirectories: runtime.installDirectories,

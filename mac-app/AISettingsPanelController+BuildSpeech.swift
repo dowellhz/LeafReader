@@ -486,8 +486,5 @@ extension AISettingsPanelController {
         pauseButton.isHidden = !isDownloading
         cancelButton.isHidden = !isDownloading
         deleteButton.isHidden = !isDownloaded
-        if runtime == .supertonic, !isDownloaded {
-            downloadButton.isHidden = true
-        }
     }
 }

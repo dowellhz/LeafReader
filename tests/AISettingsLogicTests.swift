@@ -504,12 +504,12 @@ enum AISettingsLogicTests {
         try expect(kittenURL.hasSuffix("/kitten-tts-rs-macos-arm64.tar.gz"), "KittenTTS should use the release asset archive")
         try expect(kokoroURL.hasSuffix("/kokoro-coreml-macos-arm64.tar.gz"), "Kokoro should use the release asset archive")
         try expect(piperURL.hasSuffix("/piper-tts-macos-arm64.tar.gz"), "Piper should use the release asset archive")
-        try expect(supertonicURL.contains("huggingface.co/FluidInference/supertonic-3-coreml"), "Supertonic should reference the upstream CoreML model source")
+        try expect(supertonicURL == "https://leafreader.space/tts/supertonic-coreml-macos-arm64.tar.gz", "Supertonic should download the LeafReader-hosted CoreML model archive")
         try expect(kittenURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "KittenTTS should use the stable speech runtime asset release")
         try expect(kokoroURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Kokoro should use the stable speech runtime asset release")
         try expect(piperURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Piper should use the stable speech runtime asset release")
-        try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Speech model manifest should use the same stable asset release")
-        try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.hasSuffix("/speech-models-manifest.json"), "Speech model manifest should use the release asset manifest")
+        try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Default speech model manifest should use the stable release asset")
+        try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.hasSuffix("/speech-models-manifest.json"), "Default speech model manifest should use the release asset manifest")
         try expect(!kittenURL.contains("/v1.4.18/"), "KittenTTS download URL should not be pinned to the old 1.4.18 release")
     }
 
@@ -541,6 +541,12 @@ enum AISettingsLogicTests {
         try expectEqual(plan.archiveURL, piper.downloadURL, "download plan should expose archive URL")
         try expectEqual(plan.manifestURL, SpeechRuntimeResourceManager.Runtime.modelManifestURL, "download plan should expose manifest URL")
         try expectEqual(plan.expectedAssetName, "piper-tts-macos-arm64.tar.gz", "download plan should expose expected release asset name")
+
+        let supertonic = SpeechRuntimeResourceManager.Runtime.supertonic
+        let supertonicPlan = supertonic.localRuntimeDownloadPlan
+        try expectEqual(supertonicPlan.archiveURL.absoluteString, "https://leafreader.space/tts/supertonic-coreml-macos-arm64.tar.gz", "Supertonic should download from leafreader.space")
+        try expectEqual(supertonicPlan.manifestURL?.absoluteString, "https://leafreader.space/tts/speech-models-manifest.json", "Supertonic should validate against the LeafReader-hosted manifest")
+        try expectEqual(supertonicPlan.expectedAssetName, "supertonic-coreml-macos-arm64.tar.gz", "Supertonic download plan should expose expected archive name")
     }
 
     static func testSpeechRuntimeLocalRuntimeRegistry() throws {
@@ -901,6 +907,16 @@ enum AISettingsLogicTests {
             manifest.asset(named: "piper-tts-macos-arm64.tar.gz")?.sha256,
             "b752a7e93456c9b9eab397960976667153bee8c999ab497685fddb82562458b5",
             "bundled manifest should include Piper model checksum"
+        )
+        try expectEqual(
+            manifest.asset(named: "supertonic-coreml-macos-arm64.tar.gz")?.size,
+            187111483,
+            "bundled manifest should include Supertonic CoreML archive size"
+        )
+        try expectEqual(
+            manifest.asset(named: "supertonic-coreml-macos-arm64.tar.gz")?.sha256,
+            "819d87657dac8f0febe630e55fe5b474171724cde98b86eb5fadad309e543397",
+            "bundled manifest should include Supertonic CoreML archive checksum"
         )
     }
 

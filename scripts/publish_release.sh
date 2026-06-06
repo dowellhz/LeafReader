@@ -34,6 +34,7 @@ SPEECH_MODEL_ASSETS=(
   "$ROOT_DIR/docs/tts/kokoro-coreml-macos-arm64.tar.gz"
   "$ROOT_DIR/docs/tts/kitten-tts-rs-macos-arm64.tar.gz"
   "$ROOT_DIR/docs/tts/piper-tts-macos-arm64.tar.gz"
+  "$ROOT_DIR/docs/tts/supertonic-coreml-macos-arm64.tar.gz"
   "$ROOT_DIR/docs/tts/speech-models-manifest.json"
 )
 

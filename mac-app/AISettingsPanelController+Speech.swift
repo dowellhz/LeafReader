@@ -202,9 +202,6 @@ extension AISettingsPanelController {
         controls.pauseButton?.isHidden = !status.downloading
         controls.cancelButton?.isHidden = !status.downloading
         controls.deleteButton?.isHidden = !status.downloaded || status.downloading
-        if runtime == .supertonic, !status.downloaded {
-            controls.downloadButton?.isHidden = true
-        }
     }
 
     private func toggleSpeechRuntimeDownloadPaused(_ runtime: SpeechRuntimeResourceManager.Runtime) {
