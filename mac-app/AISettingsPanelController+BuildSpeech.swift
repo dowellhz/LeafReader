@@ -30,7 +30,6 @@ struct AISettingsSpeechSection {
     let supertonicDeleteButton: NSButton
     let pageViews: [NSView]
 
-    fileprivate let titleLabel: NSTextField
     fileprivate let runtimeLabel: NSTextField
     fileprivate let voiceLabel: NSTextField
     fileprivate let speedLabel: NSTextField
@@ -50,7 +49,6 @@ extension AISettingsPanelController {
         primaryText: NSColor,
         secondaryText: NSColor
     ) -> AISettingsSpeechSection {
-        let titleLabel = label(AppText.localized("朗读", "Read Aloud"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let runtimeLabel = label(AppText.localized("朗读模型", "TTS Model"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let languageHint = currentSpeechLanguageHint?()
         syncSpeechRuntimeForLanguageIfNeeded(languageHint: languageHint)
@@ -215,7 +213,7 @@ extension AISettingsPanelController {
         )
 
         let pageViews: [NSView] = [
-            titleLabel, runtimeLabel, runtimePopup, voiceLabel, voicePopup, speedLabel, speedPopup,
+            runtimeLabel, runtimePopup, voiceLabel, voicePopup, speedLabel, speedPopup,
             kokoroCard, kittenCard, piperCard, supertonicCard,
             kokoroLabel, kokoroStatusLabel, kokoroProgressIndicator,
             kokoroDownloadButton, kokoroPauseButton, kokoroCancelButton, kokoroDeleteButton,
@@ -256,7 +254,6 @@ extension AISettingsPanelController {
             piperDeleteButton: piperDeleteButton,
             supertonicDeleteButton: supertonicDeleteButton,
             pageViews: pageViews,
-            titleLabel: titleLabel,
             runtimeLabel: runtimeLabel,
             voiceLabel: voiceLabel,
             speedLabel: speedLabel,
@@ -288,15 +285,13 @@ extension AISettingsPanelController {
         let runtimeProgressWidth: CGFloat = 120
         let downloadButtonWidth: CGFloat = 112
         let actionButtonWidth: CGFloat = 68
+        let controlColumnLeading = labelColumnWidth + 18
         return [
-            section.titleLabel.topAnchor.constraint(equalTo: page.topAnchor, constant: 4),
-            section.titleLabel.leadingAnchor.constraint(equalTo: page.leadingAnchor),
-            section.titleLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
-            section.runtimeLabel.topAnchor.constraint(equalTo: section.titleLabel.topAnchor),
+            section.runtimeLabel.topAnchor.constraint(equalTo: page.topAnchor, constant: 4),
             section.runtimeLabel.leadingAnchor.constraint(equalTo: page.leadingAnchor),
             section.runtimeLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
             section.runtimePopup.centerYAnchor.constraint(equalTo: section.runtimeLabel.centerYAnchor),
-            section.runtimePopup.leadingAnchor.constraint(equalTo: page.leadingAnchor, constant: labelColumnWidth),
+            section.runtimePopup.leadingAnchor.constraint(equalTo: page.leadingAnchor, constant: controlColumnLeading),
             section.runtimePopup.trailingAnchor.constraint(equalTo: page.trailingAnchor),
             section.runtimePopup.heightAnchor.constraint(equalToConstant: controlHeight),
             section.voiceLabel.topAnchor.constraint(equalTo: section.runtimePopup.bottomAnchor, constant: 16),
