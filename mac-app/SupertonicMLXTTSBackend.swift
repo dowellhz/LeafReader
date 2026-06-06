@@ -7,6 +7,8 @@ final class SupertonicMLXTTSBackend {
     private static let modelEnvironmentKey = "LEAFREADER_SUPERTONIC_MLX_MODEL"
     private static let voiceEnvironmentKey = "LEAFREADER_SUPERTONIC_VOICE"
     private static let speedEnvironmentKey = "LEAFREADER_SUPERTONIC_SPEED"
+    private static let sharedMLXPythonRuntimeName = "mlx-python-runtime"
+    private static let legacySupertonicPythonRuntimeName = "supertonic-mlx-venv"
 
     func synthesizeResult(
         text: String,
@@ -135,10 +137,16 @@ final class SupertonicMLXTTSBackend {
 
     private static func pythonExecutableURL() -> URL? {
         let fileManager = FileManager.default
+        let userInstallRoot = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local/share/leafreader", isDirectory: true)
         let candidatePaths = [
             ProcessInfo.processInfo.environment[pythonEnvironmentKey],
-            FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent(".local/share/leafreader/supertonic-mlx-venv/bin/python").path,
+            userInstallRoot
+                .appendingPathComponent(sharedMLXPythonRuntimeName, isDirectory: true)
+                .appendingPathComponent("bin/python").path,
+            userInstallRoot
+                .appendingPathComponent(legacySupertonicPythonRuntimeName, isDirectory: true)
+                .appendingPathComponent("bin/python").path,
             "/opt/homebrew/bin/python3",
             "/usr/local/bin/python3",
             "/usr/bin/python3"
