@@ -102,7 +102,6 @@ extension SpeechRuntimeResourceManager {
                 && piperAnyVoicePathsExist(in: voiceDirectory)
         case .supertonic:
             isValid = SpeechRuntimePathChecks.supertonicRuntimePathsExist(in: directory)
-                && SupertonicMLXTTSBackend.modelPathsExist(in: runtime.modelDirectory(in: directory))
         }
         guard isValid else {
             throw NSError(

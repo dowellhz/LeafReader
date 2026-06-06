@@ -29,10 +29,7 @@ enum SpeechRuntimePathChecks {
     }
 
     static func supertonicRuntimePathsExist(in directory: URL) -> Bool {
-        let scriptURL = Runtime.supertonic.executableURL(in: directory)
-        let packageURL = directory.appendingPathComponent("supertonic_mlx", isDirectory: true)
-        return FileManager.default.fileExists(atPath: scriptURL.path)
-            && directoryExists(packageURL)
+        FileManager.default.isExecutableFile(atPath: Runtime.supertonic.executableURL(in: directory).path)
     }
 
     static func piperVoicePathsExist(voiceID: String = SpeechVoiceCatalog.defaultPiperVoiceID) -> Bool {
@@ -93,6 +90,10 @@ enum SpeechRuntimePathChecks {
 
     static func piperVoiceCacheDirectories() -> [URL] {
         [Runtime.piperVoiceCacheRoot]
+    }
+
+    static func supertonicCoreMLModelCacheDirectories() -> [URL] {
+        [Runtime.supertonicCoreMLModelCacheDirectory]
     }
 
     static func kokoroAneModelCacheExists() -> Bool {

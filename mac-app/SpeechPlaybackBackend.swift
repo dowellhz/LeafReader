@@ -55,7 +55,7 @@ extension SpeechPlaybackCoordinator {
             return .kitten
         case "piper", "piper-tts":
             return .piper
-        case "supertonic", "supertonic-mlx":
+        case "supertonic", "supertonic-coreml", "supertonic-mlx":
             return .supertonic
         case "kokoro", "kokoro-coreml", "coreml":
             return .kokoroCoreML

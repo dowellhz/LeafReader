@@ -225,20 +225,19 @@ extension ReaderWindowController {
             let hasRuntime = runtime.installDirectories.contains {
                 SpeechRuntimePathChecks.supertonicRuntimePathsExist(in: $0)
             }
-            let hasModel = runtime.installDirectories.contains {
-                SupertonicMLXTTSBackend.modelPathsExist(in: runtime.modelDirectory(in: $0))
-            } || ProcessInfo.processInfo.environment["LEAFREADER_SUPERTONIC_MLX_MODEL"].map {
-                SupertonicMLXTTSBackend.modelPathsExist(in: URL(fileURLWithPath: $0))
+            let hasModel = SupertonicCoreMLTTSBackend.modelPathsExist(in: SpeechRuntimeResourceManager.Runtime.supertonicCoreMLModelCacheDirectory)
+                || ProcessInfo.processInfo.environment["LEAFREADER_SUPERTONIC_COREML_MODEL"].map {
+                SupertonicCoreMLTTSBackend.modelPathsExist(in: URL(fileURLWithPath: $0))
             } == true
             if hasRuntime && !hasModel {
                 return AppText.localized(
-                    "Supertonic MLX 代码已安装，但还需要放置 mlx-community/supertonic-3 模型目录。",
-                    "The Supertonic MLX runtime is installed, but the mlx-community/supertonic-3 model directory is still missing."
+                    "Supertonic runtime 已安装，但还需要下载 Supertonic 3 CoreML FP16 模型。",
+                    "The Supertonic runtime is installed, but the Supertonic 3 CoreML FP16 model is still missing."
                 )
             }
             return AppText.localized(
-                "Supertonic 需要手动安装 supertonic-mlx 代码和 mlx-community/supertonic-3 模型目录。",
-                "Supertonic requires manually installing the supertonic-mlx code and mlx-community/supertonic-3 model directory."
+                "Supertonic 需要安装 FluidAudio runtime 和 Supertonic 3 CoreML FP16 模型。",
+                "Supertonic requires the FluidAudio runtime and the Supertonic 3 CoreML FP16 model."
             )
         }
         return AppText.localized(

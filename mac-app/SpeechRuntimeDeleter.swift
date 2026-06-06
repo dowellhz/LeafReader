@@ -23,7 +23,7 @@ enum SpeechRuntimeDeleter {
         case .kitten:
             break
         case .supertonic:
-            break
+            try removeCacheDirectories(manifest?.cacheDirectories ?? SpeechRuntimePathChecks.supertonicCoreMLModelCacheDirectories())
         }
     }
 

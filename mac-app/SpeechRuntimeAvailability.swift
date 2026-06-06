@@ -64,8 +64,8 @@ enum SpeechRuntimeAvailability {
 
     static func installedRuntimePathsExist(for runtime: Runtime, installDirectories: [URL]) -> Bool {
         if runtime == .supertonic,
-           let repoPath = ProcessInfo.processInfo.environment["LEAFREADER_SUPERTONIC_MLX_REPO"],
-           SpeechRuntimePathChecks.supertonicRuntimePathsExist(in: URL(fileURLWithPath: repoPath)) {
+           let cliPath = ProcessInfo.processInfo.environment["LEAFREADER_SUPERTONIC_COREML_CLI"],
+           FileManager.default.isExecutableFile(atPath: cliPath) {
             return true
         }
         return installDirectories.contains { directory in
@@ -106,10 +106,9 @@ enum SpeechRuntimeAvailability {
         case .piper:
             return SpeechRuntimeResourceManager.piperAnyVoicePathsExist(in: voiceDirectory)
         case .supertonic:
-            return installDirectories.contains {
-                SupertonicMLXTTSBackend.modelPathsExist(in: Runtime.supertonic.modelDirectory(in: $0))
-            } || ProcessInfo.processInfo.environment["LEAFREADER_SUPERTONIC_MLX_MODEL"].map {
-                SupertonicMLXTTSBackend.modelPathsExist(in: URL(fileURLWithPath: $0))
+            return SupertonicCoreMLTTSBackend.modelPathsExist(in: Runtime.supertonicCoreMLModelCacheDirectory)
+                || ProcessInfo.processInfo.environment["LEAFREADER_SUPERTONIC_COREML_MODEL"].map {
+                SupertonicCoreMLTTSBackend.modelPathsExist(in: URL(fileURLWithPath: $0))
             } == true
         }
     }

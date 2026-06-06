@@ -51,7 +51,7 @@ extension SpeechRuntimeResourceManager {
             case .piper:
                 return "约 112 MB"
             case .supertonic:
-                return AppText.localized("手动安装", "Manual install")
+                return "约 209 MB"
             }
         }
 
@@ -64,7 +64,7 @@ extension SpeechRuntimeResourceManager {
             case .piper:
                 return AppText.localized("模型中等，英语质量好", "Medium model, good English quality")
             case .supertonic:
-                return AppText.localized("Supertonic 3 MLX，多语言本地朗读", "Supertonic 3 MLX, multilingual local speech")
+                return AppText.localized("Supertonic 3 CoreML，多语言本地朗读", "Supertonic 3 CoreML, multilingual local speech")
             }
         }
 
@@ -131,7 +131,7 @@ extension SpeechRuntimeResourceManager {
             case .piper:
                 return Self.releaseAssetURL(fileName: "piper-tts-macos-arm64.tar.gz")
             case .supertonic:
-                return URL(string: "https://github.com/ailuntx/supertonic-mlx/archive/refs/heads/main.tar.gz")!
+                return URL(string: "https://huggingface.co/FluidInference/supertonic-3-coreml")!
             }
         }
 
@@ -186,7 +186,7 @@ extension SpeechRuntimeResourceManager {
             case .piper:
                 return Self.piperVoiceCacheRoot
             case .supertonic:
-                return directory.appendingPathComponent("supertonic-3-mlx", isDirectory: true)
+                return Self.supertonicCoreMLModelCacheDirectory
             }
         }
 
@@ -199,7 +199,7 @@ extension SpeechRuntimeResourceManager {
             case .piper:
                 return directory.appendingPathComponent("piper/piper")
             case .supertonic:
-                return directory.appendingPathComponent("scripts/infer_mlx.py")
+                return directory.appendingPathComponent("fluidaudiocli")
             }
         }
 
@@ -221,9 +221,7 @@ extension SpeechRuntimeResourceManager {
                 ]
             case .supertonic:
                 return [
-                    executableURL(in: directory),
-                    directory.appendingPathComponent("supertonic_mlx", isDirectory: true),
-                    modelDirectory(in: directory)
+                    executableURL(in: directory)
                 ]
             }
         }
@@ -231,6 +229,10 @@ extension SpeechRuntimeResourceManager {
         static var fluidAudioModelCacheRoot: URL {
             FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent(".cache/fluidaudio/Models", isDirectory: true)
+        }
+
+        static var supertonicCoreMLModelCacheDirectory: URL {
+            fluidAudioModelCacheRoot.appendingPathComponent("supertonic-3", isDirectory: true)
         }
 
         static var piperVoiceCacheRoot: URL {
@@ -251,7 +253,7 @@ extension SpeechRuntimeResourceManager {
             case .piper:
                 return root.appendingPathComponent("piper-tts-runtime", isDirectory: true)
             case .supertonic:
-                return root.appendingPathComponent("supertonic-mlx", isDirectory: true)
+                return root.appendingPathComponent("supertonic-coreml", isDirectory: true)
             }
         }
     }

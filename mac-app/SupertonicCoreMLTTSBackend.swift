@@ -1,14 +1,11 @@
 import Foundation
 
-final class SupertonicMLXTTSBackend {
+final class SupertonicCoreMLTTSBackend {
     private static let fallbackTimeout: TimeInterval = 90
-    private static let pythonEnvironmentKey = "LEAFREADER_SUPERTONIC_PYTHON"
-    private static let repoEnvironmentKey = "LEAFREADER_SUPERTONIC_MLX_REPO"
-    private static let modelEnvironmentKey = "LEAFREADER_SUPERTONIC_MLX_MODEL"
+    private static let cliEnvironmentKey = "LEAFREADER_SUPERTONIC_COREML_CLI"
+    private static let modelEnvironmentKey = "LEAFREADER_SUPERTONIC_COREML_MODEL"
     private static let voiceEnvironmentKey = "LEAFREADER_SUPERTONIC_VOICE"
     private static let speedEnvironmentKey = "LEAFREADER_SUPERTONIC_SPEED"
-    private static let sharedMLXPythonRuntimeName = "mlx-python-runtime"
-    private static let legacySupertonicPythonRuntimeName = "supertonic-mlx-venv"
 
     func synthesizeResult(
         text: String,
@@ -24,16 +21,15 @@ final class SupertonicMLXTTSBackend {
             ?? ProcessInfo.processInfo.environment[Self.voiceEnvironmentKey]
             ?? AISettingsStore.selectedSupertonicSpeechVoiceID
         let arguments = [
-            runtime.scriptURL.path,
-            "--model",
-            runtime.modelDirectoryURL.path,
-            "--text",
+            "tts",
             text,
+            "--backend",
+            "supertonic3",
             "--lang",
             Self.languageCode(for: text, languageHint: languageHint),
             "--voice",
             voice,
-            "--total-step",
+            "--total-steps",
             "8",
             "--speed",
             String(Self.speed(override: speed)),
@@ -44,17 +40,17 @@ final class SupertonicMLXTTSBackend {
         let result: ProcessRunResult
         do {
             result = try ProcessRunner.run(
-                executableURL: runtime.pythonURL,
+                executableURL: runtime.cliURL,
                 arguments: arguments,
                 timeout: Self.fallbackTimeout,
-                currentDirectoryURL: runtime.repoDirectoryURL
+                currentDirectoryURL: runtime.cliURL.deletingLastPathComponent()
             )
         } catch {
-            NSLog("LeafReader Supertonic MLX: failed to run Python runtime (error=%@)", error.localizedDescription)
+            NSLog("LeafReader Supertonic CoreML: failed to run FluidAudio CLI (error=%@)", error.localizedDescription)
             return .failure(.classifiedProcessFailure(runtime: "Supertonic", diagnostic: error.localizedDescription))
         }
         if result.timedOut {
-            NSLog("LeafReader Supertonic MLX: inference timed out after %.0fs", Self.fallbackTimeout)
+            NSLog("LeafReader Supertonic CoreML: inference timed out after %.0fs", Self.fallbackTimeout)
             return .failure(.workerTimedOut("Supertonic"))
         }
         let outputExists = TTSWaveFile.isUsable(at: outputURL)
@@ -63,7 +59,7 @@ final class SupertonicMLXTTSBackend {
         }
         if outputExists {
             NSLog(
-                "LeafReader Supertonic MLX: process exited with status=%d after creating audio; continuing playback (output=%@)",
+                "LeafReader Supertonic CoreML: FluidAudio CLI exited with status=%d after creating audio; continuing playback (output=%@)",
                 result.terminationStatus,
                 outputURL.path
             )
@@ -72,7 +68,7 @@ final class SupertonicMLXTTSBackend {
 
         let message = Self.diagnosticTail(Self.processOutputText(stdout: result.stdout, stderr: result.stderr))
         NSLog(
-            "LeafReader Supertonic MLX: inference failed (status=%d, output=%@, details=%@)",
+            "LeafReader Supertonic CoreML: FluidAudio CLI failed (status=%d, output=%@, details=%@)",
             result.terminationStatus,
             outputURL.path,
             message
@@ -82,46 +78,19 @@ final class SupertonicMLXTTSBackend {
 
     func stop() {}
 
-    static func runtime() -> (pythonURL: URL, repoDirectoryURL: URL, scriptURL: URL, modelDirectoryURL: URL)? {
-        guard let pythonURL = pythonExecutableURL() else { return nil }
-        let fileManager = FileManager.default
-        let candidateRoots = [
-            ProcessInfo.processInfo.environment[repoEnvironmentKey].map(URL.init(fileURLWithPath:)),
-            Runtime.supertonic.bundledInstallDirectory,
-            Runtime.supertonic.installDirectory as URL?
-        ].compactMap { $0 }
-        let modelCandidates = [
-            ProcessInfo.processInfo.environment[modelEnvironmentKey].map(URL.init(fileURLWithPath:)),
-            Runtime.supertonic.modelDirectory(in: Runtime.supertonic.installDirectory),
-            Runtime.supertonic.bundledInstallDirectory.map { Runtime.supertonic.modelDirectory(in: $0) }
-        ].compactMap { $0 }
-
-        for root in candidateRoots {
-            let scriptURL = root.appendingPathComponent("scripts/infer_mlx.py")
-            let packageURL = root.appendingPathComponent("supertonic_mlx", isDirectory: true)
-            guard fileManager.fileExists(atPath: scriptURL.path),
-                  directoryExists(packageURL) else {
-                continue
-            }
-            for modelURL in modelCandidates where modelPathsExist(in: modelURL) {
-                return (pythonURL, root, scriptURL, modelURL)
-            }
-        }
-        return nil
+    static func runtime() -> (cliURL: URL, modelDirectoryURL: URL)? {
+        guard let cliURL = cliExecutableURL() else { return nil }
+        return modelDirectoryURL().map { (cliURL, $0) }
     }
 
     static func modelPathsExist(in directory: URL) -> Bool {
         directoryExists(directory)
             && relativeFilesExist(
                 [
-                    "graphs/duration_predictor.json",
-                    "graphs/text_encoder.json",
-                    "graphs/vector_estimator.json",
-                    "graphs/vocoder.json",
-                    "weights/duration_predictor.npz",
-                    "weights/text_encoder.npz",
-                    "weights/vector_estimator.npz",
-                    "weights/vocoder.npz",
+                    "DurationPredictor.mlmodelc",
+                    "TextEncoder.mlmodelc",
+                    "VectorEstimator.mlmodelc",
+                    "Vocoder.mlmodelc",
                     "tts.json",
                     "unicode_indexer.json",
                     "voice_styles/M1.json",
@@ -135,26 +104,32 @@ final class SupertonicMLXTTSBackend {
         SpeechRuntimeResourceManager.Runtime.self
     }
 
-    private static func pythonExecutableURL() -> URL? {
-        let fileManager = FileManager.default
+    private static func cliExecutableURL() -> URL? {
         let userInstallRoot = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".local/share/leafreader", isDirectory: true)
-        let candidatePaths = [
-            ProcessInfo.processInfo.environment[pythonEnvironmentKey],
-            userInstallRoot
-                .appendingPathComponent(sharedMLXPythonRuntimeName, isDirectory: true)
-                .appendingPathComponent("bin/python").path,
-            userInstallRoot
-                .appendingPathComponent(legacySupertonicPythonRuntimeName, isDirectory: true)
-                .appendingPathComponent("bin/python").path,
-            "/opt/homebrew/bin/python3",
-            "/usr/local/bin/python3",
-            "/usr/bin/python3"
+        let bundledPath = Runtime.supertonic.bundledExecutableURL.flatMap { ($0 as NSURL).path }
+        let userPath = userInstallRoot
+            .appendingPathComponent("supertonic-coreml", isDirectory: true)
+            .appendingPathComponent("fluidaudiocli") as NSURL
+        let runtimePath = Runtime.supertonic.userExecutableURL as NSURL
+        let candidatePaths: [String] = [
+            ProcessInfo.processInfo.environment[cliEnvironmentKey],
+            bundledPath,
+            userPath.path,
+            runtimePath.path
         ].compactMap { $0 }
-        for path in candidatePaths where fileManager.isExecutableFile(atPath: path) {
+        for path in candidatePaths where FileManager.default.isExecutableFile(atPath: path) {
             return URL(fileURLWithPath: path)
         }
         return nil
+    }
+
+    private static func modelDirectoryURL() -> URL? {
+        let candidates = [
+            ProcessInfo.processInfo.environment[modelEnvironmentKey].map(URL.init(fileURLWithPath:)),
+            Runtime.supertonicCoreMLModelCacheDirectory
+        ].compactMap { $0 }
+        return candidates.first(where: modelPathsExist(in:))
     }
 
     private static func languageCode(
@@ -165,9 +140,9 @@ final class SupertonicMLXTTSBackend {
         case .english:
             return "en"
         case .chinese:
-            return "na"
+            return "zh"
         case .none:
-            return SpeechTextPolicy.prefersChineseTTS(text) ? "na" : "en"
+            return SpeechTextPolicy.prefersChineseTTS(text) ? "zh" : "en"
         }
     }
 
@@ -181,9 +156,8 @@ final class SupertonicMLXTTSBackend {
         let hasRuntime = Runtime.supertonic.installDirectories.contains {
             SpeechRuntimePathChecks.supertonicRuntimePathsExist(in: $0)
         }
-        let hasModel = Runtime.supertonic.installDirectories.contains {
-            modelPathsExist(in: Runtime.supertonic.modelDirectory(in: $0))
-        } || ProcessInfo.processInfo.environment[modelEnvironmentKey].map {
+        let hasModel = modelPathsExist(in: Runtime.supertonicCoreMLModelCacheDirectory)
+            || ProcessInfo.processInfo.environment[modelEnvironmentKey].map {
             modelPathsExist(in: URL(fileURLWithPath: $0))
         } == true
         if hasRuntime, !hasModel {
