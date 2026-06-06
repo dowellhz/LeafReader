@@ -30,6 +30,7 @@ struct AISettingsSpeechSection {
     let supertonicDeleteButton: NSButton
     let pageViews: [NSView]
 
+    fileprivate let controlsContainer: NSView
     fileprivate let runtimeLabel: NSTextField
     fileprivate let voiceLabel: NSTextField
     fileprivate let speedLabel: NSTextField
@@ -81,6 +82,12 @@ extension AISettingsPanelController {
         for fieldLabel in [runtimeLabel, voiceLabel, speedLabel] {
             fieldLabel.setContentHuggingPriority(.required, for: .vertical)
             fieldLabel.setContentCompressionResistancePriority(.required, for: .vertical)
+            fieldLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        }
+        let controlsContainer = NSView()
+        controlsContainer.translatesAutoresizingMaskIntoConstraints = false
+        for view in [runtimeLabel, runtimePopup, voiceLabel, voicePopup, speedLabel, speedPopup] {
+            controlsContainer.addSubview(view)
         }
 
         let kokoroCard = settingsSpeechRowCard()
@@ -217,7 +224,7 @@ extension AISettingsPanelController {
         )
 
         let pageViews: [NSView] = [
-            runtimeLabel, runtimePopup, voiceLabel, voicePopup, speedLabel, speedPopup,
+            controlsContainer,
             kokoroCard, kittenCard, piperCard, supertonicCard,
             kokoroLabel, kokoroStatusLabel, kokoroProgressIndicator,
             kokoroDownloadButton, kokoroPauseButton, kokoroCancelButton, kokoroDeleteButton,
@@ -258,6 +265,7 @@ extension AISettingsPanelController {
             piperDeleteButton: piperDeleteButton,
             supertonicDeleteButton: supertonicDeleteButton,
             pageViews: pageViews,
+            controlsContainer: controlsContainer,
             runtimeLabel: runtimeLabel,
             voiceLabel: voiceLabel,
             speedLabel: speedLabel,
@@ -290,33 +298,43 @@ extension AISettingsPanelController {
         let downloadButtonWidth: CGFloat = 112
         let actionButtonWidth: CGFloat = 68
         let fieldLabelHeight: CGFloat = 22
+        let controlsRowGap: CGFloat = 16
+        let controlsColumnGap: CGFloat = 18
+        let controlsHeight = controlHeight * 3 + controlsRowGap * 2
         return [
-            section.runtimeLabel.topAnchor.constraint(equalTo: page.topAnchor, constant: 4),
-            section.runtimeLabel.leadingAnchor.constraint(equalTo: page.leadingAnchor),
-            section.runtimeLabel.trailingAnchor.constraint(lessThanOrEqualTo: page.trailingAnchor),
-            section.runtimeLabel.heightAnchor.constraint(equalToConstant: fieldLabelHeight),
-            section.runtimePopup.topAnchor.constraint(equalTo: section.runtimeLabel.bottomAnchor, constant: 8),
-            section.runtimePopup.leadingAnchor.constraint(equalTo: page.leadingAnchor),
-            section.runtimePopup.trailingAnchor.constraint(equalTo: page.trailingAnchor),
-            section.runtimePopup.heightAnchor.constraint(equalToConstant: controlHeight),
-            section.voiceLabel.topAnchor.constraint(equalTo: section.runtimePopup.bottomAnchor, constant: 14),
-            section.voiceLabel.leadingAnchor.constraint(equalTo: page.leadingAnchor),
-            section.voiceLabel.trailingAnchor.constraint(lessThanOrEqualTo: page.trailingAnchor),
-            section.voiceLabel.heightAnchor.constraint(equalToConstant: fieldLabelHeight),
-            section.voicePopup.topAnchor.constraint(equalTo: section.voiceLabel.bottomAnchor, constant: 8),
-            section.voicePopup.leadingAnchor.constraint(equalTo: page.leadingAnchor),
-            section.voicePopup.trailingAnchor.constraint(equalTo: page.trailingAnchor),
-            section.voicePopup.heightAnchor.constraint(equalToConstant: controlHeight),
-            section.speedLabel.topAnchor.constraint(equalTo: section.voicePopup.bottomAnchor, constant: 14),
-            section.speedLabel.leadingAnchor.constraint(equalTo: page.leadingAnchor),
-            section.speedLabel.trailingAnchor.constraint(lessThanOrEqualTo: page.trailingAnchor),
-            section.speedLabel.heightAnchor.constraint(equalToConstant: fieldLabelHeight),
-            section.speedPopup.topAnchor.constraint(equalTo: section.speedLabel.bottomAnchor, constant: 8),
-            section.speedPopup.leadingAnchor.constraint(equalTo: page.leadingAnchor),
-            section.speedPopup.trailingAnchor.constraint(equalTo: page.trailingAnchor),
-            section.speedPopup.heightAnchor.constraint(equalToConstant: controlHeight),
+            section.controlsContainer.topAnchor.constraint(equalTo: page.topAnchor, constant: 4),
+            section.controlsContainer.leadingAnchor.constraint(equalTo: page.leadingAnchor),
+            section.controlsContainer.trailingAnchor.constraint(equalTo: page.trailingAnchor),
+            section.controlsContainer.heightAnchor.constraint(equalToConstant: controlsHeight),
 
-            section.kittenCard.topAnchor.constraint(equalTo: section.speedPopup.bottomAnchor, constant: 22),
+            section.runtimePopup.topAnchor.constraint(equalTo: section.controlsContainer.topAnchor),
+            section.runtimePopup.leadingAnchor.constraint(equalTo: section.controlsContainer.leadingAnchor, constant: labelColumnWidth + controlsColumnGap),
+            section.runtimePopup.trailingAnchor.constraint(equalTo: section.controlsContainer.trailingAnchor),
+            section.runtimePopup.heightAnchor.constraint(equalToConstant: controlHeight),
+            section.runtimeLabel.centerYAnchor.constraint(equalTo: section.runtimePopup.centerYAnchor),
+            section.runtimeLabel.leadingAnchor.constraint(equalTo: section.controlsContainer.leadingAnchor),
+            section.runtimeLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            section.runtimeLabel.heightAnchor.constraint(equalToConstant: fieldLabelHeight),
+
+            section.voicePopup.topAnchor.constraint(equalTo: section.runtimePopup.bottomAnchor, constant: controlsRowGap),
+            section.voicePopup.leadingAnchor.constraint(equalTo: section.runtimePopup.leadingAnchor),
+            section.voicePopup.trailingAnchor.constraint(equalTo: section.runtimePopup.trailingAnchor),
+            section.voicePopup.heightAnchor.constraint(equalToConstant: controlHeight),
+            section.voiceLabel.centerYAnchor.constraint(equalTo: section.voicePopup.centerYAnchor),
+            section.voiceLabel.leadingAnchor.constraint(equalTo: section.runtimeLabel.leadingAnchor),
+            section.voiceLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            section.voiceLabel.heightAnchor.constraint(equalToConstant: fieldLabelHeight),
+
+            section.speedPopup.topAnchor.constraint(equalTo: section.voicePopup.bottomAnchor, constant: controlsRowGap),
+            section.speedPopup.leadingAnchor.constraint(equalTo: section.runtimePopup.leadingAnchor),
+            section.speedPopup.trailingAnchor.constraint(equalTo: section.runtimePopup.trailingAnchor),
+            section.speedPopup.heightAnchor.constraint(equalToConstant: controlHeight),
+            section.speedLabel.centerYAnchor.constraint(equalTo: section.speedPopup.centerYAnchor),
+            section.speedLabel.leadingAnchor.constraint(equalTo: section.runtimeLabel.leadingAnchor),
+            section.speedLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
+            section.speedLabel.heightAnchor.constraint(equalToConstant: fieldLabelHeight),
+
+            section.kittenCard.topAnchor.constraint(equalTo: section.controlsContainer.bottomAnchor, constant: 22),
             section.kittenCard.leadingAnchor.constraint(equalTo: page.leadingAnchor),
             section.kittenCard.trailingAnchor.constraint(equalTo: page.trailingAnchor),
             section.kittenCard.heightAnchor.constraint(equalToConstant: rowHeight),
