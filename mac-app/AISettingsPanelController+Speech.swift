@@ -11,77 +11,34 @@ extension AISettingsPanelController {
         let paused: Bool
     }
 
-    private struct RuntimeControls {
-        let statusLabel: NSTextField?
-        let progressIndicator: NSProgressIndicator?
-        let downloadButton: NSButton?
-        let pauseButton: NSButton?
-        let cancelButton: NSButton?
-        let deleteButton: NSButton?
+    func speechRuntimeButtonTag(for runtime: SpeechRuntimeResourceManager.Runtime) -> Int {
+        SpeechRuntimeResourceManager.Runtime.displayOrder.firstIndex(of: runtime) ?? -1
     }
 
-    @objc func downloadKokoroSpeechRuntime(_ sender: NSButton) {
-        downloadSpeechRuntime(.kokoro, button: sender)
+    private func speechRuntime(for sender: NSButton) -> SpeechRuntimeResourceManager.Runtime? {
+        let runtimes = SpeechRuntimeResourceManager.Runtime.displayOrder
+        guard runtimes.indices.contains(sender.tag) else { return nil }
+        return runtimes[sender.tag]
     }
 
-    @objc func downloadKittenSpeechRuntime(_ sender: NSButton) {
-        downloadSpeechRuntime(.kitten, button: sender)
+    @objc func downloadSpeechRuntimeButton(_ sender: NSButton) {
+        guard let runtime = speechRuntime(for: sender) else { return }
+        downloadSpeechRuntime(runtime, button: sender)
     }
 
-    @objc func downloadPiperSpeechRuntime(_ sender: NSButton) {
-        downloadSpeechRuntime(.piper, button: sender)
+    @objc func deleteSpeechRuntimeButton(_ sender: NSButton) {
+        guard let runtime = speechRuntime(for: sender) else { return }
+        deleteSpeechRuntime(runtime)
     }
 
-    @objc func downloadSupertonicSpeechRuntime(_ sender: NSButton) {
-        downloadSpeechRuntime(.supertonic, button: sender)
+    @objc func pauseSpeechRuntimeDownloadButton(_ sender: NSButton) {
+        guard let runtime = speechRuntime(for: sender) else { return }
+        toggleSpeechRuntimeDownloadPaused(runtime)
     }
 
-    @objc func deleteKokoroSpeechRuntime(_ sender: NSButton) {
-        deleteSpeechRuntime(.kokoro)
-    }
-
-    @objc func deleteKittenSpeechRuntime(_ sender: NSButton) {
-        deleteSpeechRuntime(.kitten)
-    }
-
-    @objc func deletePiperSpeechRuntime(_ sender: NSButton) {
-        deleteSpeechRuntime(.piper)
-    }
-
-    @objc func deleteSupertonicSpeechRuntime(_ sender: NSButton) {
-        deleteSpeechRuntime(.supertonic)
-    }
-
-    @objc func pauseKokoroSpeechRuntimeDownload(_ sender: NSButton) {
-        toggleSpeechRuntimeDownloadPaused(.kokoro)
-    }
-
-    @objc func pauseKittenSpeechRuntimeDownload(_ sender: NSButton) {
-        toggleSpeechRuntimeDownloadPaused(.kitten)
-    }
-
-    @objc func pausePiperSpeechRuntimeDownload(_ sender: NSButton) {
-        toggleSpeechRuntimeDownloadPaused(.piper)
-    }
-
-    @objc func pauseSupertonicSpeechRuntimeDownload(_ sender: NSButton) {
-        toggleSpeechRuntimeDownloadPaused(.supertonic)
-    }
-
-    @objc func cancelKokoroSpeechRuntimeDownload(_ sender: NSButton) {
-        cancelSpeechRuntimeDownload(.kokoro)
-    }
-
-    @objc func cancelKittenSpeechRuntimeDownload(_ sender: NSButton) {
-        cancelSpeechRuntimeDownload(.kitten)
-    }
-
-    @objc func cancelPiperSpeechRuntimeDownload(_ sender: NSButton) {
-        cancelSpeechRuntimeDownload(.piper)
-    }
-
-    @objc func cancelSupertonicSpeechRuntimeDownload(_ sender: NSButton) {
-        cancelSpeechRuntimeDownload(.supertonic)
+    @objc func cancelSpeechRuntimeDownloadButton(_ sender: NSButton) {
+        guard let runtime = speechRuntime(for: sender) else { return }
+        cancelSpeechRuntimeDownload(runtime)
     }
 
     @objc func speechRuntimeChanged(_ sender: NSPopUpButton) {
@@ -124,60 +81,16 @@ extension AISettingsPanelController {
     }
 
     func refreshSpeechRuntimeStatus() {
-        let kokoro = runtimeStatus(.kokoro)
-        let kitten = runtimeStatus(.kitten)
-        let piper = runtimeStatus(.piper)
-        let supertonic = runtimeStatus(.supertonic)
-        updateRuntimeControls(runtime: .kokoro, status: kokoro, controls: kokoroRuntimeControls)
-        updateRuntimeControls(runtime: .kitten, status: kitten, controls: kittenRuntimeControls)
-        updateRuntimeControls(runtime: .piper, status: piper, controls: piperRuntimeControls)
-        updateRuntimeControls(runtime: .supertonic, status: supertonic, controls: supertonicRuntimeControls)
+        let statuses = Dictionary(
+            uniqueKeysWithValues: SpeechRuntimeResourceManager.Runtime.displayOrder.map { ($0, runtimeStatus($0)) }
+        )
+        for runtime in SpeechRuntimeResourceManager.Runtime.displayOrder {
+            guard let status = statuses[runtime],
+                  let controls = speechRuntimeControls[runtime] else { continue }
+            updateRuntimeControls(runtime: runtime, status: status, controls: controls)
+        }
         refreshSpeechRuntimePopup()
-        updateSpeechDownloadRefreshTimer(isDownloading: kokoro.downloading || kitten.downloading || piper.downloading || supertonic.downloading)
-    }
-
-    private var kokoroRuntimeControls: RuntimeControls {
-        RuntimeControls(
-            statusLabel: kokoroSpeechStatusLabel,
-            progressIndicator: kokoroSpeechProgressIndicator,
-            downloadButton: kokoroSpeechDownloadButton,
-            pauseButton: kokoroSpeechPauseButton,
-            cancelButton: kokoroSpeechCancelButton,
-            deleteButton: kokoroSpeechDeleteButton
-        )
-    }
-
-    private var kittenRuntimeControls: RuntimeControls {
-        RuntimeControls(
-            statusLabel: kittenSpeechStatusLabel,
-            progressIndicator: kittenSpeechProgressIndicator,
-            downloadButton: kittenSpeechDownloadButton,
-            pauseButton: kittenSpeechPauseButton,
-            cancelButton: kittenSpeechCancelButton,
-            deleteButton: kittenSpeechDeleteButton
-        )
-    }
-
-    private var piperRuntimeControls: RuntimeControls {
-        RuntimeControls(
-            statusLabel: piperSpeechStatusLabel,
-            progressIndicator: piperSpeechProgressIndicator,
-            downloadButton: piperSpeechDownloadButton,
-            pauseButton: piperSpeechPauseButton,
-            cancelButton: piperSpeechCancelButton,
-            deleteButton: piperSpeechDeleteButton
-        )
-    }
-
-    private var supertonicRuntimeControls: RuntimeControls {
-        RuntimeControls(
-            statusLabel: supertonicSpeechStatusLabel,
-            progressIndicator: supertonicSpeechProgressIndicator,
-            downloadButton: supertonicSpeechDownloadButton,
-            pauseButton: supertonicSpeechPauseButton,
-            cancelButton: supertonicSpeechCancelButton,
-            deleteButton: supertonicSpeechDeleteButton
-        )
+        updateSpeechDownloadRefreshTimer(isDownloading: statuses.values.contains { $0.downloading })
     }
 
     private func runtimeStatus(_ runtime: SpeechRuntimeResourceManager.Runtime) -> RuntimeStatus {
@@ -191,17 +104,17 @@ extension AISettingsPanelController {
     private func updateRuntimeControls(
         runtime: SpeechRuntimeResourceManager.Runtime,
         status: RuntimeStatus,
-        controls: RuntimeControls
+        controls: SpeechRuntimeRowControls
     ) {
-        controls.statusLabel?.stringValue = SpeechRuntimeResourceManager.statusText(for: runtime)
+        controls.statusLabel.stringValue = SpeechRuntimeResourceManager.statusText(for: runtime)
         updateSpeechProgressIndicator(controls.progressIndicator, runtime: runtime, isDownloading: status.downloading)
-        controls.pauseButton?.title = status.paused ? AppText.localized("继续", "Resume") : AppText.localized("暂停", "Pause")
-        controls.downloadButton?.isEnabled = !status.downloading
-        controls.deleteButton?.isEnabled = status.downloaded
-        controls.downloadButton?.isHidden = status.downloaded || status.downloading
-        controls.pauseButton?.isHidden = !status.downloading
-        controls.cancelButton?.isHidden = !status.downloading
-        controls.deleteButton?.isHidden = !status.downloaded || status.downloading
+        controls.pauseButton.title = status.paused ? AppText.localized("继续", "Resume") : AppText.localized("暂停", "Pause")
+        controls.downloadButton.isEnabled = !status.downloading
+        controls.deleteButton.isEnabled = status.downloaded
+        controls.downloadButton.isHidden = status.downloaded || status.downloading
+        controls.pauseButton.isHidden = !status.downloading
+        controls.cancelButton.isHidden = !status.downloading
+        controls.deleteButton.isHidden = !status.downloaded || status.downloading
     }
 
     private func toggleSpeechRuntimeDownloadPaused(_ runtime: SpeechRuntimeResourceManager.Runtime) {
@@ -418,16 +331,7 @@ extension AISettingsPanelController {
                     return
                 }
                 button?.isEnabled = true
-                switch runtime {
-                case .kokoro:
-                    self.kokoroSpeechStatusLabel?.stringValue = AppText.localized("下载失败", "Download failed")
-                case .kitten:
-                    self.kittenSpeechStatusLabel?.stringValue = AppText.localized("下载失败", "Download failed")
-                case .piper:
-                    self.piperSpeechStatusLabel?.stringValue = AppText.localized("下载失败", "Download failed")
-                case .supertonic:
-                    self.supertonicSpeechStatusLabel?.stringValue = AppText.localized("下载失败", "Download failed")
-                }
+                self.speechRuntimeControls[runtime]?.statusLabel.stringValue = AppText.localized("下载失败", "Download failed")
                 self.showSpeechDownloadError(error)
             }
         }

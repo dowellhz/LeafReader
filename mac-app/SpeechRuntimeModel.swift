@@ -3,7 +3,7 @@ import Foundation
 extension SpeechRuntimeResourceManager {
     typealias InstallManifest = LocalRuntimeInstallManifest
 
-    enum Runtime: CaseIterable {
+    enum Runtime: CaseIterable, Hashable {
         case kokoro
         case kitten
         case piper

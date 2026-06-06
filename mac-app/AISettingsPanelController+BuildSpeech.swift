@@ -1,47 +1,45 @@
 import Cocoa
 
+struct SpeechRuntimeRowControls {
+    let runtime: SpeechRuntimeResourceManager.Runtime
+    let card: NSView
+    let titleLabel: NSTextField
+    let statusLabel: NSTextField
+    let progressIndicator: NSProgressIndicator
+    let downloadButton: NSButton
+    let pauseButton: NSButton
+    let cancelButton: NSButton
+    let deleteButton: NSButton
+
+    var pageViews: [NSView] {
+        [
+            card,
+            titleLabel,
+            statusLabel,
+            progressIndicator,
+            downloadButton,
+            pauseButton,
+            cancelButton,
+            deleteButton
+        ]
+    }
+}
+
 struct AISettingsSpeechSection {
     let runtimePopup: NSPopUpButton
     let voicePopup: NSPopUpButton
     let speedPopup: NSPopUpButton
-    let kokoroStatusLabel: NSTextField
-    let kittenStatusLabel: NSTextField
-    let piperStatusLabel: NSTextField
-    let supertonicStatusLabel: NSTextField
-    let kokoroProgressIndicator: NSProgressIndicator
-    let kittenProgressIndicator: NSProgressIndicator
-    let piperProgressIndicator: NSProgressIndicator
-    let supertonicProgressIndicator: NSProgressIndicator
-    let kokoroDownloadButton: NSButton
-    let kittenDownloadButton: NSButton
-    let piperDownloadButton: NSButton
-    let supertonicDownloadButton: NSButton
-    let kokoroPauseButton: NSButton
-    let kittenPauseButton: NSButton
-    let piperPauseButton: NSButton
-    let supertonicPauseButton: NSButton
-    let kokoroCancelButton: NSButton
-    let kittenCancelButton: NSButton
-    let piperCancelButton: NSButton
-    let supertonicCancelButton: NSButton
-    let kokoroDeleteButton: NSButton
-    let kittenDeleteButton: NSButton
-    let piperDeleteButton: NSButton
-    let supertonicDeleteButton: NSButton
+    let runtimeRows: [SpeechRuntimeRowControls]
     let pageViews: [NSView]
 
     fileprivate let controlsContainer: NSView
     fileprivate let runtimeLabel: NSTextField
     fileprivate let voiceLabel: NSTextField
     fileprivate let speedLabel: NSTextField
-    fileprivate let kokoroCard: NSView
-    fileprivate let kittenCard: NSView
-    fileprivate let piperCard: NSView
-    fileprivate let supertonicCard: NSView
-    fileprivate let kokoroLabel: NSTextField
-    fileprivate let kittenLabel: NSTextField
-    fileprivate let piperLabel: NSTextField
-    fileprivate let supertonicLabel: NSTextField
+
+    func controls(for runtime: SpeechRuntimeResourceManager.Runtime) -> SpeechRuntimeRowControls? {
+        runtimeRows.first { $0.runtime == runtime }
+    }
 }
 
 extension AISettingsPanelController {
@@ -84,199 +82,76 @@ extension AISettingsPanelController {
             fieldLabel.setContentCompressionResistancePriority(.required, for: .vertical)
             fieldLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         }
+
         let controlsContainer = NSView()
         controlsContainer.translatesAutoresizingMaskIntoConstraints = false
         for view in [runtimeLabel, runtimePopup, voiceLabel, voicePopup, speedLabel, speedPopup] {
             controlsContainer.addSubview(view)
         }
 
-        let kokoroCard = settingsSpeechRowCard()
-        let kittenCard = settingsSpeechRowCard()
-        let piperCard = settingsSpeechRowCard()
-        let supertonicCard = settingsSpeechRowCard()
-        let kokoroLabel = label("Kokoro", size: settingsFontSize, weight: .semibold, color: primaryText)
-        let kokoroStatusLabel = label(SpeechRuntimeResourceManager.statusText(for: .kokoro), size: settingsFontSize, color: secondaryText)
-        let kokoroProgressIndicator = speechDownloadProgressIndicator()
-        let kokoroDownloadButton = settingsActionButton(
-            title: AppText.localized("下载 Kokoro", "Download Kokoro"),
-            target: self,
-            action: #selector(downloadKokoroSpeechRuntime(_:))
-        )
-        let kokoroPauseButton = settingsActionButton(
-            title: AppText.localized("暂停", "Pause"),
-            target: self,
-            action: #selector(pauseKokoroSpeechRuntimeDownload(_:))
-        )
-        let kokoroCancelButton = settingsActionButton(
-            title: AppText.localized("取消", "Cancel"),
-            target: self,
-            action: #selector(cancelKokoroSpeechRuntimeDownload(_:))
-        )
-        let kokoroDeleteButton = settingsActionButton(
-            title: AppText.localized("删除", "Delete"),
-            target: self,
-            action: #selector(deleteKokoroSpeechRuntime(_:))
-        )
+        let runtimeRows = SpeechRuntimeResourceManager.Runtime.displayOrder.map {
+            makeSpeechRuntimeRow(runtime: $0, settingsFontSize: settingsFontSize, primaryText: primaryText, secondaryText: secondaryText)
+        }
+        runtimeRows.forEach { configureSpeechRuntimeRowState($0) }
 
-        let kittenLabel = label("KittenTTS", size: settingsFontSize, weight: .semibold, color: primaryText)
-        let kittenStatusLabel = label(SpeechRuntimeResourceManager.statusText(for: .kitten), size: settingsFontSize, color: secondaryText)
-        let kittenProgressIndicator = speechDownloadProgressIndicator()
-        let kittenDownloadButton = settingsActionButton(
-            title: AppText.localized("下载 Kitten", "Download Kitten"),
-            target: self,
-            action: #selector(downloadKittenSpeechRuntime(_:))
-        )
-        let kittenPauseButton = settingsActionButton(
-            title: AppText.localized("暂停", "Pause"),
-            target: self,
-            action: #selector(pauseKittenSpeechRuntimeDownload(_:))
-        )
-        let kittenCancelButton = settingsActionButton(
-            title: AppText.localized("取消", "Cancel"),
-            target: self,
-            action: #selector(cancelKittenSpeechRuntimeDownload(_:))
-        )
-        let kittenDeleteButton = settingsActionButton(
-            title: AppText.localized("删除", "Delete"),
-            target: self,
-            action: #selector(deleteKittenSpeechRuntime(_:))
-        )
-
-        let piperLabel = label("Piper", size: settingsFontSize, weight: .semibold, color: primaryText)
-        let piperStatusLabel = label(SpeechRuntimeResourceManager.statusText(for: .piper), size: settingsFontSize, color: secondaryText)
-        let piperProgressIndicator = speechDownloadProgressIndicator()
-        let piperDownloadButton = settingsActionButton(
-            title: AppText.localized("下载 Piper", "Download Piper"),
-            target: self,
-            action: #selector(downloadPiperSpeechRuntime(_:))
-        )
-        let piperPauseButton = settingsActionButton(
-            title: AppText.localized("暂停", "Pause"),
-            target: self,
-            action: #selector(pausePiperSpeechRuntimeDownload(_:))
-        )
-        let piperCancelButton = settingsActionButton(
-            title: AppText.localized("取消", "Cancel"),
-            target: self,
-            action: #selector(cancelPiperSpeechRuntimeDownload(_:))
-        )
-        let piperDeleteButton = settingsActionButton(
-            title: AppText.localized("删除", "Delete"),
-            target: self,
-            action: #selector(deletePiperSpeechRuntime(_:))
-        )
-
-        let supertonicLabel = label("Supertonic", size: settingsFontSize, weight: .semibold, color: primaryText)
-        let supertonicStatusLabel = label(SpeechRuntimeResourceManager.statusText(for: .supertonic), size: settingsFontSize, color: secondaryText)
-        let supertonicProgressIndicator = speechDownloadProgressIndicator()
-        let supertonicDownloadButton = settingsActionButton(
-            title: AppText.localized("下载 Supertonic", "Download Supertonic"),
-            target: self,
-            action: #selector(downloadSupertonicSpeechRuntime(_:))
-        )
-        let supertonicPauseButton = settingsActionButton(
-            title: AppText.localized("暂停", "Pause"),
-            target: self,
-            action: #selector(pauseSupertonicSpeechRuntimeDownload(_:))
-        )
-        let supertonicCancelButton = settingsActionButton(
-            title: AppText.localized("取消", "Cancel"),
-            target: self,
-            action: #selector(cancelSupertonicSpeechRuntimeDownload(_:))
-        )
-        let supertonicDeleteButton = settingsActionButton(
-            title: AppText.localized("删除", "Delete"),
-            target: self,
-            action: #selector(deleteSupertonicSpeechRuntime(_:))
-        )
-
-        configureSpeechRuntimeRowState(
-            runtime: .kokoro,
-            progressIndicator: kokoroProgressIndicator,
-            downloadButton: kokoroDownloadButton,
-            pauseButton: kokoroPauseButton,
-            cancelButton: kokoroCancelButton,
-            deleteButton: kokoroDeleteButton
-        )
-        configureSpeechRuntimeRowState(
-            runtime: .kitten,
-            progressIndicator: kittenProgressIndicator,
-            downloadButton: kittenDownloadButton,
-            pauseButton: kittenPauseButton,
-            cancelButton: kittenCancelButton,
-            deleteButton: kittenDeleteButton
-        )
-        configureSpeechRuntimeRowState(
-            runtime: .piper,
-            progressIndicator: piperProgressIndicator,
-            downloadButton: piperDownloadButton,
-            pauseButton: piperPauseButton,
-            cancelButton: piperCancelButton,
-            deleteButton: piperDeleteButton
-        )
-        configureSpeechRuntimeRowState(
-            runtime: .supertonic,
-            progressIndicator: supertonicProgressIndicator,
-            downloadButton: supertonicDownloadButton,
-            pauseButton: supertonicPauseButton,
-            cancelButton: supertonicCancelButton,
-            deleteButton: supertonicDeleteButton
-        )
-
-        let pageViews: [NSView] = [
-            controlsContainer,
-            kokoroCard, kittenCard, piperCard, supertonicCard,
-            kokoroLabel, kokoroStatusLabel, kokoroProgressIndicator,
-            kokoroDownloadButton, kokoroPauseButton, kokoroCancelButton, kokoroDeleteButton,
-            kittenLabel, kittenStatusLabel, kittenProgressIndicator,
-            kittenDownloadButton, kittenPauseButton, kittenCancelButton, kittenDeleteButton,
-            piperLabel, piperStatusLabel, piperProgressIndicator,
-            piperDownloadButton, piperPauseButton, piperCancelButton, piperDeleteButton,
-            supertonicLabel, supertonicStatusLabel, supertonicProgressIndicator,
-            supertonicDownloadButton, supertonicPauseButton, supertonicCancelButton, supertonicDeleteButton
-        ]
-
+        let pageViews = [controlsContainer] + runtimeRows.flatMap(\.pageViews)
         return AISettingsSpeechSection(
             runtimePopup: runtimePopup,
             voicePopup: voicePopup,
             speedPopup: speedPopup,
-            kokoroStatusLabel: kokoroStatusLabel,
-            kittenStatusLabel: kittenStatusLabel,
-            piperStatusLabel: piperStatusLabel,
-            supertonicStatusLabel: supertonicStatusLabel,
-            kokoroProgressIndicator: kokoroProgressIndicator,
-            kittenProgressIndicator: kittenProgressIndicator,
-            piperProgressIndicator: piperProgressIndicator,
-            supertonicProgressIndicator: supertonicProgressIndicator,
-            kokoroDownloadButton: kokoroDownloadButton,
-            kittenDownloadButton: kittenDownloadButton,
-            piperDownloadButton: piperDownloadButton,
-            supertonicDownloadButton: supertonicDownloadButton,
-            kokoroPauseButton: kokoroPauseButton,
-            kittenPauseButton: kittenPauseButton,
-            piperPauseButton: piperPauseButton,
-            supertonicPauseButton: supertonicPauseButton,
-            kokoroCancelButton: kokoroCancelButton,
-            kittenCancelButton: kittenCancelButton,
-            piperCancelButton: piperCancelButton,
-            supertonicCancelButton: supertonicCancelButton,
-            kokoroDeleteButton: kokoroDeleteButton,
-            kittenDeleteButton: kittenDeleteButton,
-            piperDeleteButton: piperDeleteButton,
-            supertonicDeleteButton: supertonicDeleteButton,
+            runtimeRows: runtimeRows,
             pageViews: pageViews,
             controlsContainer: controlsContainer,
             runtimeLabel: runtimeLabel,
             voiceLabel: voiceLabel,
-            speedLabel: speedLabel,
-            kokoroCard: kokoroCard,
-            kittenCard: kittenCard,
-            piperCard: piperCard,
-            supertonicCard: supertonicCard,
-            kokoroLabel: kokoroLabel,
-            kittenLabel: kittenLabel,
-            piperLabel: piperLabel,
-            supertonicLabel: supertonicLabel
+            speedLabel: speedLabel
+        )
+    }
+
+    private func makeSpeechRuntimeRow(
+        runtime: SpeechRuntimeResourceManager.Runtime,
+        settingsFontSize: CGFloat,
+        primaryText: NSColor,
+        secondaryText: NSColor
+    ) -> SpeechRuntimeRowControls {
+        let card = settingsSpeechRowCard()
+        let titleLabel = label(runtime.title, size: settingsFontSize, weight: .semibold, color: primaryText)
+        let statusLabel = label(SpeechRuntimeResourceManager.statusText(for: runtime), size: settingsFontSize, color: secondaryText)
+        let progressIndicator = speechDownloadProgressIndicator()
+        let downloadButton = settingsActionButton(
+            title: AppText.localized("下载 \(runtime.title)", "Download \(runtime.title)"),
+            target: self,
+            action: #selector(downloadSpeechRuntimeButton(_:))
+        )
+        let pauseButton = settingsActionButton(
+            title: AppText.localized("暂停", "Pause"),
+            target: self,
+            action: #selector(pauseSpeechRuntimeDownloadButton(_:))
+        )
+        let cancelButton = settingsActionButton(
+            title: AppText.localized("取消", "Cancel"),
+            target: self,
+            action: #selector(cancelSpeechRuntimeDownloadButton(_:))
+        )
+        let deleteButton = settingsActionButton(
+            title: AppText.localized("删除", "Delete"),
+            target: self,
+            action: #selector(deleteSpeechRuntimeButton(_:))
+        )
+        let tag = speechRuntimeButtonTag(for: runtime)
+        for button in [downloadButton, pauseButton, cancelButton, deleteButton] {
+            button.tag = tag
+        }
+        return SpeechRuntimeRowControls(
+            runtime: runtime,
+            card: card,
+            titleLabel: titleLabel,
+            statusLabel: statusLabel,
+            progressIndicator: progressIndicator,
+            downloadButton: downloadButton,
+            pauseButton: pauseButton,
+            cancelButton: cancelButton,
+            deleteButton: deleteButton
         )
     }
 
@@ -301,7 +176,7 @@ extension AISettingsPanelController {
         let controlsRowGap: CGFloat = 16
         let controlsColumnGap: CGFloat = 18
         let controlsHeight = controlHeight * 3 + controlsRowGap * 2
-        return [
+        var constraints: [NSLayoutConstraint] = [
             section.controlsContainer.topAnchor.constraint(equalTo: page.topAnchor, constant: 4),
             section.controlsContainer.leadingAnchor.constraint(equalTo: page.leadingAnchor),
             section.controlsContainer.trailingAnchor.constraint(equalTo: page.trailingAnchor),
@@ -332,159 +207,96 @@ extension AISettingsPanelController {
             section.speedLabel.centerYAnchor.constraint(equalTo: section.speedPopup.centerYAnchor),
             section.speedLabel.leadingAnchor.constraint(equalTo: section.runtimeLabel.leadingAnchor),
             section.speedLabel.widthAnchor.constraint(equalToConstant: labelColumnWidth),
-            section.speedLabel.heightAnchor.constraint(equalToConstant: fieldLabelHeight),
+            section.speedLabel.heightAnchor.constraint(equalToConstant: fieldLabelHeight)
+        ]
 
-            section.kittenCard.topAnchor.constraint(equalTo: section.controlsContainer.bottomAnchor, constant: 22),
-            section.kittenCard.leadingAnchor.constraint(equalTo: page.leadingAnchor),
-            section.kittenCard.trailingAnchor.constraint(equalTo: page.trailingAnchor),
-            section.kittenCard.heightAnchor.constraint(equalToConstant: rowHeight),
-            section.piperCard.topAnchor.constraint(equalTo: section.kittenCard.bottomAnchor, constant: rowGap),
-            section.piperCard.leadingAnchor.constraint(equalTo: section.kittenCard.leadingAnchor),
-            section.piperCard.trailingAnchor.constraint(equalTo: section.kittenCard.trailingAnchor),
-            section.piperCard.heightAnchor.constraint(equalToConstant: rowHeight),
-            section.supertonicCard.topAnchor.constraint(equalTo: section.piperCard.bottomAnchor, constant: rowGap),
-            section.supertonicCard.leadingAnchor.constraint(equalTo: section.kittenCard.leadingAnchor),
-            section.supertonicCard.trailingAnchor.constraint(equalTo: section.kittenCard.trailingAnchor),
-            section.supertonicCard.heightAnchor.constraint(equalToConstant: rowHeight),
-            section.kokoroCard.topAnchor.constraint(equalTo: section.supertonicCard.bottomAnchor, constant: rowGap),
-            section.kokoroCard.leadingAnchor.constraint(equalTo: section.kittenCard.leadingAnchor),
-            section.kokoroCard.trailingAnchor.constraint(equalTo: section.kittenCard.trailingAnchor),
-            section.kokoroCard.heightAnchor.constraint(equalToConstant: rowHeight),
+        for (index, row) in section.runtimeRows.enumerated() {
+            if index == 0 {
+                constraints += [
+                    row.card.topAnchor.constraint(equalTo: section.controlsContainer.bottomAnchor, constant: 22),
+                    row.card.leadingAnchor.constraint(equalTo: page.leadingAnchor),
+                    row.card.trailingAnchor.constraint(equalTo: page.trailingAnchor)
+                ]
+            } else {
+                let previous = section.runtimeRows[index - 1]
+                constraints += [
+                    row.card.topAnchor.constraint(equalTo: previous.card.bottomAnchor, constant: rowGap),
+                    row.card.leadingAnchor.constraint(equalTo: previous.card.leadingAnchor),
+                    row.card.trailingAnchor.constraint(equalTo: previous.card.trailingAnchor)
+                ]
+            }
+            constraints += runtimeRowConstraints(
+                row,
+                rowHeight: rowHeight,
+                rowInset: rowInset,
+                rowButtonHeight: rowButtonHeight,
+                runtimeNameWidth: runtimeNameWidth,
+                runtimeStatusWidth: runtimeStatusWidth,
+                runtimeProgressGap: runtimeProgressGap,
+                runtimeProgressWidth: runtimeProgressWidth,
+                downloadButtonWidth: downloadButtonWidth,
+                actionButtonWidth: actionButtonWidth
+            )
+        }
+        if let lastRow = section.runtimeRows.last {
+            constraints.append(lastRow.card.bottomAnchor.constraint(lessThanOrEqualTo: page.bottomAnchor, constant: -8))
+        }
+        return constraints
+    }
 
-            section.kokoroLabel.centerYAnchor.constraint(equalTo: section.kokoroCard.centerYAnchor),
-            section.kokoroLabel.leadingAnchor.constraint(equalTo: section.kokoroCard.leadingAnchor, constant: rowInset),
-            section.kokoroLabel.widthAnchor.constraint(equalToConstant: runtimeNameWidth),
-            section.kokoroStatusLabel.centerYAnchor.constraint(equalTo: section.kokoroLabel.centerYAnchor),
-            section.kokoroStatusLabel.leadingAnchor.constraint(equalTo: section.kokoroLabel.trailingAnchor, constant: 12),
-            section.kokoroStatusLabel.widthAnchor.constraint(equalToConstant: runtimeStatusWidth),
-            section.kokoroProgressIndicator.centerYAnchor.constraint(equalTo: section.kokoroLabel.centerYAnchor),
-            section.kokoroProgressIndicator.leadingAnchor.constraint(equalTo: section.kokoroStatusLabel.trailingAnchor, constant: runtimeProgressGap),
-            section.kokoroProgressIndicator.widthAnchor.constraint(lessThanOrEqualToConstant: runtimeProgressWidth),
-            section.kokoroProgressIndicator.widthAnchor.constraint(greaterThanOrEqualToConstant: 48),
-            section.kokoroProgressIndicator.trailingAnchor.constraint(lessThanOrEqualTo: section.kokoroPauseButton.leadingAnchor, constant: -8),
-            section.kokoroProgressIndicator.heightAnchor.constraint(equalToConstant: 8),
-            section.kokoroDownloadButton.centerYAnchor.constraint(equalTo: section.kokoroLabel.centerYAnchor),
-            section.kokoroDownloadButton.trailingAnchor.constraint(equalTo: section.kokoroCard.trailingAnchor, constant: -rowInset),
-            section.kokoroDownloadButton.widthAnchor.constraint(equalToConstant: downloadButtonWidth),
-            section.kokoroDownloadButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.kokoroPauseButton.centerYAnchor.constraint(equalTo: section.kokoroLabel.centerYAnchor),
-            section.kokoroPauseButton.trailingAnchor.constraint(equalTo: section.kokoroCancelButton.leadingAnchor, constant: -8),
-            section.kokoroPauseButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
-            section.kokoroPauseButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.kokoroCancelButton.centerYAnchor.constraint(equalTo: section.kokoroLabel.centerYAnchor),
-            section.kokoroCancelButton.trailingAnchor.constraint(equalTo: section.kokoroCard.trailingAnchor, constant: -rowInset),
-            section.kokoroCancelButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
-            section.kokoroCancelButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.kokoroDeleteButton.centerYAnchor.constraint(equalTo: section.kokoroLabel.centerYAnchor),
-            section.kokoroDeleteButton.trailingAnchor.constraint(equalTo: section.kokoroCard.trailingAnchor, constant: -rowInset),
-            section.kokoroDeleteButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
-            section.kokoroDeleteButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-
-            section.kittenLabel.centerYAnchor.constraint(equalTo: section.kittenCard.centerYAnchor),
-            section.kittenLabel.leadingAnchor.constraint(equalTo: section.kokoroLabel.leadingAnchor),
-            section.kittenLabel.widthAnchor.constraint(equalToConstant: runtimeNameWidth),
-            section.kittenStatusLabel.centerYAnchor.constraint(equalTo: section.kittenLabel.centerYAnchor),
-            section.kittenStatusLabel.leadingAnchor.constraint(equalTo: section.kittenLabel.trailingAnchor, constant: 12),
-            section.kittenStatusLabel.widthAnchor.constraint(equalToConstant: runtimeStatusWidth),
-            section.kittenProgressIndicator.centerYAnchor.constraint(equalTo: section.kittenLabel.centerYAnchor),
-            section.kittenProgressIndicator.leadingAnchor.constraint(equalTo: section.kittenStatusLabel.trailingAnchor, constant: runtimeProgressGap),
-            section.kittenProgressIndicator.widthAnchor.constraint(lessThanOrEqualToConstant: runtimeProgressWidth),
-            section.kittenProgressIndicator.widthAnchor.constraint(greaterThanOrEqualToConstant: 48),
-            section.kittenProgressIndicator.trailingAnchor.constraint(lessThanOrEqualTo: section.kittenPauseButton.leadingAnchor, constant: -8),
-            section.kittenProgressIndicator.heightAnchor.constraint(equalToConstant: 8),
-            section.kittenDownloadButton.centerYAnchor.constraint(equalTo: section.kittenLabel.centerYAnchor),
-            section.kittenDownloadButton.trailingAnchor.constraint(equalTo: section.kittenCard.trailingAnchor, constant: -rowInset),
-            section.kittenDownloadButton.widthAnchor.constraint(equalToConstant: downloadButtonWidth),
-            section.kittenDownloadButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.kittenPauseButton.centerYAnchor.constraint(equalTo: section.kittenLabel.centerYAnchor),
-            section.kittenPauseButton.trailingAnchor.constraint(equalTo: section.kittenCancelButton.leadingAnchor, constant: -8),
-            section.kittenPauseButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
-            section.kittenPauseButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.kittenCancelButton.centerYAnchor.constraint(equalTo: section.kittenLabel.centerYAnchor),
-            section.kittenCancelButton.trailingAnchor.constraint(equalTo: section.kittenCard.trailingAnchor, constant: -rowInset),
-            section.kittenCancelButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
-            section.kittenCancelButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.kittenDeleteButton.centerYAnchor.constraint(equalTo: section.kittenLabel.centerYAnchor),
-            section.kittenDeleteButton.trailingAnchor.constraint(equalTo: section.kittenCard.trailingAnchor, constant: -rowInset),
-            section.kittenDeleteButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
-            section.kittenDeleteButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-
-            section.piperLabel.centerYAnchor.constraint(equalTo: section.piperCard.centerYAnchor),
-            section.piperLabel.leadingAnchor.constraint(equalTo: section.kokoroLabel.leadingAnchor),
-            section.piperLabel.widthAnchor.constraint(equalToConstant: runtimeNameWidth),
-            section.piperStatusLabel.centerYAnchor.constraint(equalTo: section.piperLabel.centerYAnchor),
-            section.piperStatusLabel.leadingAnchor.constraint(equalTo: section.piperLabel.trailingAnchor, constant: 12),
-            section.piperStatusLabel.widthAnchor.constraint(equalToConstant: runtimeStatusWidth),
-            section.piperProgressIndicator.centerYAnchor.constraint(equalTo: section.piperLabel.centerYAnchor),
-            section.piperProgressIndicator.leadingAnchor.constraint(equalTo: section.piperStatusLabel.trailingAnchor, constant: runtimeProgressGap),
-            section.piperProgressIndicator.widthAnchor.constraint(lessThanOrEqualToConstant: runtimeProgressWidth),
-            section.piperProgressIndicator.widthAnchor.constraint(greaterThanOrEqualToConstant: 48),
-            section.piperProgressIndicator.trailingAnchor.constraint(lessThanOrEqualTo: section.piperPauseButton.leadingAnchor, constant: -8),
-            section.piperProgressIndicator.heightAnchor.constraint(equalToConstant: 8),
-            section.piperDownloadButton.centerYAnchor.constraint(equalTo: section.piperLabel.centerYAnchor),
-            section.piperDownloadButton.trailingAnchor.constraint(equalTo: section.piperCard.trailingAnchor, constant: -rowInset),
-            section.piperDownloadButton.widthAnchor.constraint(equalToConstant: downloadButtonWidth),
-            section.piperDownloadButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.piperPauseButton.centerYAnchor.constraint(equalTo: section.piperLabel.centerYAnchor),
-            section.piperPauseButton.trailingAnchor.constraint(equalTo: section.piperCancelButton.leadingAnchor, constant: -8),
-            section.piperPauseButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
-            section.piperPauseButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.piperCancelButton.centerYAnchor.constraint(equalTo: section.piperLabel.centerYAnchor),
-            section.piperCancelButton.trailingAnchor.constraint(equalTo: section.piperCard.trailingAnchor, constant: -rowInset),
-            section.piperCancelButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
-            section.piperCancelButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.piperDeleteButton.centerYAnchor.constraint(equalTo: section.piperLabel.centerYAnchor),
-            section.piperDeleteButton.trailingAnchor.constraint(equalTo: section.piperCard.trailingAnchor, constant: -rowInset),
-            section.piperDeleteButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
-            section.piperDeleteButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-
-            section.supertonicLabel.centerYAnchor.constraint(equalTo: section.supertonicCard.centerYAnchor),
-            section.supertonicLabel.leadingAnchor.constraint(equalTo: section.kokoroLabel.leadingAnchor),
-            section.supertonicLabel.widthAnchor.constraint(equalToConstant: runtimeNameWidth),
-            section.supertonicStatusLabel.centerYAnchor.constraint(equalTo: section.supertonicLabel.centerYAnchor),
-            section.supertonicStatusLabel.leadingAnchor.constraint(equalTo: section.supertonicLabel.trailingAnchor, constant: 12),
-            section.supertonicStatusLabel.widthAnchor.constraint(equalToConstant: runtimeStatusWidth),
-            section.supertonicProgressIndicator.centerYAnchor.constraint(equalTo: section.supertonicLabel.centerYAnchor),
-            section.supertonicProgressIndicator.leadingAnchor.constraint(equalTo: section.supertonicStatusLabel.trailingAnchor, constant: runtimeProgressGap),
-            section.supertonicProgressIndicator.widthAnchor.constraint(lessThanOrEqualToConstant: runtimeProgressWidth),
-            section.supertonicProgressIndicator.widthAnchor.constraint(greaterThanOrEqualToConstant: 48),
-            section.supertonicProgressIndicator.trailingAnchor.constraint(lessThanOrEqualTo: section.supertonicPauseButton.leadingAnchor, constant: -8),
-            section.supertonicProgressIndicator.heightAnchor.constraint(equalToConstant: 8),
-            section.supertonicDownloadButton.centerYAnchor.constraint(equalTo: section.supertonicLabel.centerYAnchor),
-            section.supertonicDownloadButton.trailingAnchor.constraint(equalTo: section.supertonicCard.trailingAnchor, constant: -rowInset),
-            section.supertonicDownloadButton.widthAnchor.constraint(equalToConstant: downloadButtonWidth),
-            section.supertonicDownloadButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.supertonicPauseButton.centerYAnchor.constraint(equalTo: section.supertonicLabel.centerYAnchor),
-            section.supertonicPauseButton.trailingAnchor.constraint(equalTo: section.supertonicCancelButton.leadingAnchor, constant: -8),
-            section.supertonicPauseButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
-            section.supertonicPauseButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.supertonicCancelButton.centerYAnchor.constraint(equalTo: section.supertonicLabel.centerYAnchor),
-            section.supertonicCancelButton.trailingAnchor.constraint(equalTo: section.supertonicCard.trailingAnchor, constant: -rowInset),
-            section.supertonicCancelButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
-            section.supertonicCancelButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.supertonicDeleteButton.centerYAnchor.constraint(equalTo: section.supertonicLabel.centerYAnchor),
-            section.supertonicDeleteButton.trailingAnchor.constraint(equalTo: section.supertonicCard.trailingAnchor, constant: -rowInset),
-            section.supertonicDeleteButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
-            section.supertonicDeleteButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
-            section.kokoroCard.bottomAnchor.constraint(lessThanOrEqualTo: page.bottomAnchor, constant: -8)
+    private func runtimeRowConstraints(
+        _ row: SpeechRuntimeRowControls,
+        rowHeight: CGFloat,
+        rowInset: CGFloat,
+        rowButtonHeight: CGFloat,
+        runtimeNameWidth: CGFloat,
+        runtimeStatusWidth: CGFloat,
+        runtimeProgressGap: CGFloat,
+        runtimeProgressWidth: CGFloat,
+        downloadButtonWidth: CGFloat,
+        actionButtonWidth: CGFloat
+    ) -> [NSLayoutConstraint] {
+        [
+            row.card.heightAnchor.constraint(equalToConstant: rowHeight),
+            row.titleLabel.centerYAnchor.constraint(equalTo: row.card.centerYAnchor),
+            row.titleLabel.leadingAnchor.constraint(equalTo: row.card.leadingAnchor, constant: rowInset),
+            row.titleLabel.widthAnchor.constraint(equalToConstant: runtimeNameWidth),
+            row.statusLabel.centerYAnchor.constraint(equalTo: row.titleLabel.centerYAnchor),
+            row.statusLabel.leadingAnchor.constraint(equalTo: row.titleLabel.trailingAnchor, constant: 12),
+            row.statusLabel.widthAnchor.constraint(equalToConstant: runtimeStatusWidth),
+            row.progressIndicator.centerYAnchor.constraint(equalTo: row.titleLabel.centerYAnchor),
+            row.progressIndicator.leadingAnchor.constraint(equalTo: row.statusLabel.trailingAnchor, constant: runtimeProgressGap),
+            row.progressIndicator.widthAnchor.constraint(lessThanOrEqualToConstant: runtimeProgressWidth),
+            row.progressIndicator.widthAnchor.constraint(greaterThanOrEqualToConstant: 48),
+            row.progressIndicator.trailingAnchor.constraint(lessThanOrEqualTo: row.pauseButton.leadingAnchor, constant: -8),
+            row.progressIndicator.heightAnchor.constraint(equalToConstant: 8),
+            row.downloadButton.centerYAnchor.constraint(equalTo: row.titleLabel.centerYAnchor),
+            row.downloadButton.trailingAnchor.constraint(equalTo: row.card.trailingAnchor, constant: -rowInset),
+            row.downloadButton.widthAnchor.constraint(equalToConstant: downloadButtonWidth),
+            row.downloadButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
+            row.pauseButton.centerYAnchor.constraint(equalTo: row.titleLabel.centerYAnchor),
+            row.pauseButton.trailingAnchor.constraint(equalTo: row.cancelButton.leadingAnchor, constant: -8),
+            row.pauseButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
+            row.pauseButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
+            row.cancelButton.centerYAnchor.constraint(equalTo: row.titleLabel.centerYAnchor),
+            row.cancelButton.trailingAnchor.constraint(equalTo: row.card.trailingAnchor, constant: -rowInset),
+            row.cancelButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
+            row.cancelButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
+            row.deleteButton.centerYAnchor.constraint(equalTo: row.titleLabel.centerYAnchor),
+            row.deleteButton.trailingAnchor.constraint(equalTo: row.card.trailingAnchor, constant: -rowInset),
+            row.deleteButton.widthAnchor.constraint(equalToConstant: actionButtonWidth),
+            row.deleteButton.heightAnchor.constraint(equalToConstant: rowButtonHeight)
         ]
     }
 
-    private func configureSpeechRuntimeRowState(
-        runtime: SpeechRuntimeResourceManager.Runtime,
-        progressIndicator: NSProgressIndicator,
-        downloadButton: NSButton,
-        pauseButton: NSButton,
-        cancelButton: NSButton,
-        deleteButton: NSButton
-    ) {
-        let isDownloaded = SpeechRuntimeResourceManager.isDownloaded(runtime)
-        let isDownloading = SpeechRuntimeResourceManager.isDownloading(runtime)
-        deleteButton.isEnabled = isDownloaded
-        progressIndicator.isHidden = !isDownloading
-        downloadButton.isHidden = isDownloaded || isDownloading
-        pauseButton.isHidden = !isDownloading
-        cancelButton.isHidden = !isDownloading
-        deleteButton.isHidden = !isDownloaded
+    private func configureSpeechRuntimeRowState(_ row: SpeechRuntimeRowControls) {
+        let isDownloaded = SpeechRuntimeResourceManager.isDownloaded(row.runtime)
+        let isDownloading = SpeechRuntimeResourceManager.isDownloading(row.runtime)
+        row.deleteButton.isEnabled = isDownloaded
+        row.progressIndicator.isHidden = !isDownloading
+        row.downloadButton.isHidden = isDownloaded || isDownloading
+        row.pauseButton.isHidden = !isDownloading
+        row.cancelButton.isHidden = !isDownloading
+        row.deleteButton.isHidden = !isDownloaded
     }
 }
