@@ -1123,6 +1123,52 @@ enum AISettingsLogicTests {
         )
     }
 
+    static func testSpeechRuntimeHealthDistinguishesRuntimeAndModelPaths() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("leafreader-runtime-health-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let runtimeDirectory = root.appendingPathComponent("piper-tts-runtime", isDirectory: true)
+        let voiceDirectory = root.appendingPathComponent("piper-voices", isDirectory: true)
+        try fileManager.createDirectory(at: voiceDirectory, withIntermediateDirectories: true)
+        try Data().write(to: voiceDirectory.appendingPathComponent("en_US-lessac-high.onnx"))
+        try Data("{}".utf8).write(to: voiceDirectory.appendingPathComponent("en_US-lessac-high.onnx.json"))
+
+        let missingRuntimeHealth = SpeechRuntimeResourceManager.runtimeHealth(
+            for: .piper,
+            installDirectories: [runtimeDirectory],
+            voiceDirectory: voiceDirectory
+        )
+        try expect(!missingRuntimeHealth.hasRuntime, "runtime health should report missing Piper runtime files")
+        try expect(missingRuntimeHealth.hasModel, "runtime health should report installed Piper voice files")
+        try expectEqual(
+            missingRuntimeHealth.installState,
+            .missingRuntime,
+            "runtime health should derive a missing-runtime install state"
+        )
+
+        let executable = runtimeDirectory.appendingPathComponent("piper/piper")
+        try fileManager.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: runtimeDirectory.appendingPathComponent("piper-phonemize/lib", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try fileManager.createDirectory(
+            at: runtimeDirectory.appendingPathComponent("piper-phonemize/share/espeak-ng-data", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try Data().write(to: executable)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+
+        let completeHealth = SpeechRuntimeResourceManager.runtimeHealth(
+            for: .piper,
+            installDirectories: [runtimeDirectory],
+            voiceDirectory: voiceDirectory
+        )
+        try expect(completeHealth.isComplete, "runtime health should become complete once runtime and model files exist")
+    }
+
     static func testKokoroModelDownloadMakesBundledRuntimeAvailable() throws {
         let fileManager = FileManager.default
         let root = fileManager.temporaryDirectory

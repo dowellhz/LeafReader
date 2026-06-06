@@ -658,6 +658,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Piper non-default voice validation", AISettingsLogicTests.testPiperAnyVoiceAcceptsNonDefaultVoice),
     ("Piper model download availability", AISettingsLogicTests.testPiperModelDownloadMakesBundledRuntimeAvailable),
     ("Speech runtime install state detail", AISettingsLogicTests.testSpeechRuntimeInstallStateDistinguishesRuntimeAndModel),
+    ("Speech runtime health detail", AISettingsLogicTests.testSpeechRuntimeHealthDistinguishesRuntimeAndModelPaths),
     ("Kokoro model download availability", AISettingsLogicTests.testKokoroModelDownloadMakesBundledRuntimeAvailable),
     ("Kokoro Mandarin model download availability", AISettingsLogicTests.testKokoroMandarinModelDownloadMakesBundledRuntimeAvailable),
     ("KittenTTS model download availability", AISettingsLogicTests.testKittenModelDownloadMakesBundledRuntimeAvailable),

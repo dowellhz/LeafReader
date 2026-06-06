@@ -1,18 +1,29 @@
 import Foundation
 
+struct SpeechRuntimeHealth {
+    let runtime: SpeechRuntimeResourceManager.Runtime
+    let hasRuntime: Bool
+    let hasModel: Bool
+
+    var installState: LocalRuntimeInstallState {
+        LocalRuntimeInstallState.state(hasRuntime: hasRuntime, hasModel: hasModel)
+    }
+
+    var isComplete: Bool {
+        installState == .complete
+    }
+}
+
 enum SpeechRuntimeAvailability {
     typealias Runtime = SpeechRuntimeResourceManager.Runtime
     typealias RuntimeInstallState = LocalRuntimeInstallState
 
     static func isDownloaded(_ runtime: Runtime) -> Bool {
-        installState(for: runtime) == .complete
+        health(for: runtime).isComplete
     }
 
     static func installState(for runtime: Runtime) -> RuntimeInstallState {
-        installState(
-            hasRuntime: installedRuntimePathsExist(for: runtime),
-            hasModel: installedModelPathsExist(for: runtime)
-        )
+        health(for: runtime).installState
     }
 
     static func installState(hasRuntime: Bool, hasModel: Bool) -> RuntimeInstallState {
@@ -58,19 +69,42 @@ enum SpeechRuntimeAvailability {
         return runtimePathsExist(for: runtime, in: directory)
     }
 
+    static func health(for runtime: Runtime) -> SpeechRuntimeHealth {
+        runtimeHealth(for: runtime, installDirectories: runtime.installDirectories)
+    }
+
+    static func runtimeHealth(
+        for runtime: Runtime,
+        installDirectories: [URL],
+        modelCacheRoot: URL = Runtime.fluidAudioModelCacheRoot,
+        voiceDirectory: URL = Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory),
+        supertonicModelDirectory: URL = Runtime.supertonicCoreMLModelCacheDirectory,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> SpeechRuntimeHealth {
+        SpeechRuntimeHealth(
+            runtime: runtime,
+            hasRuntime: runtimePathsExist(for: runtime, installDirectories: installDirectories, environment: environment),
+            hasModel: modelPathsExist(
+                for: runtime,
+                installDirectories: installDirectories,
+                modelCacheRoot: modelCacheRoot,
+                voiceDirectory: voiceDirectory,
+                supertonicModelDirectory: supertonicModelDirectory,
+                environment: environment
+            )
+        )
+    }
+
     static func installedRuntimePathsExist(for runtime: Runtime) -> Bool {
         installedRuntimePathsExist(for: runtime, installDirectories: runtime.installDirectories)
     }
 
     static func installedRuntimePathsExist(for runtime: Runtime, installDirectories: [URL]) -> Bool {
-        if runtime == .supertonic,
-           let cliPath = ProcessInfo.processInfo.environment["LEAFREADER_SUPERTONIC_COREML_CLI"],
-           FileManager.default.isExecutableFile(atPath: cliPath) {
-            return true
-        }
-        return installDirectories.contains { directory in
-            runtimePathsExist(for: runtime, in: directory)
-        }
+        runtimePathsExist(
+            for: runtime,
+            installDirectories: installDirectories,
+            environment: ProcessInfo.processInfo.environment
+        )
     }
 
     static func runtimePathsExist(for runtime: Runtime, in directory: URL) -> Bool {
@@ -96,6 +130,39 @@ enum SpeechRuntimeAvailability {
         modelCacheRoot: URL = Runtime.fluidAudioModelCacheRoot,
         voiceDirectory: URL = Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory)
     ) -> Bool {
+        modelPathsExist(
+            for: runtime,
+            installDirectories: installDirectories,
+            modelCacheRoot: modelCacheRoot,
+            voiceDirectory: voiceDirectory,
+            supertonicModelDirectory: Runtime.supertonicCoreMLModelCacheDirectory,
+            environment: ProcessInfo.processInfo.environment
+        )
+    }
+
+    private static func runtimePathsExist(
+        for runtime: Runtime,
+        installDirectories: [URL],
+        environment: [String: String]
+    ) -> Bool {
+        if runtime == .supertonic,
+           let cliPath = environment["LEAFREADER_SUPERTONIC_COREML_CLI"],
+           FileManager.default.isExecutableFile(atPath: cliPath) {
+            return true
+        }
+        return installDirectories.contains { directory in
+            runtimePathsExist(for: runtime, in: directory)
+        }
+    }
+
+    private static func modelPathsExist(
+        for runtime: Runtime,
+        installDirectories: [URL],
+        modelCacheRoot: URL,
+        voiceDirectory: URL,
+        supertonicModelDirectory: URL,
+        environment: [String: String]
+    ) -> Bool {
         switch runtime {
         case .kitten:
             return installDirectories.contains { directory in
@@ -106,39 +173,36 @@ enum SpeechRuntimeAvailability {
         case .piper:
             return SpeechRuntimeResourceManager.piperAnyVoicePathsExist(in: voiceDirectory)
         case .supertonic:
-            return SupertonicCoreMLTTSBackend.modelPathsExist(in: Runtime.supertonicCoreMLModelCacheDirectory)
-                || ProcessInfo.processInfo.environment["LEAFREADER_SUPERTONIC_COREML_MODEL"].map {
+            return SupertonicCoreMLTTSBackend.modelPathsExist(in: supertonicModelDirectory)
+                || environment["LEAFREADER_SUPERTONIC_COREML_MODEL"].map {
                 SupertonicCoreMLTTSBackend.modelPathsExist(in: URL(fileURLWithPath: $0))
             } == true
         }
     }
 
     static func kittenRuntimeAndModelPathsExist(installDirectories: [URL]) -> Bool {
-        installedRuntimePathsExist(for: .kitten, installDirectories: installDirectories)
-            && installedModelPathsExist(for: .kitten, installDirectories: installDirectories)
+        runtimeHealth(for: .kitten, installDirectories: installDirectories).isComplete
     }
 
     static func kokoroRuntimeAndModelPathsExist(
         installDirectories: [URL],
         modelCacheRoot: URL = Runtime.fluidAudioModelCacheRoot
     ) -> Bool {
-        installedRuntimePathsExist(for: .kokoro, installDirectories: installDirectories)
-            && installedModelPathsExist(
-                for: .kokoro,
-                installDirectories: installDirectories,
-                modelCacheRoot: modelCacheRoot
-            )
+        runtimeHealth(
+            for: .kokoro,
+            installDirectories: installDirectories,
+            modelCacheRoot: modelCacheRoot
+        ).isComplete
     }
 
     static func piperRuntimeAndVoicePathsExist(
         installDirectories: [URL],
         voiceDirectory: URL = Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory)
     ) -> Bool {
-        installedRuntimePathsExist(for: .piper, installDirectories: installDirectories)
-            && installedModelPathsExist(
-                for: .piper,
-                installDirectories: installDirectories,
-                voiceDirectory: voiceDirectory
-            )
+        runtimeHealth(
+            for: .piper,
+            installDirectories: installDirectories,
+            voiceDirectory: voiceDirectory
+        ).isComplete
     }
 }
