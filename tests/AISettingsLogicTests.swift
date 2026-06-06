@@ -50,6 +50,10 @@ private func embeddingPayload(option: EmbeddingEndpointOption, model: String, in
     return payload
 }
 
+private func expectedSpeechReleaseAssetURL(fileName: String) -> String {
+    "https://github.com/dowellhz/LeafReader/releases/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/\(fileName)"
+}
+
 private struct EmbeddingKeyStore {
     var encryptedKeys: [String: String] = [:]
     var legacyPlainKeys: [String: String] = [:]
@@ -504,7 +508,7 @@ enum AISettingsLogicTests {
         try expect(kittenURL.hasSuffix("/kitten-tts-rs-macos-arm64.tar.gz"), "KittenTTS should use the release asset archive")
         try expect(kokoroURL.hasSuffix("/kokoro-coreml-macos-arm64.tar.gz"), "Kokoro should use the release asset archive")
         try expect(piperURL.hasSuffix("/piper-tts-macos-arm64.tar.gz"), "Piper should use the release asset archive")
-        try expect(supertonicURL == "https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/supertonic-coreml-macos-arm64.tar.gz", "Supertonic should download the Release-hosted CoreML model archive")
+        try expectEqual(supertonicURL, expectedSpeechReleaseAssetURL(fileName: "supertonic-coreml-macos-arm64.tar.gz"), "Supertonic should download the Release-hosted CoreML model archive")
         try expect(kittenURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "KittenTTS should use the stable speech runtime asset release")
         try expect(kokoroURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Kokoro should use the stable speech runtime asset release")
         try expect(piperURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Piper should use the stable speech runtime asset release")
@@ -544,8 +548,8 @@ enum AISettingsLogicTests {
 
         let supertonic = SpeechRuntimeResourceManager.Runtime.supertonic
         let supertonicPlan = supertonic.localRuntimeDownloadPlan
-        try expectEqual(supertonicPlan.archiveURL.absoluteString, "https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/supertonic-coreml-macos-arm64.tar.gz", "Supertonic should download from GitHub Release assets")
-        try expectEqual(supertonicPlan.manifestURL?.absoluteString, "https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/speech-models-manifest.json", "Supertonic should validate against the Release-hosted manifest")
+        try expectEqual(supertonicPlan.archiveURL.absoluteString, expectedSpeechReleaseAssetURL(fileName: "supertonic-coreml-macos-arm64.tar.gz"), "Supertonic should download from GitHub Release assets")
+        try expectEqual(supertonicPlan.manifestURL?.absoluteString, expectedSpeechReleaseAssetURL(fileName: "speech-models-manifest.json"), "Supertonic should validate against the Release-hosted manifest")
         try expectEqual(supertonicPlan.expectedAssetName, "supertonic-coreml-macos-arm64.tar.gz", "Supertonic download plan should expose expected archive name")
     }
 

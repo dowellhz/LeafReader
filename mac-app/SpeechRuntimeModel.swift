@@ -140,10 +140,7 @@ extension SpeechRuntimeResourceManager {
         }
 
         var manifestURL: URL {
-            switch self {
-            case .kokoro, .kitten, .piper, .supertonic:
-                return Self.modelManifestURL
-            }
+            Self.modelManifestURL
         }
 
         private static var userInstallRoot: URL {
