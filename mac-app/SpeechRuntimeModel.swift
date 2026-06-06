@@ -199,7 +199,7 @@ extension SpeechRuntimeResourceManager {
             case .piper:
                 return directory.appendingPathComponent("piper/piper")
             case .supertonic:
-                return directory.appendingPathComponent("fluidaudiocli")
+                return directory.appendingPathComponent("supertonic-mini")
             }
         }
 

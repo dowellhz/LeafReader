@@ -21,10 +21,7 @@ final class SupertonicCoreMLTTSBackend {
             ?? ProcessInfo.processInfo.environment[Self.voiceEnvironmentKey]
             ?? AISettingsStore.selectedSupertonicSpeechVoiceID
         let arguments = [
-            "tts",
             text,
-            "--backend",
-            "supertonic3",
             "--lang",
             Self.languageCode(for: text, languageHint: languageHint),
             "--voice",
@@ -46,7 +43,7 @@ final class SupertonicCoreMLTTSBackend {
                 currentDirectoryURL: runtime.cliURL.deletingLastPathComponent()
             )
         } catch {
-            NSLog("LeafReader Supertonic CoreML: failed to run FluidAudio CLI (error=%@)", error.localizedDescription)
+            NSLog("LeafReader Supertonic CoreML: failed to run mini runtime (error=%@)", error.localizedDescription)
             return .failure(.classifiedProcessFailure(runtime: "Supertonic", diagnostic: error.localizedDescription))
         }
         if result.timedOut {
@@ -59,7 +56,7 @@ final class SupertonicCoreMLTTSBackend {
         }
         if outputExists {
             NSLog(
-                "LeafReader Supertonic CoreML: FluidAudio CLI exited with status=%d after creating audio; continuing playback (output=%@)",
+                "LeafReader Supertonic CoreML: mini runtime exited with status=%d after creating audio; continuing playback (output=%@)",
                 result.terminationStatus,
                 outputURL.path
             )
@@ -68,7 +65,7 @@ final class SupertonicCoreMLTTSBackend {
 
         let message = Self.diagnosticTail(Self.processOutputText(stdout: result.stdout, stderr: result.stderr))
         NSLog(
-            "LeafReader Supertonic CoreML: FluidAudio CLI failed (status=%d, output=%@, details=%@)",
+            "LeafReader Supertonic CoreML: mini runtime failed (status=%d, output=%@, details=%@)",
             result.terminationStatus,
             outputURL.path,
             message
@@ -110,7 +107,7 @@ final class SupertonicCoreMLTTSBackend {
         let bundledPath = Runtime.supertonic.bundledExecutableURL.flatMap { ($0 as NSURL).path }
         let userPath = userInstallRoot
             .appendingPathComponent("supertonic-coreml", isDirectory: true)
-            .appendingPathComponent("fluidaudiocli") as NSURL
+            .appendingPathComponent("supertonic-mini") as NSURL
         let runtimePath = Runtime.supertonic.userExecutableURL as NSURL
         let candidatePaths: [String] = [
             ProcessInfo.processInfo.environment[cliEnvironmentKey],
