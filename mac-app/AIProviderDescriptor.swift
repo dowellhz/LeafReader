@@ -54,11 +54,23 @@ struct AIProviderDescriptor: Equatable {
         displayName: AppText.localized("其他", "Other")
     )
 
+    static let ollama = AIProviderDescriptor(
+        id: "ollama",
+        displayName: "Ollama"
+    )
+
+    static let localOpenAI = AIProviderDescriptor(
+        id: "local-openai",
+        displayName: AppText.localized("本地 OpenAI 兼容", "Local OpenAI Compatible")
+    )
+
     static let remoteChatProviders: [AIProviderDescriptor] = [
         .deepseek,
         .minimax,
         .openAI,
         .claude,
+        .ollama,
+        .localOpenAI,
         .custom
     ]
 

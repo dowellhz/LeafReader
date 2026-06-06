@@ -28,6 +28,15 @@ struct AIModelConfig {
         providerDescriptor.id
     }
 
+    var requiresAPIKey: Bool {
+        provider != AISettingsStore.ollamaProviderID
+            && provider != AISettingsStore.localOpenAIProviderID
+    }
+
+    var acceptsAPIKey: Bool {
+        provider != AISettingsStore.ollamaProviderID
+    }
+
     var usesAzureAPIKeyHeader: Bool {
         guard provider == AISettingsStore.customProviderID,
               let host = endpoint.host?.lowercased() else {

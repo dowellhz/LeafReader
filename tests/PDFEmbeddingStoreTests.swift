@@ -84,6 +84,23 @@ private func testBatchSaveAndLookupRoundTripsEmbeddings() throws {
     try expectEqual(loaded["missing"], nil, "lookup should omit missing chunk IDs")
 }
 
+private func testDocumentAgentIndexClearsEmbeddingsWhenCacheModelChanges() throws {
+    let index = PDFDocumentAgentIndex(text: "Alpha passage for embeddings.\n\nBeta passage for retrieval.")
+    let chunks = index.indexableChunks
+    guard let firstChunk = chunks.first else {
+        throw TestFailure(description: "test index should contain chunks")
+    }
+
+    index.applyEmbeddings([firstChunk.id: [0.1, 0.2, 0.3]], modelID: "provider:old-model:http://localhost/embeddings")
+    try expectEqual(index.embeddingCoverage.embedded, 1, "old model embedding should be applied")
+    try expectEqual(index.embeddingCacheModelID, "provider:old-model:http://localhost/embeddings", "index should remember the embedding cache model")
+
+    index.prepareForEmbeddingCacheModel("provider:new-model:http://localhost/embeddings")
+    try expectEqual(index.embeddingCoverage.embedded, 0, "changing embedding cache model should clear in-memory embeddings")
+    try expectEqual(index.embeddingCacheModelID, "provider:new-model:http://localhost/embeddings", "index should track the new embedding cache model")
+    try expectEqual(index.missingEmbeddingChunks().count, chunks.count, "all chunks should be rebuilt for the new embedding model")
+}
+
 @main
 struct PDFEmbeddingStoreTestRunner {
     static func main() {
@@ -91,6 +108,7 @@ struct PDFEmbeddingStoreTestRunner {
             try testCacheSizeIncludesSQLiteSidecars()
             try testPruneRemovesCachedDocumentsOverLimit()
             try testBatchSaveAndLookupRoundTripsEmbeddings()
+            try testDocumentAgentIndexClearsEmbeddingsWhenCacheModelChanges()
             print("PDFEmbeddingStoreTests passed")
         } catch {
             fputs("PDFEmbeddingStoreTests failed: \(error)\n", stderr)

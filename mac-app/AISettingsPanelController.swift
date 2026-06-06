@@ -61,6 +61,10 @@ final class AISettingsPanelController {
     weak var customEndpointField: NSTextField?
     weak var customModelLabel: NSTextField?
     weak var customModelField: NSTextField?
+    var customModelContainerHeightConstraint: NSLayoutConstraint?
+    var customModelLabelTopToEndpointConstraint: NSLayoutConstraint?
+    var customModelLabelTopToContainerConstraint: NSLayoutConstraint?
+    var customModelLabelCenterYToContainerConstraint: NSLayoutConstraint?
     weak var embeddingProviderPopup: NSPopUpButton?
     weak var embeddingEndpointContainer: NSView?
     weak var embeddingEndpointLabel: NSTextField?

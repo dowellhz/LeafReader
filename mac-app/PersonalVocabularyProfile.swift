@@ -3,7 +3,6 @@ import Foundation
 enum PersonalVocabularyStatus: String {
     case observed
     case learning
-    case familiar
     case likelyKnown = "likely_known"
     case known
 }

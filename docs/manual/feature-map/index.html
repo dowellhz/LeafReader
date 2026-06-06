@@ -569,6 +569,24 @@
 </li>
 
         <li class="md-nav__item">
+  <a href="#reading-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reading Notes
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
+  <a href="#persistence-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Persistence Helpers
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
   <a href="#tts-and-read-aloud" class="md-nav__link">
     <span class="md-ellipsis">
       TTS And Read Aloud
@@ -1080,6 +1098,24 @@
 </li>
 
         <li class="md-nav__item">
+  <a href="#reading-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reading Notes
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
+  <a href="#persistence-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Persistence Helpers
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
   <a href="#tts-and-read-aloud" class="md-nav__link">
     <span class="md-ellipsis">
       TTS And Read Aloud
@@ -1169,9 +1205,23 @@
 <ul>
 <li><code>mac-app/ReaderWindowController+Vocabulary*.swift</code>: vocabulary capture, review UI, navigation, export, persistence.</li>
 <li><code>mac-app/VocabularySRS.swift</code>: spaced repetition scoring.</li>
+<li><code>mac-app/VocabularyLearningStats.swift</code>: current-book learning stats and stat card presentation items.</li>
 <li><code>mac-app/WordRecordSQLiteStore.swift</code>: persistent vocabulary record database.</li>
 <li><code>mac-app/PDFWordRecordStore.swift</code> and <code>mac-app/WebWordRecordStore.swift</code>: document-specific word records.</li>
 <li><code>mac-app/VocabularyExporter.swift</code>: Markdown and Anki CSV export.</li>
+</ul>
+<h2 id="reading-notes">Reading Notes<a class="headerlink" href="#reading-notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>mac-app/ReaderWindowController+ReadingNotes.swift</code>: note creation, saving, navigation, export, deletion, and favorite toggling.</li>
+<li><code>mac-app/ReadingNoteStore.swift</code>: persistent note database and schema migration.</li>
+<li><code>mac-app/ReadingNotesPanelController.swift</code>: reading note list panel, search, and row callbacks.</li>
+<li><code>mac-app/ReadingNoteRowView.swift</code>: note list row UI with open, favorite, and delete actions.</li>
+<li><code>mac-app/ReadingNotePanelController*.swift</code>: note editor, Markdown editing, images, AI actions, and note menu actions.</li>
+<li><code>mac-app/ReadingNoteListPresenter.swift</code>: list sorting, search filtering, and row view models.</li>
+</ul>
+<h2 id="persistence-helpers">Persistence Helpers<a class="headerlink" href="#persistence-helpers" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>mac-app/SQLiteSchemaMigrator.swift</code>: shared SQLite column migration helper used by reading notes and vocabulary records.</li>
 </ul>
 <h2 id="tts-and-read-aloud">TTS And Read Aloud<a class="headerlink" href="#tts-and-read-aloud" title="Permanent link">&para;</a></h2>
 <ul>

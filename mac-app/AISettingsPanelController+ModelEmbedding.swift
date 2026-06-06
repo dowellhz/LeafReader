@@ -6,6 +6,7 @@ extension AISettingsPanelController {
               let model = AISettingsStore.models.first(where: { $0.id == modelID }) else { return }
         let key = AISettingsStore.apiKey(for: model)
         secureKeyField?.stringValue = key
+        secureKeyField?.isEnabled = model.acceptsAPIKey
         updateCustomModelFields(for: modelID)
     }
 
@@ -25,14 +26,41 @@ extension AISettingsPanelController {
     }
 
     func updateCustomModelFields(for modelID: String) {
-        let visible = modelID == AISettingsStore.customModelID
+        let isCustom = modelID == AISettingsStore.customModelID
+        let isOllama = modelID == AISettingsStore.ollamaModelID
+        let isLocalOpenAI = modelID == AISettingsStore.localOpenAIModelID
+        let showsEndpoint = isCustom || isLocalOpenAI
+        let visible = showsEndpoint || isOllama
         customModelContainer?.isHidden = !visible
-        customEndpointLabel?.isHidden = !visible
-        customEndpointField?.isHidden = !visible
+        customEndpointLabel?.isHidden = !showsEndpoint
+        customEndpointField?.isHidden = !showsEndpoint
         customModelLabel?.isHidden = !visible
         customModelField?.isHidden = !visible
-        customEndpointField?.isEnabled = visible
+        customEndpointField?.isEnabled = showsEndpoint
         customModelField?.isEnabled = visible
+        customEndpointLabel?.stringValue = isLocalOpenAI
+            ? AppText.localized("本地 URL", "Local URL")
+            : AppText.localized("自定义 / Azure URL", "Custom / Azure URL")
+        customModelLabel?.stringValue = (isOllama || isLocalOpenAI)
+            ? AppText.localized("模型 ID", "Model ID")
+            : AppText.localized("模型 ID / Azure 部署名", "Model ID / Azure Deployment")
+        customEndpointField?.placeholderString = isLocalOpenAI
+            ? "http://127.0.0.1:8000/v1"
+            : "https://resource.openai.azure.com/openai/deployments/deployment/chat/completions?api-version=2024-10-21"
+        customModelField?.placeholderString = isOllama ? "llama3.1" : (isLocalOpenAI ? "gemma-4-e4b-it-4bit" : "gpt-4o-mini")
+        if isOllama {
+            customModelField?.stringValue = AISettingsStore.ollamaModelName
+        } else if isLocalOpenAI {
+            customEndpointField?.stringValue = AISettingsStore.localOpenAIEndpointString
+            customModelField?.stringValue = AISettingsStore.localOpenAIModelName
+        } else if isCustom {
+            customEndpointField?.stringValue = AISettingsStore.customEndpointString
+            customModelField?.stringValue = AISettingsStore.customModelName
+        }
+        customModelContainerHeightConstraint?.constant = isOllama ? 62 : 116
+        customModelLabelTopToEndpointConstraint?.isActive = showsEndpoint
+        customModelLabelTopToContainerConstraint?.isActive = false
+        customModelLabelCenterYToContainerConstraint?.isActive = isOllama
         keyTopWithCustomConstraint?.isActive = visible
         keyTopWithoutCustomConstraint?.isActive = !visible
         panel?.contentView?.layoutSubtreeIfNeeded()

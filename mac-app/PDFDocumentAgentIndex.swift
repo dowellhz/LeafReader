@@ -26,6 +26,7 @@ final class PDFDocumentAgentIndex {
     }
 
     private var chunks: [Chunk]
+    private(set) var embeddingCacheModelID: String?
 
     init(document: PDFDocument, title: String) {
         var builtChunks: [Chunk] = []
@@ -54,6 +55,13 @@ final class PDFDocumentAgentIndex {
 
     var embeddingCoverage: (embedded: Int, total: Int) {
         (chunks.filter { $0.embedding != nil }.count, chunks.count)
+    }
+
+    func prepareForEmbeddingCacheModel(_ modelID: String) {
+        if let embeddingCacheModelID, embeddingCacheModelID != modelID {
+            clearEmbeddings()
+        }
+        embeddingCacheModelID = modelID
     }
 
     func search(question: String, currentPageIndex: Int?, limit: Int = 6) -> [PDFDocumentAgentEvidence] {
@@ -130,7 +138,8 @@ final class PDFDocumentAgentIndex {
             .map { ($0.id, $0.pageIndex, $0.chunkIndex, $0.text) }
     }
 
-    func applyEmbeddings(_ embeddingsByChunkID: [String: [Float]]) {
+    func applyEmbeddings(_ embeddingsByChunkID: [String: [Float]], modelID: String) {
+        prepareForEmbeddingCacheModel(modelID)
         guard !embeddingsByChunkID.isEmpty else { return }
         for index in chunks.indices {
             if let embedding = embeddingsByChunkID[chunks[index].id] {
@@ -138,6 +147,14 @@ final class PDFDocumentAgentIndex {
                 chunks[index].embeddingNorm = Self.vectorNorm(embedding)
             }
         }
+    }
+
+    func clearEmbeddings() {
+        for index in chunks.indices {
+            chunks[index].embedding = nil
+            chunks[index].embeddingNorm = nil
+        }
+        embeddingCacheModelID = nil
     }
 
     static func evidenceText(_ evidence: [PDFDocumentAgentEvidence], locationName: String = "Page", maxCharacters: Int = 7000) -> String {

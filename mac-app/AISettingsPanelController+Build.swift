@@ -117,7 +117,15 @@ extension AISettingsPanelController {
         let customEndpointLabel = label(AppText.localized("自定义 / Azure URL", "Custom / Azure URL"), size: settingsFontSize, weight: .semibold, color: primaryText)
         let customEndpointField = inputField(AISettingsStore.customEndpointString, placeholder: "https://resource.openai.azure.com/openai/deployments/deployment/chat/completions?api-version=2024-10-21", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground())
         let customModelLabel = label(AppText.localized("模型 ID / Azure 部署名", "Model ID / Azure Deployment"), size: settingsFontSize, weight: .semibold, color: primaryText)
-        let customModelField = inputField(AISettingsStore.customModelName, placeholder: "gpt-4o-mini", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground())
+        let initialModelFieldValue: String
+        if selectedModel.id == AISettingsStore.ollamaModelID {
+            initialModelFieldValue = AISettingsStore.ollamaModelName
+        } else if selectedModel.id == AISettingsStore.localOpenAIModelID {
+            initialModelFieldValue = AISettingsStore.localOpenAIModelName
+        } else {
+            initialModelFieldValue = AISettingsStore.customModelName
+        }
+        let customModelField = inputField(initialModelFieldValue, placeholder: "gpt-4o-mini", fontSize: settingsFontSize, textColor: primaryText, backgroundColor: fieldBackground())
         let customModelContainer = settingsCard()
 
         let keyLabel = label("API Key", size: settingsFontSize, weight: .semibold, color: primaryText)
@@ -235,6 +243,12 @@ extension AISettingsPanelController {
 
         let keyTopWithCustom = keyLabel.topAnchor.constraint(equalTo: customModelContainer.bottomAnchor, constant: 22)
         let keyTopWithoutCustom = keyLabel.topAnchor.constraint(equalTo: modelPopup.bottomAnchor, constant: 34)
+        let customModelContainerHeight = customModelContainer.heightAnchor.constraint(equalToConstant: 116)
+        let customModelTopToEndpoint = customModelLabel.topAnchor.constraint(equalTo: customEndpointLabel.bottomAnchor, constant: 22)
+        let customModelTopToContainer = customModelLabel.topAnchor.constraint(equalTo: customModelContainer.topAnchor, constant: 14)
+        let customModelCenterYToContainer = customModelLabel.centerYAnchor.constraint(equalTo: customModelContainer.centerYAnchor)
+        customModelTopToContainer.isActive = false
+        customModelCenterYToContainer.isActive = false
         let labelColumnWidth = layout.labelColumnWidth
         let fieldWidth = layout.fieldWidth
         let formWidth = layout.formWidth
@@ -382,17 +396,17 @@ extension AISettingsPanelController {
             customModelContainer.topAnchor.constraint(equalTo: modelPopup.bottomAnchor, constant: 14),
             customModelContainer.leadingAnchor.constraint(equalTo: modelPopup.leadingAnchor),
             customModelContainer.widthAnchor.constraint(equalToConstant: fieldWidth),
-            customModelContainer.heightAnchor.constraint(equalToConstant: 116),
+            customModelContainerHeight,
             customEndpointLabel.topAnchor.constraint(equalTo: customModelContainer.topAnchor, constant: 14),
             customEndpointLabel.leadingAnchor.constraint(equalTo: customModelContainer.leadingAnchor, constant: 14),
-            customEndpointLabel.widthAnchor.constraint(equalToConstant: 128),
+            customEndpointLabel.widthAnchor.constraint(equalToConstant: 180),
             customEndpointField.centerYAnchor.constraint(equalTo: customEndpointLabel.centerYAnchor),
-            customEndpointField.leadingAnchor.constraint(equalTo: customModelContainer.leadingAnchor, constant: 150),
+            customEndpointField.leadingAnchor.constraint(equalTo: customModelContainer.leadingAnchor, constant: 204),
             customEndpointField.trailingAnchor.constraint(equalTo: customModelContainer.trailingAnchor, constant: -14),
             customEndpointField.heightAnchor.constraint(equalToConstant: inputHeight),
-            customModelLabel.topAnchor.constraint(equalTo: customEndpointLabel.bottomAnchor, constant: 22),
+            customModelTopToEndpoint,
             customModelLabel.leadingAnchor.constraint(equalTo: customEndpointLabel.leadingAnchor),
-            customModelLabel.widthAnchor.constraint(equalToConstant: 128),
+            customModelLabel.widthAnchor.constraint(equalToConstant: 180),
             customModelField.centerYAnchor.constraint(equalTo: customModelLabel.centerYAnchor),
             customModelField.leadingAnchor.constraint(equalTo: customEndpointField.leadingAnchor),
             customModelField.trailingAnchor.constraint(equalTo: customEndpointField.trailingAnchor),
@@ -449,6 +463,11 @@ extension AISettingsPanelController {
         self.customEndpointField = customEndpointField
         self.customModelLabel = customModelLabel
         self.customModelField = customModelField
+        self.customModelContainerHeightConstraint = customModelContainerHeight
+        self.customModelLabelTopToEndpointConstraint = customModelTopToEndpoint
+        self.customModelLabelTopToContainerConstraint = customModelTopToContainer
+        self.customModelLabelCenterYToContainerConstraint = customModelCenterYToContainer
+        self.secureKeyField?.isEnabled = selectedModel.acceptsAPIKey
         self.embeddingProviderPopup = embeddingProviderPopup
         self.embeddingEndpointContainer = embeddingEndpointContainer
         self.embeddingEndpointLabel = embeddingEndpointLabel
@@ -495,6 +514,8 @@ extension AISettingsPanelController {
             panel.makeKey()
             if selectedModel.id == AISettingsStore.customModelID {
                 panel.makeFirstResponder(customEndpointField)
+            } else if selectedModel.id == AISettingsStore.ollamaModelID {
+                panel.makeFirstResponder(customModelField)
             } else {
                 panel.makeFirstResponder(keyField)
             }

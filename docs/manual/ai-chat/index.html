@@ -78,7 +78,7 @@
     <div data-md-component="skip">
 
 
-        <a href="#ai-chat" class="md-skip">
+        <a href="#ai" class="md-skip">
           跳转至
         </a>
 
@@ -688,36 +688,54 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
 
         <li class="md-nav__item">
-  <a href="#flow" class="md-nav__link">
+  <a href="#_1" class="md-nav__link">
     <span class="md-ellipsis">
-      Flow
+      使用入口
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
+  <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
-      Files
+      气泡行为
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#performance-notes" class="md-nav__link">
+  <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
-      Performance Notes
+      请求流程
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#related-files" class="md-nav__link">
+  <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
-      Related Files
+      文件入口
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      性能与维护
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      相关文件
     </span>
   </a>
 
@@ -981,36 +999,54 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
 
         <li class="md-nav__item">
-  <a href="#flow" class="md-nav__link">
+  <a href="#_1" class="md-nav__link">
     <span class="md-ellipsis">
-      Flow
+      使用入口
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
+  <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
-      Files
+      气泡行为
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#performance-notes" class="md-nav__link">
+  <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
-      Performance Notes
+      请求流程
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#related-files" class="md-nav__link">
+  <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
-      Related Files
+      文件入口
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      性能与维护
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      相关文件
     </span>
   </a>
 
@@ -1034,39 +1070,57 @@
 
 
 
-<h1 id="ai-chat">AI Chat<a class="headerlink" href="#ai-chat" title="Permanent link">&para;</a></h1>
+<h1 id="ai">AI 使用<a class="headerlink" href="#ai" title="Permanent link">&para;</a></h1>
 <p>关键词：AI、翻译、解释、总结、选中文本、追问、流式输出、气泡、API Key。</p>
-<p>The AI panel handles selected text explanations, summaries, translations, follow-up questions, and document-aware prompts.</p>
-<h2 id="flow">Flow<a class="headerlink" href="#flow" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Selection
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  -&gt; AIChatPanel
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>     -&gt; Actions and context
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>     -&gt; Request lifecycle
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        -&gt; AIClient
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        -&gt; Streaming deltas
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>     -&gt; Bubble rendering
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>     -&gt; Conversation store
+<p>AI 面板负责选中文本解释、总结、翻译、继续追问，以及结合当前阅读内容的问题。没有配置 API Key 时，需要引导用户进入设置首页完成配置。</p>
+<h2 id="_1">使用入口<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<ul>
+<li>选中文本后的浮动菜单：解释、翻译、总结、追问。</li>
+<li>右侧 AI 面板：对当前内容总结、翻译，或继续追问。</li>
+<li>单词气泡：可以请求 AI 解释单词；如果本地词典有标签，会追加到 AI 结果尾部，供背单词复用。</li>
+<li>阅读笔记整理：把笔记内容发送给 AI 时，图片会用占位符保留位置，避免整理后图片丢失。</li>
+</ul>
+<h2 id="_2">气泡行为<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<ul>
+<li>用户气泡和 AI 气泡按对话顺序显示。</li>
+<li>AI 气泡支持复制 Markdown；普通 AI 回答支持重新生成。</li>
+<li>有来源的气泡可以回跳并高亮对应阅读位置。</li>
+<li>气泡生成完成后，如果气泡 header 不在可视区域顶部，会滚动到 header，方便直接阅读结果。</li>
+<li>Markdown 内容由统一渲染器处理，避免复制、重新生成、恢复会话时样式不一致。</li>
+</ul>
+<h2 id="_3">请求流程<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>选中文本或当前阅读内容
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  -&gt; AIChatPanel 收集上下文
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>     -&gt; Actions 组装用户动作
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>     -&gt; Requests 管理请求生命周期
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        -&gt; AIClient 发送请求
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        -&gt; 流式增量返回
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>     -&gt; Bubbles 渲染气泡
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>     -&gt; Conversation 保存和恢复会话
 </code></pre></div>
-<h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
+<h2 id="_4">文件入口<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>AIChatPanel.swift</code>: core panel state and selection entry points.</li>
-<li><code>AIChatPanel+UI.swift</code>: panel layout and controls.</li>
-<li><code>AIChatPanel+Actions.swift</code>: user actions, selected text questions, summary/translation, follow-up context.</li>
-<li><code>AIChatPanel+Requests.swift</code>: request lifecycle, retry/cancel, translation, busy state, error mapping.</li>
-<li><code>AIChatPanel+Selection.swift</code>: mouse interaction monitor and bubble text selection.</li>
-<li><code>AIChatPanel+Bubbles.swift</code>: bubble creation, rendering, layout debounce, scrolling.</li>
-<li><code>AIChatPanel+Conversation.swift</code>: saved conversation restore.</li>
-<li><code>AIChatPanel+LinkedWords.swift</code>: linked vocabulary bubble behavior.</li>
-<li><code>AIClient.swift</code>: HTTP request and streaming client.</li>
-<li><code>AIPromptStore.swift</code> and <code>mac-app/AIPrompts.json</code>: built-in prompt templates.</li>
+<li><code>AIChatPanel.swift</code>：AI 面板核心状态和选中文本入口。</li>
+<li><code>AIChatPanel+UI.swift</code>：面板布局、按钮和控件。</li>
+<li><code>AIChatPanel+Actions.swift</code>：用户动作、选中文本问题、总结、翻译和追问上下文。</li>
+<li><code>AIChatPanel+Requests.swift</code>：请求生命周期、重试、取消、翻译、忙碌状态和错误映射。</li>
+<li><code>AIChatPanel+Selection.swift</code>：鼠标交互监听和气泡内文本选择。</li>
+<li><code>AIChatPanel+Bubbles.swift</code>：气泡创建、渲染、布局节流和滚动定位。</li>
+<li><code>AIChatPanel+Conversation.swift</code>：已保存对话的恢复。</li>
+<li><code>AIChatPanel+LinkedWords.swift</code>：和单词记录关联的气泡行为。</li>
+<li><code>AIChatPanel+Export.swift</code>：对话复制和导出。</li>
+<li><code>AIConversationMarkdownExporter.swift</code>：对话 Markdown 导出格式。</li>
+<li><code>AIClient.swift</code>：HTTP 请求和流式响应客户端。</li>
+<li><code>AIPromptStore.swift</code> 和 <code>mac-app/AIPrompts.json</code>：内置提示词模板。</li>
 </ul>
-<h2 id="performance-notes">Performance Notes<a class="headerlink" href="#performance-notes" title="Permanent link">&para;</a></h2>
+<h2 id="_5">性能与维护<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Streaming updates are throttled before re-rendering bubbles.</li>
-<li>Transcript layout is debounced so long conversations do not force layout on every update.</li>
-<li>Recent conversations are trimmed to keep startup and bubble restore work bounded.</li>
+<li>流式输出会先节流再刷新气泡，避免每个 token 都触发布局。</li>
+<li>对话列表布局有 debounce，长对话不会在每次更新时完整重排。</li>
+<li>最近会话会裁剪，限制启动和恢复气泡时的工作量。</li>
+<li>涉及 API Key 的入口要统一走设置检查，避免不同按钮出现不同错误提示。</li>
 </ul>
-<h2 id="related-files">Related Files<a class="headerlink" href="#related-files" title="Permanent link">&para;</a></h2>
+<h2 id="_6">相关文件<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>mac-app/AIChatPanel.swift</code></li>
 <li><code>mac-app/AIChatPanel+Actions.swift</code></li>

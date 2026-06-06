@@ -8,6 +8,7 @@ extension ReaderWindowController {
             completion?()
             return
         }
+        index.prepareForEmbeddingCacheModel(config.cacheModelID)
         let chunks = index.indexableChunks
         guard !chunks.isEmpty else {
             completion?()
@@ -27,7 +28,7 @@ extension ReaderWindowController {
                     completion?()
                     return
                 }
-                self.pdfAgentIndex?.applyEmbeddings(cached)
+                self.pdfAgentIndex?.applyEmbeddings(cached, modelID: config.cacheModelID)
                 if !cached.isEmpty, let progress = self.pdfAgentIndex?.embeddingCoverage {
                     self.updateEmbeddingStatusForCoverage(isComplete: progress.embedded >= progress.total)
                 }
@@ -140,7 +141,7 @@ extension ReaderWindowController {
                     for (chunk, embedding) in zip(missing, embeddings) {
                         mapped[chunk.id] = embedding
                     }
-                    self.pdfAgentIndex?.applyEmbeddings(mapped)
+                    self.pdfAgentIndex?.applyEmbeddings(mapped, modelID: config.cacheModelID)
                     let nextPriorityPageIndex = self.queuedEmbeddingPriorityPageIndex
                     self.queuedEmbeddingPriorityPageIndex = nil
                     let shouldDeferPendingCallbacks = nextPriorityPageIndex != nil && !self.pendingEmbeddingReadyCallbacks.isEmpty

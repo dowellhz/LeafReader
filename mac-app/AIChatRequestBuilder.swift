@@ -22,7 +22,7 @@ enum AIChatRequestBuilder {
             request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         } else if config.usesAzureAPIKeyHeader {
             request.setValue(apiKey, forHTTPHeaderField: "api-key")
-        } else {
+        } else if config.requiresAPIKey || !apiKey.isEmpty {
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         }
     }

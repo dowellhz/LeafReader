@@ -554,6 +554,15 @@
 </li>
 
         <li class="md-nav__item">
+  <a href="#change-ui-controls-or-theme-styling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Change UI Controls Or Theme Styling
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
   <a href="#change-whole-book-ai-analysis" class="md-nav__link">
     <span class="md-ellipsis">
       Change Whole-Book AI Analysis
@@ -1026,6 +1035,15 @@
 </li>
 
         <li class="md-nav__item">
+  <a href="#change-ui-controls-or-theme-styling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Change UI Controls Or Theme Styling
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
   <a href="#change-whole-book-ai-analysis" class="md-nav__link">
     <span class="md-ellipsis">
       Change Whole-Book AI Analysis
@@ -1124,6 +1142,39 @@
 <li>Long selected text producing oversized bubble titles.</li>
 <li>Translation chunks losing paragraph spacing or indentation.</li>
 </ul>
+<h2 id="change-ui-controls-or-theme-styling">Change UI Controls Or Theme Styling<a class="headerlink" href="#change-ui-controls-or-theme-styling" title="Permanent link">&para;</a></h2>
+<p>Start with the local surface that owns the controls, then check the shared theme helpers:</p>
+<ul>
+<li><code>mac-app/ReaderTheme.swift</code></li>
+<li><code>mac-app/ReaderTheme+Palette.swift</code></li>
+<li><code>mac-app/ReaderWindowController+Theme.swift</code></li>
+<li><code>mac-app/AIChatPanel+BubbleStyling.swift</code></li>
+<li><code>mac-app/ReadingNotePanelController+Theme.swift</code></li>
+<li><code>mac-app/ReadingNotesPanelController.swift</code></li>
+<li><code>mac-app/AISettingsPanelController+Theme.swift</code></li>
+<li><code>mac-app/ExportPanelSupport.swift</code></li>
+</ul>
+<p>Run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./scripts/check.sh<span class="w"> </span>--no-build
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./scripts/check_ui_theme.sh<span class="w"> </span>--warnings-as-errors
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>./scripts/build_app.sh
+</code></pre></div>
+<p>UI rule:</p>
+<ul>
+<li>Every new visible control must define or inherit colors for all reader modes: original, eyeCare, and dark.</li>
+<li>Icon-only buttons must set <code>contentTintColor</code> from the active theme, not a fixed system color.</li>
+<li>Controls created after startup must use the current theme at creation time and must also be updated by the surface's theme refresh path.</li>
+<li>If a control is inside a dynamic row, bubble, note, or popup accessory view, theme refresh must walk existing subviews and update it.</li>
+<li>Save panels and other macOS accessory views should hide irrelevant system fields, such as tags, when they are not part of the app workflow.</li>
+<li><code>./scripts/check_ui_theme.sh</code> fails high-confidence icon tint misses by default; fixed <code>NSColor(...)</code> usage is reported as warning unless <code>--warnings-as-errors</code> is passed.</li>
+</ul>
+<p>Watch for:</p>
+<ul>
+<li>Adding a button that looks correct on first render but does not change after switching to eyeCare or dark mode.</li>
+<li>Updating text colors but missing SF Symbol tint, border color, hover/background color, or disabled state.</li>
+<li>Styling only the app-level toolbar while leaving AI bubbles, reading notes, settings, or export panels on their previous colors.</li>
+<li>Introducing a new themed control without adding it to the relevant <code>setTheme</code>, <code>applyTheme</code>, or <code>restyle...</code> traversal.</li>
+</ul>
 <h2 id="change-whole-book-ai-analysis">Change Whole-Book AI Analysis<a class="headerlink" href="#change-whole-book-ai-analysis" title="Permanent link">&para;</a></h2>
 <p>Start with:</p>
 <ul>
@@ -1134,7 +1185,7 @@
 <li><code>mac-app/AISettingsPanelController+ModelEmbedding.swift</code></li>
 </ul>
 <p>Run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./scripts/check.sh<span class="w"> </span>--no-build
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./scripts/check.sh<span class="w"> </span>--no-build
 </code></pre></div>
 <p>Watch for:</p>
 <ul>
@@ -1152,7 +1203,7 @@
 <li><code>mac-app/WordRecordSQLiteStore.swift</code></li>
 </ul>
 <p>Run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./scripts/check.sh<span class="w"> </span>--no-build
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>./scripts/check.sh<span class="w"> </span>--no-build
 </code></pre></div>
 <p>Watch for:</p>
 <ul>
@@ -1177,8 +1228,8 @@
 <li>See <code>docs/wiki/tts.md</code> for the full TTS code map, runtime rules, and release packaging notes.</li>
 </ul>
 <p>Run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>./tests/run.sh
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>./scripts/build_app.sh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./tests/run.sh
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>./scripts/build_app.sh
 </code></pre></div>
 <p>Watch for:</p>
 <ul>
@@ -1197,7 +1248,7 @@
 <li><code>mac-app/ReaderWindowController+DocumentShelf.swift</code></li>
 </ul>
 <p>Run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./scripts/check.sh<span class="w"> </span>--no-build
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./scripts/check.sh<span class="w"> </span>--no-build
 </code></pre></div>
 <p>Watch for:</p>
 <ul>
@@ -1216,8 +1267,8 @@
 <li><code>docs/index.html</code></li>
 </ul>
 <p>Run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./scripts/check.sh
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>./scripts/update_wiki.sh<span class="w"> </span>--push
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>./scripts/check.sh
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>./scripts/update_wiki.sh<span class="w"> </span>--push
 </code></pre></div>
 <p>Watch for:</p>
 <ul>

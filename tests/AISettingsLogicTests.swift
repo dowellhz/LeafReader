@@ -133,12 +133,49 @@ enum AISettingsLogicTests {
             try expectEqual(custom.id, AISettingsStore.customModelID, "custom model selection should use injected defaults")
             try expectEqual(custom.endpoint.absoluteString, "https://example.com/v1/chat/completions", "custom endpoint should be trimmed")
             try expectEqual(custom.model, "custom-chat", "custom model name should be trimmed")
+
+            defaults.set(AISettingsStore.ollamaModelID, forKey: AISettingsStore.selectedModelKey)
+            let ollama = AISettingsStore.selectedModel
+            try expectEqual(ollama.id, AISettingsStore.ollamaModelID, "Ollama model selection should use injected defaults")
+            try expectEqual(ollama.endpoint.absoluteString, "http://127.0.0.1:11434/v1/chat/completions", "Ollama should use the local OpenAI-compatible endpoint")
+            try expectEqual(ollama.model, "llama3.1", "Ollama should use the default local model name")
+            try expect(!ollama.requiresAPIKey, "Ollama should not require an API key")
+            try expect(AISettingsStore.hasAPIKeyForSelectedModel, "Ollama should be usable without an API key")
+
+            AISettingsStore.save(modelID: AISettingsStore.ollamaModelID, apiKey: "", customModelName: " qwen2.5:7b ")
+            try expectEqual(AISettingsStore.selectedModel.model, "qwen2.5:7b", "Ollama model name should be editable and trimmed")
+            try expectEqual(AISettingsStore.customModelName, "custom-chat", "Ollama model saving should not overwrite Other model name")
+            try expectEqual(AISettingsStore.ollamaValidationError(modelName: "   "), "请输入 Ollama 模型 ID。", "blank Ollama model names should be rejected")
+
+            let customIndex = AISettingsStore.models.firstIndex { $0.id == AISettingsStore.customModelID }
+            let ollamaIndex = AISettingsStore.models.firstIndex { $0.id == AISettingsStore.ollamaModelID }
+            let localOpenAIIndex = AISettingsStore.models.firstIndex { $0.id == AISettingsStore.localOpenAIModelID }
+            try expectEqual(localOpenAIIndex, ollamaIndex.map { $0 + 1 }, "local OpenAI-compatible should appear immediately after Ollama")
+            try expectEqual(customIndex, localOpenAIIndex.map { $0 + 1 }, "Other should appear immediately after local OpenAI-compatible")
+
+            defaults.set(AISettingsStore.localOpenAIModelID, forKey: AISettingsStore.selectedModelKey)
+            let localOpenAI = AISettingsStore.selectedModel
+            try expectEqual(localOpenAI.id, AISettingsStore.localOpenAIModelID, "local OpenAI-compatible model selection should use injected defaults")
+            try expectEqual(localOpenAI.endpoint.absoluteString, "http://127.0.0.1:8000/v1/chat/completions", "local OpenAI-compatible endpoint should default to the local chat completions endpoint")
+            try expectEqual(localOpenAI.model, "gemma-4-e4b-it-4bit", "local OpenAI-compatible model should default to the oMLX test model")
+            try expect(!localOpenAI.requiresAPIKey, "local OpenAI-compatible models should allow optional API keys")
+            try expect(localOpenAI.acceptsAPIKey, "local OpenAI-compatible models should allow entering an optional API key")
+            try expect(AISettingsStore.hasAPIKeyForSelectedModel, "local OpenAI-compatible models should be usable without a saved API key")
+
+            AISettingsStore.save(modelID: AISettingsStore.localOpenAIModelID, apiKey: " local-key ", customEndpoint: " http://127.0.0.1:8000/v1 ", customModelName: " local-model ")
+            try expectEqual(AISettingsStore.selectedModel.endpoint.absoluteString, "http://127.0.0.1:8000/v1/chat/completions", "local OpenAI-compatible /v1 endpoint should be expanded to chat completions")
+            try expectEqual(AISettingsStore.selectedModel.model, "local-model", "local OpenAI-compatible model name should be editable and trimmed")
+            try expectEqual(AISettingsStore.apiKey(for: AISettingsStore.selectedModel), "local-key", "local OpenAI-compatible API key should be stored separately")
+            try expectEqual(AISettingsStore.localOpenAIValidationError(endpoint: "   ", modelName: "local-model"), "请输入本地 OpenAI 兼容 URL。", "blank local OpenAI-compatible endpoints should be rejected")
+            try expectEqual(AISettingsStore.localOpenAIValidationError(endpoint: "http://127.0.0.1:8000/v1", modelName: "   "), "请输入模型 ID。", "blank local OpenAI-compatible model names should be rejected")
         }
     }
 
     static func testAIProviderDescriptors() throws {
         let claude = AISettingsStore.models.first { $0.id == "claude-3-5-sonnet" }
         let openAI = AISettingsStore.models.first { $0.id == "openai-gpt-4-1" }
+        let ollama = AISettingsStore.models.first { $0.id == AISettingsStore.ollamaModelID }
+        let localOpenAI = AISettingsStore.models.first { $0.id == AISettingsStore.localOpenAIModelID }
         let unknown = AIProviderDescriptor.descriptor(for: "local-minicpm")
 
         try expectEqual(
@@ -151,6 +188,25 @@ enum AISettingsLogicTests {
             .openAICompatible,
             "OpenAI models should carry the OpenAI-compatible request format through the provider descriptor"
         )
+        try expectEqual(
+            ollama?.providerDescriptor.chatRequestFormat,
+            .openAICompatible,
+            "Ollama should use the OpenAI-compatible request format"
+        )
+        if let ollama {
+            var request = URLRequest(url: ollama.endpoint)
+            AIChatRequestBuilder.configureHeaders(for: ollama, apiKey: "", request: &request)
+            try expectEqual(request.value(forHTTPHeaderField: "Authorization"), nil, "Ollama requests should not send an empty Authorization header")
+        } else {
+            throw TestFailure(description: "Ollama model should be available")
+        }
+        if let localOpenAI {
+            var request = URLRequest(url: localOpenAI.endpoint)
+            AIChatRequestBuilder.configureHeaders(for: localOpenAI, apiKey: "local-key", request: &request)
+            try expectEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer local-key", "local OpenAI-compatible requests should send Authorization when an optional API key is configured")
+        } else {
+            throw TestFailure(description: "local OpenAI-compatible model should be available")
+        }
         try expectEqual(
             unknown.chatRequestFormat,
             .openAICompatible,
