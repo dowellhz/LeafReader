@@ -91,6 +91,18 @@ prune_piper_espeak_data() {
   prune_directory_entries_except "$data_dir/voices/!v" "${PIPER_ESPEAK_VOICE_VARIANTS[@]}"
 }
 
+prune_speech_runtime_noise() {
+  local runtime_root="$1"
+
+  [[ -d "$runtime_root" ]] || return 0
+
+  find "$runtime_root" -name '__MACOSX' -type d -prune -exec rm -rf {} +
+  find "$runtime_root" -name '*.dSYM' -type d -prune -exec rm -rf {} +
+  find "$runtime_root" -name '.DS_Store' -type f -delete
+  find "$runtime_root" -name '._*' -type f -delete
+  find "$runtime_root" -type f \( -name '*.backup-*' -o -name '*.bak' -o -name '*~' \) -delete
+}
+
 missing_runtime() {
   local message="$1"
   if [[ "$REQUIRE_BUNDLED_SPEECH_RUNTIMES" == "1" ]]; then
@@ -199,9 +211,8 @@ if piper_runtime_complete "$PIPER_RUNTIME_DIR"; then
   mkdir -p "$PIPER_BUNDLE_DIR"
   cp -R "$PIPER_RUNTIME_DIR/piper" "$PIPER_BUNDLE_DIR/piper"
   cp -R "$PIPER_RUNTIME_DIR/piper-phonemize" "$PIPER_BUNDLE_DIR/piper-phonemize"
-  find "$PIPER_BUNDLE_DIR" -type f \( -name '*.backup-*' -o -name '*.bak' -o -name '*~' \) -delete
+  prune_speech_runtime_noise "$PIPER_BUNDLE_DIR"
   prune_piper_espeak_data "$PIPER_BUNDLE_DIR/piper-phonemize/share/espeak-ng-data"
-  find "$PIPER_BUNDLE_DIR" -type d -name '*.dSYM' -prune -exec rm -rf {} +
   chmod 755 "$PIPER_BUNDLE_DIR/piper/piper"
   find "$PIPER_BUNDLE_DIR/piper-phonemize/lib" -type f -name '*.dylib' -exec chmod 755 {} +
   strip -x "$PIPER_BUNDLE_DIR/piper/piper" || true
@@ -271,6 +282,7 @@ if [[ -x "$SUPERTONIC_RUNTIME" ]]; then
 else
   missing_runtime "Supertonic runtime not bundled; missing $SUPERTONIC_RUNTIME"
 fi
+prune_speech_runtime_noise "$APP_PATH/Contents/Resources/SpeechRuntimes"
 cp -R "$SPARKLE_HOME/Sparkle.framework" "$APP_PATH/Contents/Frameworks/"
 find "$APP_PATH" -name '._*' -type f -delete
 xattr -cr "$APP_PATH"

@@ -44,7 +44,7 @@ spctl --assess --type install release/<version>/LeafReader-<version>.pkg
 ./scripts/smoke_release_pkg.sh <version>
 ```
 
-- Review app, package, and speech runtime size:
+- Review app, package, speech runtime size, and the largest bundled runtime files:
 
 ```sh
 ./scripts/release_size_report.sh <version>

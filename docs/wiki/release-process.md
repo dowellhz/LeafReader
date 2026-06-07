@@ -48,11 +48,11 @@ Check version references:
 
 ## Files
 
-- `scripts/build_app.sh`: builds and signs `Leaf Reader.app`.
+- `scripts/build_app.sh`: builds and signs `Leaf Reader.app`, pruning bundled speech runtime packaging/debug noise before signing.
 - `scripts/release_pkg.sh`: builds release package artifacts.
 - `scripts/publish_release.sh`: runs tests, packages, checks version references, and publishes.
 - `scripts/smoke_release_pkg.sh`: expands and validates the signed package payload.
-- `scripts/release_size_report.sh`: reports app, package, and speech runtime size.
+- `scripts/release_size_report.sh`: reports app, package, speech runtime size, and the largest bundled runtime files.
 - `scripts/cleanup_releases.sh`: removes ignored generated artifacts from old release directories.
 - `scripts/bump_version.sh`: updates and verifies version strings.
 - `docs/appcast.xml`: Sparkle update feed.

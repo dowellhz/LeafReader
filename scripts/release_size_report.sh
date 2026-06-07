@@ -51,3 +51,12 @@ signable_count="$(
   find "$SPEECH_RUNTIMES" -type f \( -perm -111 -o -name '*.dylib' \) -print | wc -l | tr -d ' '
 )"
 echo "Speech runtime signable files: $signable_count"
+
+echo "Largest bundled speech runtime files:"
+find "$SPEECH_RUNTIMES" -type f -print0 \
+  | xargs -0 du -h \
+  | sort -hr \
+  | head -8 \
+  | while read -r size path; do
+      echo " - $size ${path#"$SPEECH_RUNTIMES/"}"
+    done

@@ -3,7 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_PATH="${1:-$ROOT_DIR/Leaf Reader.app}"
-PIPER_RUNTIME_DIR="$APP_PATH/Contents/Resources/SpeechRuntimes/piper-tts-runtime"
+SPEECH_RUNTIMES="$APP_PATH/Contents/Resources/SpeechRuntimes"
+PIPER_RUNTIME_DIR="$SPEECH_RUNTIMES/piper-tts-runtime"
 PIPER_BIN="$PIPER_RUNTIME_DIR/piper/piper"
 PIPER_LIB_DIR="$PIPER_RUNTIME_DIR/piper-phonemize/lib"
 PIPER_ESPEAK_DATA="$PIPER_RUNTIME_DIR/piper-phonemize/share/espeak-ng-data"
@@ -110,6 +111,23 @@ BACKUP_FILES="$(find "$PIPER_RUNTIME_DIR" -type f \( -name '*.backup-*' -o -name
 if [[ -n "$BACKUP_FILES" ]]; then
   echo "Piper runtime bundle should not include backup files; found:" >&2
   echo "$BACKUP_FILES" >&2
+  exit 1
+fi
+
+RUNTIME_NOISE="$(
+  find "$SPEECH_RUNTIMES" \( \
+    -name '__MACOSX' -o \
+    -name '*.dSYM' -o \
+    -name '.DS_Store' -o \
+    -name '._*' -o \
+    -name '*.backup-*' -o \
+    -name '*.bak' -o \
+    -name '*~' \
+  \) -print
+)"
+if [[ -n "$RUNTIME_NOISE" ]]; then
+  echo "Speech runtime bundle should not include packaging or debug noise; found:" >&2
+  echo "$RUNTIME_NOISE" >&2
   exit 1
 fi
 
