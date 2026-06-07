@@ -82,39 +82,7 @@ extension SpeechRuntimeResourceManager {
     }
 
     static func validateExtractedRuntime(_ runtime: Runtime, in directory: URL) throws {
-        let isValid: Bool
-        switch runtime {
-        case .kitten:
-            isValid = kittenModelPathsExist(in: directory)
-                && (kittenRuntimePathsExist(in: directory) || bundledRuntimePathsExist(for: runtime))
-        case .kokoro:
-            let modelCacheRoot = runtime.modelDirectory(in: directory)
-            isValid = (requiredPathsExist(runtime.requiredPaths(in: directory)) || bundledRuntimePathsExist(for: runtime))
-                && kokoroAneModelCacheExists(in: modelCacheRoot)
-        case .piper:
-            let voiceDirectory = directory.appendingPathComponent("Voices", isDirectory: true)
-            isValid = (requiredPathsExist(runtime.requiredPaths(in: directory)) || bundledRuntimePathsExist(for: runtime))
-                && piperAnyVoicePathsExist(in: voiceDirectory)
-        case .supertonic:
-            isValid = SpeechRuntimePathChecks.supertonicRuntimePathsExist(in: directory)
-                && SupertonicCoreMLTTSBackend.modelPathsExist(
-                    in: directory
-                        .appendingPathComponent("Models", isDirectory: true)
-                        .appendingPathComponent("supertonic-3", isDirectory: true)
-                )
-        }
-        guard isValid else {
-            throw NSError(
-                domain: "LeafReader.SpeechRuntime",
-                code: -4,
-                userInfo: [
-                    NSLocalizedDescriptionKey: AppText.localized(
-                        "模型压缩包缺少必要文件，已保留原有模型。",
-                        "The model archive is missing required files; the existing model was preserved."
-                    )
-                ]
-            )
-        }
+        try SpeechRuntimeArchiveValidator.validate(runtime, in: directory)
     }
 
     static func restoreRuntimeInstall(_ runtime: Runtime, from backupDirectory: URL) {
