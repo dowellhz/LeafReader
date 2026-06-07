@@ -20,6 +20,9 @@ PCAUDIOLIB_ROOT="${PCAUDIOLIB_ROOT:-$ESPEAK_NG_ROOT}"
 export COPYFILE_DISABLE=1
 
 ESPEAK_BUNDLED_DICTS=(en_dict)
+ESPEAK_LANG_DIRS=(gmw)
+ESPEAK_GMW_LANGS=(en en-US en-GB-x-rp)
+ESPEAK_VOICE_VARIANTS=(f1 f2 f3 f4 f5 m1 m2 m3 m4 m5 m6 m7 m8)
 PIPER_ESPEAK_LANG_DIRS=(gmw)
 PIPER_ESPEAK_GMW_LANGS=(en en-US en-GB-x-rp)
 PIPER_ESPEAK_VOICE_VARIANTS=(f1 f2 f3 f4 f5 m1 m2 m3 m4 m5 m6 m7 m8)
@@ -64,6 +67,17 @@ prune_espeak_data() {
       rm -f "$dict_path"
     fi
   done
+}
+
+prune_kitten_espeak_data() {
+  local data_dir="$1"
+
+  prune_espeak_data "$data_dir"
+  rm -rf "$data_dir/mbrola_ph"
+  prune_directory_entries_except "$data_dir/lang" "${ESPEAK_LANG_DIRS[@]}"
+  prune_directory_entries_except "$data_dir/lang/gmw" "${ESPEAK_GMW_LANGS[@]}"
+  prune_directory_entries_except "$data_dir/voices" '!v'
+  prune_directory_entries_except "$data_dir/voices/!v" "${ESPEAK_VOICE_VARIANTS[@]}"
 }
 
 prune_piper_espeak_data() {
@@ -210,7 +224,7 @@ if [[ -x "$ESPEAK_NG_ROOT/bin/espeak-ng" \
   cp "$ESPEAK_NG_ROOT/lib/libespeak-ng.1.dylib" "$ESPEAK_BUNDLE_DIR/lib/libespeak-ng.1.dylib"
   cp "$PCAUDIOLIB_ROOT/lib/libpcaudio.0.dylib" "$ESPEAK_BUNDLE_DIR/lib/libpcaudio.0.dylib"
   cp -R "$ESPEAK_NG_ROOT/share/espeak-ng-data" "$ESPEAK_BUNDLE_DIR/share/espeak-ng-data"
-  prune_espeak_data "$ESPEAK_BUNDLE_DIR/share/espeak-ng-data"
+  prune_kitten_espeak_data "$ESPEAK_BUNDLE_DIR/share/espeak-ng-data"
   chmod 755 "$ESPEAK_BUNDLE_DIR/bin/espeak-ng"
   chmod 644 "$ESPEAK_BUNDLE_DIR/lib/libespeak-ng.1.dylib" "$ESPEAK_BUNDLE_DIR/lib/libpcaudio.0.dylib"
   if [[ -n "$ESPEAK_NG_LIB_ID" ]]; then
