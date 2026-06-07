@@ -199,7 +199,7 @@ Website: <https://leafreader.space/>
 
 ### Download
 
-[Leaf Reader 1.7.7 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.7.7/LeafReader-1.7.7.pkg)
+[Leaf Reader 1.7.8 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.7.8/LeafReader-1.7.8.pkg)
 
 ### System Requirements
 
@@ -486,28 +486,28 @@ Regenerate the code map after larger refactors:
 
 ### Release
 
-Current version: `1.7.7`
+Current version: `1.7.8`
 
-Git tag: `v1.7.7`
+Git tag: `v1.7.8`
 
 Latest installer:
 
-[Leaf Reader-1.7.7.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.7/LeafReader-1.7.7.pkg)
+[Leaf Reader-1.7.8.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.8/LeafReader-1.7.8.pkg)
 
 Local release package path:
 
-`release/1.7.7/LeafReader-1.7.7.pkg`
+`release/1.7.8/LeafReader-1.7.7.pkg`
 
 Build the signed release package without publishing:
 
 ```sh
-./scripts/release_pkg.sh 1.7.7
+./scripts/release_pkg.sh 1.7.8
 ```
 
 Run the full publish flow from a clean working tree:
 
 ```sh
-./scripts/publish_release.sh 1.7.7
+./scripts/publish_release.sh 1.7.8
 ```
 
 The publish script runs tests, builds/signs/notarizes the pkg, commits version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-models` only when publishing changed speech model archives in `docs/tts/`.
