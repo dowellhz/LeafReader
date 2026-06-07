@@ -110,11 +110,11 @@ enum SpeechRuntimeAvailability {
     static func runtimePathsExist(for runtime: Runtime, in directory: URL) -> Bool {
         switch runtime {
         case .kitten:
-            return SpeechRuntimeResourceManager.kittenRuntimePathsExist(in: directory)
+            return SpeechRuntimePathChecks.kittenRuntimePathsExist(in: directory)
         case .kokoro:
-            return SpeechRuntimeResourceManager.requiredPathsExist(runtime.requiredPaths(in: directory))
+            return SpeechRuntimePathChecks.requiredPathsExist(runtime.requiredPaths(in: directory))
         case .piper:
-            return SpeechRuntimeResourceManager.piperRuntimePathsExist(in: directory)
+            return SpeechRuntimePathChecks.piperRuntimePathsExist(in: directory)
         case .supertonic:
             return SpeechRuntimePathChecks.supertonicRuntimePathsExist(in: directory)
         }
@@ -166,12 +166,12 @@ enum SpeechRuntimeAvailability {
         switch runtime {
         case .kitten:
             return installDirectories.contains { directory in
-                SpeechRuntimeResourceManager.kittenModelPathsExist(in: directory)
+                SpeechRuntimePathChecks.kittenModelPathsExist(in: directory)
             }
         case .kokoro:
-            return SpeechRuntimeResourceManager.kokoroAneModelCacheExists(in: modelCacheRoot)
+            return SpeechRuntimePathChecks.kokoroAneModelCacheExists(in: modelCacheRoot)
         case .piper:
-            return SpeechRuntimeResourceManager.piperAnyVoicePathsExist(in: voiceDirectory)
+            return SpeechRuntimePathChecks.piperAnyVoicePathsExist(in: voiceDirectory)
         case .supertonic:
             return SupertonicCoreMLTTSBackend.modelPathsExist(in: supertonicModelDirectory)
                 || environment["LEAFREADER_SUPERTONIC_COREML_MODEL"].map {

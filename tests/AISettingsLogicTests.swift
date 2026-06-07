@@ -1002,7 +1002,7 @@ enum AISettingsLogicTests {
         try Data().write(to: executable)
         try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
         try expect(
-            !SpeechRuntimeResourceManager.piperRuntimePathsExist(in: root),
+            !SpeechRuntimePathChecks.piperRuntimePathsExist(in: root),
             "Piper runtime should not be runnable without phonemize libraries and espeak data"
         )
 
@@ -1011,7 +1011,7 @@ enum AISettingsLogicTests {
             withIntermediateDirectories: true
         )
         try expect(
-            !SpeechRuntimeResourceManager.piperRuntimePathsExist(in: root),
+            !SpeechRuntimePathChecks.piperRuntimePathsExist(in: root),
             "Piper runtime should not be runnable without espeak data"
         )
 
@@ -1020,7 +1020,7 @@ enum AISettingsLogicTests {
             withIntermediateDirectories: true
         )
         try expect(
-            SpeechRuntimeResourceManager.piperRuntimePathsExist(in: root),
+            SpeechRuntimePathChecks.piperRuntimePathsExist(in: root),
             "Piper runtime should be runnable when executable, phonemize libraries, and espeak data are present"
         )
     }
@@ -1036,11 +1036,11 @@ enum AISettingsLogicTests {
         try Data("{}".utf8).write(to: voiceDirectory.appendingPathComponent("en_US-ryan-medium.onnx.json"))
 
         try expect(
-            SpeechRuntimeResourceManager.piperAnyVoicePathsExist(in: voiceDirectory),
+            SpeechRuntimePathChecks.piperAnyVoicePathsExist(in: voiceDirectory),
             "Piper should be available when any complete voice model and config pair exists"
         )
         try expect(
-            !SpeechRuntimeResourceManager.piperVoicePathsExist(in: voiceDirectory),
+            !SpeechRuntimePathChecks.piperVoicePathsExist(in: voiceDirectory),
             "default Piper voice checks should remain voice-specific"
         )
     }

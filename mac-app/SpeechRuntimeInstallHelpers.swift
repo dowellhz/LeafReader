@@ -1,14 +1,6 @@
 import Foundation
 
 extension SpeechRuntimeResourceManager {
-    static func requiredPathsExist(_ paths: [URL]) -> Bool {
-        SpeechRuntimePathChecks.requiredPathsExist(paths)
-    }
-
-    static func kittenRuntimePathsExist(in directory: URL) -> Bool {
-        SpeechRuntimePathChecks.kittenRuntimePathsExist(in: directory)
-    }
-
     static func kittenRuntimeAndModelPathsExist(installDirectories: [URL]) -> Bool {
         SpeechRuntimeAvailability.kittenRuntimeAndModelPathsExist(installDirectories: installDirectories)
     }
@@ -87,54 +79,6 @@ extension SpeechRuntimeResourceManager {
             modelCacheRoot: modelCacheRoot,
             voiceDirectory: voiceDirectory
         )
-    }
-
-    static func piperRuntimePathsExist(in directory: URL) -> Bool {
-        SpeechRuntimePathChecks.piperRuntimePathsExist(in: directory)
-    }
-
-    static func piperVoicePathsExist(voiceID: String = SpeechVoiceCatalog.defaultPiperVoiceID) -> Bool {
-        SpeechRuntimePathChecks.piperVoicePathsExist(voiceID: voiceID)
-    }
-
-    static func piperAnyVoicePathsExist() -> Bool {
-        SpeechRuntimePathChecks.piperAnyVoicePathsExist()
-    }
-
-    static func piperVoicePathsExist(in modelDirectory: URL, voiceID: String = SpeechVoiceCatalog.defaultPiperVoiceID) -> Bool {
-        SpeechRuntimePathChecks.piperVoicePathsExist(in: modelDirectory, voiceID: voiceID)
-    }
-
-    static func piperAnyVoicePathsExist(in modelDirectory: URL) -> Bool {
-        SpeechRuntimePathChecks.piperAnyVoicePathsExist(in: modelDirectory)
-    }
-
-    static func kittenModelPathsExist(in directory: URL) -> Bool {
-        SpeechRuntimePathChecks.kittenModelPathsExist(in: directory)
-    }
-
-    static func kokoroModelCacheDirectories() -> [URL] {
-        SpeechRuntimePathChecks.kokoroModelCacheDirectories()
-    }
-
-    static func piperVoiceCacheDirectories() -> [URL] {
-        SpeechRuntimePathChecks.piperVoiceCacheDirectories()
-    }
-
-    static func kokoroAneModelCacheExists() -> Bool {
-        SpeechRuntimePathChecks.kokoroAneModelCacheExists()
-    }
-
-    static func kokoroAneModelCacheExists(in cacheRoot: URL) -> Bool {
-        SpeechRuntimePathChecks.kokoroAneModelCacheExists(in: cacheRoot)
-    }
-
-    static func kokoroAneEnglishModelCacheExists(in cacheRoot: URL) -> Bool {
-        SpeechRuntimePathChecks.kokoroAneEnglishModelCacheExists(in: cacheRoot)
-    }
-
-    static func kokoroAneMandarinModelCacheExists(in cacheRoot: URL) -> Bool {
-        SpeechRuntimePathChecks.kokoroAneMandarinModelCacheExists(in: cacheRoot)
     }
 
     static func removeItemIfExists(at url: URL) throws {

@@ -345,10 +345,10 @@ final class KittenServerTTSBackend {
     private static func availabilityError() -> SpeechSynthesisError {
         let runtime = SpeechRuntimeResourceManager.Runtime.kitten
         let hasRuntime = runtime.installDirectories.contains {
-            SpeechRuntimeResourceManager.kittenRuntimePathsExist(in: $0)
+            SpeechRuntimePathChecks.kittenRuntimePathsExist(in: $0)
         }
         let hasModel = runtime.installDirectories.contains {
-            SpeechRuntimeResourceManager.kittenModelPathsExist(in: $0)
+            SpeechRuntimePathChecks.kittenModelPathsExist(in: $0)
         }
         if hasRuntime, !hasModel {
             return .voiceUnavailable("KittenTTS")
