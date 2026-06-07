@@ -144,7 +144,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         window.title = "Leaf Reader"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1)
+        window.backgroundColor = ReaderTheme.selected.chromeBackgroundColor
         window.setFrameAutosaveName("LeafReaderClean")
         window.center()
         let dropContentView = ReaderDropContentView(frame: window.contentView?.bounds ?? .zero)

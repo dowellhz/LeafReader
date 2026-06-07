@@ -9,8 +9,6 @@ extension ReaderWindowController {
         let toolbarBorder = toolbarBorderColor(for: theme)
         let controlBackground = controlBackgroundColor(for: theme)
         let controlBorder = controlBorderColor(for: theme)
-        let handleColor = resizeHandleColor(for: theme)
-
         window?.backgroundColor = chromeBackground
         window?.appearance = isDark ? NSAppearance(named: .darkAqua) : nil
         contentArea.layer?.backgroundColor = chromeBackground.cgColor
@@ -22,7 +20,7 @@ extension ReaderWindowController {
         bottomBarView?.layer?.borderColor = toolbarView?.layer?.borderColor
         zoomGroupView?.layer?.backgroundColor = controlBackground.cgColor
         zoomGroupView?.layer?.borderColor = controlBorder.cgColor
-        resizeHandle.layer?.backgroundColor = handleColor.cgColor
+        resizeHandle.theme = theme
         searchUnderlineButton?.theme = theme
         applyChromeTheme(to: window?.contentView, theme: theme)
         updatePageLabelTextColor()
@@ -44,14 +42,7 @@ extension ReaderWindowController {
     }
 
     func chromeBackgroundColor(for theme: ReaderTheme) -> NSColor {
-        switch theme {
-        case .original:
-            return NSColor(red: 0.935, green: 0.945, blue: 0.96, alpha: 1)
-        case .eyeCare:
-            return NSColor(red: 0.90, green: 0.87, blue: 0.76, alpha: 1)
-        case .dark:
-            return NSColor(red: 0.07, green: 0.08, blue: 0.10, alpha: 1)
-        }
+        theme.chromeBackgroundColor
     }
 
     func toolbarBackgroundColor(for theme: ReaderTheme) -> NSColor {
@@ -95,17 +86,6 @@ extension ReaderWindowController {
             return NSColor(red: 0.67, green: 0.61, blue: 0.45, alpha: 1)
         case .dark:
             return NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1)
-        }
-    }
-
-    func resizeHandleColor(for theme: ReaderTheme) -> NSColor {
-        switch theme {
-        case .original:
-            return NSColor(red: 0.86, green: 0.88, blue: 0.91, alpha: 1)
-        case .eyeCare:
-            return NSColor(red: 0.72, green: 0.67, blue: 0.50, alpha: 1)
-        case .dark:
-            return NSColor(red: 0.20, green: 0.24, blue: 0.29, alpha: 1)
         }
     }
 

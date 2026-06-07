@@ -26,7 +26,7 @@ extension ReaderWindowController {
         )
 
         contentArea.wantsLayer = true
-        contentArea.layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
+        contentArea.layer?.backgroundColor = ReaderTheme.selected.chromeBackgroundColor.cgColor
         pdfContainer.onDroppedDocumentURLs = { [weak self] urls in
             self?.handleDroppedDocumentURLs(urls)
         }
@@ -115,7 +115,7 @@ extension ReaderWindowController {
         pdfView.displayMode = .singlePage
         pdfView.displayBox = .cropBox
         pdfView.displaysPageBreaks = true
-        pdfView.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1)
+        pdfView.backgroundColor = ReaderTheme.selected.chromeBackgroundColor
         pdfView.delegate = self
         pdfView.onDroppedDocumentURLs = { [weak self] urls in
             self?.handleDroppedDocumentURLs(urls)
@@ -141,7 +141,7 @@ extension ReaderWindowController {
         webConfiguration.userContentController = userContentController
         webView = ReaderWebView(frame: .zero, configuration: webConfiguration)
         webView.wantsLayer = true
-        webView.layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
+        webView.layer?.backgroundColor = ReaderTheme.selected.chromeBackgroundColor.cgColor
         webView.isHidden = true
         webView.navigationDelegate = self
         webView.onDroppedDocumentURLs = { [weak self] urls in

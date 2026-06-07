@@ -361,11 +361,14 @@ final class SearchUnderlineButton: NSButton {
 final class ResizeHandleView: NSView {
     var onDragDeltaX: ((CGFloat) -> Void)?
     var onDragEnded: (() -> Void)?
+    var theme: ReaderTheme = .selected {
+        didSet { layer?.backgroundColor = theme.resizeHandleColor.cgColor }
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.backgroundColor = NSColor(red: 0.86, green: 0.88, blue: 0.91, alpha: 1).cgColor
+        layer?.backgroundColor = theme.resizeHandleColor.cgColor
         addCursorRect(bounds, cursor: .resizeLeftRight)
     }
 
@@ -397,7 +400,7 @@ final class ClippingView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.masksToBounds = true
-        layer?.backgroundColor = NSColor(red: 0.965, green: 0.972, blue: 0.98, alpha: 1).cgColor
+        layer?.backgroundColor = ReaderTheme.selected.chromeBackgroundColor.cgColor
         ReaderFileDrop.register(self)
     }
 

@@ -27,7 +27,7 @@ extension ReaderWindowController {
         button.isBordered = false
         setSystemImage(symbol, on: button)
         button.imageScaling = .scaleProportionallyDown
-        button.contentTintColor = NSColor(red: 0.08, green: 0.09, blue: 0.12, alpha: 1)
+        button.contentTintColor = ReaderTheme.selected.primaryTextColor
         return button
     }
 
@@ -69,7 +69,7 @@ extension ReaderWindowController {
     func divider() -> NSView {
         let view = NSView()
         view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor(red: 0.86, green: 0.88, blue: 0.91, alpha: 1).cgColor
+        view.layer?.backgroundColor = toolbarBorderColor(for: ReaderTheme.selected).cgColor
         return view
     }
 

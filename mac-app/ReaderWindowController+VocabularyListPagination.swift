@@ -39,7 +39,7 @@ extension ReaderWindowController {
 
         let pageLabel = NSTextField(labelWithString: AppText.localized("第 \(currentPage + 1) / \(pageCount) 页 · 共 \(total) 个", "Page \(currentPage + 1) / \(pageCount) · \(total) total"))
         pageLabel.font = AppFont.semibold(ofSize: 13)
-        pageLabel.textColor = isDark ? NSColor(red: 0.60, green: 0.67, blue: 0.76, alpha: 1) : NSColor(red: 0.48, green: 0.54, blue: 0.66, alpha: 1)
+        pageLabel.textColor = ReaderTheme.selected.secondaryTextColor
         pageLabel.alignment = .center
         pageLabel.translatesAutoresizingMaskIntoConstraints = false
 
@@ -86,7 +86,7 @@ extension ReaderWindowController {
             }
         }())
         label.font = AppFont.semibold(ofSize: 15)
-        label.textColor = isDark ? NSColor(red: 0.60, green: 0.67, blue: 0.76, alpha: 1) : NSColor(red: 0.48, green: 0.54, blue: 0.66, alpha: 1)
+        label.textColor = ReaderTheme.selected.secondaryTextColor
         label.alignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         let wrapper = NSView()

@@ -6,6 +6,7 @@ final class SearchOverlayView: NSView {
     private let previousButton = NSButton(title: "", target: nil, action: nil)
     private let nextButton = NSButton(title: "", target: nil, action: nil)
     private let closeButton = NSButton(title: "", target: nil, action: nil)
+    private let separator = NSView()
 
     var onSubmit: ((String) -> Void)?
     var onPrevious: (() -> Void)?
@@ -34,40 +35,20 @@ final class SearchOverlayView: NSView {
     }
 
     func setTheme(_ theme: ReaderTheme) {
-        let backgroundColor: NSColor
-        let borderColor: NSColor
-        let textColor: NSColor
-        let secondaryColor: NSColor
-        switch theme {
-        case .original:
-            backgroundColor = NSColor(red: 0.995, green: 0.985, blue: 0.995, alpha: 0.98)
-            borderColor = .clear
-            textColor = NSColor(red: 0.16, green: 0.17, blue: 0.20, alpha: 1)
-            secondaryColor = NSColor(red: 0.42, green: 0.42, blue: 0.47, alpha: 1)
-        case .eyeCare:
-            backgroundColor = NSColor(red: 0.90, green: 0.85, blue: 0.70, alpha: 0.98)
-            borderColor = NSColor(red: 0.67, green: 0.60, blue: 0.42, alpha: 1)
-            textColor = NSColor(red: 0.18, green: 0.15, blue: 0.09, alpha: 1)
-            secondaryColor = NSColor(red: 0.43, green: 0.37, blue: 0.25, alpha: 1)
-        case .dark:
-            backgroundColor = NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 0.98)
-            borderColor = NSColor(red: 0.24, green: 0.28, blue: 0.34, alpha: 1)
-            textColor = NSColor(red: 0.84, green: 0.87, blue: 0.92, alpha: 1)
-            secondaryColor = NSColor(red: 0.55, green: 0.60, blue: 0.68, alpha: 1)
-        }
-        layer?.backgroundColor = backgroundColor.cgColor
+        layer?.backgroundColor = theme.searchOverlayBackgroundColor.cgColor
         layer?.borderWidth = theme == .original ? 0 : 1
-        layer?.borderColor = borderColor.cgColor
-        searchField.textColor = textColor
-        resultLabel.textColor = secondaryColor
+        layer?.borderColor = theme.searchOverlayBorderColor.cgColor
+        searchField.textColor = theme.primaryTextColor
+        resultLabel.textColor = theme.secondaryTextColor
+        separator.layer?.backgroundColor = theme.searchOverlaySeparatorColor.cgColor
         for button in [previousButton, nextButton, closeButton] {
-            button.contentTintColor = secondaryColor
+            button.contentTintColor = theme.secondaryTextColor
         }
     }
 
     private func buildUI() {
         wantsLayer = true
-        layer?.backgroundColor = NSColor(red: 0.995, green: 0.985, blue: 0.995, alpha: 0.98).cgColor
+        layer?.backgroundColor = ReaderTheme.selected.searchOverlayBackgroundColor.cgColor
         layer?.cornerRadius = 14
         layer?.shadowColor = NSColor.black.cgColor
         layer?.shadowOpacity = 0.16
@@ -84,12 +65,11 @@ final class SearchOverlayView: NSView {
         searchField.cell?.sendsActionOnEndEditing = false
 
         resultLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
-        resultLabel.textColor = NSColor(red: 0.42, green: 0.42, blue: 0.47, alpha: 1)
+        resultLabel.textColor = ReaderTheme.selected.secondaryTextColor
         resultLabel.alignment = .right
 
-        let separator = NSView()
         separator.wantsLayer = true
-        separator.layer?.backgroundColor = NSColor(red: 0.82, green: 0.72, blue: 0.98, alpha: 0.65).cgColor
+        separator.layer?.backgroundColor = ReaderTheme.selected.searchOverlaySeparatorColor.cgColor
 
         configureIconButton(previousButton, symbol: "chevron.up", action: #selector(previousResult))
         configureIconButton(nextButton, symbol: "chevron.down", action: #selector(nextResult))
@@ -137,7 +117,7 @@ final class SearchOverlayView: NSView {
         button.action = action
         button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
         button.imageScaling = .scaleProportionallyDown
-        button.contentTintColor = NSColor(red: 0.44, green: 0.44, blue: 0.48, alpha: 1)
+        button.contentTintColor = ReaderTheme.selected.secondaryTextColor
     }
 
     @objc private func submitSearch() {

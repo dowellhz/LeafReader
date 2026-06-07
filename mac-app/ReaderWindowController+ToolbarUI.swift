@@ -97,7 +97,7 @@ extension ReaderWindowController {
 
     func configureTitleControls() {
         titleLabel.font = AppFont.semibold(ofSize: 15)
-        titleLabel.textColor = NSColor(red: 0.1, green: 0.11, blue: 0.14, alpha: 1)
+        titleLabel.textColor = ReaderTheme.selected.primaryTextColor
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.isSelectable = false
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -105,8 +105,8 @@ extension ReaderWindowController {
 
         coverImageView.imageScaling = .scaleProportionallyUpOrDown
         coverImageView.wantsLayer = true
-        coverImageView.layer?.backgroundColor = NSColor(red: 0.92, green: 0.94, blue: 0.97, alpha: 1).cgColor
-        coverImageView.layer?.borderColor = NSColor(red: 0.78, green: 0.81, blue: 0.86, alpha: 1).cgColor
+        coverImageView.layer?.backgroundColor = controlBackgroundColor(for: ReaderTheme.selected).cgColor
+        coverImageView.layer?.borderColor = controlBorderColor(for: ReaderTheme.selected).cgColor
         coverImageView.layer?.borderWidth = 1
         coverImageView.layer?.cornerRadius = 3
         coverImageView.layer?.masksToBounds = true
@@ -116,8 +116,8 @@ extension ReaderWindowController {
     func configureZoomControls(zoomGroup: NSView, zoomOut: NSButton, zoomIn: NSButton, leftDivider: NSView, rightDivider: NSView) {
         zoomGroupView = zoomGroup
         zoomGroup.wantsLayer = true
-        zoomGroup.layer?.backgroundColor = NSColor.white.cgColor
-        zoomGroup.layer?.borderColor = NSColor(red: 0.84, green: 0.86, blue: 0.9, alpha: 1).cgColor
+        zoomGroup.layer?.backgroundColor = controlBackgroundColor(for: ReaderTheme.selected).cgColor
+        zoomGroup.layer?.borderColor = controlBorderColor(for: ReaderTheme.selected).cgColor
         zoomGroup.layer?.borderWidth = 1
         zoomGroup.layer?.cornerRadius = 7
 
@@ -190,8 +190,8 @@ extension ReaderWindowController {
     func readerBarView() -> NSView {
         let view = NSView()
         view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.97).cgColor
-        view.layer?.borderColor = NSColor(red: 0.88, green: 0.9, blue: 0.93, alpha: 1).cgColor
+        view.layer?.backgroundColor = toolbarBackgroundColor(for: ReaderTheme.selected).cgColor
+        view.layer?.borderColor = toolbarBorderColor(for: ReaderTheme.selected).cgColor
         view.layer?.borderWidth = 1
         return view
     }

@@ -3,7 +3,7 @@ import Cocoa
 extension AIChatPanel {
     func buildUI() {
         wantsLayer = true
-        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.97).cgColor
+        layer?.backgroundColor = panelBackgroundColor.cgColor
 
         askButton.target = self
         askButton.action = #selector(startQuestion)
@@ -52,7 +52,7 @@ extension AIChatPanel {
         scrollView.documentView = transcriptStack
 
         statusLabel.font = NSFont.systemFont(ofSize: 14)
-        statusLabel.textColor = NSColor(red: 0.42, green: 0.44, blue: 0.49, alpha: 1)
+        statusLabel.textColor = secondaryTextColor
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
 
         loadingDots.isHidden = true
@@ -60,7 +60,7 @@ extension AIChatPanel {
         loadingDots.translatesAutoresizingMaskIntoConstraints = false
         cancelRequestButton.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: AppText.cancel)
         cancelRequestButton.isBordered = false
-        cancelRequestButton.contentTintColor = NSColor(red: 0.48, green: 0.50, blue: 0.56, alpha: 1)
+        cancelRequestButton.contentTintColor = secondaryTextColor
         cancelRequestButton.target = self
         cancelRequestButton.action = #selector(cancelCurrentRequest)
         cancelRequestButton.isHidden = true
@@ -72,7 +72,7 @@ extension AIChatPanel {
         statusRow.addSubview(cancelRequestButton)
 
         inputBar.wantsLayer = true
-        inputBar.layer?.backgroundColor = NSColor(red: 0.93, green: 0.94, blue: 0.95, alpha: 1).cgColor
+        inputBar.layer?.backgroundColor = inputBackgroundColor.cgColor
         inputBar.layer?.cornerRadius = 8
         inputBar.translatesAutoresizingMaskIntoConstraints = false
 

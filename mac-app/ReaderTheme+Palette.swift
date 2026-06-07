@@ -74,6 +74,61 @@ extension ReaderTheme {
         }
     }
 
+    var chromeBackgroundColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.935, green: 0.945, blue: 0.96, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.90, green: 0.87, blue: 0.76, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.07, green: 0.08, blue: 0.10, alpha: 1)
+        }
+    }
+
+    var resizeHandleColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.86, green: 0.88, blue: 0.91, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.72, green: 0.67, blue: 0.50, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.20, green: 0.24, blue: 0.29, alpha: 1)
+        }
+    }
+
+    var searchOverlayBackgroundColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.995, green: 0.985, blue: 0.995, alpha: 0.98)
+        case .eyeCare:
+            return NSColor(red: 0.90, green: 0.85, blue: 0.70, alpha: 0.98)
+        case .dark:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 0.98)
+        }
+    }
+
+    var searchOverlayBorderColor: NSColor {
+        switch self {
+        case .original:
+            return .clear
+        case .eyeCare:
+            return NSColor(red: 0.67, green: 0.60, blue: 0.42, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.24, green: 0.28, blue: 0.34, alpha: 1)
+        }
+    }
+
+    var searchOverlaySeparatorColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.82, green: 0.72, blue: 0.98, alpha: 0.65)
+        case .eyeCare:
+            return strongAccentColor.withAlphaComponent(0.52)
+        case .dark:
+            return secondaryTextColor.withAlphaComponent(0.42)
+        }
+    }
+
     func searchUnderlineColor(isHighlighted: Bool) -> NSColor {
         switch self {
         case .original:
