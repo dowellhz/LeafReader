@@ -20,6 +20,11 @@ pass() {
   echo "OK: $*"
 }
 
+sqlite_count() {
+  local db_path="$1"
+  sqlite3 "file:$db_path?mode=ro&immutable=1" 'select count(*) from stardict;' 2>/dev/null || true
+}
+
 if [[ -n "$VERSION" && ! "$VERSION" =~ ^[0-9]+(\.[0-9]+)+$ ]]; then
   fail "Invalid version: $VERSION"
 fi
@@ -40,13 +45,13 @@ fi
 pass "Info.plist version $SHORT_VERSION ($BUNDLE_VERSION)"
 
 [[ -f "$ECDICT_DB" ]] || fail "source ECDICT db missing: $ECDICT_DB"
-ECDICT_COUNT="$(sqlite3 "$ECDICT_DB" 'select count(*) from stardict;' 2>/dev/null || true)"
+ECDICT_COUNT="$(sqlite_count "$ECDICT_DB")"
 [[ "$ECDICT_COUNT" =~ ^[0-9]+$ && "$ECDICT_COUNT" -gt 0 ]] || fail "source ECDICT db has no stardict rows"
 pass "source ECDICT db: $ECDICT_COUNT rows, $(du -h "$ECDICT_DB" | awk '{print $1}')"
 
 [[ -d "$APP_PATH" ]] || fail "built app missing: $APP_PATH"
 [[ -f "$BUILT_ECDICT_DB" ]] || fail "built app ECDICT db missing: $BUILT_ECDICT_DB"
-BUILT_ECDICT_COUNT="$(sqlite3 "$BUILT_ECDICT_DB" 'select count(*) from stardict;' 2>/dev/null || true)"
+BUILT_ECDICT_COUNT="$(sqlite_count "$BUILT_ECDICT_DB")"
 [[ "$BUILT_ECDICT_COUNT" == "$ECDICT_COUNT" ]] || fail "built ECDICT rows $BUILT_ECDICT_COUNT do not match source $ECDICT_COUNT"
 pass "built app ECDICT db included"
 
