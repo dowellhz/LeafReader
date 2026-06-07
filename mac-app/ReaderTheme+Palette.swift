@@ -173,6 +173,150 @@ extension ReaderTheme {
         }
     }
 
+    var vocabularyPanelBackgroundColor: NSColor {
+        switch self {
+        case .original:
+            return .white
+        case .eyeCare:
+            return NSColor(red: 0.91, green: 0.87, blue: 0.74, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+        }
+    }
+
+    var vocabularyPrimaryTextColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.16, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.16, green: 0.13, blue: 0.08, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.88, green: 0.91, blue: 0.95, alpha: 1)
+        }
+    }
+
+    var vocabularySecondaryTextColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.48, green: 0.54, blue: 0.66, alpha: 1)
+        case .eyeCare:
+            return secondaryTextColor
+        case .dark:
+            return NSColor(red: 0.60, green: 0.67, blue: 0.76, alpha: 1)
+        }
+    }
+
+    var vocabularyBorderColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.68, green: 0.61, blue: 0.43, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1)
+        }
+    }
+
+    var vocabularyCardBackgroundColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.985, green: 0.988, blue: 0.995, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.88, green: 0.83, blue: 0.68, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.13, green: 0.16, blue: 0.20, alpha: 1)
+        }
+    }
+
+    var vocabularyCardBorderColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.88, green: 0.90, blue: 0.94, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.68, green: 0.61, blue: 0.43, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.25, green: 0.30, blue: 0.36, alpha: 1)
+        }
+    }
+
+    var vocabularyBodyTextColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.22, green: 0.25, blue: 0.31, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.25, green: 0.20, blue: 0.12, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.78, green: 0.82, blue: 0.88, alpha: 1)
+        }
+    }
+
+    var vocabularyButtonBackgroundColor: NSColor {
+        switch self {
+        case .original:
+            return .white
+        case .eyeCare:
+            return NSColor(red: 0.92, green: 0.87, blue: 0.72, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+        }
+    }
+
+    var vocabularyAccentColor: NSColor {
+        strongAccentColor
+    }
+
+    var vocabularySelectionBackgroundColor: NSColor {
+        vocabularyAccentColor.withAlphaComponent(self == .eyeCare ? 0.24 : 0.20)
+    }
+
+    var shelfBackgroundColor: NSColor {
+        vocabularyPanelBackgroundColor
+    }
+
+    var shelfPrimaryTextColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.06, green: 0.07, blue: 0.09, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.16, green: 0.13, blue: 0.08, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
+        }
+    }
+
+    var shelfSecondaryTextColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.45, green: 0.49, blue: 0.60, alpha: 1)
+        case .eyeCare:
+            return secondaryTextColor
+        case .dark:
+            return NSColor(red: 0.58, green: 0.63, blue: 0.70, alpha: 1)
+        }
+    }
+
+    var shelfBorderColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.84, green: 0.87, blue: 0.92, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.68, green: 0.61, blue: 0.43, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.28, green: 0.34, blue: 0.42, alpha: 1)
+        }
+    }
+
+    var shelfButtonBackgroundColor: NSColor {
+        switch self {
+        case .original:
+            return .white
+        case .eyeCare:
+            return NSColor(red: 0.89, green: 0.84, blue: 0.69, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
+        }
+    }
+
     func searchUnderlineColor(isHighlighted: Bool) -> NSColor {
         switch self {
         case .original:

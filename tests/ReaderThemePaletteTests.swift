@@ -72,12 +72,44 @@ private func testSearchOverlayPaletteCoversAllThemes() throws {
     )
 }
 
+private func testVocabularyAndShelfPaletteCoversAllThemes() throws {
+    for theme in ReaderTheme.allCases {
+        try expectVisible(theme.vocabularyPanelBackgroundColor, "vocabulary panel background should be visible for \(theme)")
+        try expectVisible(theme.vocabularyPrimaryTextColor, "vocabulary primary text should be visible for \(theme)")
+        try expectVisible(theme.vocabularySecondaryTextColor, "vocabulary secondary text should be visible for \(theme)")
+        try expectVisible(theme.vocabularyBorderColor, "vocabulary border should be visible for \(theme)")
+        try expectVisible(theme.vocabularyCardBackgroundColor, "vocabulary card background should be visible for \(theme)")
+        try expectVisible(theme.vocabularyCardBorderColor, "vocabulary card border should be visible for \(theme)")
+        try expectVisible(theme.vocabularyBodyTextColor, "vocabulary body text should be visible for \(theme)")
+        try expectVisible(theme.vocabularyButtonBackgroundColor, "vocabulary button background should be visible for \(theme)")
+        try expectVisible(theme.vocabularyAccentColor, "vocabulary accent should be visible for \(theme)")
+        try expectVisible(theme.vocabularySelectionBackgroundColor, "vocabulary selection should be visible for \(theme)")
+        try expectVisible(theme.shelfBackgroundColor, "shelf background should be visible for \(theme)")
+        try expectVisible(theme.shelfPrimaryTextColor, "shelf primary text should be visible for \(theme)")
+        try expectVisible(theme.shelfSecondaryTextColor, "shelf secondary text should be visible for \(theme)")
+        try expectVisible(theme.shelfBorderColor, "shelf border should be visible for \(theme)")
+        try expectVisible(theme.shelfButtonBackgroundColor, "shelf button background should be visible for \(theme)")
+    }
+
+    try expectDifferent(
+        ReaderTheme.original.vocabularyCardBackgroundColor,
+        ReaderTheme.dark.vocabularyCardBackgroundColor,
+        "vocabulary cards should change between original and dark themes"
+    )
+    try expectDifferent(
+        ReaderTheme.original.shelfButtonBackgroundColor,
+        ReaderTheme.eyeCare.shelfButtonBackgroundColor,
+        "shelf buttons should change between original and eye-care themes"
+    )
+}
+
 @main
 private enum ReaderThemePaletteTestRunner {
     static func main() {
         do {
             try testChromePaletteCoversAllThemes()
             try testSearchOverlayPaletteCoversAllThemes()
+            try testVocabularyAndShelfPaletteCoversAllThemes()
             print("ReaderThemePaletteTests passed")
         } catch {
             fputs("ReaderThemePaletteTests failed: \(error)\n", stderr)

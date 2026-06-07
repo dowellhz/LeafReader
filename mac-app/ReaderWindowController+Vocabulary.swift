@@ -47,91 +47,35 @@ extension ReaderWindowController {
     var vocabularyReviewButtonFontSize: CGFloat { 14 }
 
     func vocabularyPanelBackgroundColor(for theme: ReaderTheme) -> NSColor {
-        switch theme {
-        case .original:
-            return .white
-        case .eyeCare:
-            return NSColor(red: 0.91, green: 0.87, blue: 0.74, alpha: 1)
-        case .dark:
-            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
-        }
+        theme.vocabularyPanelBackgroundColor
     }
 
     func vocabularyPrimaryTextColor(for theme: ReaderTheme) -> NSColor {
-        switch theme {
-        case .original:
-            return NSColor(red: 0.10, green: 0.12, blue: 0.16, alpha: 1)
-        case .eyeCare:
-            return NSColor(red: 0.16, green: 0.13, blue: 0.08, alpha: 1)
-        case .dark:
-            return NSColor(red: 0.88, green: 0.91, blue: 0.95, alpha: 1)
-        }
+        theme.vocabularyPrimaryTextColor
     }
 
     func vocabularySecondaryTextColor(for theme: ReaderTheme) -> NSColor {
-        switch theme {
-        case .original:
-            return NSColor(red: 0.48, green: 0.54, blue: 0.66, alpha: 1)
-        case .eyeCare:
-            return theme.secondaryTextColor
-        case .dark:
-            return NSColor(red: 0.60, green: 0.67, blue: 0.76, alpha: 1)
-        }
+        theme.vocabularySecondaryTextColor
     }
 
     func vocabularyBorderColor(for theme: ReaderTheme) -> NSColor {
-        switch theme {
-        case .original:
-            return NSColor(red: 0.86, green: 0.88, blue: 0.92, alpha: 1)
-        case .eyeCare:
-            return NSColor(red: 0.68, green: 0.61, blue: 0.43, alpha: 1)
-        case .dark:
-            return NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1)
-        }
+        theme.vocabularyBorderColor
     }
 
     func vocabularyCardBackgroundColor(for theme: ReaderTheme) -> NSColor {
-        switch theme {
-        case .original:
-            return NSColor(red: 0.985, green: 0.988, blue: 0.995, alpha: 1)
-        case .eyeCare:
-            return NSColor(red: 0.88, green: 0.83, blue: 0.68, alpha: 1)
-        case .dark:
-            return NSColor(red: 0.13, green: 0.16, blue: 0.20, alpha: 1)
-        }
+        theme.vocabularyCardBackgroundColor
     }
 
     func vocabularyCardBorderColor(for theme: ReaderTheme) -> NSColor {
-        switch theme {
-        case .original:
-            return NSColor(red: 0.88, green: 0.90, blue: 0.94, alpha: 1)
-        case .eyeCare:
-            return NSColor(red: 0.68, green: 0.61, blue: 0.43, alpha: 1)
-        case .dark:
-            return NSColor(red: 0.25, green: 0.30, blue: 0.36, alpha: 1)
-        }
+        theme.vocabularyCardBorderColor
     }
 
     func vocabularyBodyTextColor(for theme: ReaderTheme) -> NSColor {
-        switch theme {
-        case .original:
-            return NSColor(red: 0.22, green: 0.25, blue: 0.31, alpha: 1)
-        case .eyeCare:
-            return NSColor(red: 0.25, green: 0.20, blue: 0.12, alpha: 1)
-        case .dark:
-            return NSColor(red: 0.78, green: 0.82, blue: 0.88, alpha: 1)
-        }
+        theme.vocabularyBodyTextColor
     }
 
     func vocabularyButtonBackgroundColor(for theme: ReaderTheme) -> NSColor {
-        switch theme {
-        case .original:
-            return .white
-        case .eyeCare:
-            return NSColor(red: 0.92, green: 0.87, blue: 0.72, alpha: 1)
-        case .dark:
-            return NSColor(red: 0.10, green: 0.12, blue: 0.15, alpha: 1)
-        }
+        theme.vocabularyButtonBackgroundColor
     }
 
     func vocabularyPrimaryActionBackgroundColor(for theme: ReaderTheme) -> NSColor {
@@ -143,11 +87,11 @@ extension ReaderWindowController {
     }
 
     func vocabularyAccentColor(for theme: ReaderTheme) -> NSColor {
-        theme.strongAccentColor
+        theme.vocabularyAccentColor
     }
 
     func vocabularySelectionBackgroundColor(for theme: ReaderTheme) -> NSColor {
-        vocabularyAccentColor(for: theme).withAlphaComponent(theme == .eyeCare ? 0.24 : 0.20)
+        theme.vocabularySelectionBackgroundColor
     }
 
     func styleVocabularyActionButton(_ button: ThemedSettingsActionButton, fontSize: CGFloat = 14, isPrimary: Bool = false) {

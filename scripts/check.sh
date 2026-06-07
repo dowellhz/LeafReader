@@ -34,8 +34,9 @@ echo "==> Running tests"
 
 if [[ "$RUN_BUILD" -eq 1 ]]; then
   echo "==> Building docs site"
-  ./scripts/build_docs_site.sh
-  ./scripts/check_docs_visual.sh
+  DOCS_SITE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/leafreader-docs-check.XXXXXX")"
+  LEAFREADER_DOCS_SITE_DIR="$DOCS_SITE_DIR" ./scripts/build_docs_site.sh
+  LEAFREADER_DOCS_SITE_DIR="$DOCS_SITE_DIR" ./scripts/check_docs_visual.sh
 
   echo "==> Building app"
   REQUIRE_BUNDLED_SPEECH_RUNTIMES=1 ./scripts/build_app.sh
