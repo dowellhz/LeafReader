@@ -431,12 +431,6 @@ brew install autoconf automake libtool pkgconf
 ./scripts/build_espeak_ng_runtime.sh
 ```
 
-Rebuild the bundled KittenTTS Rust server when the local Kitten runtime changes:
-
-```sh
-./scripts/build_kittentts_rs_runtime.sh
-```
-
 Build and run the app:
 
 ```sh
