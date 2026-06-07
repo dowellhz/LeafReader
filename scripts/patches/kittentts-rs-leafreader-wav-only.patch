@@ -1,9 +1,9 @@
 diff --git a/Cargo.toml b/Cargo.toml
-index 241183a..70ab522 100644
+index 241183a..b1c2993 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
-@@ -21,29 +21,14 @@ path = "src/lib.rs"
-
+@@ -21,29 +21,18 @@ path = "src/lib.rs"
+ 
  [dependencies]
  anyhow = "1"
 -clap = { version = "4", features = ["derive"] }
@@ -22,55 +22,39 @@ index 241183a..70ab522 100644
  serde_json = "1"
  unicode-normalization = "0.1"
 -zip = "2"
--
--# Server dependencies
--axum = "0.8"
++zip = { version = "2", default-features = false }
+ 
+ # Server dependencies
+ axum = "0.8"
 -base64 = "0.22"
 -tokio = { version = "1", features = ["full"] }
 -tokio-stream = "0.1"
 -tracing = "0.1"
 -tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-+zip = { version = "2", default-features = false }
-
++tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+ 
  # Optional GPU acceleration
  # Enable via: cargo build --features cuda
 diff --git a/src/bin/kitten-tts-server/main.rs b/src/bin/kitten-tts-server/main.rs
-index 789d4ad..b4d65c1 100644
+index 789d4ad..3f2f5ec 100644
 --- a/src/bin/kitten-tts-server/main.rs
 +++ b/src/bin/kitten-tts-server/main.rs
-@@ -1,71 +1,327 @@
--//! kitten-tts-server — OpenAI-compatible TTS API server
--//!
--//! Loads a KittenTTS model at startup and serves an
--//! OpenAI-style `/v1/audio/speech` endpoint.
--
--use anyhow::Result;
--use axum::{
--    routing::{get, post},
--    Router,
--};
+@@ -8,10 +8,9 @@ use axum::{
+     routing::{get, post},
+     Router,
+ };
 -use clap::Parser;
-+//! kitten-tts-server — minimal OpenAI-compatible TTS API server for LeafReader.
-+
-+use anyhow::{Context, Result};
-+use serde::Deserialize;
 +use std::env;
-+use std::io::{Read, Write};
-+use std::net::{TcpListener, TcpStream};
  use std::path::PathBuf;
  use std::sync::{Arc, Mutex};
 -use tracing_subscriber::EnvFilter;
-+use std::thread;
-
+ 
  use kitten_tts::model::KittenTTS;
-
--mod error;
--mod routes;
--mod state;
--
--use state::AppState;
-+const SAMPLE_RATE: u32 = 24_000;
-
+ 
+@@ -21,37 +20,71 @@ mod state;
+ 
+ use state::AppState;
+ 
 -#[derive(Parser)]
 -#[command(
 -    name = "kitten-tts-server",
@@ -88,38 +72,7 @@ index 789d4ad..b4d65c1 100644
 -    #[arg(long, default_value = "8080")]
      port: u16,
  }
-
--#[tokio::main]
--async fn main() -> Result<()> {
--    tracing_subscriber::fmt()
--        .with_env_filter(
--            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
--        )
--        .init();
-+#[derive(Deserialize)]
-+struct SpeechRequest {
-+    input: String,
-+    voice: String,
-+    #[serde(default = "default_format")]
-+    response_format: String,
-+    #[serde(default = "default_speed")]
-+    speed: f32,
-+    #[serde(default)]
-+    stream: bool,
-+}
-
--    let cli = Cli::parse();
-+fn default_format() -> String {
-+    "wav".to_string()
-+}
-
--    tracing::info!("Loading model from {} ...", cli.model_dir.display());
--    let model = KittenTTS::from_dir(&cli.model_dir)?;
--    tracing::info!("Model loaded successfully");
-+fn default_speed() -> f32 {
-+    1.0
-+}
-+
+ 
 +impl Cli {
 +    fn parse() -> Result<Self> {
 +        let mut model_dir: Option<PathBuf> = None;
@@ -171,269 +124,512 @@ index 789d4ad..b4d65c1 100644
 +        })
 +    }
 +}
-
--    let state: AppState = Arc::new(Mutex::new(model));
-+fn main() -> Result<()> {
++
+ #[tokio::main]
+ async fn main() -> Result<()> {
+-    tracing_subscriber::fmt()
+-        .with_env_filter(
+-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+-        )
+-        .init();
+-
+-    let cli = Cli::parse();
 +    let cli = Cli::parse()?;
-
--    let app = Router::new()
--        .route("/health", get(routes::health::health))
--        .route("/v1/models", get(routes::models::list_models))
--        .route("/v1/audio/speech", post(routes::speech::speech))
--        .with_state(state);
+ 
+-    tracing::info!("Loading model from {} ...", cli.model_dir.display());
 +    eprintln!("Loading model from {} ...", cli.model_dir.display());
-+    let model = KittenTTS::from_dir(&cli.model_dir)?;
+     let model = KittenTTS::from_dir(&cli.model_dir)?;
+-    tracing::info!("Model loaded successfully");
 +    eprintln!("Model loaded successfully");
-
-+    let state = Arc::new(Mutex::new(model));
+ 
+     let state: AppState = Arc::new(Mutex::new(model));
+ 
+@@ -62,7 +95,7 @@ async fn main() -> Result<()> {
+         .with_state(state);
+ 
      let addr = format!("{}:{}", cli.host, cli.port);
 -    tracing::info!("Listening on http://{addr}");
-+    let listener = TcpListener::bind(&addr).with_context(|| format!("failed to bind {addr}"))?;
 +    eprintln!("Listening on http://{addr}");
-+
-+    for stream in listener.incoming() {
-+        let stream = match stream {
-+            Ok(stream) => stream,
-+            Err(error) => {
-+                eprintln!("accept failed: {error}");
-+                continue;
-+            }
-+        };
-+        let state = Arc::clone(&state);
-+        thread::spawn(move || {
-+            if let Err(error) = handle_connection(stream, state) {
-+                eprintln!("request failed: {error}");
-+            }
-+        });
-+    }
-+
-+    Ok(())
-+}
-+
-+fn handle_connection(mut stream: TcpStream, state: Arc<Mutex<KittenTTS>>) -> Result<()> {
-+    let request = read_request(&mut stream)?;
-+    let response = route_request(&request, state);
-+    write_response(&mut stream, response)
-+}
-+
-+struct HttpRequest {
-+    method: String,
-+    path: String,
-+    body: Vec<u8>,
-+}
-+
-+struct HttpResponse {
-+    status: &'static str,
-+    content_type: &'static str,
-+    body: Vec<u8>,
-+}
-
--    let listener = tokio::net::TcpListener::bind(&addr).await?;
--    axum::serve(listener, app).await?;
-+fn read_request(stream: &mut TcpStream) -> Result<HttpRequest> {
-+    let mut buffer = Vec::new();
-+    let mut temp = [0u8; 4096];
-+    let header_end;
-+    loop {
-+        let read = stream.read(&mut temp)?;
-+        if read == 0 {
-+            anyhow::bail!("connection closed before headers");
-+        }
-+        buffer.extend_from_slice(&temp[..read]);
-+        if let Some(index) = find_header_end(&buffer) {
-+            header_end = index;
-+            break;
-+        }
-+        if buffer.len() > 64 * 1024 {
-+            anyhow::bail!("request headers too large");
-+        }
-+    }
-+
-+    let headers = std::str::from_utf8(&buffer[..header_end])?;
-+    let mut lines = headers.lines();
-+    let request_line = lines.next().context("missing request line")?;
-+    let mut request_parts = request_line.split_whitespace();
-+    let method = request_parts.next().unwrap_or("").to_string();
-+    let path = request_parts.next().unwrap_or("").to_string();
-+    let content_length = lines
-+        .filter_map(|line| line.split_once(':'))
-+        .find_map(|(name, value)| {
-+            if name.eq_ignore_ascii_case("content-length") {
-+                value.trim().parse::<usize>().ok()
-+            } else {
-+                None
-+            }
-+        })
-+        .unwrap_or(0);
-+
-+    let body_start = header_end + 4;
-+    while buffer.len() < body_start + content_length {
-+        let read = stream.read(&mut temp)?;
-+        if read == 0 {
-+            anyhow::bail!("connection closed before body");
-+        }
-+        buffer.extend_from_slice(&temp[..read]);
-+    }
-+
-+    Ok(HttpRequest {
-+        method,
-+        path,
-+        body: buffer[body_start..body_start + content_length].to_vec(),
-+    })
-+}
-+
-+fn find_header_end(buffer: &[u8]) -> Option<usize> {
-+    buffer.windows(4).position(|window| window == b"\r\n\r\n")
-+}
-+
-+fn route_request(request: &HttpRequest, state: Arc<Mutex<KittenTTS>>) -> HttpResponse {
-+    match (request.method.as_str(), request.path.as_str()) {
-+        ("GET", "/health") => json_response("200 OK", br#"{"status":"ok"}"#.to_vec()),
-+        ("GET", "/v1/models") => json_response(
-+            "200 OK",
-+            br#"{"object":"list","data":[{"id":"kitten-tts","object":"model","owned_by":"kittenml"}]}"#
-+                .to_vec(),
-+        ),
-+        ("POST", "/v1/audio/speech") => synthesize(request, state),
-+        _ => json_error("404 Not Found", "not found"),
-+    }
-+}
-+
-+fn synthesize(request: &HttpRequest, state: Arc<Mutex<KittenTTS>>) -> HttpResponse {
-+    let parsed: SpeechRequest = match serde_json::from_slice(&request.body) {
-+        Ok(parsed) => parsed,
-+        Err(error) => return json_error("400 Bad Request", &format!("invalid JSON: {error}")),
-+    };
-+
-+    if parsed.input.is_empty() {
-+        return json_error("400 Bad Request", "'input' must not be empty");
-+    }
-+    if !(0.25..=4.0).contains(&parsed.speed) {
-+        return json_error("400 Bad Request", "'speed' must be between 0.25 and 4.0");
-+    }
-+    if parsed.stream {
-+        return json_error("400 Bad Request", "Streaming is not supported by this runtime");
-+    }
-+    if parsed.response_format.to_lowercase() != "wav" {
-+        return json_error(
-+            "400 Bad Request",
-+            &format!(
-+                "Unsupported response_format '{}'. Supported formats: wav",
-+                parsed.response_format
-+            ),
-+        );
-+    }
-+
-+    let voice = map_voice(&parsed.voice).to_string();
-+    eprintln!(
-+        "Generating speech voice={voice} format=wav speed={} len={}",
-+        parsed.speed,
-+        parsed.input.len()
-+    );
-+
-+    let audio = {
-+        let mut model = match state.lock() {
-+            Ok(model) => model,
-+            Err(error) => return json_error("500 Internal Server Error", &error.to_string()),
-+        };
-+        match model.generate(&parsed.input, &voice, parsed.speed, true) {
-+            Ok(audio) => audio,
-+            Err(error) => return json_error("500 Internal Server Error", &error.to_string()),
-+        }
-+    };
-+    eprintln!("Speech generated samples={} format=wav", audio.len());
-+
-+    match encode_wav(&audio) {
-+        Ok(body) => HttpResponse {
-+            status: "200 OK",
-+            content_type: "audio/wav",
-+            body,
-+        },
-+        Err(error) => json_error("500 Internal Server Error", &error.to_string()),
-+    }
-+}
-+
-+fn map_voice(voice: &str) -> &str {
-+    match voice.to_lowercase().as_str() {
-+        "alloy" => "Bella",
-+        "echo" => "Jasper",
-+        "fable" => "Luna",
-+        "onyx" => "Bruno",
-+        "nova" => "Rosie",
-+        "shimmer" => "Hugo",
-+        _ => voice,
-+    }
-+}
-+
-+fn encode_wav(samples: &[f32]) -> Result<Vec<u8>> {
-+    let mut cursor = std::io::Cursor::new(Vec::new());
-+    {
-+        let spec = hound::WavSpec {
-+            channels: 1,
-+            sample_rate: SAMPLE_RATE,
-+            bits_per_sample: 16,
-+            sample_format: hound::SampleFormat::Int,
-+        };
-+        let mut writer = hound::WavWriter::new(&mut cursor, spec)?;
-+        for &sample in samples {
-+            let value = (sample * 32767.0).clamp(-32768.0, 32767.0) as i16;
-+            writer.write_sample(value)?;
-+        }
-+        writer.finalize()?;
-+    }
-+    Ok(cursor.into_inner())
-+}
-+
-+fn json_response(status: &'static str, body: Vec<u8>) -> HttpResponse {
-+    HttpResponse {
-+        status,
-+        content_type: "application/json",
-+        body,
-+    }
-+}
-+
-+fn json_error(status: &'static str, message: &str) -> HttpResponse {
-+    let escaped = message.replace('\\', "\\\\").replace('"', "\\\"");
-+    json_response(
-+        status,
-+        format!(
-+            r#"{{"error":{{"message":"{escaped}","type":"invalid_request_error","code":null}}}}"#
-+        )
-+        .into_bytes(),
-+    )
-+}
-
-+fn write_response(stream: &mut TcpStream, response: HttpResponse) -> Result<()> {
-+    write!(
-+        stream,
-+        "HTTP/1.1 {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-+        response.status,
-+        response.content_type,
-+        response.body.len()
-+    )?;
-+    stream.write_all(&response.body)?;
-+    stream.flush()?;
-     Ok(())
+ 
+     let listener = tokio::net::TcpListener::bind(&addr).await?;
+     axum::serve(listener, app).await?;
+diff --git a/src/bin/kitten-tts-server/routes/encode.rs b/src/bin/kitten-tts-server/routes/encode.rs
+index 9864359..5ff5d7e 100644
+--- a/src/bin/kitten-tts-server/routes/encode.rs
++++ b/src/bin/kitten-tts-server/routes/encode.rs
+@@ -1,4 +1,4 @@
+-//! Audio encoding for multiple output formats.
++//! Audio encoding for LeafReader's WAV-only KittenTTS integration.
+ 
+ use std::fmt;
+ 
+@@ -7,24 +7,14 @@ const SAMPLE_RATE: u32 = 24_000;
+ /// Supported audio output formats.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+ pub enum AudioFormat {
+-    Mp3,
+-    Opus,
+-    Aac,
+-    Flac,
+     Wav,
+-    Pcm,
  }
+ 
+ impl AudioFormat {
+     /// Parse a format string (case-insensitive).
+     pub fn parse(s: &str) -> Option<Self> {
+         match s.to_lowercase().as_str() {
+-            "mp3" => Some(Self::Mp3),
+-            "opus" => Some(Self::Opus),
+-            "aac" => Some(Self::Aac),
+-            "flac" => Some(Self::Flac),
+             "wav" => Some(Self::Wav),
+-            "pcm" => Some(Self::Pcm),
+             _ => None,
+         }
+     }
+@@ -32,12 +22,7 @@ impl AudioFormat {
+     /// HTTP Content-Type header value.
+     pub fn content_type(&self) -> &'static str {
+         match self {
+-            Self::Mp3 => "audio/mpeg",
+-            Self::Opus => "audio/ogg",
+-            Self::Aac => "audio/aac",
+-            Self::Flac => "audio/flac",
+             Self::Wav => "audio/wav",
+-            Self::Pcm => "audio/pcm",
+         }
+     }
+ }
+@@ -45,12 +30,7 @@ impl AudioFormat {
+ impl fmt::Display for AudioFormat {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         let s = match self {
+-            Self::Mp3 => "mp3",
+-            Self::Opus => "opus",
+-            Self::Aac => "aac",
+-            Self::Flac => "flac",
+             Self::Wav => "wav",
+-            Self::Pcm => "pcm",
+         };
+         write!(f, "{}", s)
+     }
+@@ -59,25 +39,10 @@ impl fmt::Display for AudioFormat {
+ /// Encode audio samples in the specified format.
+ pub fn encode(samples: &[f32], format: AudioFormat) -> anyhow::Result<Vec<u8>> {
+     match format {
+-        AudioFormat::Pcm => Ok(encode_pcm(samples)),
+         AudioFormat::Wav => encode_wav(samples),
+-        AudioFormat::Mp3 => encode_mp3(samples),
+-        AudioFormat::Flac => encode_flac(samples),
+-        AudioFormat::Opus => encode_opus(samples),
+-        AudioFormat::Aac => encode_aac(samples),
+     }
+ }
+ 
+-/// Encode f32 samples as raw 16-bit signed little-endian PCM.
+-pub fn encode_pcm(samples: &[f32]) -> Vec<u8> {
+-    let mut buf = Vec::with_capacity(samples.len() * 2);
+-    for &s in samples {
+-        let i = (s * 32767.0).clamp(-32768.0, 32767.0) as i16;
+-        buf.extend_from_slice(&i.to_le_bytes());
+-    }
+-    buf
+-}
+-
+ /// Encode f32 samples as a WAV file (mono, 24 kHz, 16-bit PCM).
+ fn encode_wav(samples: &[f32]) -> anyhow::Result<Vec<u8>> {
+     let mut cursor = std::io::Cursor::new(Vec::new());
+@@ -97,184 +62,3 @@ fn encode_wav(samples: &[f32]) -> anyhow::Result<Vec<u8>> {
+     }
+     Ok(cursor.into_inner())
+ }
+-
+-/// Encode f32 samples as MP3 (mono, 128 kbps CBR).
+-///
+-/// Resamples to 44100 Hz before encoding — 24 kHz is an MPEG-2 Layer III rate
+-/// that causes issues on some platforms and players.
+-fn encode_mp3(samples: &[f32]) -> anyhow::Result<Vec<u8>> {
+-    use mp3lame_encoder::{Builder, FlushNoGap, MonoPcm};
+-
+-    let mp3_sample_rate = 44100u32;
+-    let samples_44k = resample(samples, SAMPLE_RATE, mp3_sample_rate);
+-
+-    let mut encoder =
+-        Builder::new().ok_or_else(|| anyhow::anyhow!("Failed to create MP3 encoder"))?;
+-    encoder
+-        .set_num_channels(1)
+-        .map_err(|e| anyhow::anyhow!("MP3 config error: {:?}", e))?;
+-    encoder
+-        .set_sample_rate(mp3_sample_rate)
+-        .map_err(|e| anyhow::anyhow!("MP3 config error: {:?}", e))?;
+-    encoder
+-        .set_brate(mp3lame_encoder::Bitrate::Kbps128)
+-        .map_err(|e| anyhow::anyhow!("MP3 config error: {:?}", e))?;
+-    encoder
+-        .set_quality(mp3lame_encoder::Quality::Best)
+-        .map_err(|e| anyhow::anyhow!("MP3 config error: {:?}", e))?;
+-    let mut encoder = encoder
+-        .build()
+-        .map_err(|e| anyhow::anyhow!("MP3 build error: {:?}", e))?;
+-
+-    let pcm: Vec<i16> = samples_44k
+-        .iter()
+-        .map(|&s| (s * 32767.0).clamp(-32768.0, 32767.0) as i16)
+-        .collect();
+-
+-    let input = MonoPcm(&pcm);
+-    let mut mp3_out = Vec::with_capacity(mp3lame_encoder::max_required_buffer_size(pcm.len()));
+-
+-    encoder
+-        .encode_to_vec(input, &mut mp3_out)
+-        .map_err(|e| anyhow::anyhow!("MP3 encode error: {:?}", e))?;
+-    encoder
+-        .flush_to_vec::<FlushNoGap>(&mut mp3_out)
+-        .map_err(|e| anyhow::anyhow!("MP3 flush error: {:?}", e))?;
+-
+-    Ok(mp3_out)
+-}
+-
+-/// Encode f32 samples as FLAC (mono, 24 kHz, 16-bit).
+-fn encode_flac(samples: &[f32]) -> anyhow::Result<Vec<u8>> {
+-    use flacenc::component::BitRepr;
+-    use flacenc::error::Verify;
+-
+-    let pcm_i32: Vec<i32> = samples
+-        .iter()
+-        .map(|&s| (s * 32767.0).clamp(-32768.0, 32767.0) as i32)
+-        .collect();
+-
+-    let source = flacenc::source::MemSource::from_samples(&pcm_i32, 1, 16, SAMPLE_RATE as usize);
+-
+-    let config = flacenc::config::Encoder::default();
+-    let block_size = config.block_size;
+-    let config = config
+-        .into_verified()
+-        .map_err(|(_cfg, e)| anyhow::anyhow!("FLAC config error: {:?}", e))?;
+-
+-    let flac_stream = flacenc::encode_with_fixed_block_size(&config, source, block_size)
+-        .map_err(|e| anyhow::anyhow!("FLAC encode error: {:?}", e))?;
+-
+-    let mut sink = flacenc::bitsink::ByteSink::new();
+-    flac_stream
+-        .write(&mut sink)
+-        .map_err(|e| anyhow::anyhow!("FLAC write error: {:?}", e))?;
+-
+-    Ok(sink.as_slice().to_vec())
+-}
+-
+-/// Encode f32 samples as OGG Opus (48 kHz mono).
+-fn encode_opus(samples: &[f32]) -> anyhow::Result<Vec<u8>> {
+-    use audiopus::coder::Encoder as OpusEncoder;
+-    use audiopus::{Application, Channels, SampleRate};
+-    use ogg::writing::{PacketWriteEndInfo, PacketWriter};
+-
+-    // Opus works best at 48 kHz
+-    let samples_48k = resample(samples, SAMPLE_RATE, 48000);
+-
+-    // 20ms frame at 48 kHz = 960 samples
+-    let frame_size: usize = 960;
+-
+-    let encoder = OpusEncoder::new(SampleRate::Hz48000, Channels::Mono, Application::Voip)
+-        .map_err(|e| anyhow::anyhow!("Opus encoder init error: {:?}", e))?;
+-
+-    let mut ogg_buf = Vec::new();
+-    let serial = 1u32;
+-    {
+-        let mut writer = PacketWriter::new(&mut ogg_buf);
+-
+-        // OpusHead identification header (RFC 7845)
+-        let mut head = Vec::with_capacity(19);
+-        head.extend_from_slice(b"OpusHead");
+-        head.push(1); // version
+-        head.push(1); // channel count (mono)
+-        head.extend_from_slice(&0u16.to_le_bytes()); // pre-skip
+-        head.extend_from_slice(&48000u32.to_le_bytes()); // input sample rate
+-        head.extend_from_slice(&0i16.to_le_bytes()); // output gain
+-        head.push(0); // channel mapping family 0
+-        writer.write_packet(head, serial, PacketWriteEndInfo::EndPage, 0)?;
+-
+-        // OpusTags comment header
+-        let vendor = b"kitten-tts-rs";
+-        let mut tags = Vec::new();
+-        tags.extend_from_slice(b"OpusTags");
+-        tags.extend_from_slice(&(vendor.len() as u32).to_le_bytes());
+-        tags.extend_from_slice(vendor);
+-        tags.extend_from_slice(&0u32.to_le_bytes());
+-        writer.write_packet(tags, serial, PacketWriteEndInfo::EndPage, 0)?;
+-
+-        // Encode audio in 20ms frames
+-        let mut opus_out = vec![0u8; 4000];
+-        let mut granule: u64 = 0;
+-        let total_frames = samples_48k.len().div_ceil(frame_size);
+-
+-        for (i, chunk) in samples_48k.chunks(frame_size).enumerate() {
+-            let frame: Vec<f32> = if chunk.len() < frame_size {
+-                let mut padded = chunk.to_vec();
+-                padded.resize(frame_size, 0.0);
+-                padded
+-            } else {
+-                chunk.to_vec()
+-            };
+-
+-            let encoded_len = encoder
+-                .encode_float(&frame, &mut opus_out)
+-                .map_err(|e| anyhow::anyhow!("Opus encode error: {:?}", e))?;
+-
+-            granule += frame_size as u64;
+-            let end_info = if i == total_frames - 1 {
+-                PacketWriteEndInfo::EndStream
+-            } else {
+-                PacketWriteEndInfo::NormalPacket
+-            };
+-
+-            writer.write_packet(opus_out[..encoded_len].to_vec(), serial, end_info, granule)?;
+-        }
+-    }
+-
+-    Ok(ogg_buf)
+-}
+-
+-/// Resample audio from source_sr to target_sr using linear interpolation.
+-fn resample(samples: &[f32], source_sr: u32, target_sr: u32) -> Vec<f32> {
+-    if source_sr == target_sr || samples.is_empty() {
+-        return samples.to_vec();
+-    }
+-
+-    let ratio = target_sr as f64 / source_sr as f64;
+-    let out_len = (samples.len() as f64 * ratio).ceil() as usize;
+-    let mut output = Vec::with_capacity(out_len);
+-
+-    for i in 0..out_len {
+-        let src_pos = i as f64 / ratio;
+-        let idx = src_pos as usize;
+-        let frac = (src_pos - idx as f64) as f32;
+-
+-        let sample = if idx + 1 < samples.len() {
+-            samples[idx] * (1.0 - frac) + samples[idx + 1] * frac
+-        } else {
+-            samples[samples.len() - 1]
+-        };
+-        output.push(sample);
+-    }
+-
+-    output
+-}
+-
+-/// AAC encoding is not currently supported.
+-fn encode_aac(_samples: &[f32]) -> anyhow::Result<Vec<u8>> {
+-    anyhow::bail!(
+-        "AAC encoding is not currently supported. \
+-         Supported formats: mp3, opus, flac, wav, pcm"
+-    )
+-}
+diff --git a/src/bin/kitten-tts-server/routes/speech.rs b/src/bin/kitten-tts-server/routes/speech.rs
+index 5a058bd..a6f3574 100644
+--- a/src/bin/kitten-tts-server/routes/speech.rs
++++ b/src/bin/kitten-tts-server/routes/speech.rs
+@@ -1,16 +1,8 @@
+-use std::convert::Infallible;
+-
+ use axum::extract::State;
+ use axum::http::header;
+-use axum::response::sse::{Event, KeepAlive, Sse};
+ use axum::response::{IntoResponse, Response};
+ use axum::Json;
+-use base64::Engine;
+ use serde::Deserialize;
+-use tokio_stream::wrappers::ReceiverStream;
+-
+-use kitten_tts::model;
+-use kitten_tts::preprocess;
+ 
+ use crate::error::ApiError;
+ use crate::routes::encode::{self, AudioFormat};
+@@ -31,7 +23,7 @@ pub struct SpeechRequest {
+     /// or KittenTTS names (Bella, Jasper, Luna, Bruno, Rosie, Hugo, Kiki, Leo)
+     pub voice: String,
+ 
+-    /// Response audio format: "mp3" (default), "opus", "flac", "wav", "pcm", or "aac"
++    /// Response audio format: "wav".
+     #[serde(default = "default_format")]
+     pub response_format: String,
+ 
+@@ -39,13 +31,13 @@ pub struct SpeechRequest {
+     #[serde(default = "default_speed")]
+     pub speed: f32,
+ 
+-    /// Enable SSE streaming (default false). When true, response_format must be "pcm".
++    /// Streaming is accepted for OpenAI compatibility but is not supported.
+     #[serde(default)]
+     pub stream: bool,
+ }
+ 
+ fn default_format() -> String {
+-    "mp3".to_string()
++    "wav".to_string()
+ }
+ 
+ fn default_speed() -> f32 {
+@@ -79,15 +71,13 @@ fn validate_request(req: &SpeechRequest) -> Result<(String, AudioFormat), ApiErr
+ 
+     let format = AudioFormat::parse(&req.response_format).ok_or_else(|| {
+         ApiError::bad_request(format!(
+-            "Unsupported response_format '{}'. Supported formats: mp3, opus, flac, wav, pcm, aac",
++            "Unsupported response_format '{}'. Supported formats: wav",
+             req.response_format
+         ))
+     })?;
+ 
+-    if req.stream && format != AudioFormat::Pcm {
+-        return Err(ApiError::bad_request(
+-            "Streaming only supports response_format 'pcm'",
+-        ));
++    if req.stream {
++        return Err(ApiError::bad_request("Streaming is not supported by this runtime"));
+     }
+ 
+     let voice = map_voice(&req.voice).to_string();
+@@ -103,22 +93,13 @@ pub async fn speech(
+     let (voice, format) = validate_request(&req)?;
+     let input = req.input;
+     let speed = req.speed;
+-    let stream = req.stream;
+-
+-    tracing::info!(
+-        voice = %voice,
+-        format = %format,
+-        speed = speed,
+-        len = input.len(),
+-        stream = stream,
+-        "Generating speech"
++
++    eprintln!(
++        "Generating speech voice={voice} format={format} speed={speed} len={}",
++        input.len()
+     );
+ 
+-    if stream {
+-        speech_stream(state, input, voice, speed).await
+-    } else {
+-        speech_full(state, input, voice, speed, format).await
+-    }
++    speech_full(state, input, voice, speed, format).await
+ }
+ 
+ /// Non-streaming: generate all audio at once and return in the requested format.
+@@ -139,10 +120,7 @@ async fn speech_full(
+                 .map_err(|e| ApiError::internal(e.to_string()))?
+         };
+ 
+-        tracing::info!(
+-            samples = audio.len(),
+-            "Speech generated, encoding as {format}"
+-        );
++        eprintln!("Speech generated samples={} format={format}", audio.len());
+ 
+         encode::encode(&audio, format).map_err(|e| ApiError::internal(e.to_string()))
+     })
+@@ -151,80 +129,3 @@ async fn speech_full(
+ 
+     Ok(([(header::CONTENT_TYPE, format.content_type())], bytes).into_response())
+ }
+-
+-/// SSE streaming: generate audio chunk-by-chunk and send each as an SSE event.
+-async fn speech_stream(
+-    state: AppState,
+-    input: String,
+-    voice: String,
+-    speed: f32,
+-) -> Result<Response, ApiError> {
+-    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(8);
+-
+-    tokio::task::spawn_blocking(move || {
+-        let text = preprocess::preprocess(&input);
+-        let chunks = model::chunk_text_streaming(&text, 100, 400);
+-
+-        tracing::info!(num_chunks = chunks.len(), "Streaming speech");
+-
+-        let mut model = match state.lock() {
+-            Ok(m) => m,
+-            Err(e) => {
+-                let err = serde_json::json!({
+-                    "type": "error",
+-                    "error": { "message": e.to_string() }
+-                });
+-                let _ = tx.blocking_send(Ok(Event::default().data(err.to_string())));
+-                return;
+-            }
+-        };
+-
+-        let b64 = base64::engine::general_purpose::STANDARD;
+-
+-        for (i, chunk) in chunks.iter().enumerate() {
+-            let audio = match model.generate_chunk(chunk, &voice, speed) {
+-                Ok(a) => a,
+-                Err(e) => {
+-                    let err = serde_json::json!({
+-                        "type": "error",
+-                        "error": { "message": e.to_string() }
+-                    });
+-                    let _ = tx.blocking_send(Ok(Event::default().data(err.to_string())));
+-                    return;
+-                }
+-            };
+-
+-            let pcm = encode::encode_pcm(&audio);
+-            let delta = b64.encode(&pcm);
+-
+-            tracing::debug!(
+-                chunk = i,
+-                text_len = chunk.len(),
+-                samples = audio.len(),
+-                "Chunk generated"
+-            );
+-
+-            let data = serde_json::json!({
+-                "type": "speech.audio.delta",
+-                "delta": delta,
+-            });
+-
+-            let event = Event::default().data(data.to_string());
+-            if tx.blocking_send(Ok(event)).is_err() {
+-                tracing::info!("Client disconnected during streaming");
+-                return;
+-            }
+-        }
+-
+-        // Send done event
+-        let done = serde_json::json!({ "type": "speech.audio.done" });
+-        let _ = tx.blocking_send(Ok(Event::default().data(done.to_string())));
+-
+-        tracing::info!("Streaming complete");
+-    });
+-
+-    let stream = ReceiverStream::new(rx);
+-    Ok(Sse::new(stream)
+-        .keep_alive(KeepAlive::default())
+-        .into_response())
+-}
 diff --git a/src/phonemize.rs b/src/phonemize.rs
 index 7e36bfb..f20ad7c 100644
 --- a/src/phonemize.rs
 +++ b/src/phonemize.rs
 @@ -40,7 +40,7 @@ pub fn text_to_token_ids(phonemes: &str) -> Vec<i64> {
      }
-
+ 
      // Tokenize: split on whitespace-like boundaries (word chars vs punctuation)
 -    let re = regex::Regex::new(r"\w+|[^\w\s]").unwrap();
 +    let re = regex::Regex::new(r"[A-Za-z0-9_]+|[^A-Za-z0-9_[:space:]]").unwrap();
      let tokens: Vec<&str> = re.find_iter(phonemes).map(|m| m.as_str()).collect();
      let joined = tokens.join(" ");
-
+ 
 diff --git a/src/preprocess.rs b/src/preprocess.rs
 index 4a7f20d..d76885f 100644
 --- a/src/preprocess.rs
 +++ b/src/preprocess.rs
 @@ -100,7 +100,7 @@ pub fn number_to_words(n: i64) -> String {
-
+ 
  /// Expand currency symbols: "$42.50" → "forty-two dollars and fifty cents"
  pub fn expand_currency(text: &str) -> String {
 -    let re = Regex::new(r"\$(\d+)(?:\.(\d{2}))?").unwrap();
@@ -442,7 +638,7 @@ index 4a7f20d..d76885f 100644
          let dollars: i64 = caps[1].parse().unwrap_or(0);
          let cents: i64 = caps.get(2).map_or(0, |m| m.as_str().parse().unwrap_or(0));
 @@ -118,7 +118,7 @@ pub fn expand_currency(text: &str) -> String {
-
+ 
  /// Replace standalone numbers with words
  pub fn expand_numbers(text: &str) -> String {
 -    let re = Regex::new(r"\b(\d+)\b").unwrap();
@@ -465,7 +661,7 @@ index ba5b637..a3dcc39 100644
 +++ b/src/voices.rs
 @@ -103,7 +103,8 @@ fn parse_npy_f32(data: &[u8]) -> Result<Array2<f32>> {
      let header = std::str::from_utf8(&data[header_start..header_start + header_len])?;
-
+ 
      // Parse shape from header: 'shape': (rows, cols)
 -    let shape_re = regex::Regex::new(r"'shape':\s*\((\d+),\s*(\d+)\)").unwrap();
 +    let shape_re =
