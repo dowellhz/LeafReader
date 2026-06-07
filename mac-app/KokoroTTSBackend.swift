@@ -40,14 +40,16 @@ final class KokoroTTSBackend {
         languageHint: AISettingsStore.SpeechLanguageHint? = nil,
         speed: Double? = nil
     ) -> Result<Void, SpeechSynthesisError> {
-        if synthesizeWithWorker(
-            text: text,
-            outputURL: outputURL,
-            voiceID: voiceID,
-            languageHint: languageHint,
-            speed: speed
-        ) {
-            return .success(())
+        if Self.prefersWorkerRuntime {
+            if synthesizeWithWorker(
+                text: text,
+                outputURL: outputURL,
+                voiceID: voiceID,
+                languageHint: languageHint,
+                speed: speed
+            ) {
+                return .success(())
+            }
         }
         switch Self.synthesizeWithCLIResult(
             text: text,
@@ -419,6 +421,10 @@ final class KokoroTTSBackend {
         let value = override ?? ProcessInfo.processInfo.environment[speedEnvironmentKey]
             .flatMap(Double.init) ?? AISettingsStore.kokoroSpeechSpeedMultiplier
         return min(max(value, 0.5), 2.0)
+    }
+
+    private static var prefersWorkerRuntime: Bool {
+        ProcessInfo.processInfo.environment["LEAFREADER_KOKORO_ENABLE_WORKER"] == "1"
     }
 
     private static func variant(for text: String, languageHint: AISettingsStore.SpeechLanguageHint? = nil) -> String {

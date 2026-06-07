@@ -20,19 +20,14 @@ final class SupertonicCoreMLTTSBackend {
         let voice = voiceID
             ?? ProcessInfo.processInfo.environment[Self.voiceEnvironmentKey]
             ?? AISettingsStore.selectedSupertonicSpeechVoiceID
-        let arguments = [
-            text,
-            "--lang",
-            Self.languageCode(for: text, languageHint: languageHint),
-            "--voice",
-            voice,
-            "--total-steps",
-            "8",
-            "--speed",
-            String(Self.speed(override: speed)),
-            "--output",
-            outputURL.path
-        ]
+        let arguments = Self.arguments(
+            for: runtime.cliURL,
+            text: text,
+            outputURL: outputURL,
+            voice: voice,
+            languageHint: languageHint,
+            speed: speed
+        )
 
         let result: ProcessRunResult
         do {
@@ -142,6 +137,33 @@ final class SupertonicCoreMLTTSBackend {
         case .none:
             return SpeechTextPolicy.prefersChineseTTS(text) ? "zh" : "en"
         }
+    }
+
+    private static func arguments(
+        for executableURL: URL,
+        text: String,
+        outputURL: URL,
+        voice: String,
+        languageHint: AISettingsStore.SpeechLanguageHint?,
+        speed: Double?
+    ) -> [String] {
+        let synthesisArguments = [
+            text,
+            "--lang",
+            languageCode(for: text, languageHint: languageHint),
+            "--voice",
+            voice,
+            "--total-steps",
+            "8",
+            "--speed",
+            String(Self.speed(override: speed)),
+            "--output",
+            outputURL.path
+        ]
+        if executableURL.resolvingSymlinksInPath().lastPathComponent == "fluidaudiocli" {
+            return ["tts", synthesisArguments[0], "--backend", "supertonic3"] + Array(synthesisArguments.dropFirst())
+        }
+        return synthesisArguments
     }
 
     private static func speed(override: Double? = nil) -> Double {

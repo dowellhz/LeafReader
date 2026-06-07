@@ -225,6 +225,19 @@ validate_kitten_server() {
   fi
 }
 
+runtime_supports_supertonic() {
+  local runtime_path="$1"
+  local strings_output
+
+  [[ -x "$runtime_path" ]] || return 1
+  strings_output="$(mktemp "${TMPDIR:-/tmp}/leafreader-runtime-strings.XXXXXX")"
+  strings "$runtime_path" > "$strings_output"
+  grep -Fq "supertonic3" "$strings_output"
+  local result=$?
+  rm -f "$strings_output"
+  return "$result"
+}
+
 if [[ ! -d "$SPARKLE_HOME/Sparkle.framework" ]]; then
   echo "Sparkle.framework not found at $SPARKLE_HOME" >&2
   echo "Install Sparkle with: brew install --cask sparkle" >&2
@@ -358,7 +371,11 @@ elif [[ -f "$KOKORO_RUNTIME_ARCHIVE" ]]; then
 else
   missing_runtime "Kokoro runtime not bundled; missing $KOKORO_RUNTIME and $KOKORO_RUNTIME_ARCHIVE"
 fi
-if [[ -x "$SUPERTONIC_RUNTIME" ]]; then
+if runtime_supports_supertonic "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"; then
+  mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/supertonic-coreml"
+  ln -sf "../kokoro-coreml/fluidaudiocli" \
+    "$APP_PATH/Contents/Resources/SpeechRuntimes/supertonic-coreml/supertonic-mini"
+elif [[ -x "$SUPERTONIC_RUNTIME" ]]; then
   mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/supertonic-coreml"
   cp "$SUPERTONIC_RUNTIME" "$APP_PATH/Contents/Resources/SpeechRuntimes/supertonic-coreml/supertonic-mini"
   chmod 755 "$APP_PATH/Contents/Resources/SpeechRuntimes/supertonic-coreml/supertonic-mini"
@@ -416,6 +433,9 @@ RUNTIME_EXECUTABLES=(
   "$APP_PATH/Contents/Resources/SpeechRuntimes/supertonic-coreml/supertonic-mini"
 )
 for RUNTIME_EXECUTABLE in "${RUNTIME_EXECUTABLES[@]}"; do
+  if [[ -L "$RUNTIME_EXECUTABLE" ]]; then
+    continue
+  fi
   if [[ ! -f "$RUNTIME_EXECUTABLE" ]]; then
     continue
   fi
