@@ -53,6 +53,9 @@ markdown_extensions:
   - pymdownx.superfences
 nav:
   - 首页: index.md
+  - 语言入口:
+      - 中文: zh.md
+      - English: en.md
   - 官网: https://leafreader.space/
   - 下载: https://github.com/dowellhz/LeafReader/releases/download/v1.7.4/LeafReader-1.7.4.pkg
   - 入门:

@@ -196,6 +196,13 @@ run_swift_test /tmp/leafreader-update-failure-classifier-tests \
   mac-app/UpdateFailureClassifier.swift \
   tests/UpdateFailureClassifierTests.swift
 
+run_swift_test /tmp/leafreader-theme-palette-tests \
+  mac-app/AppText.swift \
+  mac-app/ReaderTheme.swift \
+  mac-app/ReaderTheme+Palette.swift \
+  tests/ReaderThemePaletteTests.swift \
+  -framework Cocoa
+
 run_swift_test /tmp/leafreader-logic-tests \
   "${LOGIC_APP_SOURCES[@]}" \
   "${LOGIC_TEST_SOURCES[@]}" \

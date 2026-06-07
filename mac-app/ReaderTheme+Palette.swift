@@ -85,6 +85,50 @@ extension ReaderTheme {
         }
     }
 
+    var toolbarBackgroundColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.972, green: 0.978, blue: 0.986, alpha: 0.98)
+        case .eyeCare:
+            return NSColor(red: 0.86, green: 0.82, blue: 0.68, alpha: 0.97)
+        case .dark:
+            return NSColor(red: 0.07, green: 0.09, blue: 0.11, alpha: 0.96)
+        }
+    }
+
+    var toolbarBorderColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.88, green: 0.9, blue: 0.93, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.71, green: 0.66, blue: 0.50, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.20, green: 0.24, blue: 0.29, alpha: 1)
+        }
+    }
+
+    var controlBackgroundColor: NSColor {
+        switch self {
+        case .original:
+            return .white
+        case .eyeCare:
+            return NSColor(red: 0.91, green: 0.87, blue: 0.73, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.08, green: 0.10, blue: 0.13, alpha: 1)
+        }
+    }
+
+    var controlBorderColor: NSColor {
+        switch self {
+        case .original:
+            return NSColor(red: 0.84, green: 0.86, blue: 0.9, alpha: 1)
+        case .eyeCare:
+            return NSColor(red: 0.67, green: 0.61, blue: 0.45, alpha: 1)
+        case .dark:
+            return NSColor(red: 0.22, green: 0.27, blue: 0.33, alpha: 1)
+        }
+    }
+
     var resizeHandleColor: NSColor {
         switch self {
         case .original:

@@ -9,16 +9,10 @@ fi
 VERSION="$1"
 NOTES_FILE="${2:-}"
 UPLOAD_SPEECH_MODELS=0
-if [[ "${NOTES_FILE:-}" == "--with-speech-runtimes" ]]; then
-  echo "--with-speech-runtimes is deprecated; use --with-speech-models" >&2
-fi
-if [[ "${3:-}" == "--with-speech-runtimes" ]]; then
-  echo "--with-speech-runtimes is deprecated; use --with-speech-models" >&2
-fi
-if [[ "${NOTES_FILE:-}" == "--with-speech-models" || "${NOTES_FILE:-}" == "--with-speech-runtimes" ]]; then
+if [[ "${NOTES_FILE:-}" == "--with-speech-models" ]]; then
   NOTES_FILE=""
   UPLOAD_SPEECH_MODELS=1
-elif [[ "${3:-}" == "--with-speech-models" || "${3:-}" == "--with-speech-runtimes" ]]; then
+elif [[ "${3:-}" == "--with-speech-models" ]]; then
   UPLOAD_SPEECH_MODELS=1
 elif [[ -n "${3:-}" ]]; then
   echo "Unknown option: $3" >&2
