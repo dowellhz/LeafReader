@@ -359,7 +359,7 @@ if [[ -x "$KOKORO_RUNTIME" ]]; then
   mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml"
   cp "$KOKORO_RUNTIME" "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
   chmod 755 "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
-  strip -x "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli" || true
+  strip -u -r "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli" || true
 elif [[ -f "$KOKORO_RUNTIME_ARCHIVE" ]]; then
   KOKORO_EXTRACT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/leafreader-kokoro-runtime.XXXXXX")"
   tar -xzf "$KOKORO_RUNTIME_ARCHIVE" -C "$KOKORO_EXTRACT_DIR" ./fluidaudiocli
@@ -367,7 +367,7 @@ elif [[ -f "$KOKORO_RUNTIME_ARCHIVE" ]]; then
   cp "$KOKORO_EXTRACT_DIR/fluidaudiocli" "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
   rm -rf "$KOKORO_EXTRACT_DIR"
   chmod 755 "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
-  strip -x "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli" || true
+  strip -u -r "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli" || true
 else
   missing_runtime "Kokoro runtime not bundled; missing $KOKORO_RUNTIME and $KOKORO_RUNTIME_ARCHIVE"
 fi
