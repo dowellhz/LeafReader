@@ -78,7 +78,7 @@
     <div data-md-component="skip">
 
 
-        <a href="#tts-and-read-aloud" class="md-skip">
+        <a href="#tts" class="md-skip">
           跳转至
         </a>
 
@@ -751,45 +751,63 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
 
         <li class="md-nav__item">
-  <a href="#runtime-shape" class="md-nav__link">
+  <a href="#_1" class="md-nav__link">
     <span class="md-ellipsis">
-      Runtime Shape
+      使用入口
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#main-files" class="md-nav__link">
+  <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
-      Main Files
+      运行时结构
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#runtime-rules" class="md-nav__link">
+  <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
-      Runtime Rules
+      播放流程
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#packaging-and-release" class="md-nav__link">
+  <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
-      Packaging And Release
+      主要文件
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#checks" class="md-nav__link">
+  <a href="#_5" class="md-nav__link">
     <span class="md-ellipsis">
-      Checks
+      运行时规则
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      打包与发布
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      检查
     </span>
   </a>
 
@@ -990,45 +1008,63 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
 
         <li class="md-nav__item">
-  <a href="#runtime-shape" class="md-nav__link">
+  <a href="#_1" class="md-nav__link">
     <span class="md-ellipsis">
-      Runtime Shape
+      使用入口
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#main-files" class="md-nav__link">
+  <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
-      Main Files
+      运行时结构
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#runtime-rules" class="md-nav__link">
+  <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
-      Runtime Rules
+      播放流程
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#packaging-and-release" class="md-nav__link">
+  <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
-      Packaging And Release
+      主要文件
     </span>
   </a>
 
 </li>
 
         <li class="md-nav__item">
-  <a href="#checks" class="md-nav__link">
+  <a href="#_5" class="md-nav__link">
     <span class="md-ellipsis">
-      Checks
+      运行时规则
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      打包与发布
+    </span>
+  </a>
+
+</li>
+
+        <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      检查
     </span>
   </a>
 
@@ -1052,9 +1088,18 @@
 
 
 
-<h1 id="tts-and-read-aloud">TTS And Read Aloud<a class="headerlink" href="#tts-and-read-aloud" title="Permanent link">&para;</a></h1>
-<p>Use this page when changing local speech playback, read-aloud highlights, or downloadable TTS model runtimes.</p>
-<h2 id="runtime-shape">Runtime Shape<a class="headerlink" href="#runtime-shape" title="Permanent link">&para;</a></h2>
+<h1 id="tts">TTS 与朗读<a class="headerlink" href="#tts" title="Permanent link">&para;</a></h1>
+<p>关键词：TTS、朗读、语音、KittenTTS、Kokoro、运行时、快捷键、下划线、高亮。</p>
+<p>这页用于维护本地语音播放、朗读进度高亮和可下载 TTS 模型运行时。</p>
+<h2 id="_1">使用入口<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<ul>
+<li>顶部工具栏：开始朗读、停止、重播当前朗读条目。</li>
+<li>底部朗读浮动工具条：上一条、播放/暂停、停止、下一条、重播、语速。</li>
+<li>快捷键：<code>[</code> 往前朗读一条，<code>]</code> 重复当前朗读条目。</li>
+<li>AI 气泡和单词气泡里的发音按钮：短文本发音，优先使用可用本地 TTS，必要时回退到系统语音。</li>
+</ul>
+<p>朗读浮动工具条会提示快捷键，帮助用户理解 <code>[</code>、<code>]</code> 等按键的含义。</p>
+<h2 id="_2">运行时结构<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ReaderWindowController+ReadAloud
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  -&gt; SpeechPlaybackCoordinator
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>     -&gt; SpeechRuntimeResourceManager
@@ -1063,60 +1108,67 @@
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>     -&gt; AVAudioPlayer
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  -&gt; ReaderWindowController+ReadAloudProgress
 </code></pre></div>
-<p>Short vocabulary and AI-panel speech can fall back to <code>NSSpeechSynthesizer</code> through <code>SpeechUtteranceFactory</code> when the local model path is not appropriate.</p>
-<h2 id="main-files">Main Files<a class="headerlink" href="#main-files" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>mac-app/SpeechPlaybackCoordinator.swift</code>: central speech coordinator. It chooses the installed runtime, segments text, manages generated WAV files, controls playback, and posts progress notifications.</li>
-<li><code>mac-app/KokoroWorkerResponseReader.swift</code>: parses Kokoro worker JSON-line responses and ignores unrelated request IDs.</li>
-<li><code>mac-app/SpeechTextPolicy.swift</code>: TTS text normalization, English candidate detection, and read-aloud segment splitting.</li>
-<li><code>mac-app/SpeechRuntimeResourceManager.swift</code>: install detection, download URLs, model sizes, runtime compatibility, pause/resume/cancel state, and cleanup.</li>
-<li><code>mac-app/RuntimeDownload.swift</code>: URLSession download implementation, progress reporting, resume data, and HTTP error handling.</li>
-<li><code>mac-app/AISettingsPanelController+Speech.swift</code>: settings actions for selecting, downloading, pausing, canceling, deleting, and warning about incompatible runtimes.</li>
-<li><code>mac-app/AISettingsPanelController+Build.swift</code>: visible read-aloud settings rows, model picker, status labels, buttons, and progress indicators.</li>
-<li><code>mac-app/ReaderWindowController+ReadAloud.swift</code>: document-level read-aloud entry points for PDF and WebKit-backed EPUB/DOCX content.</li>
-<li><code>mac-app/ReaderWindowController+ReadAloudProgress.swift</code>: active segment underline/highlight updates while speech is playing.</li>
-<li><code>mac-app/AIChatPanel+Actions.swift</code>: speak selected AI text, with local TTS when possible and system speech fallback.</li>
-<li><code>mac-app/ReaderWindowController+VocabularyActions.swift</code>: vocabulary pronunciation, interruption behavior, and fallback speech.</li>
-<li><code>mac-app/SpeechUtteranceFactory.swift</code>: common system voice utterance settings.</li>
-</ul>
-<h2 id="runtime-rules">Runtime Rules<a class="headerlink" href="#runtime-rules" title="Permanent link">&para;</a></h2>
-<ul>
-<li>KittenTTS is the default local runtime target for macOS 12 and later.</li>
-<li>Kokoro can be downloaded on older macOS versions, but it requires macOS 14 or later to run. The settings UI shows a compatibility warning before download on unsupported systems.</li>
-<li><code>SpeechRuntimeResourceManager.isDownloaded(_:)</code> checks whether runtime files are present, independent of the current macOS version.</li>
-<li><code>SpeechRuntimeResourceManager.isRunnable(_:)</code> checks both downloaded files and the current macOS runtime requirement.</li>
-<li><code>SpeechRuntimeResourceManager.runnableRuntime(preferredID:)</code> is the runtime selection gate used by playback code.</li>
-<li>Runtime installs write <code>.leafreader-install-manifest.json</code>; manifest write failure aborts install and rolls back, Kokoro cache replacement is transactional, and deletion uses that manifest to remove only Leaf Reader-installed FluidAudio cache directories, with legacy fallback for older installs.</li>
-<li>Model download URLs point at <code>SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag</code>, not the app version, so regular app releases do not need to re-upload unchanged model archives. The native runtime binaries are bundled with the app. Only update that tag and publish speech model assets when the model archive changes.</li>
-<li>The runtime picker shows why unavailable runtimes cannot be selected, such as missing downloads, incomplete files, or macOS version requirements.</li>
-<li>Download attempts carry an active task ID so stale callbacks from cancelled or superseded downloads cannot update current progress or completion state.</li>
-<li>Download failures are stored per runtime and shown in the settings status, including unsupported macOS states, until the next successful download, cancellation, or delete.</li>
-<li>Download and delete error alerts use the shared network/error sanitizer before showing details to the user.</li>
-<li>Download status text is user-facing; keep it aligned with the actual install and compatibility checks.</li>
-<li>KittenTTS server requests cancel their URLSession task after timeout so stale responses do not mutate completed request state.</li>
-<li>Kokoro fallback CLI calls have a timeout, and deleting a non-active runtime should not stop playback for the active runtime.</li>
-<li>KittenTTS server startup logs whether the final health check timed out, returned a non-200 status, or returned an unexpected model response.</li>
-</ul>
-<h2 id="packaging-and-release">Packaging And Release<a class="headerlink" href="#packaging-and-release" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>scripts/build_espeak_ng_runtime.sh</code>: builds the lower deployment target <code>espeak-ng</code> and <code>pcaudiolib</code> runtime used by KittenTTS.</li>
-<li><code>scripts/build_app.sh</code>: copies speech runtimes into the app bundle and verifies bundled runtime layout.</li>
-<li><code>scripts/package_speech_models.sh</code>: packages downloadable TTS model archives and writes <code>docs/tts/speech-models-manifest.json</code> with file sizes and SHA256 digests. The native runtime binaries are bundled with the app. <code>scripts/package_speech_runtimes.sh</code> is kept as a deprecated compatibility wrapper.</li>
-<li><code>scripts/publish_release.sh</code>: uploads release packages; pass <code>--with-speech-models</code> only when publishing changed model archives. The script refuses model uploads unless <code>SpeechRuntimeModel.runtimeAssetsReleaseTag</code> matches the release tag.</li>
-</ul>
-<p>When changing bundled native runtime binaries, verify their minimum macOS version with <code>vtool</code> or <code>otool</code> before publishing.</p>
-<h2 id="checks">Checks<a class="headerlink" href="#checks" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./tests/run.sh
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>./scripts/build_app.sh
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>./scripts/check.sh<span class="w"> </span>--no-build
+<p>短单词、AI 面板短句和不适合走本地模型的内容，可以通过 <code>SpeechUtteranceFactory</code> 回退到 <code>NSSpeechSynthesizer</code>。</p>
+<h2 id="_3">播放流程<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>阅读文本
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  -&gt; SpeechTextPolicy 分段和清洗
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  -&gt; SpeechPlaybackCoordinator 选择运行时
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  -&gt; 生成或复用 WAV
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  -&gt; AVAudioPlayer 播放
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  -&gt; ReadAloudProgress 更新下划线和高亮
 </code></pre></div>
-<p>For download behavior, test at least these states:</p>
+<p>如果用户通过浮动窗口或快捷键切换上一条/下一条，而当前页不在朗读位置，阅读器会跳转到对应页面和位置。</p>
+<h2 id="_4">主要文件<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
 <ul>
-<li>runtime absent</li>
-<li>runtime downloading</li>
-<li>runtime paused</li>
-<li>runtime installed and compatible</li>
-<li>runtime downloaded but incompatible with the current macOS version</li>
+<li><code>SpeechPlaybackCoordinator.swift</code>：语音播放中枢，负责选择运行时、文本分段、WAV 文件、播放控制和进度通知。</li>
+<li><code>KokoroWorkerResponseReader.swift</code>：解析 Kokoro worker 的 JSON-line 响应，并忽略不相关 request id。</li>
+<li><code>SpeechTextPolicy.swift</code>：TTS 文本归一化、英文候选判断和朗读分段。</li>
+<li><code>SpeechRuntimeResourceManager.swift</code>：运行时安装检测、下载 URL、模型大小、兼容性、暂停/恢复/取消和清理。</li>
+<li><code>RuntimeDownload.swift</code>：URLSession 下载、进度、断点数据和 HTTP 错误处理。</li>
+<li><code>AISettingsPanelController+Speech.swift</code>：设置页里选择、下载、暂停、取消、删除和兼容性警告。</li>
+<li><code>AISettingsPanelController+Build.swift</code>：朗读设置行、模型选择器、状态标签、按钮和进度条。</li>
+<li><code>ReaderWindowController+ReadAloud.swift</code>：PDF 和 WebKit 内容的文档级朗读入口。</li>
+<li><code>ReaderWindowController+ReadAloudProgress.swift</code>：朗读时的当前段落下划线和高亮更新。</li>
+<li><code>AIChatPanel+Actions.swift</code>：AI 文本发音，优先本地 TTS，必要时系统语音回退。</li>
+<li><code>ReaderWindowController+VocabularyActions.swift</code>：单词发音、中断行为和回退语音。</li>
+<li><code>SpeechUtteranceFactory.swift</code>：系统语音的通用 utterance 设置。</li>
+</ul>
+<h2 id="_5">运行时规则<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<ul>
+<li>macOS 12 及以上默认目标是 KittenTTS。</li>
+<li>Kokoro 可以在旧系统下载，但运行需要 macOS 14 或以上；不兼容系统会在设置页提示。</li>
+<li><code>SpeechRuntimeResourceManager.isDownloaded(_:)</code> 只检查运行时文件是否存在。</li>
+<li><code>SpeechRuntimeResourceManager.isRunnable(_:)</code> 同时检查文件和当前 macOS 版本要求。</li>
+<li><code>SpeechRuntimeResourceManager.runnableRuntime(preferredID:)</code> 是播放代码选择运行时的统一入口。</li>
+<li>运行时安装会写入 <code>.leafreader-install-manifest.json</code>；manifest 写入失败会中止安装并回滚。</li>
+<li>删除运行时时，只删除 Leaf Reader 安装的 FluidAudio 缓存目录，并兼容旧安装。</li>
+<li>下载状态包含 active task id，避免已取消或被替换的下载回调覆盖当前状态。</li>
+<li>下载失败会按运行时保存，并显示在设置页，直到下一次下载成功、取消或删除。</li>
+<li>KittenTTS server 超时后会取消 URLSession task，避免旧响应修改已完成状态。</li>
+<li>Kokoro CLI 回退有超时；删除非当前运行时不应停止正在播放的运行时。</li>
+</ul>
+<h2 id="_6">打包与发布<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>scripts/build_espeak_ng_runtime.sh</code>：构建 KittenTTS 需要的低部署版本 <code>espeak-ng</code> 和 <code>pcaudiolib</code>。</li>
+<li><code>scripts/build_app.sh</code>：把语音运行时复制进 app bundle，并验证 bundle 布局。</li>
+<li><code>scripts/package_speech_models.sh</code>：打包可下载 TTS 模型，生成 <code>docs/tts/speech-models-manifest.json</code> 的大小和 SHA256。</li>
+<li><code>scripts/package_speech_runtimes.sh</code>：旧兼容 wrapper，当前主要使用模型打包脚本。</li>
+<li><code>scripts/publish_release.sh</code>：上传发布产物；只有模型归档变化时才传 <code>--with-speech-models</code>。</li>
+</ul>
+<p>模型下载 URL 指向 <code>SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag</code>，不是普通 app 版本号。常规 app 发布不需要重复上传未变化的模型归档。</p>
+<p>修改内置原生运行时二进制后，发布前要用 <code>vtool</code> 或 <code>otool</code> 检查最低 macOS 版本。</p>
+<h2 id="_7">检查<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./tests/run.sh
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./scripts/build_app.sh
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>./scripts/check.sh<span class="w"> </span>--no-build
+</code></pre></div>
+<p>下载行为至少覆盖这些状态：</p>
+<ul>
+<li>运行时不存在</li>
+<li>正在下载</li>
+<li>已暂停</li>
+<li>已安装且兼容</li>
+<li>已下载但当前 macOS 不兼容</li>
 </ul>
 
 

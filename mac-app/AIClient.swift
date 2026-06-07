@@ -6,7 +6,7 @@ final class AIClient {
     func send(messages: [ChatMessage], completion: @escaping (Result<String, Error>) -> Void) -> URLSessionDataTask? {
         let config = AISettingsStore.selectedModel
         let apiKey = AISettingsStore.apiKey(for: config)
-        guard !apiKey.isEmpty else {
+        guard !config.requiresAPIKey || !apiKey.isEmpty else {
             completion(.failure(Self.missingAPIKeyError(for: config)))
             return nil
         }
@@ -74,7 +74,7 @@ final class AIClient {
     ) -> Task<Void, Never>? {
         let config = AISettingsStore.selectedModel
         let apiKey = AISettingsStore.apiKey(for: config)
-        guard !apiKey.isEmpty else {
+        guard !config.requiresAPIKey || !apiKey.isEmpty else {
             completion(.failure(Self.missingAPIKeyError(for: config)))
             return nil
         }

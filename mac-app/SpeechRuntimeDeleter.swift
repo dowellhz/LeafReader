@@ -10,19 +10,11 @@ enum SpeechRuntimeDeleter {
         SpeechRuntimeDownloadFailureStore.clear(for: runtime)
         SpeechRuntimeInferenceFailureStore.clear(for: runtime)
 
-        switch runtime {
-        case .kokoro:
+        let strategy = SpeechRuntimeCacheStrategy.strategy(for: runtime)
+        if strategy.invalidatesKokoroVoiceCache {
             KokoroVoiceResourceManager.invalidateInstalledVoiceCache()
-            try removeCacheDirectories(manifest?.cacheDirectories ?? SpeechRuntimePathChecks.kokoroModelCacheDirectories())
-        case .piper:
-            let voiceCacheDirectories = manifest?.cacheDirectories ?? SpeechRuntimePathChecks.piperVoiceCacheDirectories()
-            try removeCacheDirectories(voiceCacheDirectories)
-            if voiceCacheDirectories.isEmpty {
-                try removeCacheDirectories(SpeechRuntimePathChecks.piperVoiceCacheDirectories())
-            }
-        case .kitten:
-            break
         }
+        try removeCacheDirectories(strategy.deleteDirectories(from: manifest))
     }
 
     private static func removeCacheDirectories(_ directories: [URL]) throws {

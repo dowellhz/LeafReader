@@ -58,6 +58,18 @@ final class ChatInputTextField: NSTextField {
     }
 }
 
+final class ChatInputBarView: NSView {
+    weak var focusField: NSTextField?
+
+    override func mouseDown(with event: NSEvent) {
+        if let focusField {
+            window?.makeFirstResponder(focusField)
+            return
+        }
+        super.mouseDown(with: event)
+    }
+}
+
 final class ChatBubbleTextField: NSTextField {
     override func mouseDown(with event: NSEvent) {
         (delegate as? AIChatPanel)?.beginBubbleTextSelection(self)
@@ -165,7 +177,7 @@ final class AIChatPanel: NSView, NSTextFieldDelegate {
     let statusRow = NSView()
     let statusLabel = NSTextField(labelWithString: "")
     let cancelRequestButton = NSButton(title: "", target: nil, action: nil)
-    let inputBar = NSView()
+    let inputBar = ChatInputBarView()
     let inputField = ChatInputTextField(string: "")
     let sendButton = NSButton(title: "", target: nil, action: nil)
     let loadingDots = LoadingDotsView()

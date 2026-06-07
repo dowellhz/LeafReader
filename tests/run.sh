@@ -173,6 +173,13 @@ run_swift_test /tmp/leafreader-personal-vocabulary-tests \
 run_swift_test /tmp/leafreader-pdf-embedding-store-tests \
   tests/PDFEmbeddingStoreTests.swift \
   mac-app/PDFEmbeddingStore.swift \
+  mac-app/PDFDocumentAgentIndex.swift \
+  mac-app/ReaderAIContextBuilder.swift \
+  mac-app/ReaderAIContextBuilder+PDF.swift \
+  mac-app/ReaderAIContextPolicy.swift \
+  mac-app/AppText.swift \
+  -framework PDFKit \
+  -framework Cocoa \
   -lsqlite3
 
 run_swift_test /tmp/leafreader-regression-tests \

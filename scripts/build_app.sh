@@ -13,6 +13,7 @@ KITTEN_RUNTIME_ARCHIVE="${KITTEN_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kitten-tts-
 KOKORO_RUNTIME="${KOKORO_RUNTIME:-$HOME/.local/share/leafreader/kokoro-coreml/fluidaudiocli}"
 KOKORO_RUNTIME_ARCHIVE="${KOKORO_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kokoro-coreml-macos-arm64.tar.gz}"
 KOKORO_MODEL_CACHE_ROOT="${KOKORO_MODEL_CACHE_ROOT:-$HOME/.cache/fluidaudio/Models}"
+SUPERTONIC_RUNTIME="${SUPERTONIC_RUNTIME:-$HOME/.local/share/leafreader/supertonic-coreml/supertonic-mini}"
 PIPER_RUNTIME_DIR="${PIPER_RUNTIME_DIR:-$HOME/.local/share/leafreader/piper-tts-runtime}"
 ESPEAK_NG_ROOT="${ESPEAK_NG_ROOT:-$HOME/.local/share/leafreader/espeak-ng-macos12}"
 PCAUDIOLIB_ROOT="${PCAUDIOLIB_ROOT:-$ESPEAK_NG_ROOT}"
@@ -248,6 +249,14 @@ elif [[ -f "$KOKORO_RUNTIME_ARCHIVE" ]]; then
 else
   missing_runtime "Kokoro runtime not bundled; missing $KOKORO_RUNTIME and $KOKORO_RUNTIME_ARCHIVE"
 fi
+if [[ -x "$SUPERTONIC_RUNTIME" ]]; then
+  mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/supertonic-coreml"
+  cp "$SUPERTONIC_RUNTIME" "$APP_PATH/Contents/Resources/SpeechRuntimes/supertonic-coreml/supertonic-mini"
+  chmod 755 "$APP_PATH/Contents/Resources/SpeechRuntimes/supertonic-coreml/supertonic-mini"
+  strip -x "$APP_PATH/Contents/Resources/SpeechRuntimes/supertonic-coreml/supertonic-mini" || true
+else
+  missing_runtime "Supertonic runtime not bundled; missing $SUPERTONIC_RUNTIME"
+fi
 cp -R "$SPARKLE_HOME/Sparkle.framework" "$APP_PATH/Contents/Frameworks/"
 find "$APP_PATH" -name '._*' -type f -delete
 xattr -cr "$APP_PATH"
@@ -295,6 +304,7 @@ RUNTIME_EXECUTABLES=(
   "$APP_PATH/Contents/Resources/SpeechRuntimes/espeak-ng/lib/libespeak-ng.1.dylib"
   "$APP_PATH/Contents/Resources/SpeechRuntimes/espeak-ng/lib/libpcaudio.0.dylib"
   "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
+  "$APP_PATH/Contents/Resources/SpeechRuntimes/supertonic-coreml/supertonic-mini"
 )
 for RUNTIME_EXECUTABLE in "${RUNTIME_EXECUTABLES[@]}"; do
   if [[ ! -f "$RUNTIME_EXECUTABLE" ]]; then

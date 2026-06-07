@@ -5,10 +5,12 @@ enum SpeechVoiceCatalog {
     static let defaultKittenVoiceID = "Jasper"
     static let defaultKokoroVoiceID = "af_heart"
     static let defaultPiperVoiceID = "en_US-lessac-high"
+    static let defaultSupertonicVoiceID = "M1"
 
     private typealias Definition = (zhTitle: String, enTitle: String, id: String)
 
     private static let kittenVoiceIDs = ["Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo"]
+    private static let supertonicVoiceIDs = ["M1", "M2", "M3", "M4", "M5", "F1", "F2", "F3", "F4", "F5"]
 
     private static let piperVoiceDefinitions: [Definition] = [
         ("美国女声 Lessac High", "American Female Lessac High", "en_US-lessac-high"),
@@ -55,6 +57,10 @@ enum SpeechVoiceCatalog {
         piperVoiceDefinitions.contains { $0.id == id }
     }
 
+    static func isValidSupertonicVoiceID(_ id: String) -> Bool {
+        Set(supertonicVoiceIDs).contains(id)
+    }
+
     static var kittenVoiceOptions: [(title: String, id: String)] {
         kittenVoiceIDs.map { ($0, $0) }
     }
@@ -67,6 +73,18 @@ enum SpeechVoiceCatalog {
         let options = localizedOptions(piperVoiceDefinitions)
         let availableIDs = availablePiperVoiceIDs()
         return availableIDs.isEmpty ? options : options.filter { availableIDs.contains($0.id) }
+    }
+
+    static var supertonicVoiceOptions: [(title: String, id: String)] {
+        supertonicVoiceIDs.map { id in
+            let title: String
+            if id.hasPrefix("M") {
+                title = AppText.localized("Supertonic 男声 \(id.dropFirst())", "Supertonic Male \(id.dropFirst())")
+            } else {
+                title = AppText.localized("Supertonic 女声 \(id.dropFirst())", "Supertonic Female \(id.dropFirst())")
+            }
+            return (title, id)
+        }
     }
 
     static func selectedPiperVoiceID(_ selected: String) -> String {

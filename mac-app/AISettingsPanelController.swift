@@ -61,6 +61,10 @@ final class AISettingsPanelController {
     weak var customEndpointField: NSTextField?
     weak var customModelLabel: NSTextField?
     weak var customModelField: NSTextField?
+    var customModelContainerHeightConstraint: NSLayoutConstraint?
+    var customModelLabelTopToEndpointConstraint: NSLayoutConstraint?
+    var customModelLabelTopToContainerConstraint: NSLayoutConstraint?
+    var customModelLabelCenterYToContainerConstraint: NSLayoutConstraint?
     weak var embeddingProviderPopup: NSPopUpButton?
     weak var embeddingEndpointContainer: NSView?
     weak var embeddingEndpointLabel: NSTextField?
@@ -73,24 +77,7 @@ final class AISettingsPanelController {
     weak var speechRuntimePopup: NSPopUpButton?
     weak var speechVoicePopup: NSPopUpButton?
     weak var speechSpeedPopup: NSPopUpButton?
-    weak var kokoroSpeechStatusLabel: NSTextField?
-    weak var kittenSpeechStatusLabel: NSTextField?
-    weak var piperSpeechStatusLabel: NSTextField?
-    weak var kokoroSpeechProgressIndicator: NSProgressIndicator?
-    weak var kittenSpeechProgressIndicator: NSProgressIndicator?
-    weak var piperSpeechProgressIndicator: NSProgressIndicator?
-    weak var kokoroSpeechDownloadButton: NSButton?
-    weak var kittenSpeechDownloadButton: NSButton?
-    weak var piperSpeechDownloadButton: NSButton?
-    weak var kokoroSpeechPauseButton: NSButton?
-    weak var kittenSpeechPauseButton: NSButton?
-    weak var piperSpeechPauseButton: NSButton?
-    weak var kokoroSpeechCancelButton: NSButton?
-    weak var kittenSpeechCancelButton: NSButton?
-    weak var piperSpeechCancelButton: NSButton?
-    weak var kokoroSpeechDeleteButton: NSButton?
-    weak var kittenSpeechDeleteButton: NSButton?
-    weak var piperSpeechDeleteButton: NSButton?
+    var speechRuntimeControls: [SpeechRuntimeResourceManager.Runtime: SpeechRuntimeRowControls] = [:]
     weak var cacheStatusLabel: NSTextField?
     weak var currentIndexStatusLabel: NSTextField?
     var cacheRefreshTimer: Timer?

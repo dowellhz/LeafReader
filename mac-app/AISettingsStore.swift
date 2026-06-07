@@ -10,8 +10,15 @@ enum AISettingsStore {
     static let selectedModelKey = "selectedAIModelID"
     static let customModelID = "custom"
     static let customProviderID = "custom"
+    static let ollamaModelID = "ollama"
+    static let ollamaProviderID = "ollama"
+    static let localOpenAIModelID = "local-openai"
+    static let localOpenAIProviderID = "local-openai"
     static let customEndpointKey = "customAIEndpointURL"
     static let customModelNameKey = "customAIModelName"
+    static let ollamaModelNameKey = "ollamaModelName"
+    static let localOpenAIEndpointKey = "localOpenAIEndpointURL"
+    static let localOpenAIModelNameKey = "localOpenAIModelName"
     static let autoEmbeddingIndexEnabledKey = "autoEmbeddingIndexEnabled"
     static let speakSelectedWordEnabledKey = "speakSelectedWordEnabled"
     static let saveAIConversationEnabledKey = "saveAIConversationEnabled"
@@ -84,6 +91,22 @@ enum AISettingsStore {
                 supportsThinkingToggle: false
             ),
             AIModelConfig(
+                id: ollamaModelID,
+                provider: ollamaProviderID,
+                displayName: "Ollama",
+                endpoint: URL(string: "http://127.0.0.1:11434/v1/chat/completions")!,
+                model: ollamaModelName,
+                supportsThinkingToggle: false
+            ),
+            AIModelConfig(
+                id: localOpenAIModelID,
+                provider: localOpenAIProviderID,
+                displayName: AppText.localized("本地 OpenAI 兼容", "Local OpenAI Compatible"),
+                endpoint: localOpenAIEndpoint,
+                model: localOpenAIModelName,
+                supportsThinkingToggle: false
+            ),
+            AIModelConfig(
                 id: customModelID,
                 provider: customProviderID,
                 displayName: AppText.localized("其他", "Other"),
@@ -102,7 +125,8 @@ enum AISettingsStore {
     }
 
     static var hasAPIKeyForSelectedModel: Bool {
-        !apiKey(for: selectedModel).isEmpty
+        let model = selectedModel
+        return !model.requiresAPIKey || !apiKey(for: model).isEmpty
     }
 
     static func apiKey(for config: AIModelConfig) -> String {
@@ -127,6 +151,11 @@ enum AISettingsStore {
         if modelID == customModelID {
             saveCustomEndpoint(customEndpoint)
             saveCustomModelName(customModelName)
+        } else if modelID == ollamaModelID {
+            saveOllamaModelName(customModelName)
+        } else if modelID == localOpenAIModelID {
+            saveLocalOpenAIEndpoint(customEndpoint)
+            saveLocalOpenAIModelName(customModelName)
         }
         LocalEncryptedStore.save(apiKey, forKey: encryptedAPIKeyDefaultsKey(for: model.provider))
         defaults.removeObject(forKey: apiKeyDefaultsKey(for: model.provider))
@@ -147,6 +176,22 @@ enum AISettingsStore {
 
     static var customModelName: String {
         nonEmptyTrimmed(defaults.string(forKey: customModelNameKey)) ?? "custom-model"
+    }
+
+    static var ollamaModelName: String {
+        nonEmptyTrimmed(defaults.string(forKey: ollamaModelNameKey)) ?? "llama3.1"
+    }
+
+    static var localOpenAIEndpointString: String {
+        trimmedStoredString(forKey: localOpenAIEndpointKey) ?? "http://127.0.0.1:8000/v1/chat/completions"
+    }
+
+    static var localOpenAIEndpoint: URL {
+        normalizedOpenAIChatEndpoint(from: localOpenAIEndpointString) ?? URL(string: "http://127.0.0.1:8000/v1/chat/completions")!
+    }
+
+    static var localOpenAIModelName: String {
+        nonEmptyTrimmed(defaults.string(forKey: localOpenAIModelNameKey)) ?? "gemma-4-e4b-it-4bit"
     }
 
     static var autoEmbeddingIndexEnabled: Bool {
@@ -206,6 +251,28 @@ enum AISettingsStore {
         return nil
     }
 
+    static func ollamaValidationError(modelName: String) -> String? {
+        if trimmed(modelName).isEmpty {
+            return AppText.localized("请输入 Ollama 模型 ID。", "Enter an Ollama model ID.")
+        }
+        return nil
+    }
+
+    static func localOpenAIValidationError(endpoint: String, modelName: String) -> String? {
+        let trimmedEndpoint = trimmed(endpoint)
+        let trimmedModelName = trimmed(modelName)
+        if trimmedEndpoint.isEmpty {
+            return AppText.localized("请输入本地 OpenAI 兼容 URL。", "Enter a local OpenAI-compatible URL.")
+        }
+        guard normalizedOpenAIChatEndpoint(from: trimmedEndpoint) != nil else {
+            return AppText.localized("本地 OpenAI 兼容 URL 必须是有效的 http 或 https 地址。", "The local OpenAI-compatible URL must be a valid http or https address.")
+        }
+        if trimmedModelName.isEmpty {
+            return AppText.localized("请输入模型 ID。", "Enter a model ID.")
+        }
+        return nil
+    }
+
     private static func saveCustomEndpoint(_ endpoint: String) {
         let endpointValue = trimmed(endpoint)
         if validEndpoint(from: endpointValue) != nil {
@@ -222,6 +289,40 @@ enum AISettingsStore {
         } else {
             defaults.set(modelValue, forKey: customModelNameKey)
         }
+    }
+
+    private static func saveOllamaModelName(_ modelName: String) {
+        let modelValue = trimmed(modelName)
+        if modelValue.isEmpty {
+            defaults.removeObject(forKey: ollamaModelNameKey)
+        } else {
+            defaults.set(modelValue, forKey: ollamaModelNameKey)
+        }
+    }
+
+    private static func saveLocalOpenAIEndpoint(_ endpoint: String) {
+        let endpointValue = trimmed(endpoint)
+        if let url = normalizedOpenAIChatEndpoint(from: endpointValue) {
+            defaults.set(url.absoluteString, forKey: localOpenAIEndpointKey)
+        } else if endpointValue.isEmpty {
+            defaults.removeObject(forKey: localOpenAIEndpointKey)
+        }
+    }
+
+    private static func saveLocalOpenAIModelName(_ modelName: String) {
+        let modelValue = trimmed(modelName)
+        if modelValue.isEmpty {
+            defaults.removeObject(forKey: localOpenAIModelNameKey)
+        } else {
+            defaults.set(modelValue, forKey: localOpenAIModelNameKey)
+        }
+    }
+
+    static func normalizedOpenAIChatEndpoint(from string: String) -> URL? {
+        guard let url = validEndpoint(from: string) else { return nil }
+        let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).lowercased()
+        guard path == "v1" else { return url }
+        return url.appendingPathComponent("chat/completions")
     }
 
     static func validEndpoint(from string: String) -> URL? {

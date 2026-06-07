@@ -85,6 +85,7 @@ extension AIChatPanel {
         inputField.target = self
         inputField.action = #selector(sendFollowUp)
         inputField.translatesAutoresizingMaskIntoConstraints = false
+        inputBar.focusField = inputField
 
         sendButton.image = NSImage(systemSymbolName: "arrow.up.circle.fill", accessibilityDescription: AppText.send)
         sendButton.isBordered = false

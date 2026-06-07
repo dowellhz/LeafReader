@@ -3,82 +3,112 @@ import Foundation
 extension SpeechRuntimeResourceManager {
     typealias InstallManifest = LocalRuntimeInstallManifest
 
-    enum Runtime: CaseIterable {
+    enum Runtime: CaseIterable, Hashable {
         case kokoro
         case kitten
         case piper
+        case supertonic
 
         private static let releaseDownloadsBaseURL = "https://github.com/dowellhz/LeafReader/releases"
         // Speech model archives are versioned independently from app releases. Only move
         // this tag when publishing new model assets with scripts/publish_release.sh --with-speech-models.
         static let runtimeAssetsReleaseTag = "v1.5.10"
 
-        static let displayOrder: [Runtime] = [.kitten, .piper, .kokoro]
+        static let displayOrder: [Runtime] = [.kitten, .piper, .supertonic, .kokoro]
+
+        private struct Definition {
+            let id: String
+            let title: String
+            let downloadSizeText: String
+            let summaryChinese: String
+            let summaryEnglish: String
+            let minimumSystemVersion: OperatingSystemVersion
+            let minimumSystemVersionText: String
+            let archiveFileName: String
+            let installDirectoryName: String
+            let executableRelativePath: String
+        }
+
+        private static let definitions: [Runtime: Definition] = [
+            .kokoro: Definition(
+                id: "kokoro",
+                title: "Kokoro",
+                downloadSizeText: "518 MB",
+                summaryChinese: "模型大，支持英语和中文",
+                summaryEnglish: "Large model, supports English and Chinese",
+                minimumSystemVersion: OperatingSystemVersion(majorVersion: 14, minorVersion: 0, patchVersion: 0),
+                minimumSystemVersionText: "macOS 14.0",
+                archiveFileName: "kokoro-coreml-macos-arm64.tar.gz",
+                installDirectoryName: "kokoro-coreml",
+                executableRelativePath: "fluidaudiocli"
+            ),
+            .kitten: Definition(
+                id: "kitten",
+                title: "KittenTTS",
+                downloadSizeText: "74 MB",
+                summaryChinese: "模型小，只有英文",
+                summaryEnglish: "Small model, English only",
+                minimumSystemVersion: OperatingSystemVersion(majorVersion: 12, minorVersion: 0, patchVersion: 0),
+                minimumSystemVersionText: "macOS 12.0",
+                archiveFileName: "kitten-tts-rs-macos-arm64.tar.gz",
+                installDirectoryName: "kittentts-rs-runtime",
+                executableRelativePath: "kitten-tts-aarch64-macos/kitten-tts-server"
+            ),
+            .piper: Definition(
+                id: "piper",
+                title: "Piper",
+                downloadSizeText: "约 112 MB",
+                summaryChinese: "模型中等，英语质量好",
+                summaryEnglish: "Medium model, good English quality",
+                minimumSystemVersion: OperatingSystemVersion(majorVersion: 12, minorVersion: 0, patchVersion: 0),
+                minimumSystemVersionText: "macOS 12.0",
+                archiveFileName: "piper-tts-macos-arm64.tar.gz",
+                installDirectoryName: "piper-tts-runtime",
+                executableRelativePath: "piper/piper"
+            ),
+            .supertonic: Definition(
+                id: "supertonic",
+                title: "Supertonic",
+                downloadSizeText: "约 209 MB",
+                summaryChinese: "Supertonic 3 CoreML，多语言本地朗读",
+                summaryEnglish: "Supertonic 3 CoreML, multilingual local speech",
+                minimumSystemVersion: OperatingSystemVersion(majorVersion: 14, minorVersion: 0, patchVersion: 0),
+                minimumSystemVersionText: "macOS 14.0",
+                archiveFileName: "supertonic-coreml-macos-arm64.tar.gz",
+                installDirectoryName: "supertonic-coreml",
+                executableRelativePath: "supertonic-mini"
+            )
+        ]
+
+        private var definition: Definition {
+            guard let definition = Self.definitions[self] else {
+                preconditionFailure("Missing speech runtime definition for \(self)")
+            }
+            return definition
+        }
 
         var id: String {
-            switch self {
-            case .kokoro:
-                return "kokoro"
-            case .kitten:
-                return "kitten"
-            case .piper:
-                return "piper"
-            }
+            definition.id
         }
 
         var title: String {
-            switch self {
-            case .kokoro:
-                return "Kokoro"
-            case .kitten:
-                return "KittenTTS"
-            case .piper:
-                return "Piper"
-            }
+            definition.title
         }
 
         var downloadSizeText: String {
-            switch self {
-            case .kokoro:
-                return "518 MB"
-            case .kitten:
-                return "74 MB"
-            case .piper:
-                return "约 112 MB"
-            }
+            definition.downloadSizeText
         }
 
         var summaryText: String {
-            switch self {
-            case .kokoro:
-                return AppText.localized("模型大，支持英语和中文", "Large model, supports English and Chinese")
-            case .kitten:
-                return AppText.localized("模型小，只有英文", "Small model, English only")
-            case .piper:
-                return AppText.localized("模型中等，英语质量好", "Medium model, good English quality")
-            }
+            AppText.localized(definition.summaryChinese, definition.summaryEnglish)
         }
 
         var minimumSystemVersion: OperatingSystemVersion {
-            switch self {
-            case .kokoro:
-                return OperatingSystemVersion(majorVersion: 14, minorVersion: 0, patchVersion: 0)
-            case .kitten:
-                return OperatingSystemVersion(majorVersion: 12, minorVersion: 0, patchVersion: 0)
-            case .piper:
-                return OperatingSystemVersion(majorVersion: 12, minorVersion: 0, patchVersion: 0)
-            }
+            definition.minimumSystemVersion
         }
 
         var minimumSystemVersionText: String {
-            switch self {
-            case .kokoro:
-                return "macOS 14.0"
-            case .kitten:
-                return "macOS 12.0"
-            case .piper:
-                return "macOS 12.0"
-            }
+            definition.minimumSystemVersionText
         }
 
         var isSupportedOnCurrentSystem: Bool {
@@ -110,18 +140,15 @@ extension SpeechRuntimeResourceManager {
         }
 
         var downloadURL: URL {
-            switch self {
-            case .kokoro:
-                return Self.releaseAssetURL(fileName: "kokoro-coreml-macos-arm64.tar.gz")
-            case .kitten:
-                return Self.releaseAssetURL(fileName: "kitten-tts-rs-macos-arm64.tar.gz")
-            case .piper:
-                return Self.releaseAssetURL(fileName: "piper-tts-macos-arm64.tar.gz")
-            }
+            Self.releaseAssetURL(fileName: definition.archiveFileName)
         }
 
         static var modelManifestURL: URL {
             releaseAssetURL(fileName: "speech-models-manifest.json")
+        }
+
+        var manifestURL: URL {
+            Self.modelManifestURL
         }
 
         private static var userInstallRoot: URL {
@@ -170,18 +197,13 @@ extension SpeechRuntimeResourceManager {
                 return directory.appendingPathComponent(kittenModelDirectoryName, isDirectory: true)
             case .piper:
                 return Self.piperVoiceCacheRoot
+            case .supertonic:
+                return Self.supertonicCoreMLModelCacheDirectory
             }
         }
 
         func executableURL(in directory: URL) -> URL {
-            switch self {
-            case .kokoro:
-                return directory.appendingPathComponent("fluidaudiocli")
-            case .kitten:
-                return directory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server")
-            case .piper:
-                return directory.appendingPathComponent("piper/piper")
-            }
+            directory.appendingPathComponent(definition.executableRelativePath)
         }
 
         func requiredPaths(in directory: URL) -> [URL] {
@@ -200,12 +222,20 @@ extension SpeechRuntimeResourceManager {
                 return [
                     executableURL(in: directory)
                 ]
+            case .supertonic:
+                return [
+                    executableURL(in: directory)
+                ]
             }
         }
 
         static var fluidAudioModelCacheRoot: URL {
             FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent(".cache/fluidaudio/Models", isDirectory: true)
+        }
+
+        static var supertonicCoreMLModelCacheDirectory: URL {
+            fluidAudioModelCacheRoot.appendingPathComponent("supertonic-3", isDirectory: true)
         }
 
         static var piperVoiceCacheRoot: URL {
@@ -218,14 +248,7 @@ extension SpeechRuntimeResourceManager {
         }
 
         private func runtimeDirectory(in root: URL) -> URL {
-            switch self {
-            case .kokoro:
-                return root.appendingPathComponent("kokoro-coreml", isDirectory: true)
-            case .kitten:
-                return root.appendingPathComponent("kittentts-rs-runtime", isDirectory: true)
-            case .piper:
-                return root.appendingPathComponent("piper-tts-runtime", isDirectory: true)
-            }
+            root.appendingPathComponent(definition.installDirectoryName, isDirectory: true)
         }
     }
 }

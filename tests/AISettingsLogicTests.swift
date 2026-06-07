@@ -50,6 +50,10 @@ private func embeddingPayload(option: EmbeddingEndpointOption, model: String, in
     return payload
 }
 
+private func expectedSpeechReleaseAssetURL(fileName: String) -> String {
+    "https://github.com/dowellhz/LeafReader/releases/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/\(fileName)"
+}
+
 private struct EmbeddingKeyStore {
     var encryptedKeys: [String: String] = [:]
     var legacyPlainKeys: [String: String] = [:]
@@ -133,12 +137,49 @@ enum AISettingsLogicTests {
             try expectEqual(custom.id, AISettingsStore.customModelID, "custom model selection should use injected defaults")
             try expectEqual(custom.endpoint.absoluteString, "https://example.com/v1/chat/completions", "custom endpoint should be trimmed")
             try expectEqual(custom.model, "custom-chat", "custom model name should be trimmed")
+
+            defaults.set(AISettingsStore.ollamaModelID, forKey: AISettingsStore.selectedModelKey)
+            let ollama = AISettingsStore.selectedModel
+            try expectEqual(ollama.id, AISettingsStore.ollamaModelID, "Ollama model selection should use injected defaults")
+            try expectEqual(ollama.endpoint.absoluteString, "http://127.0.0.1:11434/v1/chat/completions", "Ollama should use the local OpenAI-compatible endpoint")
+            try expectEqual(ollama.model, "llama3.1", "Ollama should use the default local model name")
+            try expect(!ollama.requiresAPIKey, "Ollama should not require an API key")
+            try expect(AISettingsStore.hasAPIKeyForSelectedModel, "Ollama should be usable without an API key")
+
+            AISettingsStore.save(modelID: AISettingsStore.ollamaModelID, apiKey: "", customModelName: " qwen2.5:7b ")
+            try expectEqual(AISettingsStore.selectedModel.model, "qwen2.5:7b", "Ollama model name should be editable and trimmed")
+            try expectEqual(AISettingsStore.customModelName, "custom-chat", "Ollama model saving should not overwrite Other model name")
+            try expectEqual(AISettingsStore.ollamaValidationError(modelName: "   "), "请输入 Ollama 模型 ID。", "blank Ollama model names should be rejected")
+
+            let customIndex = AISettingsStore.models.firstIndex { $0.id == AISettingsStore.customModelID }
+            let ollamaIndex = AISettingsStore.models.firstIndex { $0.id == AISettingsStore.ollamaModelID }
+            let localOpenAIIndex = AISettingsStore.models.firstIndex { $0.id == AISettingsStore.localOpenAIModelID }
+            try expectEqual(localOpenAIIndex, ollamaIndex.map { $0 + 1 }, "local OpenAI-compatible should appear immediately after Ollama")
+            try expectEqual(customIndex, localOpenAIIndex.map { $0 + 1 }, "Other should appear immediately after local OpenAI-compatible")
+
+            defaults.set(AISettingsStore.localOpenAIModelID, forKey: AISettingsStore.selectedModelKey)
+            let localOpenAI = AISettingsStore.selectedModel
+            try expectEqual(localOpenAI.id, AISettingsStore.localOpenAIModelID, "local OpenAI-compatible model selection should use injected defaults")
+            try expectEqual(localOpenAI.endpoint.absoluteString, "http://127.0.0.1:8000/v1/chat/completions", "local OpenAI-compatible endpoint should default to the local chat completions endpoint")
+            try expectEqual(localOpenAI.model, "gemma-4-e4b-it-4bit", "local OpenAI-compatible model should default to the oMLX test model")
+            try expect(!localOpenAI.requiresAPIKey, "local OpenAI-compatible models should allow optional API keys")
+            try expect(localOpenAI.acceptsAPIKey, "local OpenAI-compatible models should allow entering an optional API key")
+            try expect(AISettingsStore.hasAPIKeyForSelectedModel, "local OpenAI-compatible models should be usable without a saved API key")
+
+            AISettingsStore.save(modelID: AISettingsStore.localOpenAIModelID, apiKey: " local-key ", customEndpoint: " http://127.0.0.1:8000/v1 ", customModelName: " local-model ")
+            try expectEqual(AISettingsStore.selectedModel.endpoint.absoluteString, "http://127.0.0.1:8000/v1/chat/completions", "local OpenAI-compatible /v1 endpoint should be expanded to chat completions")
+            try expectEqual(AISettingsStore.selectedModel.model, "local-model", "local OpenAI-compatible model name should be editable and trimmed")
+            try expectEqual(AISettingsStore.apiKey(for: AISettingsStore.selectedModel), "local-key", "local OpenAI-compatible API key should be stored separately")
+            try expectEqual(AISettingsStore.localOpenAIValidationError(endpoint: "   ", modelName: "local-model"), "请输入本地 OpenAI 兼容 URL。", "blank local OpenAI-compatible endpoints should be rejected")
+            try expectEqual(AISettingsStore.localOpenAIValidationError(endpoint: "http://127.0.0.1:8000/v1", modelName: "   "), "请输入模型 ID。", "blank local OpenAI-compatible model names should be rejected")
         }
     }
 
     static func testAIProviderDescriptors() throws {
         let claude = AISettingsStore.models.first { $0.id == "claude-3-5-sonnet" }
         let openAI = AISettingsStore.models.first { $0.id == "openai-gpt-4-1" }
+        let ollama = AISettingsStore.models.first { $0.id == AISettingsStore.ollamaModelID }
+        let localOpenAI = AISettingsStore.models.first { $0.id == AISettingsStore.localOpenAIModelID }
         let unknown = AIProviderDescriptor.descriptor(for: "local-minicpm")
 
         try expectEqual(
@@ -151,6 +192,25 @@ enum AISettingsLogicTests {
             .openAICompatible,
             "OpenAI models should carry the OpenAI-compatible request format through the provider descriptor"
         )
+        try expectEqual(
+            ollama?.providerDescriptor.chatRequestFormat,
+            .openAICompatible,
+            "Ollama should use the OpenAI-compatible request format"
+        )
+        if let ollama {
+            var request = URLRequest(url: ollama.endpoint)
+            AIChatRequestBuilder.configureHeaders(for: ollama, apiKey: "", request: &request)
+            try expectEqual(request.value(forHTTPHeaderField: "Authorization"), nil, "Ollama requests should not send an empty Authorization header")
+        } else {
+            throw TestFailure(description: "Ollama model should be available")
+        }
+        if let localOpenAI {
+            var request = URLRequest(url: localOpenAI.endpoint)
+            AIChatRequestBuilder.configureHeaders(for: localOpenAI, apiKey: "local-key", request: &request)
+            try expectEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer local-key", "local OpenAI-compatible requests should send Authorization when an optional API key is configured")
+        } else {
+            throw TestFailure(description: "local OpenAI-compatible model should be available")
+        }
         try expectEqual(
             unknown.chatRequestFormat,
             .openAICompatible,
@@ -191,50 +251,60 @@ enum AISettingsLogicTests {
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Jasper", "KittenTTS voice should default to Jasper")
             try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "af_heart", "Kokoro voice should default to Heart")
             try expectEqual(AISettingsStore.selectedPiperSpeechVoiceID, "en_US-lessac-high", "Piper voice should default to Lessac High")
+            try expectEqual(AISettingsStore.selectedSupertonicSpeechVoiceID, "M1", "Supertonic voice should default to M1")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "speech speed should default to normal")
             try expect(AISettingsStore.speechVoiceOptions(runtimeID: "kitten").contains { $0.id == "Jasper" }, "KittenTTS voice options should include Jasper")
             try expect(AISettingsStore.speechVoiceOptions(runtimeID: "kokoro").contains { $0.id == "af_heart" }, "Kokoro voice options should include Heart")
             try expect(AISettingsStore.speechVoiceOptions(runtimeID: "piper").contains { $0.id == "en_US-lessac-high" }, "Piper voice options should include Lessac High")
+            try expect(AISettingsStore.speechVoiceOptions(runtimeID: "supertonic").contains { $0.id == "M1" }, "Supertonic voice options should include M1")
 
-            AISettingsStore.saveSelectedSpeechRuntimeID("kitten")
+            AISettingsStore.saveSelectedSpeechRuntimeID("supertonic")
             AISettingsStore.saveKittenSpeechVoiceID("Bella")
             AISettingsStore.saveKokoroSpeechVoiceID("zf_001")
             AISettingsStore.savePiperSpeechVoiceID("en_US-lessac-high")
+            AISettingsStore.saveSupertonicSpeechVoiceID("F2")
             AISettingsStore.saveSpeechSpeedID("slow")
-            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "valid speech runtime should save")
+            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "supertonic", "valid Supertonic speech runtime should save")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Bella", "valid KittenTTS voice should save")
             try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "zf_001", "valid Kokoro voice should save")
             try expectEqual(AISettingsStore.selectedPiperSpeechVoiceID, "en_US-lessac-high", "valid Piper voice should save")
+            try expectEqual(AISettingsStore.selectedSupertonicSpeechVoiceID, "F2", "valid Supertonic voice should save")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "slow", "valid speech speed should save")
 
             AISettingsStore.saveSelectedSpeechRuntimeID("missing-runtime")
             AISettingsStore.saveKittenSpeechVoiceID("Dragon")
             AISettingsStore.saveKokoroSpeechVoiceID("Dragon")
             AISettingsStore.savePiperSpeechVoiceID("Dragon")
+            AISettingsStore.saveSupertonicSpeechVoiceID("Dragon")
             AISettingsStore.saveSpeechSpeedID("warp")
-            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "invalid speech runtime should be ignored")
+            try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "supertonic", "invalid speech runtime should be ignored")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Bella", "invalid KittenTTS voice should be ignored")
             try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "zf_001", "invalid Kokoro voice should be ignored")
             try expectEqual(AISettingsStore.selectedPiperSpeechVoiceID, "en_US-lessac-high", "invalid Piper voice should be ignored")
+            try expectEqual(AISettingsStore.selectedSupertonicSpeechVoiceID, "F2", "invalid Supertonic voice should be ignored")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "slow", "invalid speech speed should be ignored")
 
             AISettingsStore.saveSpeechVoiceID("Luna", runtimeID: "kitten")
             AISettingsStore.saveSpeechVoiceID("zf_002", runtimeID: "kokoro")
             AISettingsStore.saveSpeechVoiceID("en_US-lessac-high", runtimeID: "piper")
+            AISettingsStore.saveSpeechVoiceID("M4", runtimeID: "supertonic")
             try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "kitten"), "Luna", "generic KittenTTS voice save should use the KittenTTS list")
             try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "kokoro"), "zf_002", "generic Kokoro voice save should use the Kokoro list")
             try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "piper"), "en_US-lessac-high", "generic Piper voice save should use the Piper list")
+            try expectEqual(AISettingsStore.selectedSpeechVoiceID(runtimeID: "supertonic"), "M4", "generic Supertonic voice save should use the Supertonic list")
             try expectEqual(AISettingsStore.speechVoiceTitle(for: "zf_002", runtimeID: "kokoro"), AppText.localized("中文女声 2", "Chinese Female 2"), "Kokoro preview should use the display voice title")
 
             defaults.set(" missing-runtime ", forKey: AISettingsStore.selectedSpeechRuntimeKey)
             defaults.set(" Dragon ", forKey: AISettingsStore.kittenSpeechVoiceKey)
             defaults.set(" Dragon ", forKey: AISettingsStore.kokoroSpeechVoiceKey)
             defaults.set(" Dragon ", forKey: AISettingsStore.piperSpeechVoiceKey)
+            defaults.set(" Dragon ", forKey: AISettingsStore.supertonicSpeechVoiceKey)
             defaults.set(" warp ", forKey: AISettingsStore.speechSpeedKey)
             try expectEqual(AISettingsStore.selectedSpeechRuntimeID, "kitten", "invalid stored speech runtime should fall back")
             try expectEqual(AISettingsStore.selectedKittenSpeechVoiceID, "Jasper", "invalid stored KittenTTS voice should fall back")
             try expectEqual(AISettingsStore.selectedKokoroSpeechVoiceID, "af_heart", "invalid stored Kokoro voice should fall back")
             try expectEqual(AISettingsStore.selectedPiperSpeechVoiceID, "en_US-lessac-high", "invalid stored Piper voice should fall back")
+            try expectEqual(AISettingsStore.selectedSupertonicSpeechVoiceID, "M1", "invalid stored Supertonic voice should fall back")
             try expectEqual(AISettingsStore.selectedSpeechSpeedID, "normal", "invalid stored speech speed should fall back")
         }
     }
@@ -433,21 +503,23 @@ enum AISettingsLogicTests {
         let kittenURL = SpeechRuntimeResourceManager.Runtime.kitten.downloadURL.absoluteString
         let kokoroURL = SpeechRuntimeResourceManager.Runtime.kokoro.downloadURL.absoluteString
         let piperURL = SpeechRuntimeResourceManager.Runtime.piper.downloadURL.absoluteString
+        let supertonicURL = SpeechRuntimeResourceManager.Runtime.supertonic.downloadURL.absoluteString
 
         try expect(kittenURL.hasSuffix("/kitten-tts-rs-macos-arm64.tar.gz"), "KittenTTS should use the release asset archive")
         try expect(kokoroURL.hasSuffix("/kokoro-coreml-macos-arm64.tar.gz"), "Kokoro should use the release asset archive")
         try expect(piperURL.hasSuffix("/piper-tts-macos-arm64.tar.gz"), "Piper should use the release asset archive")
+        try expectEqual(supertonicURL, expectedSpeechReleaseAssetURL(fileName: "supertonic-coreml-macos-arm64.tar.gz"), "Supertonic should download the Release-hosted CoreML model archive")
         try expect(kittenURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "KittenTTS should use the stable speech runtime asset release")
         try expect(kokoroURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Kokoro should use the stable speech runtime asset release")
         try expect(piperURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Piper should use the stable speech runtime asset release")
-        try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Speech model manifest should use the same stable asset release")
-        try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.hasSuffix("/speech-models-manifest.json"), "Speech model manifest should use the release asset manifest")
+        try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Default speech model manifest should use the stable release asset")
+        try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.hasSuffix("/speech-models-manifest.json"), "Default speech model manifest should use the release asset manifest")
         try expect(!kittenURL.contains("/v1.4.18/"), "KittenTTS download URL should not be pinned to the old 1.4.18 release")
     }
 
     static func testSpeechRuntimeLocalRuntimeDescriptors() throws {
         let descriptors = SpeechRuntimeResourceManager.Runtime.localRuntimeDescriptors
-        try expectEqual(descriptors.map(\.id), ["kitten", "piper", "kokoro"], "speech runtime descriptors should preserve display order")
+        try expectEqual(descriptors.map(\.id), ["kitten", "piper", "supertonic", "kokoro"], "speech runtime descriptors should preserve display order")
 
         let piper = SpeechRuntimeResourceManager.Runtime.piper
         let descriptor = piper.localRuntimeDescriptor
@@ -465,7 +537,7 @@ enum AISettingsLogicTests {
 
     static func testSpeechRuntimeLocalRuntimeDownloadPlans() throws {
         let plans = SpeechRuntimeResourceManager.Runtime.localRuntimeDownloadPlans
-        try expectEqual(plans.map(\.descriptor.id), ["kitten", "piper", "kokoro"], "speech runtime download plans should preserve display order")
+        try expectEqual(plans.map(\.descriptor.id), ["kitten", "piper", "supertonic", "kokoro"], "speech runtime download plans should preserve display order")
 
         let piper = SpeechRuntimeResourceManager.Runtime.piper
         let plan = piper.localRuntimeDownloadPlan
@@ -473,13 +545,19 @@ enum AISettingsLogicTests {
         try expectEqual(plan.archiveURL, piper.downloadURL, "download plan should expose archive URL")
         try expectEqual(plan.manifestURL, SpeechRuntimeResourceManager.Runtime.modelManifestURL, "download plan should expose manifest URL")
         try expectEqual(plan.expectedAssetName, "piper-tts-macos-arm64.tar.gz", "download plan should expose expected release asset name")
+
+        let supertonic = SpeechRuntimeResourceManager.Runtime.supertonic
+        let supertonicPlan = supertonic.localRuntimeDownloadPlan
+        try expectEqual(supertonicPlan.archiveURL.absoluteString, expectedSpeechReleaseAssetURL(fileName: "supertonic-coreml-macos-arm64.tar.gz"), "Supertonic should download from GitHub Release assets")
+        try expectEqual(supertonicPlan.manifestURL?.absoluteString, expectedSpeechReleaseAssetURL(fileName: "speech-models-manifest.json"), "Supertonic should validate against the Release-hosted manifest")
+        try expectEqual(supertonicPlan.expectedAssetName, "supertonic-coreml-macos-arm64.tar.gz", "Supertonic download plan should expose expected archive name")
     }
 
     static func testSpeechRuntimeLocalRuntimeRegistry() throws {
         let registry = SpeechRuntimeResourceManager.Runtime.localRuntimeRegistry
         try expectEqual(
             registry.descriptors.map(\.id),
-            ["kitten", "piper", "kokoro"],
+            ["kitten", "piper", "supertonic", "kokoro"],
             "speech runtime registry should preserve descriptor display order"
         )
 
@@ -834,6 +912,16 @@ enum AISettingsLogicTests {
             "b752a7e93456c9b9eab397960976667153bee8c999ab497685fddb82562458b5",
             "bundled manifest should include Piper model checksum"
         )
+        try expectEqual(
+            manifest.asset(named: "supertonic-coreml-macos-arm64.tar.gz")?.size,
+            187111483,
+            "bundled manifest should include Supertonic CoreML archive size"
+        )
+        try expectEqual(
+            manifest.asset(named: "supertonic-coreml-macos-arm64.tar.gz")?.sha256,
+            "819d87657dac8f0febe630e55fe5b474171724cde98b86eb5fadad309e543397",
+            "bundled manifest should include Supertonic CoreML archive checksum"
+        )
     }
 
     static func testSpeechRuntimeAvailabilityText() throws {
@@ -1033,6 +1121,52 @@ enum AISettingsLogicTests {
             nil,
             "missing model should keep the existing not-downloaded status copy"
         )
+    }
+
+    static func testSpeechRuntimeHealthDistinguishesRuntimeAndModelPaths() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("leafreader-runtime-health-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let runtimeDirectory = root.appendingPathComponent("piper-tts-runtime", isDirectory: true)
+        let voiceDirectory = root.appendingPathComponent("piper-voices", isDirectory: true)
+        try fileManager.createDirectory(at: voiceDirectory, withIntermediateDirectories: true)
+        try Data().write(to: voiceDirectory.appendingPathComponent("en_US-lessac-high.onnx"))
+        try Data("{}".utf8).write(to: voiceDirectory.appendingPathComponent("en_US-lessac-high.onnx.json"))
+
+        let missingRuntimeHealth = SpeechRuntimeResourceManager.runtimeHealth(
+            for: .piper,
+            installDirectories: [runtimeDirectory],
+            voiceDirectory: voiceDirectory
+        )
+        try expect(!missingRuntimeHealth.hasRuntime, "runtime health should report missing Piper runtime files")
+        try expect(missingRuntimeHealth.hasModel, "runtime health should report installed Piper voice files")
+        try expectEqual(
+            missingRuntimeHealth.installState,
+            .missingRuntime,
+            "runtime health should derive a missing-runtime install state"
+        )
+
+        let executable = runtimeDirectory.appendingPathComponent("piper/piper")
+        try fileManager.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: runtimeDirectory.appendingPathComponent("piper-phonemize/lib", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try fileManager.createDirectory(
+            at: runtimeDirectory.appendingPathComponent("piper-phonemize/share/espeak-ng-data", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        try Data().write(to: executable)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+
+        let completeHealth = SpeechRuntimeResourceManager.runtimeHealth(
+            for: .piper,
+            installDirectories: [runtimeDirectory],
+            voiceDirectory: voiceDirectory
+        )
+        try expect(completeHealth.isComplete, "runtime health should become complete once runtime and model files exist")
     }
 
     static func testKokoroModelDownloadMakesBundledRuntimeAvailable() throws {

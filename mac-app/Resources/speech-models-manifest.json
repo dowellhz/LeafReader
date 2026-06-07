@@ -15,6 +15,11 @@
       "name": "piper-tts-macos-arm64.tar.gz",
       "size": 105541145,
       "sha256": "b752a7e93456c9b9eab397960976667153bee8c999ab497685fddb82562458b5"
+    },
+    {
+      "name": "supertonic-coreml-macos-arm64.tar.gz",
+      "size": 187111483,
+      "sha256": "819d87657dac8f0febe630e55fe5b474171724cde98b86eb5fadad309e543397"
     }
   ]
 }

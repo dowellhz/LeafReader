@@ -9,6 +9,8 @@ MANIFEST_PATH="$OUT_DIR/speech-models-manifest.json"
 KOKORO_MODEL_CACHE_ROOT="${KOKORO_MODEL_CACHE_ROOT:-$HOME/.cache/fluidaudio/Models}"
 KITTEN_RUNTIME_DIR="${KITTEN_RUNTIME_DIR:-$HOME/.local/share/leafreader/kittentts-rs-runtime}"
 PIPER_VOICE_CACHE_ROOT="${PIPER_VOICE_CACHE_ROOT:-$HOME/.cache/leafreader/piper-voices}"
+SUPERTONIC_RUNTIME="${SUPERTONIC_RUNTIME:-$HOME/.local/share/leafreader/supertonic-coreml/supertonic-mini}"
+SUPERTONIC_MODEL_DIR="${SUPERTONIC_MODEL_DIR:-$HOME/.cache/fluidaudio/Models/supertonic-3}"
 
 mkdir -p "$OUT_DIR"
 rm -rf "$WORK_DIR"
@@ -56,6 +58,20 @@ if [[ -f "$PIPER_VOICE_CACHE_ROOT/en_US-lessac-high.onnx" \
   PACKAGED_ASSETS+=("$OUT_DIR/piper-tts-macos-arm64.tar.gz")
 else
   echo "Skipping Piper package; missing voice cache." >&2
+fi
+
+if [[ -x "$SUPERTONIC_RUNTIME" && -d "$SUPERTONIC_MODEL_DIR" ]]; then
+  SUPERTONIC_STAGE="$WORK_DIR/supertonic-coreml"
+  mkdir -p "$SUPERTONIC_STAGE/Models"
+  cp "$SUPERTONIC_RUNTIME" "$SUPERTONIC_STAGE/supertonic-mini"
+  chmod 755 "$SUPERTONIC_STAGE/supertonic-mini"
+  cp -R "$SUPERTONIC_MODEL_DIR" "$SUPERTONIC_STAGE/Models/supertonic-3"
+  find "$SUPERTONIC_STAGE/Models/supertonic-3" -type d -name '*.mlpackage' -prune -exec rm -rf {} +
+  tar -C "$SUPERTONIC_STAGE" -czf "$OUT_DIR/supertonic-coreml-macos-arm64.tar.gz" .
+  echo "Packaged $OUT_DIR/supertonic-coreml-macos-arm64.tar.gz"
+  PACKAGED_ASSETS+=("$OUT_DIR/supertonic-coreml-macos-arm64.tar.gz")
+else
+  echo "Skipping Supertonic package; missing runtime or model cache." >&2
 fi
 
 {

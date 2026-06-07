@@ -12,6 +12,7 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
     let kokoroBackend = KokoroTTSBackend()
     let kittenBackend = KittenServerTTSBackend()
     let piperBackend = PiperTTSBackend()
+    let supertonicBackend = SupertonicCoreMLTTSBackend()
     var activeBackend: PreferredBackend?
     var currentPlayer: AVAudioPlayer?
     var currentSegment: PlaybackSegment?

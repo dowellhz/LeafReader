@@ -33,6 +33,28 @@ extension SpeechRuntimeResourceManager {
         )
     }
 
+    static func runtimeHealth(for runtime: Runtime) -> SpeechRuntimeHealth {
+        SpeechRuntimeAvailability.health(for: runtime)
+    }
+
+    static func runtimeHealth(
+        for runtime: Runtime,
+        installDirectories: [URL],
+        modelCacheRoot: URL = Runtime.fluidAudioModelCacheRoot,
+        voiceDirectory: URL = Runtime.piper.modelDirectory(in: Runtime.piper.installDirectory),
+        supertonicModelDirectory: URL = Runtime.supertonicCoreMLModelCacheDirectory,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> SpeechRuntimeHealth {
+        SpeechRuntimeAvailability.runtimeHealth(
+            for: runtime,
+            installDirectories: installDirectories,
+            modelCacheRoot: modelCacheRoot,
+            voiceDirectory: voiceDirectory,
+            supertonicModelDirectory: supertonicModelDirectory,
+            environment: environment
+        )
+    }
+
     static func bundledRuntimePathsExist(for runtime: Runtime) -> Bool {
         SpeechRuntimeAvailability.bundledRuntimePathsExist(for: runtime)
     }

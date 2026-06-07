@@ -43,6 +43,14 @@ extension AISettingsPanelController {
             showValidationAlert(message: error, in: panel)
             return false
         }
+        if modelID == AISettingsStore.ollamaModelID, let error = AISettingsStore.ollamaValidationError(modelName: customModelName) {
+            showValidationAlert(message: error, in: panel)
+            return false
+        }
+        if modelID == AISettingsStore.localOpenAIModelID, let error = AISettingsStore.localOpenAIValidationError(endpoint: customEndpoint, modelName: customModelName) {
+            showValidationAlert(message: error, in: panel)
+            return false
+        }
 
         if let rawLanguage = languagePopup?.selectedItem?.representedObject as? String,
            let language = AppText.Language(rawValue: rawLanguage) {

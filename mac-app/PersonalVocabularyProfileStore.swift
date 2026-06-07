@@ -93,7 +93,7 @@ final class PersonalVocabularyProfileStore {
 
     func loadKnownProfiles(limit: Int = 200) -> [PersonalVocabularyProfile] {
         locked {
-            loadProfilesLocked(statuses: [.known, .likelyKnown, .familiar], limit: limit)
+            loadProfilesLocked(statuses: [.known, .likelyKnown], limit: limit)
         }
     }
 
@@ -126,11 +126,6 @@ final class PersonalVocabularyProfileStore {
         CREATE INDEX IF NOT EXISTS idx_personal_vocabulary_status ON personal_vocabulary_profiles(status, confidence);
         """
         executeRaw(sql, operation: "create personal vocabulary tables")
-        addColumnIfNeeded(
-            table: "personal_vocabulary_profiles",
-            column: "post_query_unqueried_seen_count",
-            definition: "INTEGER NOT NULL DEFAULT 0"
-        )
         cleanupNoiseProfiles()
     }
 
@@ -373,7 +368,6 @@ final class PersonalVocabularyProfileStore {
             ORDER BY CASE status
               WHEN 'known' THEN 0
               WHEN 'likely_known' THEN 1
-              WHEN 'familiar' THEN 2
               ELSE 3
             END, confidence DESC, seen_count DESC, lemma ASC
             LIMIT ?
@@ -489,29 +483,6 @@ final class PersonalVocabularyProfileStore {
             sqlite3_free(errorMessage)
         }
         NSLog("LeafReader personal vocabulary: SQLite %@ failed (%d, error=%@)", operation, result, message)
-        return false
-    }
-
-    private func addColumnIfNeeded(table: String, column: String, definition: String) {
-        guard !columnExists(table: table, column: column) else { return }
-        executeRaw("ALTER TABLE \(table) ADD COLUMN \(column) \(definition)", operation: "add \(table).\(column)")
-    }
-
-    private func columnExists(table: String, column: String) -> Bool {
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, "PRAGMA table_info(\(table))", -1, &statement, nil) == SQLITE_OK else {
-            logSQLiteFailure("prepare table info lookup")
-            return false
-        }
-        defer { sqlite3_finalize(statement) }
-        while sqlite3_step(statement) == SQLITE_ROW {
-            guard let columnName = sqlite3_column_text(statement, 1).map({ String(cString: $0) }) else {
-                continue
-            }
-            if columnName == column {
-                return true
-            }
-        }
         return false
     }
 
