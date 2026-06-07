@@ -13,7 +13,7 @@ Run tests:
 Build the app:
 
 ```sh
-./scripts/build_app.sh
+./scripts/build_app.sh --universal
 ```
 
 Publish a release:
@@ -48,7 +48,7 @@ Check version references:
 
 ## Files
 
-- `scripts/build_app.sh`: builds and signs `Leaf Reader.app`, pruning bundled speech runtime packaging/debug noise before signing.
+- `scripts/build_app.sh`: builds and signs `Leaf Reader.app`, pruning bundled speech runtime packaging/debug noise before signing. Daily builds default to `arm64`; release packaging calls it with `--universal`.
 - `scripts/release_pkg.sh`: builds release package artifacts.
 - `scripts/publish_release.sh`: runs tests, packages, checks version references, and publishes.
 - `scripts/smoke_release_pkg.sh`: expands and validates the signed package payload.

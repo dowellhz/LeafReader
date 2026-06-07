@@ -44,6 +44,8 @@ spctl --assess --type install release/<version>/LeafReader-<version>.pkg
 ./scripts/smoke_release_pkg.sh <version>
 ```
 
+- Confirm the smoke test reports both `arm64` and `x86_64` app architectures.
+
 - Review app, package, speech runtime size, and the largest bundled runtime files:
 
 ```sh

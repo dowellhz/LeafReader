@@ -65,6 +65,8 @@ Run:
 ./scripts/build_app.sh
 ```
 
+`build_app.sh` defaults to `arm64` for faster daily iteration. Use `./scripts/build_app.sh --universal` only when checking release-style architecture output.
+
 UI rule:
 
 - Every new visible control must define or inherit colors for all reader modes: original, eyeCare, and dark.
@@ -146,7 +148,7 @@ Run:
 
 ```sh
 ./tests/run.sh
-./scripts/build_app.sh
+./scripts/build_app.sh --universal
 ```
 
 Watch for:

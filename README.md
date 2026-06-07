@@ -438,6 +438,8 @@ Build and run the app:
 open "Leaf Reader.app"
 ```
 
+Daily builds default to Apple Silicon `arm64` for faster iteration. Use `./scripts/build_app.sh --universal` when you need a local universal app; release packaging already does this automatically.
+
 ### Tests
 
 Run lightweight logic regression tests:

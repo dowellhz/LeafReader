@@ -67,6 +67,13 @@ SPEECH_RUNTIMES="$APP_PATH/Contents/Resources/SpeechRuntimes"
   echo "App executable missing or not executable: $EXECUTABLE" >&2
   exit 1
 }
+APP_ARCHS="$(lipo -archs "$EXECUTABLE")"
+for expected_arch in arm64 x86_64; do
+  if [[ " $APP_ARCHS " != *" $expected_arch "* ]]; then
+    echo "Release app executable is missing $expected_arch architecture: $APP_ARCHS" >&2
+    exit 1
+  fi
+done
 
 SHORT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")"
 BUNDLE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO_PLIST")"
@@ -114,4 +121,5 @@ echo "Release pkg smoke test passed."
 echo "Version: $EXPECTED_VERSION"
 echo "Package: $PKG_PATH ($PKG_SIZE)"
 echo "Expanded app: $APP_SIZE"
+echo "App architectures: $APP_ARCHS"
 echo "ECDICT rows: $ECDICT_COUNT"

@@ -72,7 +72,7 @@ ReaderWindowController+ReadAloud
 ## 打包与发布
 
 - `scripts/build_espeak_ng_runtime.sh`：构建 KittenTTS 需要的低部署版本 `espeak-ng` 和 `pcaudiolib`。
-- `scripts/build_app.sh`：把语音运行时复制进 app bundle，清理打包/调试噪声，并验证 bundle 布局。
+- `scripts/build_app.sh`：把语音运行时复制进 app bundle，清理打包/调试噪声，并验证 bundle 布局；日常默认只编 `arm64`，发布包使用 `--universal`。
 - `scripts/package_speech_models.sh`：打包可下载 TTS 模型，生成 `docs/tts/speech-models-manifest.json` 的大小和 SHA256。
 - `scripts/publish_release.sh`：上传发布产物；只有模型归档变化时才传 `--with-speech-models`。
 

@@ -6,7 +6,7 @@ APP_PATH="$ROOT_DIR/Leaf Reader.app"
 SPARKLE_HOME="${SPARKLE_HOME:-/opt/homebrew/Caskroom/sparkle/2.9.2}"
 APP_SIGN_IDENTITY="${APP_SIGN_IDENTITY:--}"
 MACOS_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET:-12.0}"
-ARCHS="${ARCHS:-arm64 x86_64}"
+ARCHS="${ARCHS:-arm64}"
 REQUIRE_BUNDLED_SPEECH_RUNTIMES="${REQUIRE_BUNDLED_SPEECH_RUNTIMES:-0}"
 KITTEN_RUNTIME_DIR="${KITTEN_RUNTIME_DIR:-$HOME/.local/share/leafreader/kittentts-rs-runtime}"
 KITTEN_RUNTIME_ARCHIVE="${KITTEN_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kitten-tts-rs-macos-arm64.tar.gz}"
@@ -18,6 +18,58 @@ PIPER_RUNTIME_DIR="${PIPER_RUNTIME_DIR:-$HOME/.local/share/leafreader/piper-tts-
 ESPEAK_NG_ROOT="${ESPEAK_NG_ROOT:-$HOME/.local/share/leafreader/espeak-ng-macos12}"
 PCAUDIOLIB_ROOT="${PCAUDIOLIB_ROOT:-$ESPEAK_NG_ROOT}"
 export COPYFILE_DISABLE=1
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --archs)
+      if [[ $# -lt 2 || -z "${2:-}" ]]; then
+        echo "Usage: $0 [--archs \"arm64 x86_64\"] [--arm64] [--universal]" >&2
+        exit 1
+      fi
+      ARCHS="$2"
+      shift 2
+      ;;
+    --archs=*)
+      ARCHS="${1#*=}"
+      shift
+      ;;
+    --arm64)
+      ARCHS="arm64"
+      shift
+      ;;
+    --universal)
+      ARCHS="arm64 x86_64"
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: $0 [--archs \"arm64 x86_64\"] [--arm64] [--universal]" >&2
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      echo "Usage: $0 [--archs \"arm64 x86_64\"] [--arm64] [--universal]" >&2
+      exit 1
+      ;;
+  esac
+done
+
+read -r -a BUILD_ARCHS <<< "$ARCHS"
+if [[ "${#BUILD_ARCHS[@]}" -eq 0 ]]; then
+  echo "At least one architecture is required." >&2
+  exit 1
+fi
+for ARCH in "${BUILD_ARCHS[@]}"; do
+  case "$ARCH" in
+    arm64|x86_64)
+      ;;
+    *)
+      echo "Unsupported architecture: $ARCH" >&2
+      echo "Supported architectures: arm64 x86_64" >&2
+      exit 1
+      ;;
+  esac
+done
+echo "Building architectures: ${BUILD_ARCHS[*]}"
 
 ESPEAK_BUNDLED_DICTS=(en_dict)
 ESPEAK_LANG_DIRS=(gmw)
@@ -290,7 +342,6 @@ xattr -crs "$APP_PATH"
 
 BINARY_PATH="$APP_PATH/Contents/MacOS/Leaf Reader"
 TEMP_BINARIES=()
-read -r -a BUILD_ARCHS <<< "$ARCHS"
 for ARCH in "${BUILD_ARCHS[@]}"; do
   ARCH_BINARY="$APP_PATH/Contents/MacOS/Leaf Reader-$ARCH"
   swiftc "$ROOT_DIR"/mac-app/*.swift \
