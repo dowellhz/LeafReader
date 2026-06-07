@@ -150,6 +150,10 @@ LOGIC_TEST_SOURCES=(
   tests/AISettingsTestSupport.swift
   tests/AISettingsLogicTests.swift
   tests/SpeechRuntimeLogicTests.swift
+  tests/SpeechRuntimeBackendTests.swift
+  tests/SpeechRuntimeDownloadTests.swift
+  tests/SpeechRuntimeManifestTests.swift
+  tests/SpeechRuntimeAvailabilityTests.swift
   tests/ECDICTLogicTests.swift
   tests/VocabularyLogicTests.swift
   tests/LogicTests.swift
