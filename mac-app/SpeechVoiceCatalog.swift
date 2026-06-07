@@ -10,7 +10,7 @@ enum SpeechVoiceCatalog {
     private typealias Definition = (zhTitle: String, enTitle: String, id: String)
 
     private static let kittenVoiceIDs = ["Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo"]
-    private static let supertonicVoiceIDs = ["M1", "M2", "M3", "M4", "M5", "F1", "F2", "F3", "F4", "F5"]
+    private static let supertonicVoiceIDs = ["M1", "F1", "F4"]
 
     private static let piperVoiceDefinitions: [Definition] = [
         ("美国女声 Lessac High", "American Female Lessac High", "en_US-lessac-high"),

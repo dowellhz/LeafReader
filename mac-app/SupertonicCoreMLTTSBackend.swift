@@ -91,7 +91,8 @@ final class SupertonicCoreMLTTSBackend {
                     "tts.json",
                     "unicode_indexer.json",
                     "voice_styles/M1.json",
-                    "voice_styles/F1.json"
+                    "voice_styles/F1.json",
+                    "voice_styles/F4.json"
                 ],
                 in: directory
             )
