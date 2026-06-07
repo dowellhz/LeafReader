@@ -175,7 +175,7 @@ extension ReaderWindowController {
                 "\(runtime.title) requires \(runtime.minimumSystemVersionText) or later."
             )
         }
-        let health = SpeechRuntimeResourceManager.runtimeHealth(for: runtime)
+        let health = SpeechRuntimeAvailability.health(for: runtime)
         switch runtime {
         case .piper:
             if !health.hasRuntime && health.hasModel {

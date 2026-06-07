@@ -28,7 +28,7 @@ enum SpeechRuntimeResourceManager {
 
     static func cancel(_ runtime: Runtime) {
         let completions = stopActiveDownload(for: runtime)
-        removePartialDownload(for: runtime)
+        LocalRuntimeDownloadSupport.removePartialDownload(for: runtime.localRuntimeDownloadPlan)
         SpeechRuntimeDownloadFailureStore.clear(for: runtime)
         let error = NSError(
             domain: NSCocoaErrorDomain,
@@ -109,14 +109,16 @@ enum SpeechRuntimeResourceManager {
         attempt: Int,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        let partialURL = partialDownloadURL(for: plan)
-        let existingSize = retryingWithoutResume ? 0 : resumablePartialDownloadSize(for: plan, asset: expectedAsset)
-        let expectedTotalBytes = expectedDownloadTotalBytes(asset: expectedAsset)
+        let partialURL = LocalRuntimeDownloadSupport.partialDownloadURL(for: plan)
+        let existingSize = retryingWithoutResume
+            ? 0
+            : LocalRuntimeDownloadSupport.resumablePartialDownloadSize(for: plan, asset: expectedAsset)
+        let expectedTotalBytes = LocalRuntimeDownloadSupport.expectedDownloadTotalBytes(asset: expectedAsset)
         var request = URLRequest(url: plan.archiveURL, cachePolicy: .reloadIgnoringLocalCacheData)
         if existingSize > 0 {
             request.setValue("bytes=\(existingSize)-", forHTTPHeaderField: "Range")
-            if let metadata = readPartialDownloadMetadata(for: plan),
-               let ifRange = ifRangeHeaderValue(for: metadata) {
+            if let metadata = LocalRuntimeDownloadSupport.readPartialDownloadMetadata(for: plan),
+               let ifRange = LocalRuntimeDownloadSupport.ifRangeHeaderValue(for: metadata) {
                 request.setValue(ifRange, forHTTPHeaderField: "If-Range")
             }
         }
@@ -145,7 +147,7 @@ enum SpeechRuntimeResourceManager {
                     let installer = localRuntimeInstaller(for: runtime, plan: plan)
                     guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
                     try installer.installDownloadedArchive(partialURL, asset: expectedAsset)
-                    removePartialDownload(for: plan)
+                    LocalRuntimeDownloadSupport.removePartialDownload(for: plan)
                     DispatchQueue.main.async { completion(.success(())) }
                 case .failure(let error):
                     recoverDownloadFailure(
@@ -172,7 +174,11 @@ enum SpeechRuntimeResourceManager {
             }
         }
 
-        let session = URLSession(configuration: downloadSessionConfiguration(), delegate: downloader, delegateQueue: nil)
+        let session = URLSession(
+            configuration: LocalRuntimeDownloadSupport.downloadSessionConfiguration(),
+            delegate: downloader,
+            delegateQueue: nil
+        )
         downloader.session = session
         let task = session.dataTask(with: request)
         downloader.task = task
@@ -199,10 +205,10 @@ enum SpeechRuntimeResourceManager {
         attempt: Int,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        switch downloadRecoveryAction(error: error as NSError, attempt: attempt) {
+        switch LocalRuntimeDownloadSupport.downloadRecoveryAction(error: error as NSError, attempt: attempt) {
         case .retry(let resumePartial):
             if !resumePartial {
-                removePartialDownload(for: plan)
+                LocalRuntimeDownloadSupport.removePartialDownload(for: plan)
             }
             download(
                 runtime,
@@ -215,7 +221,7 @@ enum SpeechRuntimeResourceManager {
             )
         case .fail(let removePartial):
             if removePartial {
-                removePartialDownload(for: plan)
+                LocalRuntimeDownloadSupport.removePartialDownload(for: plan)
             }
             DispatchQueue.main.async { completion(.failure(error)) }
         }

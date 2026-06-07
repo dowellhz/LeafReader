@@ -605,22 +605,22 @@ enum AISettingsLogicTests {
             .appendingPathComponent("leafreader-sha256-\(UUID().uuidString).txt")
         defer { try? FileManager.default.removeItem(at: fileURL) }
         try Data("hello".utf8).write(to: fileURL)
-        try SpeechRuntimeResourceManager.validateArchiveManifest(fileURL, asset: asset)
+        try LocalRuntimeDownloadSupport.validateArchiveManifest(fileURL, asset: asset)
 
         do {
-            try SpeechRuntimeResourceManager.validateArchiveChecksum(fileURL, expectedSHA256: String(repeating: "0", count: 64))
+            try LocalRuntimeDownloadSupport.validateArchiveChecksum(fileURL, expectedSHA256: String(repeating: "0", count: 64))
             throw TestFailure(description: "checksum mismatch should throw")
         } catch let error as NSError {
-            try expectEqual(error.domain, SpeechRuntimeResourceManager.downloadErrorDomain, "checksum mismatch should use the download error domain")
+            try expectEqual(error.domain, LocalRuntimeDownloadSupport.downloadErrorDomain, "checksum mismatch should use the download error domain")
             try expectEqual(error.code, -7, "checksum mismatch should use the checksum error code")
         }
 
         let wrongSize = SpeechModelManifest.Asset(name: "kitten-tts-rs-macos-arm64.tar.gz", size: 6, sha256: asset!.sha256)
         do {
-            try SpeechRuntimeResourceManager.validateArchiveManifest(fileURL, asset: wrongSize)
+            try LocalRuntimeDownloadSupport.validateArchiveManifest(fileURL, asset: wrongSize)
             throw TestFailure(description: "size mismatch should throw")
         } catch let error as NSError {
-            try expectEqual(error.domain, SpeechRuntimeResourceManager.downloadErrorDomain, "size mismatch should use the download error domain")
+            try expectEqual(error.domain, LocalRuntimeDownloadSupport.downloadErrorDomain, "size mismatch should use the download error domain")
             try expectEqual(error.code, -8, "size mismatch should use the size error code")
         }
     }
@@ -665,76 +665,76 @@ enum AISettingsLogicTests {
 
     static func testSpeechRuntimeResumeContentRangeValidation() throws {
         try expectEqual(
-            SpeechRuntimeResourceManager.contentRangeStart("bytes 1024-2047/4096"),
+            LocalRuntimeDownloadSupport.contentRangeStart("bytes 1024-2047/4096"),
             1024,
             "resume validation should parse the Content-Range start byte"
         )
         try expectEqual(
-            SpeechRuntimeResourceManager.contentRangeStart(" bytes 0-99/100 "),
+            LocalRuntimeDownloadSupport.contentRangeStart(" bytes 0-99/100 "),
             0,
             "resume validation should tolerate Content-Range whitespace"
         )
         try expectEqual(
-            SpeechRuntimeResourceManager.contentRangeStart("bytes 1024-2047/*"),
+            LocalRuntimeDownloadSupport.contentRangeStart("bytes 1024-2047/*"),
             1024,
             "resume validation should allow unknown total sizes"
         )
         try expect(
-            SpeechRuntimeResourceManager.contentRangeStart("bytes */4096") == nil,
+            LocalRuntimeDownloadSupport.contentRangeStart("bytes */4096") == nil,
             "unsatisfied Content-Range responses should not look resumable"
         )
         try expect(
-            SpeechRuntimeResourceManager.contentRangeStart("items 1024-2047/4096") == nil,
+            LocalRuntimeDownloadSupport.contentRangeStart("items 1024-2047/4096") == nil,
             "non-byte Content-Range responses should be rejected"
         )
     }
 
     static func testSpeechRuntimePartialRestartPolicy() throws {
-        let resumeExpired = NSError(domain: SpeechRuntimeResourceManager.downloadErrorDomain, code: 416)
-        let resumeMismatch = NSError(domain: SpeechRuntimeResourceManager.downloadErrorDomain, code: SpeechRuntimeResourceManager.resumeRangeMismatchCode)
-        let checksumMismatch = NSError(domain: SpeechRuntimeResourceManager.downloadErrorDomain, code: -7)
+        let resumeExpired = NSError(domain: LocalRuntimeDownloadSupport.downloadErrorDomain, code: 416)
+        let resumeMismatch = NSError(domain: LocalRuntimeDownloadSupport.downloadErrorDomain, code: LocalRuntimeDownloadSupport.resumeRangeMismatchCode)
+        let checksumMismatch = NSError(domain: LocalRuntimeDownloadSupport.downloadErrorDomain, code: -7)
         let networkFailure = NSError(domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost)
 
         try expect(
-            SpeechRuntimeResourceManager.shouldRetryDownload(error: resumeMismatch, attempt: 1),
+            LocalRuntimeDownloadSupport.shouldRetryDownload(error: resumeMismatch, attempt: 1),
             "mismatched resume responses should retry from a clean download"
         )
         try expect(
-            SpeechRuntimeResourceManager.shouldRetryDownload(error: checksumMismatch, attempt: 1),
+            LocalRuntimeDownloadSupport.shouldRetryDownload(error: checksumMismatch, attempt: 1),
             "checksum failures should retry once the corrupt partial archive is discarded"
         )
         try expect(
-            !SpeechRuntimeResourceManager.shouldRetryDownload(error: checksumMismatch, attempt: 4),
+            !LocalRuntimeDownloadSupport.shouldRetryDownload(error: checksumMismatch, attempt: 4),
             "checksum failures should stop retrying at the download attempt limit"
         )
         try expect(
-            SpeechRuntimeResourceManager.shouldRestartWithoutPartialDownload(error: resumeExpired),
+            LocalRuntimeDownloadSupport.shouldRestartWithoutPartialDownload(error: resumeExpired),
             "expired resume ranges should discard the partial archive"
         )
         try expect(
-            SpeechRuntimeResourceManager.shouldRestartWithoutPartialDownload(error: resumeMismatch),
+            LocalRuntimeDownloadSupport.shouldRestartWithoutPartialDownload(error: resumeMismatch),
             "mismatched resume ranges should discard the partial archive"
         )
         try expect(
-            SpeechRuntimeResourceManager.shouldRestartWithoutPartialDownload(error: checksumMismatch),
+            LocalRuntimeDownloadSupport.shouldRestartWithoutPartialDownload(error: checksumMismatch),
             "checksum failures should discard the corrupt partial archive"
         )
         try expect(
-            !SpeechRuntimeResourceManager.shouldRestartWithoutPartialDownload(error: networkFailure),
+            !LocalRuntimeDownloadSupport.shouldRestartWithoutPartialDownload(error: networkFailure),
             "transient network failures should keep the partial archive for resume"
         )
         try expectEqual(
-            SpeechRuntimeResourceManager.downloadRecoveryAction(error: checksumMismatch, attempt: 1),
+            LocalRuntimeDownloadSupport.downloadRecoveryAction(error: checksumMismatch, attempt: 1),
             .retry(resumePartial: false),
             "checksum failures should restart from a clean archive while retry attempts remain"
         )
         try expectEqual(
-            SpeechRuntimeResourceManager.downloadRecoveryAction(error: checksumMismatch, attempt: 4),
+            LocalRuntimeDownloadSupport.downloadRecoveryAction(error: checksumMismatch, attempt: 4),
             .fail(removePartial: true),
             "checksum failures should remove corrupt archives before surfacing the final error"
         )
         try expectEqual(
-            SpeechRuntimeResourceManager.downloadRecoveryAction(error: networkFailure, attempt: 1),
+            LocalRuntimeDownloadSupport.downloadRecoveryAction(error: networkFailure, attempt: 1),
             .retry(resumePartial: true),
             "transient network failures should retry with the partial archive"
         )
@@ -746,7 +746,7 @@ enum AISettingsLogicTests {
             size: 105541145,
             sha256: "b752a7e93456c9b9eab397960976667153bee8c999ab497685fddb82562458b5"
         )
-        let metadata = SpeechRuntimeResourceManager.PartialDownloadMetadata(
+        let metadata = LocalRuntimeDownloadSupport.PartialDownloadMetadata(
             downloadURL: SpeechRuntimeResourceManager.Runtime.piper.downloadURL.absoluteString,
             assetName: asset.name,
             expectedSize: asset.size,
@@ -755,15 +755,15 @@ enum AISettingsLogicTests {
             lastModified: "Wed, 24 May 2026 00:00:00 GMT"
         )
         try expect(
-            SpeechRuntimeResourceManager.partialDownloadMetadataMatches(
+            LocalRuntimeDownloadSupport.partialDownloadMetadataMatches(
                 metadata,
-                runtime: .piper,
+                plan: SpeechRuntimeResourceManager.Runtime.piper.localRuntimeDownloadPlan,
                 asset: asset
             ),
             "partial metadata should match the same URL and manifest asset"
         )
         try expect(
-            SpeechRuntimeResourceManager.partialDownloadMetadataMatches(
+            LocalRuntimeDownloadSupport.partialDownloadMetadataMatches(
                 metadata,
                 plan: SpeechRuntimeResourceManager.Runtime.piper.localRuntimeDownloadPlan,
                 asset: asset
@@ -771,7 +771,7 @@ enum AISettingsLogicTests {
             "partial metadata should also match through the generic local runtime download plan"
         )
         try expectEqual(
-            SpeechRuntimeResourceManager.ifRangeHeaderValue(for: metadata),
+            LocalRuntimeDownloadSupport.ifRangeHeaderValue(for: metadata),
             "\"abc\"",
             "If-Range should prefer a trimmed ETag"
         )
@@ -782,15 +782,15 @@ enum AISettingsLogicTests {
             sha256: String(repeating: "0", count: 64)
         )
         try expect(
-            !SpeechRuntimeResourceManager.partialDownloadMetadataMatches(
+            !LocalRuntimeDownloadSupport.partialDownloadMetadataMatches(
                 metadata,
-                runtime: .piper,
+                plan: SpeechRuntimeResourceManager.Runtime.piper.localRuntimeDownloadPlan,
                 asset: changedAsset
             ),
             "partial metadata should reject changed asset checksums"
         )
 
-        let lastModifiedOnly = SpeechRuntimeResourceManager.PartialDownloadMetadata(
+        let lastModifiedOnly = LocalRuntimeDownloadSupport.PartialDownloadMetadata(
             downloadURL: metadata.downloadURL,
             assetName: metadata.assetName,
             expectedSize: metadata.expectedSize,
@@ -799,14 +799,14 @@ enum AISettingsLogicTests {
             lastModified: "Wed, 24 May 2026 00:00:00 GMT"
         )
         try expectEqual(
-            SpeechRuntimeResourceManager.ifRangeHeaderValue(for: lastModifiedOnly),
+            LocalRuntimeDownloadSupport.ifRangeHeaderValue(for: lastModifiedOnly),
             "Wed, 24 May 2026 00:00:00 GMT",
             "If-Range should fall back to Last-Modified when ETag is missing"
         )
     }
 
     static func testSpeechRuntimeDownloadConfigurationAndProgressTotals() throws {
-        let configuration = SpeechRuntimeResourceManager.downloadSessionConfiguration()
+        let configuration = LocalRuntimeDownloadSupport.downloadSessionConfiguration()
         try expectEqual(
             configuration.timeoutIntervalForRequest,
             30,
@@ -828,12 +828,12 @@ enum AISettingsLogicTests {
             sha256: "b752a7e93456c9b9eab397960976667153bee8c999ab497685fddb82562458b5"
         )
         try expectEqual(
-            SpeechRuntimeResourceManager.expectedDownloadTotalBytes(asset: asset),
+            LocalRuntimeDownloadSupport.expectedDownloadTotalBytes(asset: asset),
             105541145,
             "progress should use manifest size when available"
         )
         try expectEqual(
-            SpeechRuntimeResourceManager.expectedDownloadTotalBytes(asset: nil),
+            LocalRuntimeDownloadSupport.expectedDownloadTotalBytes(asset: nil),
             nil,
             "progress should fall back to response length without manifest size"
         )
@@ -875,22 +875,22 @@ enum AISettingsLogicTests {
     }
 
     static func testSpeechRuntimeInstallDiskSpacePolicy() throws {
-        let required = SpeechRuntimeResourceManager.requiredInstallFreeSpaceBytes(archiveSize: 100)
+        let required = LocalRuntimeDownloadSupport.requiredInstallFreeSpaceBytes(archiveSize: 100)
         try expectEqual(
             required,
             200 * 1024 * 1024 + 300,
             "install disk-space policy should reserve room for archive, extraction, and a safety margin"
         )
         try expect(
-            SpeechRuntimeResourceManager.hasEnoughFreeSpace(availableBytes: required, requiredBytes: required),
+            LocalRuntimeDownloadSupport.hasEnoughFreeSpace(availableBytes: required, requiredBytes: required),
             "exactly enough free space should be accepted"
         )
         try expect(
-            !SpeechRuntimeResourceManager.hasEnoughFreeSpace(availableBytes: required - 1, requiredBytes: required),
+            !LocalRuntimeDownloadSupport.hasEnoughFreeSpace(availableBytes: required - 1, requiredBytes: required),
             "insufficient free space should be rejected before install"
         )
         try expect(
-            SpeechRuntimeResourceManager.hasEnoughFreeSpace(availableBytes: nil, requiredBytes: required),
+            LocalRuntimeDownloadSupport.hasEnoughFreeSpace(availableBytes: nil, requiredBytes: required),
             "unknown free space should not block installation"
         )
     }
@@ -1067,7 +1067,7 @@ enum AISettingsLogicTests {
         try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
 
         try expect(
-            !SpeechRuntimeResourceManager.piperRuntimeAndVoicePathsExist(
+            !SpeechRuntimeAvailability.piperRuntimeAndVoicePathsExist(
                 installDirectories: [runtimeDirectory],
                 voiceDirectory: voiceDirectory
             ),
@@ -1078,7 +1078,7 @@ enum AISettingsLogicTests {
         try Data().write(to: voiceDirectory.appendingPathComponent("en_US-lessac-high.onnx"))
         try Data("{}".utf8).write(to: voiceDirectory.appendingPathComponent("en_US-lessac-high.onnx.json"))
         try expect(
-            SpeechRuntimeResourceManager.piperRuntimeAndVoicePathsExist(
+            SpeechRuntimeAvailability.piperRuntimeAndVoicePathsExist(
                 installDirectories: [runtimeDirectory],
                 voiceDirectory: voiceDirectory
             ),
@@ -1137,7 +1137,7 @@ enum AISettingsLogicTests {
         try Data().write(to: voiceDirectory.appendingPathComponent("en_US-lessac-high.onnx"))
         try Data("{}".utf8).write(to: voiceDirectory.appendingPathComponent("en_US-lessac-high.onnx.json"))
 
-        let missingRuntimeHealth = SpeechRuntimeResourceManager.runtimeHealth(
+        let missingRuntimeHealth = SpeechRuntimeAvailability.runtimeHealth(
             for: .piper,
             installDirectories: [runtimeDirectory],
             voiceDirectory: voiceDirectory
@@ -1163,7 +1163,7 @@ enum AISettingsLogicTests {
         try Data().write(to: executable)
         try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
 
-        let completeHealth = SpeechRuntimeResourceManager.runtimeHealth(
+        let completeHealth = SpeechRuntimeAvailability.runtimeHealth(
             for: .piper,
             installDirectories: [runtimeDirectory],
             voiceDirectory: voiceDirectory
@@ -1185,7 +1185,7 @@ enum AISettingsLogicTests {
         try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
 
         try expect(
-            !SpeechRuntimeResourceManager.kokoroRuntimeAndModelPathsExist(
+            !SpeechRuntimeAvailability.kokoroRuntimeAndModelPathsExist(
                 installDirectories: [runtimeDirectory],
                 modelCacheRoot: modelCacheRoot
             ),
@@ -1215,7 +1215,7 @@ enum AISettingsLogicTests {
         }
 
         try expect(
-            SpeechRuntimeResourceManager.kokoroRuntimeAndModelPathsExist(
+            SpeechRuntimeAvailability.kokoroRuntimeAndModelPathsExist(
                 installDirectories: [runtimeDirectory],
                 modelCacheRoot: modelCacheRoot
             ),
@@ -1259,7 +1259,7 @@ enum AISettingsLogicTests {
         }
 
         try expect(
-            SpeechRuntimeResourceManager.kokoroRuntimeAndModelPathsExist(
+            SpeechRuntimeAvailability.kokoroRuntimeAndModelPathsExist(
                 installDirectories: [runtimeDirectory],
                 modelCacheRoot: modelCacheRoot
             ),
@@ -1279,7 +1279,7 @@ enum AISettingsLogicTests {
         try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
 
         try expect(
-            !SpeechRuntimeResourceManager.kittenRuntimeAndModelPathsExist(installDirectories: [runtimeDirectory]),
+            !SpeechRuntimeAvailability.kittenRuntimeAndModelPathsExist(installDirectories: [runtimeDirectory]),
             "KittenTTS should remain unavailable after runtime install until model files are downloaded"
         )
 
@@ -1290,7 +1290,7 @@ enum AISettingsLogicTests {
         try Data("{}".utf8).write(to: modelDirectory.appendingPathComponent("config.json"))
 
         try expect(
-            SpeechRuntimeResourceManager.kittenRuntimeAndModelPathsExist(installDirectories: [runtimeDirectory]),
+            SpeechRuntimeAvailability.kittenRuntimeAndModelPathsExist(installDirectories: [runtimeDirectory]),
             "KittenTTS should become available once the downloaded model directory contains all required files"
         )
     }

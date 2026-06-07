@@ -5,7 +5,7 @@ enum SpeechRuntimeDeleter {
     typealias InstallManifest = SpeechRuntimeResourceManager.InstallManifest
 
     static func delete(_ runtime: Runtime, manifest: InstallManifest?) throws {
-        SpeechRuntimeResourceManager.removePartialDownload(for: runtime)
+        LocalRuntimeDownloadSupport.removePartialDownload(for: runtime.localRuntimeDownloadPlan)
         try SpeechRuntimePathChecks.removeItemIfExists(at: runtime.installDirectory)
         SpeechRuntimeDownloadFailureStore.clear(for: runtime)
         SpeechRuntimeInferenceFailureStore.clear(for: runtime)

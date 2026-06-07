@@ -56,7 +56,7 @@ extension SpeechRuntimeResourceManager {
             }
             guard (200...299).contains(statusCode), let data else {
                 completion(.failure(NSError(
-                    domain: downloadErrorDomain,
+                    domain: LocalRuntimeDownloadSupport.downloadErrorDomain,
                     code: statusCode,
                     userInfo: [NSLocalizedDescriptionKey: AppText.localized("模型校验清单下载失败，请稍后重试。", "Model checksum manifest download failed. Please try again later.")]
                 )))

@@ -25,7 +25,7 @@ enum SpeechRuntimeArchiveValidator {
     }
 
     private static func runtimeFilesExist(for runtime: Runtime, in directory: URL) -> Bool {
-        if SpeechRuntimeResourceManager.bundledRuntimePathsExist(for: runtime) {
+        if SpeechRuntimeAvailability.bundledRuntimePathsExist(for: runtime) {
             return true
         }
         switch runtime {
