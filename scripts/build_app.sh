@@ -10,6 +10,8 @@ ARCHS="${ARCHS:-arm64}"
 REQUIRE_BUNDLED_SPEECH_RUNTIMES="${REQUIRE_BUNDLED_SPEECH_RUNTIMES:-0}"
 KITTEN_RUNTIME_DIR="${KITTEN_RUNTIME_DIR:-$HOME/.local/share/leafreader/kittentts-rs-runtime}"
 KITTEN_RUNTIME_ARCHIVE="${KITTEN_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kitten-tts-rs-macos-arm64.tar.gz}"
+EXPECTED_KITTEN_SERVER_SIZE="17970352"
+EXPECTED_KITTEN_SERVER_SHA256="5d159d44f016feac3ae44c85d984754a7b46af5557548fa597f17f766ede275a"
 KOKORO_RUNTIME="${KOKORO_RUNTIME:-$HOME/.local/share/leafreader/kokoro-coreml/fluidaudiocli}"
 KOKORO_RUNTIME_ARCHIVE="${KOKORO_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kokoro-coreml-macos-arm64.tar.gz}"
 KOKORO_MODEL_CACHE_ROOT="${KOKORO_MODEL_CACHE_ROOT:-$HOME/.cache/fluidaudio/Models}"
@@ -195,6 +197,34 @@ validate_piper_runtime() {
   fi
 }
 
+validate_kitten_server() {
+  local server_path="$1"
+  local source_label="$2"
+  local actual_size
+  local actual_sha256
+
+  if [[ ! -x "$server_path" ]]; then
+    echo "Error: KittenTTS runtime executable missing or not executable: $server_path" >&2
+    exit 1
+  fi
+
+  actual_size="$(stat -f %z "$server_path")"
+  if [[ "$actual_size" != "$EXPECTED_KITTEN_SERVER_SIZE" ]]; then
+    echo "Error: KittenTTS runtime size mismatch in $source_label" >&2
+    echo "Expected $EXPECTED_KITTEN_SERVER_SIZE bytes, found $actual_size: $server_path" >&2
+    echo "Restore the KittenTTS server from the Leaf Reader 1.7.8 release before building." >&2
+    exit 1
+  fi
+
+  actual_sha256="$(shasum -a 256 "$server_path" | awk '{print $1}')"
+  if [[ "$actual_sha256" != "$EXPECTED_KITTEN_SERVER_SHA256" ]]; then
+    echo "Error: KittenTTS runtime checksum mismatch in $source_label" >&2
+    echo "Expected $EXPECTED_KITTEN_SERVER_SHA256, found $actual_sha256: $server_path" >&2
+    echo "Restore the KittenTTS server from the Leaf Reader 1.7.8 release before building." >&2
+    exit 1
+  fi
+}
+
 if [[ ! -d "$SPARKLE_HOME/Sparkle.framework" ]]; then
   echo "Sparkle.framework not found at $SPARKLE_HOME" >&2
   echo "Install Sparkle with: brew install --cask sparkle" >&2
@@ -238,6 +268,7 @@ for voice in "${KOKORO_CHINESE_VOICES[@]}"; do
   fi
 done
 if [[ -d "$KITTEN_RUNTIME_DIR/kitten-tts-aarch64-macos" ]]; then
+  validate_kitten_server "$KITTEN_RUNTIME_DIR/kitten-tts-aarch64-macos/kitten-tts-server" "$KITTEN_RUNTIME_DIR"
   mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime"
   mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos"
   cp "$KITTEN_RUNTIME_DIR/kitten-tts-aarch64-macos/kitten-tts-server" \
@@ -248,6 +279,7 @@ if [[ -d "$KITTEN_RUNTIME_DIR/kitten-tts-aarch64-macos" ]]; then
 elif [[ -f "$KITTEN_RUNTIME_ARCHIVE" ]]; then
   KITTEN_EXTRACT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/leafreader-kitten-runtime.XXXXXX")"
   tar -xzf "$KITTEN_RUNTIME_ARCHIVE" -C "$KITTEN_EXTRACT_DIR" ./kitten-tts-aarch64-macos/kitten-tts-server
+  validate_kitten_server "$KITTEN_EXTRACT_DIR/kitten-tts-aarch64-macos/kitten-tts-server" "$KITTEN_RUNTIME_ARCHIVE"
   mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos"
   cp "$KITTEN_EXTRACT_DIR/kitten-tts-aarch64-macos/kitten-tts-server" \
     "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
