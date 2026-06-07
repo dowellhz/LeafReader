@@ -38,6 +38,18 @@ pkgutil --check-signature release/<version>/LeafReader-<version>.pkg
 spctl --assess --type install release/<version>/LeafReader-<version>.pkg
 ```
 
+- Run the package smoke test:
+
+```sh
+./scripts/smoke_release_pkg.sh <version>
+```
+
+- Review app, package, and speech runtime size:
+
+```sh
+./scripts/release_size_report.sh <version>
+```
+
 ## Appcast
 
 - Confirm `docs/appcast.xml` uses the intended version.
@@ -58,6 +70,8 @@ curl -I -L https://leafreader.space/appcast.xml
 ./scripts/publish_release.sh <version>
 ```
 
+Use `--push-wiki` when the release should sync GitHub Wiki as part of the publish flow. Use `--cleanup-releases` to remove old ignored local release artifacts after a successful publish.
+
 - Confirm the Git tag exists:
 
 ```sh
@@ -75,7 +89,7 @@ curl -I -L https://github.com/dowellhz/LeafReader/releases/download/v<version>/L
 - Open Leaf Reader and run the update check.
 - Confirm the website download link points to the new version.
 - Confirm `README.md` current version, tag, and installer link are updated.
-- Run Wiki update if the release changed architecture, scripts, or docs:
+- Run Wiki update if it was not included in the publish command and the release changed architecture, scripts, or docs:
 
 ```sh
 ./scripts/update_wiki.sh --push

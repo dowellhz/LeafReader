@@ -1,24 +1,54 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 1 || $# -gt 3 ]]; then
-  echo "Usage: $0 <version> [release-notes-html-file] [--with-speech-models]" >&2
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 <version> [release-notes-html-file] [--with-speech-models] [--push-wiki] [--cleanup-releases[=N]]" >&2
   exit 1
 fi
 
 VERSION="$1"
-NOTES_FILE="${2:-}"
+shift
+NOTES_FILE=""
 UPLOAD_SPEECH_MODELS=0
-if [[ "${NOTES_FILE:-}" == "--with-speech-models" ]]; then
-  NOTES_FILE=""
-  UPLOAD_SPEECH_MODELS=1
-elif [[ "${3:-}" == "--with-speech-models" ]]; then
-  UPLOAD_SPEECH_MODELS=1
-elif [[ -n "${3:-}" ]]; then
-  echo "Unknown option: $3" >&2
-  echo "Usage: $0 <version> [release-notes-html-file] [--with-speech-models]" >&2
-  exit 1
-fi
+PUSH_WIKI=0
+CLEANUP_RELEASES=0
+CLEANUP_KEEP=8
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --with-speech-models)
+      UPLOAD_SPEECH_MODELS=1
+      shift
+      ;;
+    --push-wiki)
+      PUSH_WIKI=1
+      shift
+      ;;
+    --cleanup-releases)
+      CLEANUP_RELEASES=1
+      shift
+      ;;
+    --cleanup-releases=*)
+      CLEANUP_RELEASES=1
+      CLEANUP_KEEP="${1#*=}"
+      shift
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      echo "Usage: $0 <version> [release-notes-html-file] [--with-speech-models] [--push-wiki] [--cleanup-releases[=N]]" >&2
+      exit 1
+      ;;
+    *)
+      if [[ -n "$NOTES_FILE" ]]; then
+        echo "Unexpected extra argument: $1" >&2
+        echo "Usage: $0 <version> [release-notes-html-file] [--with-speech-models] [--push-wiki] [--cleanup-releases[=N]]" >&2
+        exit 1
+      fi
+      NOTES_FILE="$1"
+      shift
+      ;;
+  esac
+done
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TAG="v$VERSION"
 PKG_PATH="$ROOT_DIR/release/$VERSION/LeafReader-$VERSION.pkg"
@@ -36,6 +66,10 @@ cd "$ROOT_DIR"
 
 if [[ ! "$VERSION" =~ ^[0-9]+(\.[0-9]+)+$ ]]; then
   echo "Invalid version: $VERSION" >&2
+  exit 1
+fi
+if [[ ! "$CLEANUP_KEEP" =~ ^[0-9]+$ || "$CLEANUP_KEEP" -lt 1 ]]; then
+  echo "--cleanup-releases keep count must be a positive integer" >&2
   exit 1
 fi
 
@@ -102,6 +136,9 @@ if [[ ! -f "$PKG_PATH" ]]; then
   exit 1
 fi
 
+./scripts/smoke_release_pkg.sh "$VERSION"
+./scripts/release_size_report.sh "$VERSION"
+
 SHA256="$(shasum -a 256 "$PKG_PATH" | awk '{print $1}')"
 
 git add README.md docs/appcast.xml docs/index.html mac-app/Info.plist
@@ -129,6 +166,18 @@ if [[ "$UPLOAD_SPEECH_MODELS" -eq 1 ]]; then
 else
   echo "Skipping speech model assets; app code points to $RUNTIME_ASSETS_RELEASE_TAG."
   echo "Use --with-speech-models only when model archives changed and SpeechRuntimeModel.runtimeAssetsReleaseTag was updated."
+fi
+
+if [[ "$PUSH_WIKI" -eq 1 ]]; then
+  ./scripts/update_wiki.sh --push
+else
+  echo "Skipping GitHub Wiki push. Use --push-wiki to sync docs/wiki after publishing."
+fi
+
+if [[ "$CLEANUP_RELEASES" -eq 1 ]]; then
+  ./scripts/cleanup_releases.sh --keep "$CLEANUP_KEEP" --apply
+else
+  ./scripts/cleanup_releases.sh --keep "$CLEANUP_KEEP"
 fi
 
 echo "Published $VERSION"

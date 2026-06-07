@@ -48,17 +48,27 @@ Expected:
 ```sh
 pkgutil --check-signature release/<version>/LeafReader-<version>.pkg
 spctl --assess --type install release/<version>/LeafReader-<version>.pkg
+./scripts/smoke_release_pkg.sh <version>
+./scripts/release_size_report.sh <version>
 ```
 
 Expected:
 
 - Package signature is valid.
 - Gatekeeper assessment succeeds.
+- The expanded package contains a signed app with the expected version and bundled resources.
+- Speech runtime size and signable file count are visible before publication.
 
 ## 5. Publish
 
 ```sh
 ./scripts/publish_release.sh <version>
+```
+
+For a full maintenance publish, include wiki sync and release cleanup:
+
+```sh
+./scripts/publish_release.sh <version> --push-wiki --cleanup-releases
 ```
 
 Expected:
@@ -67,6 +77,8 @@ Expected:
 - Release artifacts are uploaded to GitHub Releases.
 - `main` and `v<version>` are pushed.
 - `docs/appcast.xml`, `README.md`, and website references are current.
+- With `--push-wiki`, GitHub Wiki and `docs/wiki` source are updated after publication.
+- With `--cleanup-releases`, old ignored local release artifacts are removed after publication.
 
 ## 6. Verify Public Endpoints
 
@@ -100,6 +112,8 @@ Expected:
 - Code Map and Type Index are regenerated.
 - GitHub Wiki receives updated pages.
 - `docs/wiki` source changes are committed and pushed to `main`.
+
+Skip this manual step when `publish_release.sh` was run with `--push-wiki`.
 
 ## Recovery
 

@@ -496,7 +496,7 @@ Latest installer:
 
 Local release package path:
 
-`release/1.7.8/LeafReader-1.7.7.pkg`
+`release/1.7.8/LeafReader-1.7.8.pkg`
 
 Build the signed release package without publishing:
 
@@ -510,7 +510,7 @@ Run the full publish flow from a clean working tree:
 ./scripts/publish_release.sh 1.7.8
 ```
 
-The publish script runs tests, builds/signs/notarizes the pkg, commits version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-models` only when publishing changed speech model archives in `docs/tts/`.
+The publish script runs tests, builds/signs/notarizes the pkg, smoke-tests the package payload, reports speech runtime size, commits version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-models` only when publishing changed speech model archives in `docs/tts/`. Add `--push-wiki --cleanup-releases` to sync GitHub Wiki and clean old ignored local release artifacts after publishing.
 
 ## Notes
 
