@@ -322,6 +322,13 @@ Third-party speech models and runtimes remain copyrighted by their respective pr
 - [KittenTTS](https://github.com/KittenML/KittenTTS) and [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs): KittenTTS model under Apache License 2.0; Rust runtime copyright belongs to the `kitten_tts_rs` project contributors.
 - [Piper](https://github.com/rhasspy/piper): MIT License; Piper voice model assets follow the metadata shipped with the upstream model package.
 
+## What's New in 1.7.8
+
+- Improved reader theme coverage so chrome, toolbar, search, bookshelf, vocabulary, and AI surfaces consistently follow white, eye-care, and dark themes.
+- Tightened release and documentation checks: local checks now build the manual in a temporary directory to avoid noisy generated HTML diffs.
+- Cleaned up speech runtime release maintenance by removing obsolete runtime download wrappers and splitting Piper worker helpers into focused support code.
+- Added regression coverage for theme palette colors and kept UI theme scanning warning-free.
+
 ## What's New in 1.7.7
 
 - Added a Difficult Sentence action for selected text in Reading Notes and for selected sentences in the main reader.
