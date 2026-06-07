@@ -147,7 +147,9 @@ LOGIC_TEST_SOURCES=(
   tests/EPUBLogicTests.swift
   tests/ReadingNoteLogicTests.swift
   tests/ReaderShelfLogicTests.swift
+  tests/AISettingsTestSupport.swift
   tests/AISettingsLogicTests.swift
+  tests/SpeechRuntimeLogicTests.swift
   tests/ECDICTLogicTests.swift
   tests/VocabularyLogicTests.swift
   tests/LogicTests.swift
