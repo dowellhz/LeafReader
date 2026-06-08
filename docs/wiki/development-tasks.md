@@ -65,7 +65,7 @@ Run:
 ./scripts/build_app.sh
 ```
 
-`build_app.sh` defaults to `arm64` for faster daily iteration. Use `./scripts/build_app.sh --universal` only when checking release-style architecture output.
+`build_app.sh` defaults to `--debug --arm64` for faster daily iteration. Use `./scripts/build_app.sh --release --universal` only when checking release-style architecture output.
 
 UI rule:
 
@@ -148,7 +148,8 @@ Run:
 
 ```sh
 ./tests/run.sh
-./scripts/build_app.sh --universal
+./scripts/build_app.sh --release --universal
+./scripts/audit_app_bundle.sh
 ```
 
 Watch for:

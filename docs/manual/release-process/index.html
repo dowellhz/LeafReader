@@ -1130,7 +1130,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./tests/run.sh
 </code></pre></div>
 <p>Build the app:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./scripts/build_app.sh<span class="w"> </span>--universal
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./scripts/build_app.sh<span class="w"> </span>--release<span class="w"> </span>--universal
 </code></pre></div>
 <p>Publish a release:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./scripts/publish_release.sh<span class="w"> </span>&lt;version&gt;
@@ -1143,17 +1143,19 @@
 </code></pre></div>
 <p>Report release and speech runtime size:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./scripts/release_size_report.sh<span class="w"> </span>&lt;version&gt;
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>./scripts/audit_app_bundle.sh
 </code></pre></div>
 <p>Check version references:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./scripts/bump_version.sh<span class="w"> </span>--check<span class="w"> </span>&lt;version&gt;
 </code></pre></div>
 <h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>scripts/build_app.sh</code>: builds and signs <code>Leaf Reader.app</code>, pruning bundled speech runtime packaging/debug noise before signing. Daily builds default to <code>arm64</code>; release packaging calls it with <code>--universal</code>.</li>
+<li><code>scripts/build_app.sh</code>: builds and signs <code>Leaf Reader.app</code>, pruning bundled speech runtime packaging/debug noise before signing. Daily builds default to <code>--debug --arm64</code>; release packaging calls it with <code>--release --universal</code>.</li>
 <li><code>scripts/release_pkg.sh</code>: builds release package artifacts.</li>
 <li><code>scripts/publish_release.sh</code>: runs tests, packages, checks version references, and publishes.</li>
 <li><code>scripts/smoke_release_pkg.sh</code>: expands and validates the signed package payload.</li>
 <li><code>scripts/release_size_report.sh</code>: reports app, package, speech runtime size, and the largest bundled runtime files.</li>
+<li><code>scripts/audit_app_bundle.sh</code>: audits the current app bundle, speech runtime symlinks, and largest bundled resources.</li>
 <li><code>scripts/cleanup_releases.sh</code>: removes ignored generated artifacts from old release directories.</li>
 <li><code>scripts/bump_version.sh</code>: updates and verifies version strings.</li>
 <li><code>docs/appcast.xml</code>: Sparkle update feed.</li>

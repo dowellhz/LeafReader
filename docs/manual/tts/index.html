@@ -1193,10 +1193,9 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>     -&gt; SpeechPlaybackCoordinator
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>     -&gt; SpeechRuntimeResourceManager
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        -&gt; Piper runtime
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        -&gt; Kokoro Core ML runtime
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        -&gt; Supertonic Core ML runtime
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>     -&gt; AVAudioPlayer
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  -&gt; ReaderWindowController+ReadAloudProgress
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        -&gt; FluidAudio Core ML runtime (Kokoro, Supertonic)
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>     -&gt; AVAudioPlayer
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  -&gt; ReaderWindowController+ReadAloudProgress
 </code></pre></div>
 <p>短单词、AI 面板短句和不适合走本地模型的内容，可以通过 <code>SpeechUtteranceFactory</code> 回退到 <code>NSSpeechSynthesizer</code>。</p>
 <h2 id="_3">播放流程<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
@@ -1227,6 +1226,7 @@
 <ul>
 <li>macOS 12 及以上默认目标是 Piper。</li>
 <li>Kokoro 可以在旧系统下载，但运行需要 macOS 14 或以上；不兼容系统会在设置页提示。</li>
+<li>Supertonic 使用独立 Supertonic 3 模型目录，但在 app bundle 内优先复用 Kokoro 的 FluidAudio CoreML CLI；包内 <code>supertonic-coreml/supertonic-mini</code> 可以是指向 <code>kokoro-coreml/fluidaudiocli</code> 的 symlink。</li>
 <li><code>SpeechRuntimeResourceManager.isDownloaded(_:)</code> 只检查运行时文件是否存在。</li>
 <li><code>SpeechRuntimeResourceManager.isRunnable(_:)</code> 同时检查文件和当前 macOS 版本要求。</li>
 <li><code>SpeechRuntimeResourceManager.runnableRuntime(preferredID:)</code> 是播放代码选择运行时的统一入口。</li>
@@ -1238,7 +1238,8 @@
 </ul>
 <h2 id="_6">打包与发布<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>scripts/build_app.sh</code>：把语音运行时复制进 app bundle，清理打包/调试噪声，并验证 bundle 布局；日常默认只编 <code>arm64</code>，发布包使用 <code>--universal</code>。</li>
+<li><code>scripts/build_app.sh</code>：把语音运行时复制进 app bundle，清理打包/调试噪声，并验证 bundle 布局；日常默认 <code>--debug --arm64</code>，发布包使用 <code>--release --universal</code>。</li>
+<li><code>scripts/audit_app_bundle.sh</code>：报告 app、资源、runtime、dylib 和 symlink 体积，适合做包体积审计。</li>
 <li><code>scripts/package_speech_models.sh</code>：打包可下载 TTS 模型，生成 <code>docs/tts/speech-models-manifest.json</code> 的大小和 SHA256。</li>
 <li><code>scripts/publish_release.sh</code>：上传发布产物；只有模型归档变化时才传 <code>--with-speech-models</code>。</li>
 </ul>
@@ -1247,7 +1248,8 @@
 <h2 id="_7">检查<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./tests/run.sh
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./scripts/build_app.sh
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>./scripts/check.sh<span class="w"> </span>--no-build
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>./scripts/audit_app_bundle.sh
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>./scripts/check.sh<span class="w"> </span>--no-build
 </code></pre></div>
 <p>下载行为至少覆盖这些状态：</p>
 <ul>

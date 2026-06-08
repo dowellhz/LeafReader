@@ -50,7 +50,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 
 ### 可选朗读模型
 
-Leaf Reader 可以使用 Piper、[FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) 或 Supertonic Core ML 进行本地朗读。Kokoro 提供英文和中文声音，Piper 用于英文朗读，Supertonic 提供多语言本地朗读。小型运行时已经随安装包提供，大模型文件按需下载。打开“设置 -> AI 分析 -> 朗读”即可下载 Piper、Kokoro 或 Supertonic。
+Leaf Reader 可以使用 Piper、[FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) 或 Supertonic Core ML 进行本地朗读。Kokoro 提供英文和中文声音，Piper 用于英文朗读，Supertonic 使用 Supertonic 3 模型并复用 FluidAudio CoreML 运行时。小型运行时已经随安装包提供，大模型文件按需下载。打开“设置 -> AI 分析 -> 朗读”即可下载 Piper、Kokoro 或 Supertonic。
 
 朗读模型优先级会自动处理：优先使用用户选择的可用运行时，中文内容会切换到 Kokoro。短词或短句会直接使用 Apple 系统语音。
 
@@ -429,7 +429,8 @@ Build and run the app:
 open "Leaf Reader.app"
 ```
 
-Daily builds default to Apple Silicon `arm64` for faster iteration. Use `./scripts/build_app.sh --universal` when you need a local universal app; release packaging already does this automatically.
+Daily builds default to `--debug --arm64` for faster iteration. Use `./scripts/build_app.sh --release --universal` when you need a local release-style universal app; release packaging already does this automatically.
+Use `./scripts/audit_app_bundle.sh` to inspect the generated app, speech runtime sizes, symlinks, and largest bundled resources.
 
 ### Tests
 

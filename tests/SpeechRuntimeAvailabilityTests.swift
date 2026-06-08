@@ -51,6 +51,36 @@ enum SpeechRuntimeAvailabilityTests {
             "generic local runtime presenter should distinguish missing runtime from missing model"
         )
 
+        let missingModel = LocalRuntimeStatusContext(
+            descriptor: descriptor,
+            installState: .missingModel,
+            isSupported: true,
+            isDownloading: false,
+            isPaused: false,
+            downloadFailureMessage: nil,
+            inferenceFailureText: nil
+        )
+        try expectEqual(
+            LocalRuntimeStatusPresenter.statusText(missingModel),
+            "运行时已安装 · 缺少模型 · 约 112 MB",
+            "generic local runtime presenter should explain missing model repair state"
+        )
+
+        let missingRuntimeAndModel = LocalRuntimeStatusContext(
+            descriptor: descriptor,
+            installState: .missingRuntimeAndModel,
+            isSupported: true,
+            isDownloading: false,
+            isPaused: false,
+            downloadFailureMessage: nil,
+            inferenceFailureText: nil
+        )
+        try expectEqual(
+            LocalRuntimeStatusPresenter.statusText(missingRuntimeAndModel),
+            "缺少运行时和模型 · 模型中等，英语质量好 · 约 112 MB",
+            "generic local runtime presenter should explain missing runtime and model state"
+        )
+
         let unsupportedFailure = LocalRuntimeStatusContext(
             descriptor: descriptor,
             installState: .missingRuntimeAndModel,
@@ -197,8 +227,13 @@ enum SpeechRuntimeAvailabilityTests {
         )
         try expectEqual(
             SpeechRuntimeResourceManager.incompleteInstallStatusText(for: .piper, installState: .missingModel),
-            nil,
-            "missing model should keep the existing not-downloaded status copy"
+            "运行时已安装 · 缺少模型 · 约 112 MB",
+            "missing model should surface the repair-oriented status copy"
+        )
+        try expectEqual(
+            SpeechRuntimeResourceManager.incompleteInstallStatusText(for: .piper, installState: .missingRuntimeAndModel),
+            "缺少运行时和模型 · 模型中等，英语质量好 · 约 112 MB",
+            "missing runtime and model should surface the repair-oriented status copy"
         )
     }
 

@@ -7,6 +7,7 @@ SPARKLE_HOME="${SPARKLE_HOME:-/opt/homebrew/Caskroom/sparkle/2.9.2}"
 APP_SIGN_IDENTITY="${APP_SIGN_IDENTITY:--}"
 MACOS_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET:-12.0}"
 ARCHS="${ARCHS:-arm64}"
+BUILD_CONFIGURATION="${BUILD_CONFIGURATION:-debug}"
 REQUIRE_BUNDLED_SPEECH_RUNTIMES="${REQUIRE_BUNDLED_SPEECH_RUNTIMES:-0}"
 KOKORO_RUNTIME="${KOKORO_RUNTIME:-$HOME/.local/share/leafreader/kokoro-coreml/fluidaudiocli}"
 KOKORO_RUNTIME_ARCHIVE="${KOKORO_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kokoro-coreml-macos-arm64.tar.gz}"
@@ -19,7 +20,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --archs)
       if [[ $# -lt 2 || -z "${2:-}" ]]; then
-        echo "Usage: $0 [--archs \"arm64 x86_64\"] [--arm64] [--universal]" >&2
+        echo "Usage: $0 [--debug|--release] [--archs \"arm64 x86_64\"] [--arm64] [--universal]" >&2
         exit 1
       fi
       ARCHS="$2"
@@ -37,13 +38,21 @@ while [[ $# -gt 0 ]]; do
       ARCHS="arm64 x86_64"
       shift
       ;;
+    --debug)
+      BUILD_CONFIGURATION="debug"
+      shift
+      ;;
+    --release)
+      BUILD_CONFIGURATION="release"
+      shift
+      ;;
     -h|--help)
-      echo "Usage: $0 [--archs \"arm64 x86_64\"] [--arm64] [--universal]" >&2
+      echo "Usage: $0 [--debug|--release] [--archs \"arm64 x86_64\"] [--arm64] [--universal]" >&2
       exit 0
       ;;
     *)
       echo "Unknown option: $1" >&2
-      echo "Usage: $0 [--archs \"arm64 x86_64\"] [--arm64] [--universal]" >&2
+      echo "Usage: $0 [--debug|--release] [--archs \"arm64 x86_64\"] [--arm64] [--universal]" >&2
       exit 1
       ;;
   esac
@@ -65,6 +74,20 @@ for ARCH in "${BUILD_ARCHS[@]}"; do
       ;;
   esac
 done
+case "$BUILD_CONFIGURATION" in
+  debug)
+    SWIFT_BUILD_FLAGS=(-Onone -g)
+    ;;
+  release)
+    SWIFT_BUILD_FLAGS=(-O)
+    ;;
+  *)
+    echo "Unsupported build configuration: $BUILD_CONFIGURATION" >&2
+    echo "Supported configurations: debug release" >&2
+    exit 1
+    ;;
+esac
+echo "Building configuration: $BUILD_CONFIGURATION"
 echo "Building architectures: ${BUILD_ARCHS[*]}"
 
 ESPEAK_BUNDLED_DICTS=(en_dict)
@@ -287,6 +310,7 @@ TEMP_BINARIES=()
 for ARCH in "${BUILD_ARCHS[@]}"; do
   ARCH_BINARY="$APP_PATH/Contents/MacOS/Leaf Reader-$ARCH"
   swiftc "$ROOT_DIR"/mac-app/*.swift \
+    "${SWIFT_BUILD_FLAGS[@]}" \
     -target "$ARCH-apple-macos$MACOS_DEPLOYMENT_TARGET" \
     -F "$SPARKLE_HOME" \
     -o "$ARCH_BINARY" \
@@ -309,6 +333,10 @@ else
   lipo -create -output "$BINARY_PATH" "${TEMP_BINARIES[@]}"
   rm -f "${TEMP_BINARIES[@]}"
 fi
+if [[ "$BUILD_CONFIGURATION" == "release" ]]; then
+  strip -x "$BINARY_PATH" || true
+fi
+find "$APP_PATH/Contents/MacOS" -maxdepth 1 -name '*.dSYM' -type d -prune -exec rm -rf {} +
 
 xattr -cr "$APP_PATH"
 xattr -crs "$APP_PATH"

@@ -157,18 +157,23 @@ extension AppDelegate {
         switch UpdateFailureClassifier.classify(nsError) {
         case .certificate:
             return AppText.localized(
-                "更新源的 SSL 证书暂时不可用。\n请稍后重试，或确认 leafreader.space 的 GitHub Pages HTTPS 证书已生效。",
-                "The update feed SSL certificate is not available yet.\nPlease try again later, or confirm GitHub Pages HTTPS is active for leafreader.space."
+                "更新源的 HTTPS 证书不可用或不被信任。\n请检查系统时间、网络代理，或确认 leafreader.space 的 GitHub Pages HTTPS 证书已生效。",
+                "The update feed HTTPS certificate is unavailable or not trusted.\nCheck the system clock, network proxy, or confirm GitHub Pages HTTPS is active for leafreader.space."
             )
         case .network:
             return AppText.localized(
-                "无法连接 Leaf Reader 更新源。\n请检查网络连接后再试。",
-                "Leaf Reader cannot reach the update feed.\nPlease check your network connection and try again."
+                "无法连接 Leaf Reader 更新源。\n请检查网络、代理或 DNS；也可以在浏览器打开 leafreader.space/appcast.xml 验证是否能访问。",
+                "Leaf Reader cannot reach the update feed.\nCheck network, proxy, or DNS; you can also open leafreader.space/appcast.xml in a browser."
             )
         case .appcast:
             return AppText.localized(
-                "已连接更新源，但无法读取更新信息。\n请稍后重试，或确认 appcast.xml 已发布成功。",
-                "Leaf Reader reached the update feed but could not read update information.\nPlease try again later, or confirm appcast.xml was published successfully."
+                "已连接更新源，但 appcast 更新信息无法读取。\n请稍后重试；如果刚发布新版本，请确认 appcast.xml 已推送并且 XML、版本号、下载链接正确。",
+                "Leaf Reader reached the update feed, but the appcast could not be read.\nTry again later; if a release was just published, confirm appcast.xml, version, and download URL are correct."
+            )
+        case .signature:
+            return AppText.localized(
+                "更新包签名或 Sparkle 校验未通过。\n请不要手动安装该更新；请重新下载最新安装包，或等待发布者修复 appcast 签名、公证或安装包签名。",
+                "The update package signature or Sparkle validation failed.\nDo not install this update manually; download the latest installer again or wait for the appcast signature, notarization, or package signature to be fixed."
             )
         case .other:
             break

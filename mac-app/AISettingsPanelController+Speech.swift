@@ -41,6 +41,10 @@ extension AISettingsPanelController {
         cancelSpeechRuntimeDownload(runtime)
     }
 
+    @objc func copySpeechRuntimeDiagnosticsButton(_ sender: NSButton) {
+        copySpeechRuntimeDiagnostics(error: nil, runtime: nil)
+    }
+
     @objc func speechRuntimeChanged(_ sender: NSPopUpButton) {
         let runtimeID = sender.selectedItem?.representedObject as? String
         if let runtimeID,
@@ -332,7 +336,7 @@ extension AISettingsPanelController {
                 }
                 button?.isEnabled = true
                 self.speechRuntimeControls[runtime]?.statusLabel.stringValue = AppText.localized("下载失败", "Download failed")
-                self.showSpeechDownloadError(error)
+                self.showSpeechDownloadError(error, runtime: runtime)
             }
         }
         refreshSpeechRuntimeStatus()
@@ -384,7 +388,7 @@ extension AISettingsPanelController {
             selectRunnableSpeechRuntimeIfNeeded(deletedRuntime: runtime)
             refreshSpeechRuntimeStatus()
         } catch {
-            showSpeechDeleteError(error)
+            showSpeechDeleteError(error, runtime: runtime)
         }
     }
 
@@ -394,29 +398,90 @@ extension AISettingsPanelController {
         AISettingsStore.saveSelectedSpeechRuntimeID(replacement.id)
     }
 
-    private func showSpeechDownloadError(_ error: Error) {
+    private func showSpeechDownloadError(_ error: Error, runtime: SpeechRuntimeResourceManager.Runtime) {
         guard let panel else { return }
         let alert = NSAlert()
         alert.messageText = AppText.localized("朗读模型下载失败", "Read Aloud Model Download Failed")
         alert.informativeText = speechRuntimeErrorDescription(error)
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppText.confirm)
-        alert.beginSheetModal(for: panel)
+        alert.addButton(withTitle: AppText.localized("复制诊断", "Copy Diagnostics"))
+        alert.beginSheetModal(for: panel) { [weak self] response in
+            guard response == .alertSecondButtonReturn else { return }
+            self?.copySpeechRuntimeDiagnostics(error: error, runtime: runtime)
+        }
     }
 
-    private func showSpeechDeleteError(_ error: Error) {
+    private func showSpeechDeleteError(_ error: Error, runtime: SpeechRuntimeResourceManager.Runtime) {
         guard let panel else { return }
         let alert = NSAlert()
         alert.messageText = AppText.localized("朗读模型删除失败", "Delete Read Aloud Model Failed")
         alert.informativeText = speechRuntimeErrorDescription(error)
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppText.confirm)
-        alert.beginSheetModal(for: panel)
+        alert.addButton(withTitle: AppText.localized("复制诊断", "Copy Diagnostics"))
+        alert.beginSheetModal(for: panel) { [weak self] response in
+            guard response == .alertSecondButtonReturn else { return }
+            self?.copySpeechRuntimeDiagnostics(error: error, runtime: runtime)
+        }
     }
 
     private func speechRuntimeErrorDescription(_ error: Error) -> String {
         let raw = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         let fallback = AppText.localized("未知错误", "Unknown error")
         return NetworkErrorFormatter.sanitizedBody(raw.isEmpty ? fallback : raw)
+    }
+
+    private func copySpeechRuntimeDiagnostics(error: Error?, runtime: SpeechRuntimeResourceManager.Runtime?) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(speechRuntimeDiagnosticText(error: error, runtime: runtime), forType: .string)
+    }
+
+    private func speechRuntimeDiagnosticText(
+        error: Error?,
+        runtime selectedRuntime: SpeechRuntimeResourceManager.Runtime?
+    ) -> String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        var lines = [
+            "Leaf Reader Speech Runtime Diagnostic",
+            "version: \(version)",
+            "selectedRuntime: \(AISettingsStore.selectedSpeechRuntimeID)",
+            "selectedSpeed: \(AISettingsStore.selectedSpeechSpeedID)"
+        ]
+        if let error {
+            lines.append("error: \(speechRuntimeErrorDescription(error))")
+        }
+        let runtimes: [SpeechRuntimeResourceManager.Runtime]
+        if let selectedRuntime {
+            runtimes = [selectedRuntime]
+        } else {
+            runtimes = SpeechRuntimeResourceManager.Runtime.displayOrder
+        }
+        for runtime in runtimes {
+            let health = SpeechRuntimeAvailability.health(for: runtime)
+            let failure = SpeechRuntimeInferenceFailureStore.failure(for: runtime)
+            lines += [
+                "",
+                "[\(runtime.id)]",
+                "title: \(runtime.title)",
+                "voice: \(AISettingsStore.selectedSpeechVoiceID(runtimeID: runtime.id))",
+                "supported: \(runtime.isSupportedOnCurrentSystem)",
+                "minimumSystem: \(runtime.minimumSystemVersionText)",
+                "downloaded: \(SpeechRuntimeResourceManager.isDownloaded(runtime))",
+                "runnable: \(SpeechRuntimeResourceManager.isRunnable(runtime))",
+                "downloading: \(SpeechRuntimeResourceManager.isDownloading(runtime))",
+                "paused: \(SpeechRuntimeResourceManager.isPaused(runtime))",
+                "installState: \(health.installState)",
+                "hasRuntime: \(health.hasRuntime)",
+                "hasModel: \(health.hasModel)",
+                "status: \(SpeechRuntimeResourceManager.statusText(for: runtime))",
+                "installDirectory: \(runtime.installDirectory.path)",
+                "bundledExecutable: \(runtime.bundledExecutableURL?.path ?? "none")",
+                "lastFailureContext: \(failure?.context ?? "none")",
+                "lastFailureTextLength: \(failure.map { String($0.textLength) } ?? "none")",
+                "lastFailureOutput: \(failure?.outputPath ?? "none")"
+            ]
+        }
+        return lines.joined(separator: "\n")
     }
 }

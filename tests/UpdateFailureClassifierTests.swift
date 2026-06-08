@@ -55,6 +55,19 @@ private func testAppcastFailureIsClassifiedFromText() throws {
     )
 }
 
+private func testSignatureFailureIsClassifiedFromText() throws {
+    let error = NSError(
+        domain: "Sparkle",
+        code: 3,
+        userInfo: [NSLocalizedDescriptionKey: "The update package signature does not match sparkle:edSignature"]
+    )
+    try expectEqual(
+        UpdateFailureClassifier.classify(error),
+        .signature,
+        "Sparkle signature failures should be classified as signature failures"
+    )
+}
+
 private func testUnknownFailureFallsBackToOther() throws {
     let error = NSError(domain: "LeafReaderTests", code: 99)
     try expectEqual(
@@ -76,6 +89,8 @@ struct UpdateFailureClassifierTestRunner {
             print("PASS update network classification")
             try testAppcastFailureIsClassifiedFromText()
             print("PASS update appcast classification")
+            try testSignatureFailureIsClassifiedFromText()
+            print("PASS update signature classification")
             try testUnknownFailureFallsBackToOther()
             print("PASS update generic fallback classification")
             print("UpdateFailureClassifierTests passed")

@@ -20,8 +20,7 @@ ReaderWindowController+ReadAloud
      -> SpeechPlaybackCoordinator
      -> SpeechRuntimeResourceManager
         -> Piper runtime
-        -> Kokoro Core ML runtime
-        -> Supertonic Core ML runtime
+        -> FluidAudio Core ML runtime (Kokoro, Supertonic)
      -> AVAudioPlayer
   -> ReaderWindowController+ReadAloudProgress
 ```
@@ -60,6 +59,7 @@ ReaderWindowController+ReadAloud
 
 - macOS 12 及以上默认目标是 Piper。
 - Kokoro 可以在旧系统下载，但运行需要 macOS 14 或以上；不兼容系统会在设置页提示。
+- Supertonic 使用独立 Supertonic 3 模型目录，但在 app bundle 内优先复用 Kokoro 的 FluidAudio CoreML CLI；包内 `supertonic-coreml/supertonic-mini` 可以是指向 `kokoro-coreml/fluidaudiocli` 的 symlink。
 - `SpeechRuntimeResourceManager.isDownloaded(_:)` 只检查运行时文件是否存在。
 - `SpeechRuntimeResourceManager.isRunnable(_:)` 同时检查文件和当前 macOS 版本要求。
 - `SpeechRuntimeResourceManager.runnableRuntime(preferredID:)` 是播放代码选择运行时的统一入口。
@@ -71,7 +71,8 @@ ReaderWindowController+ReadAloud
 
 ## 打包与发布
 
-- `scripts/build_app.sh`：把语音运行时复制进 app bundle，清理打包/调试噪声，并验证 bundle 布局；日常默认只编 `arm64`，发布包使用 `--universal`。
+- `scripts/build_app.sh`：把语音运行时复制进 app bundle，清理打包/调试噪声，并验证 bundle 布局；日常默认 `--debug --arm64`，发布包使用 `--release --universal`。
+- `scripts/audit_app_bundle.sh`：报告 app、资源、runtime、dylib 和 symlink 体积，适合做包体积审计。
 - `scripts/package_speech_models.sh`：打包可下载 TTS 模型，生成 `docs/tts/speech-models-manifest.json` 的大小和 SHA256。
 - `scripts/publish_release.sh`：上传发布产物；只有模型归档变化时才传 `--with-speech-models`。
 
@@ -84,6 +85,7 @@ ReaderWindowController+ReadAloud
 ```sh
 ./tests/run.sh
 ./scripts/build_app.sh
+./scripts/audit_app_bundle.sh
 ./scripts/check.sh --no-build
 ```
 

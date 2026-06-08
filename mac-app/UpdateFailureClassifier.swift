@@ -4,6 +4,7 @@ enum UpdateFailureKind: Equatable {
     case certificate
     case network
     case appcast
+    case signature
     case other
 }
 
@@ -18,6 +19,9 @@ enum UpdateFailureClassifier {
         }
         if containsAppcastReadError(errors) {
             return .appcast
+        }
+        if containsSignatureError(errors) {
+            return .signature
         }
         return .other
     }
@@ -75,6 +79,21 @@ enum UpdateFailureClassifier {
                 || text.contains("xml")
                 || text.contains("parse")
                 || text.contains("decode")
+        }
+    }
+
+    private static func containsSignatureError(_ errors: [NSError]) -> Bool {
+        errors.contains { error in
+            let text = searchableText(error)
+            return text.contains("signature")
+                || text.contains("signing")
+                || text.contains("signed")
+                || text.contains("ed25519")
+                || text.contains("dsa")
+                || text.contains("notar")
+                || text.contains("staple")
+                || text.contains("code signature")
+                || text.contains("sparkle:edsignature")
         }
     }
 

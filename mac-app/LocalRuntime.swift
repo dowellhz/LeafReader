@@ -213,7 +213,17 @@ enum LocalRuntimeStatusPresenter {
                 "缺少运行时 · 模型已安装 · \(descriptor.downloadSizeText)",
                 "Missing runtime · Model installed · \(descriptor.downloadSizeText)"
             )
-        case .complete, .missingModel, .missingRuntimeAndModel:
+        case .missingModel:
+            return AppText.localized(
+                "运行时已安装 · 缺少模型 · \(descriptor.downloadSizeText)",
+                "Runtime installed · Missing model · \(descriptor.downloadSizeText)"
+            )
+        case .missingRuntimeAndModel:
+            return AppText.localized(
+                "缺少运行时和模型 · \(descriptor.summaryText) · \(descriptor.downloadSizeText)",
+                "Missing runtime and model · \(descriptor.summaryText) · \(descriptor.downloadSizeText)"
+            )
+        case .complete:
             return nil
         }
     }

@@ -29,6 +29,7 @@ struct AISettingsSpeechSection {
     let runtimePopup: NSPopUpButton
     let voicePopup: NSPopUpButton
     let speedPopup: NSPopUpButton
+    let diagnosticsButton: NSButton
     let runtimeRows: [SpeechRuntimeRowControls]
     let pageViews: [NSView]
 
@@ -77,6 +78,12 @@ extension AISettingsPanelController {
         )
         speedPopup.target = self
         speedPopup.action = #selector(speechSpeedChanged(_:))
+        let diagnosticsButton = settingsActionButton(
+            title: AppText.localized("复制诊断", "Copy Diagnostics"),
+            target: self,
+            action: #selector(copySpeechRuntimeDiagnosticsButton(_:))
+        )
+        diagnosticsButton.identifier = NSUserInterfaceItemIdentifier("copySpeechRuntimeDiagnostics")
         for fieldLabel in [runtimeLabel, voiceLabel, speedLabel] {
             fieldLabel.setContentHuggingPriority(.required, for: .vertical)
             fieldLabel.setContentCompressionResistancePriority(.required, for: .vertical)
@@ -94,11 +101,12 @@ extension AISettingsPanelController {
         }
         runtimeRows.forEach { configureSpeechRuntimeRowState($0) }
 
-        let pageViews = [controlsContainer] + runtimeRows.flatMap(\.pageViews)
+        let pageViews = [controlsContainer, diagnosticsButton] + runtimeRows.flatMap(\.pageViews)
         return AISettingsSpeechSection(
             runtimePopup: runtimePopup,
             voicePopup: voicePopup,
             speedPopup: speedPopup,
+            diagnosticsButton: diagnosticsButton,
             runtimeRows: runtimeRows,
             pageViews: pageViews,
             controlsContainer: controlsContainer,
@@ -239,7 +247,13 @@ extension AISettingsPanelController {
             )
         }
         if let lastRow = section.runtimeRows.last {
-            constraints.append(lastRow.card.bottomAnchor.constraint(lessThanOrEqualTo: page.bottomAnchor, constant: -8))
+            constraints += [
+                section.diagnosticsButton.topAnchor.constraint(equalTo: lastRow.card.bottomAnchor, constant: 12),
+                section.diagnosticsButton.trailingAnchor.constraint(equalTo: page.trailingAnchor),
+                section.diagnosticsButton.widthAnchor.constraint(equalToConstant: 112),
+                section.diagnosticsButton.heightAnchor.constraint(equalToConstant: rowButtonHeight),
+                section.diagnosticsButton.bottomAnchor.constraint(lessThanOrEqualTo: page.bottomAnchor, constant: -8)
+            ]
         }
         return constraints
     }
