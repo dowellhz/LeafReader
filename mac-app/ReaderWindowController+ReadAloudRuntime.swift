@@ -97,8 +97,8 @@ extension ReaderWindowController {
         showSpeechRuntimeAlert(
             messageText: AppText.localized("需要 Kokoro 中文朗读模型", "Kokoro Chinese Model Required"),
             informativeText: AppText.localized(
-                "当前内容被识别为中文，中文朗读需要 Kokoro 模型。Piper 和 KittenTTS 只支持英文。",
-                "This content was detected as Chinese, which requires the Kokoro model. Piper and KittenTTS support English only."
+                "当前内容被识别为中文，中文朗读需要 Kokoro 模型。Piper 只支持英文。",
+                "This content was detected as Chinese, which requires the Kokoro model. Piper supports English only."
             )
         )
     }
@@ -163,8 +163,8 @@ extension ReaderWindowController {
             return missingSpeechRuntimeInformativeText(for: preferredRuntime)
         }
         return AppText.localized(
-            "朗读需要先安装 Kokoro、KittenTTS、Piper 或 Supertonic 模型。",
-            "Read aloud requires installing a Kokoro, KittenTTS, Piper, or Supertonic speech model first."
+            "朗读需要先安装 Kokoro、Piper 或 Supertonic 模型。",
+            "Read aloud requires installing a Kokoro, Piper, or Supertonic speech model first."
         )
     }
 
@@ -194,13 +194,6 @@ extension ReaderWindowController {
                 "Piper 需要 runtime 和声音模型。请在朗读设置里下载 Piper。",
                 "Piper requires both its runtime and a voice model. Download Piper in Read Aloud settings."
             )
-        case .kitten:
-            if health.hasRuntime && !health.hasModel {
-                return AppText.localized(
-                    "KittenTTS runtime 已安装，但还需要下载 KittenTTS 英文模型。",
-                    "The KittenTTS runtime is installed, but the English model still needs to be downloaded."
-                )
-            }
         case .kokoro:
             if health.hasRuntime && !health.hasModel {
                 return AppText.localized(
@@ -221,8 +214,8 @@ extension ReaderWindowController {
             )
         }
         return AppText.localized(
-            "朗读需要先安装 Kokoro、KittenTTS、Piper 或 Supertonic 模型。",
-            "Read aloud requires installing a Kokoro, KittenTTS, Piper, or Supertonic speech model first."
+            "朗读需要先安装 Kokoro、Piper 或 Supertonic 模型。",
+            "Read aloud requires installing a Kokoro, Piper, or Supertonic speech model first."
         )
     }
 }

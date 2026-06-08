@@ -140,7 +140,7 @@ Start with:
 
 Current model/runtime notes:
 
-- KittenTTS is the macOS 12+ local read-aloud runtime.
+- Piper is the macOS 12+ local read-aloud runtime.
 - Kokoro can be downloaded on older systems, but requires macOS 14+ to run.
 - See `docs/wiki/tts.md` for the full TTS code map, runtime rules, and release packaging notes.
 

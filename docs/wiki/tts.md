@@ -1,6 +1,6 @@
 # TTS 与朗读
 
-关键词：TTS、朗读、语音、KittenTTS、Kokoro、运行时、快捷键、下划线、高亮。
+关键词：TTS、朗读、语音、Piper、Kokoro、Supertonic、运行时、快捷键、下划线、高亮。
 
 这页用于维护本地语音播放、朗读进度高亮和可下载 TTS 模型运行时。
 
@@ -17,10 +17,11 @@
 
 ```text
 ReaderWindowController+ReadAloud
-  -> SpeechPlaybackCoordinator
+     -> SpeechPlaybackCoordinator
      -> SpeechRuntimeResourceManager
-        -> KittenTTS runtime
+        -> Piper runtime
         -> Kokoro Core ML runtime
+        -> Supertonic Core ML runtime
      -> AVAudioPlayer
   -> ReaderWindowController+ReadAloudProgress
 ```
@@ -57,7 +58,7 @@ ReaderWindowController+ReadAloud
 
 ## 运行时规则
 
-- macOS 12 及以上默认目标是 KittenTTS。
+- macOS 12 及以上默认目标是 Piper。
 - Kokoro 可以在旧系统下载，但运行需要 macOS 14 或以上；不兼容系统会在设置页提示。
 - `SpeechRuntimeResourceManager.isDownloaded(_:)` 只检查运行时文件是否存在。
 - `SpeechRuntimeResourceManager.isRunnable(_:)` 同时检查文件和当前 macOS 版本要求。
@@ -66,12 +67,10 @@ ReaderWindowController+ReadAloud
 - 删除运行时时，只删除 Leaf Reader 安装的 FluidAudio 缓存目录，并兼容旧安装。
 - 下载状态包含 active task id，避免已取消或被替换的下载回调覆盖当前状态。
 - 下载失败会按运行时保存，并显示在设置页，直到下一次下载成功、取消或删除。
-- KittenTTS server 超时后会取消 URLSession task，避免旧响应修改已完成状态。
-- Kokoro CLI 回退有超时；删除非当前运行时不应停止正在播放的运行时。
+- Core ML CLI 回退有超时；删除非当前运行时不应停止正在播放的运行时。
 
 ## 打包与发布
 
-- `scripts/build_espeak_ng_runtime.sh`：构建 KittenTTS 需要的低部署版本 `espeak-ng` 和 `pcaudiolib`。
 - `scripts/build_app.sh`：把语音运行时复制进 app bundle，清理打包/调试噪声，并验证 bundle 布局；日常默认只编 `arm64`，发布包使用 `--universal`。
 - `scripts/package_speech_models.sh`：打包可下载 TTS 模型，生成 `docs/tts/speech-models-manifest.json` 的大小和 SHA256。
 - `scripts/publish_release.sh`：上传发布产物；只有模型归档变化时才传 `--with-speech-models`。

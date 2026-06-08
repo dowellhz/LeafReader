@@ -2,66 +2,6 @@ import Cocoa
 import AVFoundation
 
 extension SpeechPlaybackCoordinator {
-    func speakTextInterruption(
-        _ text: String,
-        options: SynthesisOptions = .default,
-        completion: @escaping (Bool) -> Void,
-        finished: @escaping () -> Void
-    ) {
-        cancelScheduledIdleShutdown()
-        let value = SpeechTextPolicy.normalizedReadAloudInput(text)
-        guard SpeechTextPolicy.isLocalTTSCandidate(value) else {
-            completion(false)
-            return
-        }
-
-        let segment = SpeechTextPolicy.segments(for: value).joined(separator: " ")
-        let outputURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("LeafReader-SpeechPlayback-Interrupt-\(UUID().uuidString).wav")
-        let generationID = UUID()
-        beginInterruptionGeneration(generationID)
-        queue.async { [weak self] in
-            guard let self else { return }
-            guard self.isActiveInterruptionGeneration(generationID) else {
-                try? FileManager.default.removeItem(at: outputURL)
-                return
-            }
-            let result = self.generateWAVResult(
-                text: segment,
-                outputURL: outputURL,
-                options: options,
-                recordFailure: false
-            )
-            guard result.isSuccess else {
-                try? FileManager.default.removeItem(at: outputURL)
-                if self.isActiveInterruptionGeneration(generationID),
-                   case .failure(let error) = result {
-                    self.recordSynthesisFailure(
-                        error,
-                        text: segment,
-                        outputURL: outputURL,
-                        voiceID: nil,
-                        languageHint: nil,
-                        context: "selection"
-                    )
-                }
-                DispatchQueue.main.async {
-                    guard self.activeInterruptionGenerationID == generationID else { return }
-                    completion(false)
-                }
-                return
-            }
-            DispatchQueue.main.async {
-                guard self.activeInterruptionGenerationID == generationID else {
-                    try? FileManager.default.removeItem(at: outputURL)
-                    return
-                }
-                completion(true)
-                self.playInterruptionOutput(outputURL, finished: finished)
-            }
-        }
-    }
-
     func speakCachedPreviewInterruption(
         _ text: String,
         runtimeID: String,

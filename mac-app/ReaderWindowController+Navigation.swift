@@ -184,22 +184,8 @@ extension ReaderWindowController {
         saveSession()
     }
 
-    func scrollCurrentPageToTop() {
-        guard let page = pdfView.currentPage else { return }
-        scrollPageToTop(page)
-    }
-
-    func scrollCurrentPageToBottom() {
-        guard let page = pdfView.currentPage else { return }
-        scrollPageToBottom(page)
-    }
-
     func scrollPageToTop(_ page: PDFPage) {
         scrollPage(page, to: .top)
-    }
-
-    func scrollPageToBottom(_ page: PDFPage) {
-        scrollPage(page, to: .bottom)
     }
 
     private func scrollPage(_ page: PDFPage, to placement: PDFPagePlacement) {

@@ -14,10 +14,6 @@ enum SpeechRuntimePathChecks {
         }
     }
 
-    static func kittenRuntimePathsExist(in directory: URL) -> Bool {
-        FileManager.default.isExecutableFile(atPath: Runtime.kitten.executableURL(in: directory).path)
-    }
-
     static func piperRuntimePathsExist(in directory: URL) -> Bool {
         let phonemizeLibraryDirectory = directory
             .appendingPathComponent("piper-phonemize/lib", isDirectory: true)
@@ -65,19 +61,6 @@ enum SpeechRuntimePathChecks {
             $0.lastPathComponent.replacingOccurrences(of: ".onnx.json", with: "")
         })
         return !modelIDs.intersection(configIDs).isEmpty
-    }
-
-    static func kittenModelPathsExist(in directory: URL) -> Bool {
-        let modelDirectory = Runtime.kitten.modelDirectory(in: directory)
-        return directoryExists(modelDirectory)
-            && relativeFilesExist(
-                [
-                    "kitten_tts_mini_v0_8.onnx",
-                    "voices.npz",
-                    "config.json"
-                ],
-                in: modelDirectory
-            )
     }
 
     static func kokoroModelCacheDirectories() -> [URL] {

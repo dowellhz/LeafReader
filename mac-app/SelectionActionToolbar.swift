@@ -178,10 +178,6 @@ final class SelectionActionToolbar: NSView {
         setDisplayMode(configuration.displayMode)
     }
 
-    func setSpeakVisible(_ visible: Bool) {
-        setDisplayMode(.full(showsSpeak: visible))
-    }
-
     func setDisplayMode(_ mode: DisplayMode) {
         switch mode {
         case .full(let showsSpeak):

@@ -10,7 +10,6 @@ final class SpeechPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
 
     let queue = DispatchQueue(label: "LeafReader.SpeechPlayback", qos: .userInitiated)
     let kokoroBackend = KokoroTTSBackend()
-    let kittenBackend = KittenServerTTSBackend()
     let piperBackend = PiperTTSBackend()
     let supertonicBackend = SupertonicCoreMLTTSBackend()
     var activeBackend: PreferredBackend?

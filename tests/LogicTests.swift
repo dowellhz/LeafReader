@@ -661,7 +661,6 @@ private let tests: [(String, () throws -> Void)] = [
     ("Speech runtime health detail", SpeechRuntimeAvailabilityTests.testSpeechRuntimeHealthDistinguishesRuntimeAndModelPaths),
     ("Kokoro model download availability", SpeechRuntimeAvailabilityTests.testKokoroModelDownloadMakesBundledRuntimeAvailable),
     ("Kokoro Mandarin model download availability", SpeechRuntimeAvailabilityTests.testKokoroMandarinModelDownloadMakesBundledRuntimeAvailable),
-    ("KittenTTS model download availability", SpeechRuntimeAvailabilityTests.testKittenModelDownloadMakesBundledRuntimeAvailable),
     ("Piper archive voice validation", SpeechRuntimeDownloadTests.testPiperArchiveValidationRequiresPackagedVoice),
     ("Speech runtime install manifest cache filtering", SpeechRuntimeDownloadTests.testSpeechRuntimeInstallManifestFiltersExternalCachePaths),
     ("Local runtime install manifest compatibility", SpeechRuntimeDownloadTests.testLocalRuntimeInstallManifestCompatibility),

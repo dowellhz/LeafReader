@@ -172,13 +172,4 @@ extension ReaderWindowController {
         )
     }
 
-    func vocabularySRSState(ids: [String], fallback: VocabularySRSState) -> VocabularySRSState {
-        VocabularyReviewScoringService.state(
-            ids: ids,
-            fallback: fallback,
-            documentKind: currentDocumentKind,
-            pdfRecords: storedWordRecords,
-            webRecords: storedWebWordRecords
-        )
-    }
 }

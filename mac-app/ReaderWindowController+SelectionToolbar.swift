@@ -96,11 +96,6 @@ extension ReaderWindowController {
         hideSelectionToolbar()
     }
 
-    func selectionToolbarContextAction(for text: String) -> SelectionActionToolbar.ContextAction {
-        let wordText = selectedVocabularyTextForToolbar(fallback: text)
-        return vocabularySpeakerWord(wordText) == nil ? .summarize : .addWord
-    }
-
     func configureSelectionToolbarActions(for text: String) {
         let wordText = selectedVocabularyTextForToolbar(fallback: text)
         let isVocabulary = vocabularySpeakerWord(wordText) != nil

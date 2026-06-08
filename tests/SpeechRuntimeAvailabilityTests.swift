@@ -142,10 +142,11 @@ enum SpeechRuntimeAvailabilityTests {
         try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
 
         try expect(
-            !SpeechRuntimeAvailability.piperRuntimeAndVoicePathsExist(
+            !SpeechRuntimeAvailability.runtimeHealth(
+                for: .piper,
                 installDirectories: [runtimeDirectory],
                 voiceDirectory: voiceDirectory
-            ),
+            ).isComplete,
             "Piper should remain unavailable after runtime install until a voice model is downloaded"
         )
 
@@ -153,10 +154,11 @@ enum SpeechRuntimeAvailabilityTests {
         try Data().write(to: voiceDirectory.appendingPathComponent("en_US-lessac-high.onnx"))
         try Data("{}".utf8).write(to: voiceDirectory.appendingPathComponent("en_US-lessac-high.onnx.json"))
         try expect(
-            SpeechRuntimeAvailability.piperRuntimeAndVoicePathsExist(
+            SpeechRuntimeAvailability.runtimeHealth(
+                for: .piper,
                 installDirectories: [runtimeDirectory],
                 voiceDirectory: voiceDirectory
-            ),
+            ).isComplete,
             "Piper should become available once the downloaded voice model and config are in the voice cache"
         )
     }
@@ -260,10 +262,11 @@ enum SpeechRuntimeAvailabilityTests {
         try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
 
         try expect(
-            !SpeechRuntimeAvailability.kokoroRuntimeAndModelPathsExist(
+            !SpeechRuntimeAvailability.runtimeHealth(
+                for: .kokoro,
                 installDirectories: [runtimeDirectory],
                 modelCacheRoot: modelCacheRoot
-            ),
+            ).isComplete,
             "Kokoro should remain unavailable after runtime install until model cache files are downloaded"
         )
 
@@ -290,10 +293,11 @@ enum SpeechRuntimeAvailabilityTests {
         }
 
         try expect(
-            SpeechRuntimeAvailability.kokoroRuntimeAndModelPathsExist(
+            SpeechRuntimeAvailability.runtimeHealth(
+                for: .kokoro,
                 installDirectories: [runtimeDirectory],
                 modelCacheRoot: modelCacheRoot
-            ),
+            ).isComplete,
             "Kokoro should become available once the downloaded model cache contains all required files"
         )
     }
@@ -334,39 +338,13 @@ enum SpeechRuntimeAvailabilityTests {
         }
 
         try expect(
-            SpeechRuntimeAvailability.kokoroRuntimeAndModelPathsExist(
+            SpeechRuntimeAvailability.runtimeHealth(
+                for: .kokoro,
                 installDirectories: [runtimeDirectory],
                 modelCacheRoot: modelCacheRoot
-            ),
+            ).isComplete,
             "Kokoro should become available when the Mandarin ANE model cache is complete"
         )
     }
 
-    static func testKittenModelDownloadMakesBundledRuntimeAvailable() throws {
-        let fileManager = FileManager.default
-        let runtimeDirectory = fileManager.temporaryDirectory
-            .appendingPathComponent("leafreader-kitten-availability-\(UUID().uuidString)", isDirectory: true)
-        defer { try? fileManager.removeItem(at: runtimeDirectory) }
-
-        let executable = runtimeDirectory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts-server")
-        try fileManager.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data().write(to: executable)
-        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
-
-        try expect(
-            !SpeechRuntimeAvailability.kittenRuntimeAndModelPathsExist(installDirectories: [runtimeDirectory]),
-            "KittenTTS should remain unavailable after runtime install until model files are downloaded"
-        )
-
-        let modelDirectory = runtimeDirectory.appendingPathComponent("kitten-tts-mini", isDirectory: true)
-        try fileManager.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
-        try Data().write(to: modelDirectory.appendingPathComponent("kitten_tts_mini_v0_8.onnx"))
-        try Data().write(to: modelDirectory.appendingPathComponent("voices.npz"))
-        try Data("{}".utf8).write(to: modelDirectory.appendingPathComponent("config.json"))
-
-        try expect(
-            SpeechRuntimeAvailability.kittenRuntimeAndModelPathsExist(installDirectories: [runtimeDirectory]),
-            "KittenTTS should become available once the downloaded model directory contains all required files"
-        )
-    }
 }

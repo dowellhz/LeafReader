@@ -105,7 +105,7 @@ ECDICT_COUNT="$(sqlite3 "file:$ECDICT_DB?mode=ro&immutable=1" 'select count(*) f
   exit 1
 }
 
-for runtime in kittentts-rs-runtime piper-tts-runtime espeak-ng kokoro-coreml supertonic-coreml; do
+for runtime in piper-tts-runtime kokoro-coreml supertonic-coreml; do
   [[ -e "$SPEECH_RUNTIMES/$runtime" ]] || {
     echo "Speech runtime missing from expanded app: $runtime" >&2
     exit 1

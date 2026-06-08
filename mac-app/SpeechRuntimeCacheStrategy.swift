@@ -67,14 +67,6 @@ struct SpeechRuntimeCacheStrategy {
                     )
                 ]
             }
-        case .kitten:
-            return SpeechRuntimeCacheStrategy(
-                runtime: runtime,
-                invalidatesKokoroVoiceCache: false,
-                fallbackDeleteDirectories: [],
-                useFallbackDeleteDirectoriesWhenManifestIsEmpty: false,
-                moves: { _ in [] }
-            )
         }
     }
 

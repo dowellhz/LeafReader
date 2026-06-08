@@ -2,14 +2,12 @@ import Cocoa
 import Foundation
 
 enum SpeechVoiceCatalog {
-    static let defaultKittenVoiceID = "Jasper"
     static let defaultKokoroVoiceID = "af_heart"
     static let defaultPiperVoiceID = "en_US-lessac-high"
     static let defaultSupertonicVoiceID = "M1"
 
     private typealias Definition = (zhTitle: String, enTitle: String, id: String)
 
-    private static let kittenVoiceIDs = ["Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo"]
     private static let supertonicVoiceIDs = ["M1", "F1", "F4"]
 
     private static let piperVoiceDefinitions: [Definition] = [
@@ -45,10 +43,6 @@ enum SpeechVoiceCatalog {
     static let kokoroEnglishVoiceIDs = Set(kokoroEnglishVoiceDefinitions.map(\.id))
     static let kokoroChineseVoiceIDs = Set(kokoroChineseVoiceDefinitions.map(\.id))
 
-    static func isValidKittenVoiceID(_ id: String) -> Bool {
-        Set(kittenVoiceIDs).contains(id)
-    }
-
     static func isValidKokoroVoiceID(_ id: String) -> Bool {
         kokoroEnglishVoiceIDs.contains(id) || kokoroChineseVoiceIDs.contains(id)
     }
@@ -59,10 +53,6 @@ enum SpeechVoiceCatalog {
 
     static func isValidSupertonicVoiceID(_ id: String) -> Bool {
         Set(supertonicVoiceIDs).contains(id)
-    }
-
-    static var kittenVoiceOptions: [(title: String, id: String)] {
-        kittenVoiceIDs.map { ($0, $0) }
     }
 
     static var kokoroVoiceOptions: [(title: String, id: String)] {

@@ -1190,6 +1190,21 @@
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>spctl<span class="w"> </span>--assess<span class="w"> </span>--type<span class="w"> </span>install<span class="w"> </span>release/&lt;version&gt;/LeafReader-&lt;version&gt;.pkg
 </code></pre></div>
+<ul>
+<li>Run the package smoke test:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./scripts/smoke_release_pkg.sh<span class="w"> </span>&lt;version&gt;
+</code></pre></div>
+<ul>
+<li>
+<p>Confirm the smoke test reports both <code>arm64</code> and <code>x86_64</code> app architectures.</p>
+</li>
+<li>
+<p>Review app, package, speech runtime size, and the largest bundled runtime files:</p>
+</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./scripts/release_size_report.sh<span class="w"> </span>&lt;version&gt;
+</code></pre></div>
 <h2 id="appcast">Appcast<a class="headerlink" href="#appcast" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Confirm <code>docs/appcast.xml</code> uses the intended version.</li>
@@ -1197,33 +1212,34 @@
 <li>Confirm the package length and Sparkle EdDSA signature are current.</li>
 <li>Check the appcast URL:</li>
 </ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl<span class="w"> </span>-I<span class="w"> </span>-L<span class="w"> </span>https://dowellhz.github.io/LeafReader/appcast.xml
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>curl<span class="w"> </span>-I<span class="w"> </span>-L<span class="w"> </span>https://leafreader.space/appcast.xml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>curl<span class="w"> </span>-I<span class="w"> </span>-L<span class="w"> </span>https://dowellhz.github.io/LeafReader/appcast.xml
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>curl<span class="w"> </span>-I<span class="w"> </span>-L<span class="w"> </span>https://leafreader.space/appcast.xml
 </code></pre></div>
 <h2 id="publish">Publish<a class="headerlink" href="#publish" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Publish the release:</li>
 </ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./scripts/publish_release.sh<span class="w"> </span>&lt;version&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>./scripts/publish_release.sh<span class="w"> </span>&lt;version&gt;
 </code></pre></div>
+<p>Use <code>--push-wiki</code> when the release should sync GitHub Wiki as part of the publish flow. Use <code>--cleanup-releases</code> to remove old ignored local release artifacts after a successful publish.</p>
 <ul>
 <li>Confirm the Git tag exists:</li>
 </ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>git<span class="w"> </span>tag<span class="w"> </span>--list<span class="w"> </span><span class="s2">&quot;v&lt;version&gt;&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>git<span class="w"> </span>tag<span class="w"> </span>--list<span class="w"> </span><span class="s2">&quot;v&lt;version&gt;&quot;</span>
 </code></pre></div>
 <ul>
 <li>Confirm the GitHub Release asset downloads:</li>
 </ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>curl<span class="w"> </span>-I<span class="w"> </span>-L<span class="w"> </span>https://github.com/dowellhz/LeafReader/releases/download/v&lt;version&gt;/LeafReader-&lt;version&gt;.pkg
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>curl<span class="w"> </span>-I<span class="w"> </span>-L<span class="w"> </span>https://github.com/dowellhz/LeafReader/releases/download/v&lt;version&gt;/LeafReader-&lt;version&gt;.pkg
 </code></pre></div>
 <h2 id="after-publishing">After Publishing<a class="headerlink" href="#after-publishing" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Open Leaf Reader and run the update check.</li>
 <li>Confirm the website download link points to the new version.</li>
 <li>Confirm <code>README.md</code> current version, tag, and installer link are updated.</li>
-<li>Run Wiki update if the release changed architecture, scripts, or docs:</li>
+<li>Run Wiki update if it was not included in the publish command and the release changed architecture, scripts, or docs:</li>
 </ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>./scripts/update_wiki.sh<span class="w"> </span>--push
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>./scripts/update_wiki.sh<span class="w"> </span>--push
 </code></pre></div>
 <h2 id="rollback-notes">Rollback Notes<a class="headerlink" href="#rollback-notes" title="Permanent link">&para;</a></h2>
 <ul>

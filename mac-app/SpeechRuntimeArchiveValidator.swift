@@ -29,8 +29,6 @@ enum SpeechRuntimeArchiveValidator {
             return true
         }
         switch runtime {
-        case .kitten:
-            return SpeechRuntimePathChecks.kittenRuntimePathsExist(in: directory)
         case .kokoro, .piper:
             return SpeechRuntimePathChecks.requiredPathsExist(runtime.requiredPaths(in: directory))
         case .supertonic:
@@ -40,8 +38,6 @@ enum SpeechRuntimeArchiveValidator {
 
     private static func packagedModelFilesExist(for runtime: Runtime, in directory: URL) -> Bool {
         switch runtime {
-        case .kitten:
-            return SpeechRuntimePathChecks.kittenModelPathsExist(in: directory)
         case .kokoro:
             return SpeechRuntimePathChecks.kokoroAneModelCacheExists(
                 in: runtime.modelDirectory(in: directory)

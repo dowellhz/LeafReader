@@ -36,7 +36,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 - macOS 12.0 Monterey 或更高版本。
 - 阅读器支持 Apple Silicon 和 Intel Mac；本地 TTS runtime 当前仅支持 Apple Silicon。
 - AI 功能需要用户自行配置模型服务和 API Key；普通阅读不需要。
-- KittenTTS 和 Piper 本地朗读支持 Apple Silicon Mac 上的 macOS 12.0 Monterey 或更高版本。
+- Piper 本地朗读支持 Apple Silicon Mac 上的 macOS 12.0 Monterey 或更高版本。
 - Kokoro 本地朗读需要 Apple Silicon Mac 上的 macOS 14.0 或更高版本。
 
 ### 主要功能
@@ -45,20 +45,20 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 - 支持文档搜索、PDF 翻页、书架、最近阅读、浅色/护眼/深色主题。
 - 选中文本后可让 AI 解释、总结、翻译或继续追问上下文。
 - 支持保存单词、复习新词、导出词表。
-- 支持 KittenTTS、Piper 和 Kokoro 本地朗读；短词和短句可回退到 macOS 系统语音。
+- 支持 Piper、Kokoro 和 Supertonic 本地朗读；短词和短句可回退到 macOS 系统语音。
 - 文档保存在本机；只有使用 AI 功能时，相关文本才会发送到用户配置的模型服务。
 
 ### 可选朗读模型
 
-Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml)、[kitten_tts_rs](https://github.com/second-state/kitten_tts_rs) 或 Piper 进行本地朗读。Kokoro 提供英文和中文声音，KittenTTS 和 Piper 用于英文朗读。小型运行时已经随安装包提供，大模型文件按需下载。打开“设置 -> AI 分析 -> 朗读”即可下载 Kokoro、KittenTTS 或 Piper。
+Leaf Reader 可以使用 Piper、[FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) 或 Supertonic Core ML 进行本地朗读。Kokoro 提供英文和中文声音，Piper 用于英文朗读，Supertonic 提供多语言本地朗读。小型运行时已经随安装包提供，大模型文件按需下载。打开“设置 -> AI 分析 -> 朗读”即可下载 Piper、Kokoro 或 Supertonic。
 
-朗读模型优先级会自动处理：KittenTTS 优先，其次 Kokoro。短词或短句会直接使用 Apple 系统语音。
+朗读模型优先级会自动处理：优先使用用户选择的可用运行时，中文内容会切换到 Kokoro。短词或短句会直接使用 Apple 系统语音。
 
 语音模型下载目前复用稳定的 `v1.5.10` 语音资源发布：
 
 - `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/kokoro-coreml-macos-arm64.tar.gz`
-- `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/kitten-tts-rs-macos-arm64.tar.gz`
 - `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/piper-tts-macos-arm64.tar.gz`
+- `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/supertonic-coreml-macos-arm64.tar.gz`
 
 常规应用版本会复用这些模型文件。只有模型文件变化时才需要重新发布语音模型归档，并同步更新 `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag`。
 
@@ -155,9 +155,9 @@ Leaf Reader 可以使用 [FluidAudio Kokoro Core ML](https://huggingface.co/Flui
 
 #### 1.6.1
 
-- 缩减安装包内置语音资源，只保留 KittenTTS 所需的 espeak 英文字典。
+- 缩减安装包内置语音资源，只保留本地朗读所需的最小 runtime 资源。
 - 删除重复 Kokoro 英文声音，保留 Bella、Heart、Adam、Emma、George。
-- 保持 KittenTTS 和 Kokoro 本地朗读在更小的 runtime 资源下正常工作。
+- 保持本地朗读在更小的 runtime 资源下正常工作。
 
 #### 1.6.0
 
@@ -176,7 +176,6 @@ Leaf Reader 使用 [Apache License 2.0](LICENSE) 许可发布。
 第三方朗读模型和运行时版权归各自项目所有：
 
 - [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) / Kokoro 模型：Apache License 2.0。
-- [KittenTTS](https://github.com/KittenML/KittenTTS) 与 [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs)：KittenTTS 模型为 Apache License 2.0；Rust runtime 版权归 `kitten_tts_rs` 项目贡献者所有。
 - [Piper](https://github.com/rhasspy/piper)：MIT License；Piper 语音模型资源版权和许可遵循上游模型包随附的元数据。
 
 ## English
@@ -206,7 +205,7 @@ Website: <https://leafreader.space/>
 - macOS 12.0 Monterey or later.
 - The reader supports Apple Silicon and Intel Mac; local TTS runtimes currently require Apple Silicon.
 - An API key is optional and only needed for AI features.
-- KittenTTS and Piper local speech support macOS 12.0 Monterey or later on Apple Silicon Macs.
+- Piper local speech supports macOS 12.0 Monterey or later on Apple Silicon Macs.
 - Kokoro local speech requires macOS 14.0 or later on Apple Silicon Macs.
 
 ### Highlights
@@ -217,20 +216,20 @@ Website: <https://leafreader.space/>
 - Search documents with `Command+F`, next and previous result controls, and visible result positioning.
 - Switch between light and dark reader themes for the document area, search overlay, recent files panel, and AI chat panel.
 - Select text and ask the built-in AI assistant to explain, summarize, or translate passages.
-- Read selected English or Chinese text with optional downloadable KittenTTS, Piper, or Kokoro output where supported; otherwise Leaf Reader falls back to macOS system voices.
+- Read selected English or Chinese text with optional downloadable Piper, Kokoro, or Supertonic output where supported; otherwise Leaf Reader falls back to macOS system voices.
 - Keep documents local; AI requests are only sent when the assistant is used with the configured API key.
 
 ### Optional Speech Runtimes
 
-Leaf Reader can use [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml), [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs), or Piper for local text-to-speech. Kokoro provides English and Chinese voices; KittenTTS and Piper are used for English read aloud. Small speech runtime executables are bundled in the installer; large model files are downloaded on demand. Open Settings -> AI Analysis -> Speech to download Kokoro, KittenTTS, or Piper.
+Leaf Reader can use Piper, [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml), or Supertonic Core ML for local text-to-speech. Kokoro provides English and Chinese voices, Piper is used for English read aloud, and Supertonic provides multilingual local speech. Small speech runtime executables are bundled in the installer; large model files are downloaded on demand. Open Settings -> AI Analysis -> Speech to download Piper, Kokoro, or Supertonic.
 
-Runtime priority is automatic: KittenTTS first, then Kokoro. Short word or phrase selections use Apple TTS directly.
+Runtime priority is automatic: Leaf Reader uses the selected runnable runtime, and Chinese content switches to Kokoro. Short word or phrase selections use Apple TTS directly.
 
 Speech model downloads currently point to the stable `v1.5.10` speech asset release:
 
 - `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/kokoro-coreml-macos-arm64.tar.gz`
-- `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/kitten-tts-rs-macos-arm64.tar.gz`
 - `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/piper-tts-macos-arm64.tar.gz`
+- `https://github.com/dowellhz/LeafReader/releases/download/v1.5.10/supertonic-coreml-macos-arm64.tar.gz`
 
 Regular app releases reuse those files. Regenerated speech archives should only be published when model files change, then `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag` should be updated to the new asset tag.
 
@@ -298,9 +297,9 @@ Regular app releases reuse those files. Regenerated speech archives should only 
 
 #### 1.6.1
 
-- Reduced the bundled speech footprint by keeping only the espeak English dictionary needed by KittenTTS.
+- Reduced the bundled speech footprint by keeping only the runtime resources needed for local speech.
 - Trimmed duplicate Kokoro English voices while keeping Bella, Heart, Adam, Emma, and George available.
-- Kept KittenTTS and Kokoro local playback working with the smaller bundled runtime resources.
+- Kept local playback working with the smaller bundled runtime resources.
 
 #### 1.6.0
 
@@ -319,7 +318,6 @@ Leaf Reader is licensed under the [Apache License 2.0](LICENSE).
 Third-party speech models and runtimes remain copyrighted by their respective projects:
 
 - [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) / Kokoro model: Apache License 2.0.
-- [KittenTTS](https://github.com/KittenML/KittenTTS) and [kitten_tts_rs](https://github.com/second-state/kitten_tts_rs): KittenTTS model under Apache License 2.0; Rust runtime copyright belongs to the `kitten_tts_rs` project contributors.
 - [Piper](https://github.com/rhasspy/piper): MIT License; Piper voice model assets follow the metadata shipped with the upstream model package.
 
 ## What's New in 1.7.8
@@ -422,13 +420,6 @@ Install Sparkle first:
 
 ```sh
 brew install --cask sparkle
-```
-
-Build the macOS 12-compatible KittenTTS `espeak-ng` helper runtime when the speech runtime dependencies change:
-
-```sh
-brew install autoconf automake libtool pkgconf
-./scripts/build_espeak_ng_runtime.sh
 ```
 
 Build and run the app:

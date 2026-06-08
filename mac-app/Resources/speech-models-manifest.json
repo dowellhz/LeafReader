@@ -2,11 +2,6 @@
   "generatedAt": "2026-05-25T00:00:00Z",
   "assets": [
     {
-      "name": "kitten-tts-rs-macos-arm64.tar.gz",
-      "size": 77638385,
-      "sha256": "90d917517468f93e5c31b17184d777cba9fee51fd90197deeaa5bd2f406d0e81"
-    },
-    {
       "name": "kokoro-coreml-macos-arm64.tar.gz",
       "size": 694363430,
       "sha256": "85e96106ddd960569bd96da926344248e2dbfe9d04a9b91e3ecc0f8e50deffc8"

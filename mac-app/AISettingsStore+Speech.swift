@@ -3,18 +3,16 @@ import Foundation
 extension AISettingsStore {
     static let selectedSpeechRuntimeKey = "selectedSpeechRuntime"
     static let speechSpeedKey = "speechSpeed"
-    static let kittenSpeechVoiceKey = "kittenSpeechVoice"
     static let kokoroSpeechVoiceKey = "kokoroSpeechVoice"
     static let piperSpeechVoiceKey = "piperSpeechVoice"
     static let supertonicSpeechVoiceKey = "supertonicSpeechVoice"
 
-    private static let defaultSpeechRuntimeID = "kitten"
+    private static let defaultSpeechRuntimeID = "piper"
     private static let defaultSpeechSpeedID = "normal"
-    static let defaultKittenSpeechVoiceID = SpeechVoiceCatalog.defaultKittenVoiceID
     static let defaultKokoroSpeechVoiceID = SpeechVoiceCatalog.defaultKokoroVoiceID
     static let defaultPiperSpeechVoiceID = SpeechVoiceCatalog.defaultPiperVoiceID
     static let defaultSupertonicSpeechVoiceID = SpeechVoiceCatalog.defaultSupertonicVoiceID
-    private static let validSpeechRuntimeIDs = Set(["kokoro", "kitten", "piper", "supertonic"])
+    private static let validSpeechRuntimeIDs = Set(["kokoro", "piper", "supertonic"])
     private static let validSpeechSpeedIDs = Set(["fast", "normal", "slow", "verySlow"])
     static let kokoroEnglishSpeechVoiceIDs = SpeechVoiceCatalog.kokoroEnglishVoiceIDs
     static let kokoroChineseSpeechVoiceIDs = SpeechVoiceCatalog.kokoroChineseVoiceIDs
@@ -70,10 +68,6 @@ extension AISettingsStore {
         speechSpeedOptions.first { $0.id == id }?.title ?? id
     }
 
-    static var kittenSpeechVoiceOptions: [(title: String, id: String)] {
-        SpeechVoiceCatalog.kittenVoiceOptions
-    }
-
     static var kokoroSpeechVoiceOptions: [(title: String, id: String)] {
         SpeechVoiceCatalog.kokoroVoiceOptions
     }
@@ -100,7 +94,7 @@ extension AISettingsStore {
         if isSupertonicSpeechRuntime(runtimeID) {
             return supertonicSpeechVoiceOptions
         }
-        return kittenSpeechVoiceOptions
+        return piperSpeechVoiceOptions
     }
 
     static func speechVoiceOptions(runtimeID: String?, languageHint: SpeechLanguageHint?) -> [(title: String, id: String)] {
@@ -113,7 +107,7 @@ extension AISettingsStore {
         if isSupertonicSpeechRuntime(runtimeID) {
             return supertonicSpeechVoiceOptions
         }
-        return kittenSpeechVoiceOptions
+        return piperSpeechVoiceOptions
     }
 
     static func selectedSpeechVoiceID(runtimeID: String?) -> String {
@@ -126,7 +120,7 @@ extension AISettingsStore {
         if isSupertonicSpeechRuntime(runtimeID) {
             return selectedSupertonicSpeechVoiceID
         }
-        return selectedKittenSpeechVoiceID
+        return selectedPiperSpeechVoiceID
     }
 
     static func selectedKokoroSpeechVoiceID(languageHint: SpeechLanguageHint?) -> String {
@@ -135,11 +129,6 @@ extension AISettingsStore {
 
     static func speechVoiceTitle(for id: String, runtimeID: String?) -> String {
         speechVoiceOptions(runtimeID: runtimeID).first { $0.id == id }?.title ?? id
-    }
-
-    static var selectedKittenSpeechVoiceID: String {
-        let value = nonEmptyTrimmed(defaults.string(forKey: kittenSpeechVoiceKey)) ?? defaultKittenSpeechVoiceID
-        return SpeechVoiceCatalog.isValidKittenVoiceID(value) ? value : defaultKittenSpeechVoiceID
     }
 
     static var selectedKokoroSpeechVoiceID: String {
@@ -158,12 +147,6 @@ extension AISettingsStore {
     static var selectedSupertonicSpeechVoiceID: String {
         let value = nonEmptyTrimmed(defaults.string(forKey: supertonicSpeechVoiceKey)) ?? defaultSupertonicSpeechVoiceID
         return SpeechVoiceCatalog.isValidSupertonicVoiceID(value) ? value : defaultSupertonicSpeechVoiceID
-    }
-
-    static func saveKittenSpeechVoiceID(_ id: String) {
-        guard SpeechVoiceCatalog.isValidKittenVoiceID(id) else { return }
-        defaults.set(id, forKey: kittenSpeechVoiceKey)
-        defaults.synchronize()
     }
 
     static func saveKokoroSpeechVoiceID(_ id: String) {
@@ -192,7 +175,7 @@ extension AISettingsStore {
         } else if isSupertonicSpeechRuntime(runtimeID) {
             saveSupertonicSpeechVoiceID(id)
         } else {
-            saveKittenSpeechVoiceID(id)
+            savePiperSpeechVoiceID(id)
         }
     }
 
@@ -200,15 +183,6 @@ extension AISettingsStore {
         guard validSpeechSpeedIDs.contains(id) else { return }
         defaults.set(id, forKey: speechSpeedKey)
         defaults.synchronize()
-    }
-
-    static var kittenSpeechSpeedMultiplier: Double {
-        switch selectedSpeechSpeedID {
-        case "fast": return 1.25
-        case "slow": return 0.82
-        case "verySlow": return 0.65
-        default: return 1.0
-        }
     }
 
     static var kokoroSpeechSpeedMultiplier: Double {

@@ -1178,7 +1178,7 @@
 
 
 <h1 id="tts">TTS 与朗读<a class="headerlink" href="#tts" title="Permanent link">&para;</a></h1>
-<p>关键词：TTS、朗读、语音、KittenTTS、Kokoro、运行时、快捷键、下划线、高亮。</p>
+<p>关键词：TTS、朗读、语音、Piper、Kokoro、Supertonic、运行时、快捷键、下划线、高亮。</p>
 <p>这页用于维护本地语音播放、朗读进度高亮和可下载 TTS 模型运行时。</p>
 <h2 id="_1">使用入口<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1190,12 +1190,13 @@
 <p>朗读浮动工具条会提示快捷键，帮助用户理解 <code>[</code>、<code>]</code> 等按键的含义。</p>
 <h2 id="_2">运行时结构<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ReaderWindowController+ReadAloud
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  -&gt; SpeechPlaybackCoordinator
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>     -&gt; SpeechPlaybackCoordinator
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>     -&gt; SpeechRuntimeResourceManager
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        -&gt; KittenTTS runtime
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        -&gt; Piper runtime
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        -&gt; Kokoro Core ML runtime
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>     -&gt; AVAudioPlayer
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  -&gt; ReaderWindowController+ReadAloudProgress
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        -&gt; Supertonic Core ML runtime
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>     -&gt; AVAudioPlayer
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  -&gt; ReaderWindowController+ReadAloudProgress
 </code></pre></div>
 <p>短单词、AI 面板短句和不适合走本地模型的内容，可以通过 <code>SpeechUtteranceFactory</code> 回退到 <code>NSSpeechSynthesizer</code>。</p>
 <h2 id="_3">播放流程<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
@@ -1224,7 +1225,7 @@
 </ul>
 <h2 id="_5">运行时规则<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
 <ul>
-<li>macOS 12 及以上默认目标是 KittenTTS。</li>
+<li>macOS 12 及以上默认目标是 Piper。</li>
 <li>Kokoro 可以在旧系统下载，但运行需要 macOS 14 或以上；不兼容系统会在设置页提示。</li>
 <li><code>SpeechRuntimeResourceManager.isDownloaded(_:)</code> 只检查运行时文件是否存在。</li>
 <li><code>SpeechRuntimeResourceManager.isRunnable(_:)</code> 同时检查文件和当前 macOS 版本要求。</li>
@@ -1233,13 +1234,11 @@
 <li>删除运行时时，只删除 Leaf Reader 安装的 FluidAudio 缓存目录，并兼容旧安装。</li>
 <li>下载状态包含 active task id，避免已取消或被替换的下载回调覆盖当前状态。</li>
 <li>下载失败会按运行时保存，并显示在设置页，直到下一次下载成功、取消或删除。</li>
-<li>KittenTTS server 超时后会取消 URLSession task，避免旧响应修改已完成状态。</li>
-<li>Kokoro CLI 回退有超时；删除非当前运行时不应停止正在播放的运行时。</li>
+<li>Core ML CLI 回退有超时；删除非当前运行时不应停止正在播放的运行时。</li>
 </ul>
 <h2 id="_6">打包与发布<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>scripts/build_espeak_ng_runtime.sh</code>：构建 KittenTTS 需要的低部署版本 <code>espeak-ng</code> 和 <code>pcaudiolib</code>。</li>
-<li><code>scripts/build_app.sh</code>：把语音运行时复制进 app bundle，并验证 bundle 布局。</li>
+<li><code>scripts/build_app.sh</code>：把语音运行时复制进 app bundle，清理打包/调试噪声，并验证 bundle 布局；日常默认只编 <code>arm64</code>，发布包使用 <code>--universal</code>。</li>
 <li><code>scripts/package_speech_models.sh</code>：打包可下载 TTS 模型，生成 <code>docs/tts/speech-models-manifest.json</code> 的大小和 SHA256。</li>
 <li><code>scripts/publish_release.sh</code>：上传发布产物；只有模型归档变化时才传 <code>--with-speech-models</code>。</li>
 </ul>

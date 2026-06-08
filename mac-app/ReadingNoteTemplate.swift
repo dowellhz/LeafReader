@@ -104,12 +104,6 @@ enum ReadingNoteTemplateInsertionPolicy {
         return current == defaultMarkdown.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    static func insertionText(existingText: String, templateMarkdown: String) -> String {
-        let template = templateMarkdown.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !existingText.isEmpty else { return "\(template)\n" }
-        return "\(spacerBeforeInsertion(existingText: existingText))\(template)\n"
-    }
-
     static func spacerBeforeInsertion(existingText: String) -> String {
         guard !existingText.isEmpty else { return "" }
         if existingText.hasSuffix("\n\n") { return "" }

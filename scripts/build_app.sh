@@ -8,17 +8,11 @@ APP_SIGN_IDENTITY="${APP_SIGN_IDENTITY:--}"
 MACOS_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET:-12.0}"
 ARCHS="${ARCHS:-arm64}"
 REQUIRE_BUNDLED_SPEECH_RUNTIMES="${REQUIRE_BUNDLED_SPEECH_RUNTIMES:-0}"
-KITTEN_RUNTIME_DIR="${KITTEN_RUNTIME_DIR:-$HOME/.local/share/leafreader/kittentts-rs-runtime}"
-KITTEN_RUNTIME_ARCHIVE="${KITTEN_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kitten-tts-rs-macos-arm64.tar.gz}"
-EXPECTED_KITTEN_SERVER_SIZE="17970352"
-EXPECTED_KITTEN_SERVER_SHA256="5d159d44f016feac3ae44c85d984754a7b46af5557548fa597f17f766ede275a"
 KOKORO_RUNTIME="${KOKORO_RUNTIME:-$HOME/.local/share/leafreader/kokoro-coreml/fluidaudiocli}"
 KOKORO_RUNTIME_ARCHIVE="${KOKORO_RUNTIME_ARCHIVE:-$ROOT_DIR/docs/tts/kokoro-coreml-macos-arm64.tar.gz}"
 KOKORO_MODEL_CACHE_ROOT="${KOKORO_MODEL_CACHE_ROOT:-$HOME/.cache/fluidaudio/Models}"
 SUPERTONIC_RUNTIME="${SUPERTONIC_RUNTIME:-$HOME/.local/share/leafreader/supertonic-coreml/supertonic-mini}"
 PIPER_RUNTIME_DIR="${PIPER_RUNTIME_DIR:-$HOME/.local/share/leafreader/piper-tts-runtime}"
-ESPEAK_NG_ROOT="${ESPEAK_NG_ROOT:-$HOME/.local/share/leafreader/espeak-ng-macos12}"
-PCAUDIOLIB_ROOT="${PCAUDIOLIB_ROOT:-$ESPEAK_NG_ROOT}"
 export COPYFILE_DISABLE=1
 
 while [[ $# -gt 0 ]]; do
@@ -74,9 +68,6 @@ done
 echo "Building architectures: ${BUILD_ARCHS[*]}"
 
 ESPEAK_BUNDLED_DICTS=(en_dict)
-ESPEAK_LANG_DIRS=(gmw)
-ESPEAK_GMW_LANGS=(en en-US en-GB-x-rp)
-ESPEAK_VOICE_VARIANTS=(f1 f2 f3 f4 f5 m1 m2 m3 m4 m5 m6 m7 m8)
 PIPER_ESPEAK_LANG_DIRS=(gmw)
 PIPER_ESPEAK_GMW_LANGS=(en en-US en-GB-x-rp)
 PIPER_ESPEAK_VOICE_VARIANTS=(f1 f2 f3 f4 f5 m1 m2 m3 m4 m5 m6 m7 m8)
@@ -121,17 +112,6 @@ prune_espeak_data() {
       rm -f "$dict_path"
     fi
   done
-}
-
-prune_kitten_espeak_data() {
-  local data_dir="$1"
-
-  prune_espeak_data "$data_dir"
-  rm -rf "$data_dir/mbrola_ph"
-  prune_directory_entries_except "$data_dir/lang" "${ESPEAK_LANG_DIRS[@]}"
-  prune_directory_entries_except "$data_dir/lang/gmw" "${ESPEAK_GMW_LANGS[@]}"
-  prune_directory_entries_except "$data_dir/voices" '!v'
-  prune_directory_entries_except "$data_dir/voices/!v" "${ESPEAK_VOICE_VARIANTS[@]}"
 }
 
 prune_piper_espeak_data() {
@@ -197,34 +177,6 @@ validate_piper_runtime() {
   fi
 }
 
-validate_kitten_server() {
-  local server_path="$1"
-  local source_label="$2"
-  local actual_size
-  local actual_sha256
-
-  if [[ ! -x "$server_path" ]]; then
-    echo "Error: KittenTTS runtime executable missing or not executable: $server_path" >&2
-    exit 1
-  fi
-
-  actual_size="$(stat -f %z "$server_path")"
-  if [[ "$actual_size" != "$EXPECTED_KITTEN_SERVER_SIZE" ]]; then
-    echo "Error: KittenTTS runtime size mismatch in $source_label" >&2
-    echo "Expected $EXPECTED_KITTEN_SERVER_SIZE bytes, found $actual_size: $server_path" >&2
-    echo "Restore the KittenTTS server from the Leaf Reader 1.7.8 release before building." >&2
-    exit 1
-  fi
-
-  actual_sha256="$(shasum -a 256 "$server_path" | awk '{print $1}')"
-  if [[ "$actual_sha256" != "$EXPECTED_KITTEN_SERVER_SHA256" ]]; then
-    echo "Error: KittenTTS runtime checksum mismatch in $source_label" >&2
-    echo "Expected $EXPECTED_KITTEN_SERVER_SHA256, found $actual_sha256: $server_path" >&2
-    echo "Restore the KittenTTS server from the Leaf Reader 1.7.8 release before building." >&2
-    exit 1
-  fi
-}
-
 runtime_supports_supertonic() {
   local runtime_path="$1"
   local strings_output
@@ -280,29 +232,6 @@ for voice in "${KOKORO_CHINESE_VOICES[@]}"; do
     echo "Warning: Kokoro Chinese voice not bundled; missing $source" >&2
   fi
 done
-if [[ -d "$KITTEN_RUNTIME_DIR/kitten-tts-aarch64-macos" ]]; then
-  validate_kitten_server "$KITTEN_RUNTIME_DIR/kitten-tts-aarch64-macos/kitten-tts-server" "$KITTEN_RUNTIME_DIR"
-  mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime"
-  mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos"
-  cp "$KITTEN_RUNTIME_DIR/kitten-tts-aarch64-macos/kitten-tts-server" \
-    "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
-  chmod 755 \
-    "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
-  strip -x "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server" || true
-elif [[ -f "$KITTEN_RUNTIME_ARCHIVE" ]]; then
-  KITTEN_EXTRACT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/leafreader-kitten-runtime.XXXXXX")"
-  tar -xzf "$KITTEN_RUNTIME_ARCHIVE" -C "$KITTEN_EXTRACT_DIR" ./kitten-tts-aarch64-macos/kitten-tts-server
-  validate_kitten_server "$KITTEN_EXTRACT_DIR/kitten-tts-aarch64-macos/kitten-tts-server" "$KITTEN_RUNTIME_ARCHIVE"
-  mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos"
-  cp "$KITTEN_EXTRACT_DIR/kitten-tts-aarch64-macos/kitten-tts-server" \
-    "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
-  rm -rf "$KITTEN_EXTRACT_DIR"
-  chmod 755 \
-    "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
-  strip -x "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server" || true
-else
-  missing_runtime "KittenTTS runtime not bundled; missing $KITTEN_RUNTIME_DIR and $KITTEN_RUNTIME_ARCHIVE"
-fi
 if piper_runtime_complete "$PIPER_RUNTIME_DIR"; then
   PIPER_BUNDLE_DIR="$APP_PATH/Contents/Resources/SpeechRuntimes/piper-tts-runtime"
   mkdir -p "$PIPER_BUNDLE_DIR"
@@ -318,42 +247,6 @@ if piper_runtime_complete "$PIPER_RUNTIME_DIR"; then
   find "$PIPER_BUNDLE_DIR/piper-phonemize/lib" -type f -name '*.dylib' -exec strip -x {} \; || true
 else
   missing_runtime "Piper runtime not bundled; missing $PIPER_RUNTIME_DIR"
-fi
-if [[ -x "$ESPEAK_NG_ROOT/bin/espeak-ng" \
-      && -f "$ESPEAK_NG_ROOT/lib/libespeak-ng.1.dylib" \
-      && -f "$PCAUDIOLIB_ROOT/lib/libpcaudio.0.dylib" \
-      && -d "$ESPEAK_NG_ROOT/share/espeak-ng-data" ]]; then
-  ESPEAK_NG_LIB_ID="$(otool -L "$ESPEAK_NG_ROOT/bin/espeak-ng" | awk '/libespeak-ng\.1\.dylib/{print $1; exit}')"
-  PCAUDIOLIB_ID="$(otool -L "$ESPEAK_NG_ROOT/bin/espeak-ng" | awk '/libpcaudio\.0\.dylib/{print $1; exit}')"
-  ESPEAK_NG_DEP_PCAUDIOLIB_ID="$(otool -L "$ESPEAK_NG_ROOT/lib/libespeak-ng.1.dylib" | awk '/libpcaudio\.0\.dylib/{print $1; exit}')"
-  ESPEAK_BUNDLE_DIR="$APP_PATH/Contents/Resources/SpeechRuntimes/espeak-ng"
-  mkdir -p "$ESPEAK_BUNDLE_DIR/bin" "$ESPEAK_BUNDLE_DIR/lib" "$ESPEAK_BUNDLE_DIR/share"
-  cp "$ESPEAK_NG_ROOT/bin/espeak-ng" "$ESPEAK_BUNDLE_DIR/bin/espeak-ng"
-  cp "$ESPEAK_NG_ROOT/lib/libespeak-ng.1.dylib" "$ESPEAK_BUNDLE_DIR/lib/libespeak-ng.1.dylib"
-  cp "$PCAUDIOLIB_ROOT/lib/libpcaudio.0.dylib" "$ESPEAK_BUNDLE_DIR/lib/libpcaudio.0.dylib"
-  cp -R "$ESPEAK_NG_ROOT/share/espeak-ng-data" "$ESPEAK_BUNDLE_DIR/share/espeak-ng-data"
-  prune_kitten_espeak_data "$ESPEAK_BUNDLE_DIR/share/espeak-ng-data"
-  chmod 755 "$ESPEAK_BUNDLE_DIR/bin/espeak-ng"
-  chmod 644 "$ESPEAK_BUNDLE_DIR/lib/libespeak-ng.1.dylib" "$ESPEAK_BUNDLE_DIR/lib/libpcaudio.0.dylib"
-  if [[ -n "$ESPEAK_NG_LIB_ID" ]]; then
-    install_name_tool -change "$ESPEAK_NG_LIB_ID" \
-      "@executable_path/../lib/libespeak-ng.1.dylib" "$ESPEAK_BUNDLE_DIR/bin/espeak-ng"
-  fi
-  if [[ -n "$PCAUDIOLIB_ID" ]]; then
-    install_name_tool -change "$PCAUDIOLIB_ID" \
-      "@executable_path/../lib/libpcaudio.0.dylib" "$ESPEAK_BUNDLE_DIR/bin/espeak-ng"
-  fi
-  install_name_tool -id "@rpath/libespeak-ng.1.dylib" "$ESPEAK_BUNDLE_DIR/lib/libespeak-ng.1.dylib"
-  if [[ -n "$ESPEAK_NG_DEP_PCAUDIOLIB_ID" ]]; then
-    install_name_tool -change "$ESPEAK_NG_DEP_PCAUDIOLIB_ID" \
-      "@loader_path/libpcaudio.0.dylib" "$ESPEAK_BUNDLE_DIR/lib/libespeak-ng.1.dylib"
-  fi
-  install_name_tool -id "@rpath/libpcaudio.0.dylib" "$ESPEAK_BUNDLE_DIR/lib/libpcaudio.0.dylib"
-  strip -x "$ESPEAK_BUNDLE_DIR/bin/espeak-ng" || true
-  strip -x "$ESPEAK_BUNDLE_DIR/lib/libespeak-ng.1.dylib" || true
-  strip -x "$ESPEAK_BUNDLE_DIR/lib/libpcaudio.0.dylib" || true
-else
-  echo "Warning: espeak-ng not bundled; missing $ESPEAK_NG_ROOT or $PCAUDIOLIB_ROOT" >&2
 fi
 if [[ -x "$KOKORO_RUNTIME" ]]; then
   mkdir -p "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml"
@@ -421,14 +314,10 @@ xattr -cr "$APP_PATH"
 xattr -crs "$APP_PATH"
 
 RUNTIME_EXECUTABLES=(
-  "$APP_PATH/Contents/Resources/SpeechRuntimes/kittentts-rs-runtime/kitten-tts-aarch64-macos/kitten-tts-server"
   "$APP_PATH/Contents/Resources/SpeechRuntimes/piper-tts-runtime/piper/piper"
   "$APP_PATH/Contents/Resources/SpeechRuntimes/piper-tts-runtime/piper-phonemize/lib/libespeak-ng.1.52.0.1.dylib"
   "$APP_PATH/Contents/Resources/SpeechRuntimes/piper-tts-runtime/piper-phonemize/lib/libonnxruntime.1.14.1.dylib"
   "$APP_PATH/Contents/Resources/SpeechRuntimes/piper-tts-runtime/piper-phonemize/lib/libpiper_phonemize.1.2.0.dylib"
-  "$APP_PATH/Contents/Resources/SpeechRuntimes/espeak-ng/bin/espeak-ng"
-  "$APP_PATH/Contents/Resources/SpeechRuntimes/espeak-ng/lib/libespeak-ng.1.dylib"
-  "$APP_PATH/Contents/Resources/SpeechRuntimes/espeak-ng/lib/libpcaudio.0.dylib"
   "$APP_PATH/Contents/Resources/SpeechRuntimes/kokoro-coreml/fluidaudiocli"
   "$APP_PATH/Contents/Resources/SpeechRuntimes/supertonic-coreml/supertonic-mini"
 )

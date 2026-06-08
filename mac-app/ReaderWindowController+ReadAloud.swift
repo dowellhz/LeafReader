@@ -50,14 +50,6 @@ extension ReaderWindowController {
         updateReadAloudFloatingControl()
     }
 
-    func resumePendingReadAloudIfNeeded(trigger: ReadAloudContinuationTrigger = .automatic) {
-        readAloudCoordinator.resumePendingIfNeeded(trigger: trigger)
-    }
-
-    func shouldPauseBeforeReadAloudContinuation(trigger: ReadAloudContinuationTrigger) -> Bool {
-        readAloudCoordinator.shouldPauseBeforeContinuation(trigger: trigger)
-    }
-
     func deferReadAloudContinuationIfNeeded(
         trigger: ReadAloudContinuationTrigger,
         setPending: () -> Void

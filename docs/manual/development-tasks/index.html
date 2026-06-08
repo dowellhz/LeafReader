@@ -1248,6 +1248,7 @@
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./scripts/check_ui_theme.sh<span class="w"> </span>--warnings-as-errors
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>./scripts/build_app.sh
 </code></pre></div>
+<p><code>build_app.sh</code> defaults to <code>arm64</code> for faster daily iteration. Use <code>./scripts/build_app.sh --universal</code> only when checking release-style architecture output.</p>
 <p>UI rule:</p>
 <ul>
 <li>Every new visible control must define or inherit colors for all reader modes: original, eyeCare, and dark.</li>
@@ -1312,13 +1313,13 @@
 </ul>
 <p>Current model/runtime notes:</p>
 <ul>
-<li>KittenTTS is the macOS 12+ local read-aloud runtime.</li>
+<li>Piper is the macOS 12+ local read-aloud runtime.</li>
 <li>Kokoro can be downloaded on older systems, but requires macOS 14+ to run.</li>
 <li>See <code>docs/wiki/tts.md</code> for the full TTS code map, runtime rules, and release packaging notes.</li>
 </ul>
 <p>Run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./tests/run.sh
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>./scripts/build_app.sh
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>./scripts/build_app.sh<span class="w"> </span>--universal
 </code></pre></div>
 <p>Watch for:</p>
 <ul>

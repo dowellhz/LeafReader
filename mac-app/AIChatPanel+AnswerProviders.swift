@@ -7,13 +7,6 @@ extension AIChatPanel {
         })
     }
 
-    func cachedOrLocalAnswerProvider() -> AnswerProvider {
-        CompositeAnswerProvider(providers: [
-            cachedVocabularyAnswerProvider(),
-            localOnlyAnswerProvider()
-        ])
-    }
-
     func localOnlyAnswerProvider() -> AnswerProvider {
         LocalDictionaryAnswerProvider(dictionaryLookupService: dictionaryLookupService)
     }

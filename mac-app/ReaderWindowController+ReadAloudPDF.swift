@@ -307,14 +307,6 @@ extension ReaderWindowController {
         )
     }
 
-    func pdfReadAloudStartPageForCurrentScreen() -> PDFPage? {
-        pdfReadAloudBatchBuilder.startPageForCurrentScreen(lockedPageIndex: readAloudPageLockedAtTopIndex)
-    }
-
-    func isPDFPageIndexVisible(_ pageIndex: Int) -> Bool {
-        pdfReadAloudBatchBuilder.isPageIndexVisible(pageIndex)
-    }
-
     func pdfReadAloudLanguageProbeText(pageLimit: Int) -> String? {
         pdfReadAloudBatchBuilder.languageProbeText(
             pageLimit: pageLimit,

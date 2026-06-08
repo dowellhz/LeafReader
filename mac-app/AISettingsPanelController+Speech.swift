@@ -298,7 +298,7 @@ extension AISettingsPanelController {
         _ runtime: SpeechRuntimeResourceManager.Runtime,
         languageHint: AISettingsStore.SpeechLanguageHint?
     ) -> Bool {
-        languageHint == .chinese && (runtime == .kitten || runtime == .piper)
+        languageHint == .chinese && runtime == .piper
     }
 
     private func downloadSpeechRuntime(_ runtime: SpeechRuntimeResourceManager.Runtime, button: NSButton) {

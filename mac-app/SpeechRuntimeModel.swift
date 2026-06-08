@@ -5,7 +5,6 @@ extension SpeechRuntimeResourceManager {
 
     enum Runtime: CaseIterable, Hashable {
         case kokoro
-        case kitten
         case piper
         case supertonic
 
@@ -14,7 +13,7 @@ extension SpeechRuntimeResourceManager {
         // this tag when publishing new model assets with scripts/publish_release.sh --with-speech-models.
         static let runtimeAssetsReleaseTag = "v1.5.10"
 
-        static let displayOrder: [Runtime] = [.kitten, .piper, .supertonic, .kokoro]
+        static let displayOrder: [Runtime] = [.piper, .supertonic, .kokoro]
 
         private struct Definition {
             let id: String
@@ -41,18 +40,6 @@ extension SpeechRuntimeResourceManager {
                 archiveFileName: "kokoro-coreml-macos-arm64.tar.gz",
                 installDirectoryName: "kokoro-coreml",
                 executableRelativePath: "fluidaudiocli"
-            ),
-            .kitten: Definition(
-                id: "kitten",
-                title: "KittenTTS",
-                downloadSizeText: "74 MB",
-                summaryChinese: "模型小，只有英文",
-                summaryEnglish: "Small model, English only",
-                minimumSystemVersion: OperatingSystemVersion(majorVersion: 12, minorVersion: 0, patchVersion: 0),
-                minimumSystemVersionText: "macOS 12.0",
-                archiveFileName: "kitten-tts-rs-macos-arm64.tar.gz",
-                installDirectoryName: "kittentts-rs-runtime",
-                executableRelativePath: "kitten-tts-aarch64-macos/kitten-tts-server"
             ),
             .piper: Definition(
                 id: "piper",
@@ -185,16 +172,10 @@ extension SpeechRuntimeResourceManager {
             executableURL(in: installDirectory)
         }
 
-        var kittenModelDirectoryName: String {
-            "kitten-tts-mini"
-        }
-
         func modelDirectory(in directory: URL) -> URL {
             switch self {
             case .kokoro:
                 return directory.appendingPathComponent("Models", isDirectory: true)
-            case .kitten:
-                return directory.appendingPathComponent(kittenModelDirectoryName, isDirectory: true)
             case .piper:
                 return Self.piperVoiceCacheRoot
             case .supertonic:
@@ -211,12 +192,6 @@ extension SpeechRuntimeResourceManager {
             case .kokoro:
                 return [
                     executableURL(in: directory)
-                ]
-            case .kitten:
-                return [
-                    directory.appendingPathComponent("kitten-tts-aarch64-macos/kitten-tts"),
-                    executableURL(in: directory),
-                    modelDirectory(in: directory)
                 ]
             case .piper:
                 return [

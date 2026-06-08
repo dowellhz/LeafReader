@@ -5,7 +5,4 @@ extension ReaderWindowController {
         VocabularyAnswerFormatter.answerBody(answer, word: word)
     }
 
-    func normalizeVocabularyHeading(_ text: String) -> String {
-        VocabularyAnswerFormatter.normalizedHeading(text)
-    }
 }

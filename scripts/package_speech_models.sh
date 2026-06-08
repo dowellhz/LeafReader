@@ -7,7 +7,6 @@ WORK_DIR="${TMPDIR:-/tmp}/leafreader-speech-runtime-packages"
 MANIFEST_PATH="$OUT_DIR/speech-models-manifest.json"
 
 KOKORO_MODEL_CACHE_ROOT="${KOKORO_MODEL_CACHE_ROOT:-$HOME/.cache/fluidaudio/Models}"
-KITTEN_RUNTIME_DIR="${KITTEN_RUNTIME_DIR:-$HOME/.local/share/leafreader/kittentts-rs-runtime}"
 PIPER_VOICE_CACHE_ROOT="${PIPER_VOICE_CACHE_ROOT:-$HOME/.cache/leafreader/piper-voices}"
 SUPERTONIC_RUNTIME="${SUPERTONIC_RUNTIME:-$HOME/.local/share/leafreader/supertonic-coreml/supertonic-mini}"
 SUPERTONIC_MODEL_DIR="${SUPERTONIC_MODEL_DIR:-$HOME/.cache/fluidaudio/Models/supertonic-3}"
@@ -34,17 +33,6 @@ if [[ -d "$KOKORO_MODEL_CACHE_ROOT/kokoro" && -d "$KOKORO_MODEL_CACHE_ROOT/kokor
   PACKAGED_ASSETS+=("$OUT_DIR/kokoro-coreml-macos-arm64.tar.gz")
 else
   echo "Skipping Kokoro package; missing model cache." >&2
-fi
-
-if [[ -d "$KITTEN_RUNTIME_DIR/kitten-tts-mini" ]]; then
-  KITTEN_STAGE="$WORK_DIR/kitten-tts-rs"
-  mkdir -p "$KITTEN_STAGE"
-  cp -R "$KITTEN_RUNTIME_DIR/kitten-tts-mini" "$KITTEN_STAGE/"
-  tar -C "$KITTEN_STAGE" -czf "$OUT_DIR/kitten-tts-rs-macos-arm64.tar.gz" .
-  echo "Packaged $OUT_DIR/kitten-tts-rs-macos-arm64.tar.gz"
-  PACKAGED_ASSETS+=("$OUT_DIR/kitten-tts-rs-macos-arm64.tar.gz")
-else
-  echo "Skipping Kitten package; missing model directory." >&2
 fi
 
 if [[ -f "$PIPER_VOICE_CACHE_ROOT/en_US-lessac-high.onnx" \

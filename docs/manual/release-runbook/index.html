@@ -1248,14 +1248,21 @@
 <h2 id="4-verify-package">4. Verify Package<a class="headerlink" href="#4-verify-package" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pkgutil<span class="w"> </span>--check-signature<span class="w"> </span>release/&lt;version&gt;/LeafReader-&lt;version&gt;.pkg
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>spctl<span class="w"> </span>--assess<span class="w"> </span>--type<span class="w"> </span>install<span class="w"> </span>release/&lt;version&gt;/LeafReader-&lt;version&gt;.pkg
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>./scripts/smoke_release_pkg.sh<span class="w"> </span>&lt;version&gt;
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>./scripts/release_size_report.sh<span class="w"> </span>&lt;version&gt;
 </code></pre></div>
 <p>Expected:</p>
 <ul>
 <li>Package signature is valid.</li>
 <li>Gatekeeper assessment succeeds.</li>
+<li>The expanded package contains a signed app with the expected version and bundled resources.</li>
+<li>Speech runtime size and signable file count are visible before publication.</li>
 </ul>
 <h2 id="5-publish">5. Publish<a class="headerlink" href="#5-publish" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>./scripts/publish_release.sh<span class="w"> </span>&lt;version&gt;
+</code></pre></div>
+<p>For a full maintenance publish, include wiki sync and release cleanup:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./scripts/publish_release.sh<span class="w"> </span>&lt;version&gt;<span class="w"> </span>--push-wiki<span class="w"> </span>--cleanup-releases
 </code></pre></div>
 <p>Expected:</p>
 <ul>
@@ -1263,11 +1270,13 @@
 <li>Release artifacts are uploaded to GitHub Releases.</li>
 <li><code>main</code> and <code>v&lt;version&gt;</code> are pushed.</li>
 <li><code>docs/appcast.xml</code>, <code>README.md</code>, and website references are current.</li>
+<li>With <code>--push-wiki</code>, GitHub Wiki and <code>docs/wiki</code> source are updated after publication.</li>
+<li>With <code>--cleanup-releases</code>, old ignored local release artifacts are removed after publication.</li>
 </ul>
 <h2 id="6-verify-public-endpoints">6. Verify Public Endpoints<a class="headerlink" href="#6-verify-public-endpoints" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl<span class="w"> </span>-I<span class="w"> </span>-L<span class="w"> </span>https://github.com/dowellhz/LeafReader/releases/download/v&lt;version&gt;/LeafReader-&lt;version&gt;.pkg
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>curl<span class="w"> </span>-I<span class="w"> </span>-L<span class="w"> </span>https://dowellhz.github.io/LeafReader/appcast.xml
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>curl<span class="w"> </span>-I<span class="w"> </span>-L<span class="w"> </span>https://leafreader.space/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>curl<span class="w"> </span>-I<span class="w"> </span>-L<span class="w"> </span>https://github.com/dowellhz/LeafReader/releases/download/v&lt;version&gt;/LeafReader-&lt;version&gt;.pkg
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>curl<span class="w"> </span>-I<span class="w"> </span>-L<span class="w"> </span>https://dowellhz.github.io/LeafReader/appcast.xml
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>curl<span class="w"> </span>-I<span class="w"> </span>-L<span class="w"> </span>https://leafreader.space/
 </code></pre></div>
 <p>Expected:</p>
 <ul>
@@ -1283,7 +1292,7 @@
 <li>Confirm the update dialog references the expected version.</li>
 </ul>
 <h2 id="8-sync-wiki">8. Sync Wiki<a class="headerlink" href="#8-sync-wiki" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./scripts/update_wiki.sh<span class="w"> </span>--push
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>./scripts/update_wiki.sh<span class="w"> </span>--push
 </code></pre></div>
 <p>Expected:</p>
 <ul>
@@ -1291,6 +1300,7 @@
 <li>GitHub Wiki receives updated pages.</li>
 <li><code>docs/wiki</code> source changes are committed and pushed to <code>main</code>.</li>
 </ul>
+<p>Skip this manual step when <code>publish_release.sh</code> was run with <code>--push-wiki</code>.</p>
 <h2 id="recovery">Recovery<a class="headerlink" href="#recovery" title="Permanent link">&para;</a></h2>
 <ul>
 <li>If GitHub Release upload fails, inspect the existing release and asset list before retrying.</li>

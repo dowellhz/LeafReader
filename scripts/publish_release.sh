@@ -56,7 +56,6 @@ RELEASE_URL="https://github.com/dowellhz/LeafReader/releases/tag/$TAG"
 CHECK_SCRIPT="$ROOT_DIR/scripts/check.sh"
 SPEECH_MODEL_ASSETS=(
   "$ROOT_DIR/docs/tts/kokoro-coreml-macos-arm64.tar.gz"
-  "$ROOT_DIR/docs/tts/kitten-tts-rs-macos-arm64.tar.gz"
   "$ROOT_DIR/docs/tts/piper-tts-macos-arm64.tar.gz"
   "$ROOT_DIR/docs/tts/supertonic-coreml-macos-arm64.tar.gz"
   "$ROOT_DIR/docs/tts/speech-models-manifest.json"

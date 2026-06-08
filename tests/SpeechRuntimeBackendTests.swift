@@ -86,9 +86,9 @@ enum SpeechRuntimeBackendTests {
     }
 
     static func testVocabularyAudioCacheKeySeparatesSpeechSettings() throws {
-        let first = VocabularyAudioCache.entry(text: "hello", runtimeID: "kitten", voiceID: "expr-voice-2-f", speedID: "normal")
-        let second = VocabularyAudioCache.entry(text: "hello", runtimeID: "kitten", voiceID: "expr-voice-2-m", speedID: "normal")
-        let third = VocabularyAudioCache.entry(text: "hello", runtimeID: "kitten", voiceID: "expr-voice-2-f", speedID: "settings-slow")
+        let first = VocabularyAudioCache.entry(text: "hello", runtimeID: "kokoro", voiceID: "expr-voice-2-f", speedID: "normal")
+        let second = VocabularyAudioCache.entry(text: "hello", runtimeID: "kokoro", voiceID: "expr-voice-2-m", speedID: "normal")
+        let third = VocabularyAudioCache.entry(text: "hello", runtimeID: "kokoro", voiceID: "expr-voice-2-f", speedID: "settings-slow")
         let fourth = VocabularyAudioCache.entry(text: "hello", runtimeID: "piper", voiceID: "expr-voice-2-f", speedID: "normal")
         try expectEqual(VocabularyAudioCache.maximumBytes, 100 * 1024 * 1024, "vocabulary audio cache should stay capped at 100 MB")
         try expect(first.url != second.url, "vocabulary audio cache should separate voices")

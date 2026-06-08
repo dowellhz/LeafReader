@@ -26,8 +26,6 @@ extension SpeechPlaybackCoordinator {
             switch targetBackend {
             case .kokoroCoreML:
                 self.kokoroBackend.stop()
-            case .kitten:
-                self.kittenBackend.stop()
             case .piper:
                 self.piperBackend.stop()
             case .supertonic:
@@ -123,13 +121,6 @@ extension SpeechPlaybackCoordinator {
                 languageHint: languageHint,
                 speed: options.speedMultiplier
             )
-        case .kitten:
-            result = kittenBackend.synthesizeResult(
-                text: text,
-                outputURL: outputURL,
-                voiceID: voiceID,
-                speed: options.speedMultiplier
-            )
         case .piper:
             result = piperBackend.synthesizeResult(
                 text: text,
@@ -216,20 +207,13 @@ extension SpeechPlaybackCoordinator {
         guard activeBackend != backend else { return }
         switch backend {
         case .kokoroCoreML:
-            kittenBackend.stop()
-            piperBackend.stop()
-            supertonicBackend.stop()
-        case .kitten:
-            kokoroBackend.stop()
             piperBackend.stop()
             supertonicBackend.stop()
         case .piper:
             kokoroBackend.stop()
-            kittenBackend.stop()
             supertonicBackend.stop()
         case .supertonic:
             kokoroBackend.stop()
-            kittenBackend.stop()
             piperBackend.stop()
         case .none:
             stopRuntimeProcesses()
@@ -239,7 +223,6 @@ extension SpeechPlaybackCoordinator {
 
     func forceTerminateRuntimeProcesses() {
         kokoroBackend.stop()
-        kittenBackend.stop()
         piperBackend.stop()
         supertonicBackend.stop()
         activeBackend = nil
@@ -264,7 +247,6 @@ extension SpeechPlaybackCoordinator {
 
     private func stopRuntimeProcesses() {
         kokoroBackend.stop()
-        kittenBackend.stop()
         piperBackend.stop()
         supertonicBackend.stop()
         activeBackend = nil

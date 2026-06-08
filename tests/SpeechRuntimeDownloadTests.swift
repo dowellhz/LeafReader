@@ -2,26 +2,22 @@ import Foundation
 
 enum SpeechRuntimeDownloadTests {
     static func testSpeechRuntimeDownloadURLsUseReleaseAssets() throws {
-        let kittenURL = SpeechRuntimeResourceManager.Runtime.kitten.downloadURL.absoluteString
         let kokoroURL = SpeechRuntimeResourceManager.Runtime.kokoro.downloadURL.absoluteString
         let piperURL = SpeechRuntimeResourceManager.Runtime.piper.downloadURL.absoluteString
         let supertonicURL = SpeechRuntimeResourceManager.Runtime.supertonic.downloadURL.absoluteString
 
-        try expect(kittenURL.hasSuffix("/kitten-tts-rs-macos-arm64.tar.gz"), "KittenTTS should use the release asset archive")
         try expect(kokoroURL.hasSuffix("/kokoro-coreml-macos-arm64.tar.gz"), "Kokoro should use the release asset archive")
         try expect(piperURL.hasSuffix("/piper-tts-macos-arm64.tar.gz"), "Piper should use the release asset archive")
         try expectEqual(supertonicURL, expectedSpeechReleaseAssetURL(fileName: "supertonic-coreml-macos-arm64.tar.gz"), "Supertonic should download the Release-hosted CoreML model archive")
-        try expect(kittenURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "KittenTTS should use the stable speech runtime asset release")
         try expect(kokoroURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Kokoro should use the stable speech runtime asset release")
         try expect(piperURL.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Piper should use the stable speech runtime asset release")
         try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.contains("/download/\(SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag)/"), "Default speech model manifest should use the stable release asset")
         try expect(SpeechRuntimeResourceManager.Runtime.modelManifestURL.absoluteString.hasSuffix("/speech-models-manifest.json"), "Default speech model manifest should use the release asset manifest")
-        try expect(!kittenURL.contains("/v1.4.18/"), "KittenTTS download URL should not be pinned to the old 1.4.18 release")
     }
 
     static func testSpeechRuntimeLocalRuntimeDescriptors() throws {
         let descriptors = SpeechRuntimeResourceManager.Runtime.localRuntimeDescriptors
-        try expectEqual(descriptors.map(\.id), ["kitten", "piper", "supertonic", "kokoro"], "speech runtime descriptors should preserve display order")
+        try expectEqual(descriptors.map(\.id), ["piper", "supertonic", "kokoro"], "speech runtime descriptors should preserve display order")
 
         let piper = SpeechRuntimeResourceManager.Runtime.piper
         let descriptor = piper.localRuntimeDescriptor
@@ -39,7 +35,7 @@ enum SpeechRuntimeDownloadTests {
 
     static func testSpeechRuntimeLocalRuntimeDownloadPlans() throws {
         let plans = SpeechRuntimeResourceManager.Runtime.localRuntimeDownloadPlans
-        try expectEqual(plans.map(\.descriptor.id), ["kitten", "piper", "supertonic", "kokoro"], "speech runtime download plans should preserve display order")
+        try expectEqual(plans.map(\.descriptor.id), ["piper", "supertonic", "kokoro"], "speech runtime download plans should preserve display order")
 
         let piper = SpeechRuntimeResourceManager.Runtime.piper
         let plan = piper.localRuntimeDownloadPlan
@@ -59,7 +55,7 @@ enum SpeechRuntimeDownloadTests {
         let registry = SpeechRuntimeResourceManager.Runtime.localRuntimeRegistry
         try expectEqual(
             registry.descriptors.map(\.id),
-            ["kitten", "piper", "supertonic", "kokoro"],
+            ["piper", "supertonic", "kokoro"],
             "speech runtime registry should preserve descriptor display order"
         )
 
