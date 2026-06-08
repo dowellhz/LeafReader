@@ -155,6 +155,38 @@ enum AISettingsLogicTests {
         try expect(sanitized.hasSuffix("..."), "truncated HTTP bodies should end with ellipsis")
     }
 
+    static func testAIRequestErrorTextClassifiesCommonFailures() throws {
+        let missingKey = NSError(domain: "openai", code: -10, userInfo: [
+            NSLocalizedDescriptionKey: "Missing API key for OpenAI"
+        ])
+        try expect(
+            AIRequestErrorText.message(for: missingKey).contains("API Key"),
+            "missing API key errors should point to model settings"
+        )
+
+        let timeout = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)
+        try expect(
+            AIRequestErrorText.message(for: timeout).contains("超时"),
+            "timeout errors should use a timeout-specific message"
+        )
+
+        let rateLimit = NSError(domain: "openai", code: 429, userInfo: [
+            NSLocalizedDescriptionKey: "OpenAI HTTP 429: rate_limit_exceeded"
+        ])
+        try expect(
+            AIRequestErrorText.message(for: rateLimit).contains("请求太频繁"),
+            "rate limits should avoid the generic AI failure message"
+        )
+
+        let localUnexpected = NSError(domain: "local-openai", code: -2, userInfo: [
+            NSLocalizedDescriptionKey: "Unexpected response: {}"
+        ])
+        try expect(
+            AIRequestErrorText.message(for: localUnexpected).contains("本地服务"),
+            "local model response failures should explain the local service compatibility issue"
+        )
+    }
+
     static func testAIResponseParserParsesNonStreamingResponses() throws {
         let responsesJSON: [String: Any] = [
             "output": [

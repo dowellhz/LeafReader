@@ -7,16 +7,12 @@ extension ReadingNotePanelController {
         askInputContainer.isHidden = true
 
         let menu = NSMenu()
-        if trigger.isLineCommand {
-            menu.addItem(disabledSlashMenuHeader(AppText.localized("基础块", "Basic blocks")))
-            ReadingNoteSlashCommand.blockCommands.forEach { menu.addItem(slashMenuItem($0)) }
+        for group in ReadingNoteSlashCommand.menuCommandGroups(isLineCommand: trigger.isLineCommand) {
+            menu.addItem(disabledSlashMenuHeader(slashCommandGroupTitle(group)))
+            group.forEach { menu.addItem(slashMenuItem($0)) }
             menu.addItem(.separator())
         }
 
-        menu.addItem(disabledSlashMenuHeader("AI"))
-        let commands = trigger.isLineCommand ? ReadingNoteSlashCommand.aiCommands : [.aiContinue]
-        commands.forEach { menu.addItem(slashMenuItem($0)) }
-        menu.addItem(.separator())
         menu.addItem(closeSlashMenuItem())
         menu.popUp(positioning: nil, at: slashCommandMenuPoint(), in: textView)
     }
@@ -85,6 +81,10 @@ extension ReadingNotePanelController {
             item.attributedTitle = slashMenuAttributedTitle(title: command.title, marker: command.marker)
         }
         return item
+    }
+
+    private func slashCommandGroupTitle(_ commands: [ReadingNoteSlashCommand]) -> String {
+        commands.allSatisfy(\.isAICommand) ? "AI" : AppText.localized("基础块", "Basic blocks")
     }
 
     private func disabledSlashMenuHeader(_ title: String) -> NSMenuItem {

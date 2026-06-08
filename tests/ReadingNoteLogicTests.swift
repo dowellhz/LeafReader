@@ -284,6 +284,11 @@ enum ReadingNoteLogicTests {
             [.aiContinue],
             "slash command menu should expose AI commands in a stable order"
         )
+        try expectEqual(
+            ReadingNoteSlashCommand.menuCommandGroups(isLineCommand: true).first,
+            ReadingNoteSlashCommand.aiCommands,
+            "slash command menu should put AI completion commands first"
+        )
         try expectEqual(ReadingNoteSlashCommand.heading2.marker, "## ", "heading command should map to markdown marker")
         try expectEqual(ReadingNoteSlashCommand.template.marker, "模板", "template command should show a readable marker")
         try expect(ReadingNoteSlashCommand.aiContinue.isAICommand, "AI completion command should be marked as AI")
@@ -360,6 +365,21 @@ enum ReadingNoteLogicTests {
             ReadingNoteAITextPolicy.markdownBody(from: "\nPlain text\n"),
             "Plain text",
             "AI markdown replacement should trim plain text"
+        )
+    }
+
+    static func testReadingNoteAIErrorTextUsesSharedClassifier() throws {
+        let rateLimit = NSError(domain: "openai", code: 429, userInfo: [
+            NSLocalizedDescriptionKey: "OpenAI HTTP 429: rate_limit_exceeded"
+        ])
+        try expect(
+            ReadingNoteAITextPolicy.userFacingError(rateLimit).contains("请求太频繁"),
+            "reading-note AI errors should use the shared request failure classifier"
+        )
+
+        try expect(
+            ReadingNoteAITextPolicy.emptyOutputMessage().contains("没有返回内容"),
+            "empty AI responses should have a specific recovery message"
         )
     }
 

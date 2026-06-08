@@ -128,7 +128,10 @@ extension ReadingNotePanelController {
             switch result {
             case .success(let output):
                 let value = output.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !value.isEmpty else { return }
+                guard !value.isEmpty else {
+                    self.handleAIEmptyOutput(usesPlaceholder: requestContext.insertionMode.usesPlaceholder)
+                    return
+                }
                 self.applyAIOutput(value, insertionMode: requestContext.insertionMode)
             case .failure(let error):
                 if requestContext.insertionMode.usesPlaceholder {
@@ -154,7 +157,10 @@ extension ReadingNotePanelController {
             switch result {
             case .success(let output):
                 let value = output.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !value.isEmpty else { return }
+                guard !value.isEmpty else {
+                    self.handleAIEmptyOutput(usesPlaceholder: insertionMode.usesPlaceholder)
+                    return
+                }
                 self.applyAIOutput(value, insertionMode: insertionMode)
                 self.statusLabel.stringValue = template.insertionStatus
             case .failure(let error):
@@ -377,7 +383,10 @@ extension ReadingNotePanelController {
         switch result {
         case .success(let output):
             let value = output.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty else { return }
+            guard !value.isEmpty else {
+                handleAIEmptyOutput(usesPlaceholder: true)
+                return
+            }
             replaceAIPlaceholder(title: request.question, body: value)
             editorState.pendingAskSelectedText = ""
         case .failure(let error):
@@ -393,5 +402,12 @@ extension ReadingNotePanelController {
 
     private func userFacingError(_ error: Error) -> String {
         ReadingNoteAITextPolicy.userFacingError(error)
+    }
+
+    private func handleAIEmptyOutput(usesPlaceholder: Bool) {
+        if usesPlaceholder {
+            removeAIPlaceholder()
+        }
+        statusLabel.stringValue = ReadingNoteAITextPolicy.emptyOutputMessage()
     }
 }

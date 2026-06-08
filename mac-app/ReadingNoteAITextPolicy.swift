@@ -37,13 +37,13 @@ enum ReadingNoteAITextPolicy {
     }
 
     static func userFacingError(_ error: Error) -> String {
-        let nsError = error as NSError
-        if nsError.code == -10 {
-            return AppText.localized("请先配置 API Key", "Configure API Key first")
-        }
-        if nsError.domain == NSURLErrorDomain {
-            return AppText.localized("AI 请求失败，请检查网络", "AI request failed. Check the network.")
-        }
-        return AppText.localized("AI 请求失败", "AI request failed")
+        AIRequestErrorText.message(for: error)
+    }
+
+    static func emptyOutputMessage() -> String {
+        AppText.localized(
+            "AI 没有返回内容。请重试，或换一个问题。",
+            "AI returned no content. Try again, or ask a different question."
+        )
     }
 }

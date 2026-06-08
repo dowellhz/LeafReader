@@ -26,14 +26,12 @@ extension AppDelegate {
             key: "",
             target: self
         ))
-        if updaterController != nil {
-            menu.addItem(menuItem(
-                AppText.localized("检查更新...", "Check for Updates..."),
-                action: #selector(checkForUpdates(_:)),
-                key: "",
-                target: self
-            ))
-        }
+        menu.addItem(menuItem(
+            AppText.localized("检查更新...", "Check for Updates..."),
+            action: #selector(checkForUpdates(_:)),
+            key: "",
+            target: self
+        ))
         menu.addItem(.separator())
         menu.addItem(menuItem(
             AppText.settings,

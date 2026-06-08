@@ -15,7 +15,7 @@ final class AITextActionRunner {
     private var runID: UUID?
 
     var isRunning: Bool {
-        task != nil
+        runID != nil
     }
 
     func cancel() {

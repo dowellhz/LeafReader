@@ -3,6 +3,7 @@ import Sparkle
 
 extension AppDelegate {
     @objc func checkForUpdates(_ sender: Any?) {
+        startUpdaterIfNeeded()
         guard let updater = updaterController?.updater else { return }
         guard updater.canCheckForUpdates else {
             showWhiteUpdateStatus(

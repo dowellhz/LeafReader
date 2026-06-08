@@ -17,16 +17,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var pendingOpenFileURLs: [URL] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        updaterController = SPUStandardUpdaterController(
-            startingUpdater: true,
-            updaterDelegate: self,
-            userDriverDelegate: nil
-        )
         controller = ReaderWindowController()
         installMainMenu()
         controller.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         loadPendingOpenFilesIfNeeded()
+        startUpdaterAfterInitialWindowDisplay()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -64,6 +60,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func openFileURL(_ url: URL, in controller: ReaderWindowController) {
         controller.window?.makeKeyAndOrderFront(nil)
         controller.openDocument(url)
+    }
+
+    func startUpdaterAfterInitialWindowDisplay() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            self?.startUpdaterIfNeeded()
+        }
+    }
+
+    @discardableResult
+    func startUpdaterIfNeeded() -> SPUStandardUpdaterController? {
+        if let updaterController {
+            return updaterController
+        }
+
+        let controller = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: self,
+            userDriverDelegate: nil
+        )
+        updaterController = controller
+        refreshMainMenu()
+        return controller
     }
 
 }

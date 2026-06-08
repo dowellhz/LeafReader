@@ -67,4 +67,8 @@ enum ReadingNoteSlashCommand: String, CaseIterable {
     static var aiCommands: [ReadingNoteSlashCommand] {
         [.aiContinue]
     }
+
+    static func menuCommandGroups(isLineCommand: Bool) -> [[ReadingNoteSlashCommand]] {
+        isLineCommand ? [aiCommands, blockCommands] : [aiCommands]
+    }
 }

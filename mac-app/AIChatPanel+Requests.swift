@@ -276,44 +276,7 @@ extension AIChatPanel {
     }
 
     func userFacingAIError(_ error: Error) -> String {
-        let nsError = error as NSError
-        if nsError.code == -10 {
-            return AppText.localized(
-                "还没有配置当前模型的 API Key。请先打开设置，选择模型并填写 API Key。",
-                "The current model does not have an API Key yet. Open Settings, choose a model, and enter the API Key."
-            )
-        }
-
-        if nsError.domain == NSURLErrorDomain {
-            switch nsError.code {
-            case NSURLErrorNotConnectedToInternet:
-                return AppText.localized("网络不可用。请检查网络连接后再试。", "Network is unavailable. Check your connection and try again.")
-            case NSURLErrorTimedOut:
-                return AppText.localized("请求超时了。请稍后再试，或切换到响应更快的模型。", "The request timed out. Try again later, or switch to a faster model.")
-            case NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost, NSURLErrorDNSLookupFailed:
-                return AppText.localized("无法连接到模型服务。请检查网络，或确认当前模型服务可用。", "Cannot connect to the model service. Check your network or confirm the service is available.")
-            default:
-                return AppText.localized("请求模型服务失败。请检查网络和 API Key 后再试。", "The model request failed. Check your network and API Key, then try again.")
-            }
-        }
-
-        if nsError.code == 401 || nsError.code == 403 {
-            return AppText.localized("API Key 无效或没有权限。请在设置里检查 API Key 和所选模型。", "The API Key is invalid or lacks permission. Check the API Key and selected model in Settings.")
-        }
-        if nsError.code == 402 {
-            return AppText.localized("账户余额不足或计费不可用。请检查对应模型服务账户。", "The account balance is insufficient or billing is unavailable. Check the account for this model service.")
-        }
-        if nsError.code == 404 {
-            return AppText.localized("当前模型不可用。请在设置里切换模型后再试。", "The selected model is unavailable. Switch models in Settings and try again.")
-        }
-        if nsError.code == 429 {
-            return AppText.localized("请求太频繁或额度已达上限。请稍后再试。", "Too many requests or the quota has been reached. Try again later.")
-        }
-        if (500...599).contains(nsError.code) {
-            return AppText.localized("模型服务暂时异常。请稍后再试，或切换其他模型。", "The model service is temporarily unavailable. Try again later or switch models.")
-        }
-
-        return AppText.localized("AI 请求失败。请检查模型设置、API Key 和网络后再试。", "The AI request failed. Check the model settings, API Key, and network, then try again.")
+        AIRequestErrorText.message(for: error)
     }
 
     func setBusy(_ busy: Bool, text: String) {
