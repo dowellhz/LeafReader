@@ -198,7 +198,7 @@ Website: <https://leafreader.space/>
 
 ### Download
 
-[Leaf Reader 1.7.8 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.7.8/LeafReader-1.7.8.pkg)
+[Leaf Reader 1.7.9 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.7.9/LeafReader-1.7.9.pkg)
 
 ### System Requirements
 
@@ -487,28 +487,28 @@ Regenerate the code map after larger refactors:
 
 ### Release
 
-Current version: `1.7.8`
+Current version: `1.7.9`
 
-Git tag: `v1.7.8`
+Git tag: `v1.7.9`
 
 Latest installer:
 
-[Leaf Reader-1.7.8.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.8/LeafReader-1.7.8.pkg)
+[Leaf Reader-1.7.9.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.9/LeafReader-1.7.9.pkg)
 
 Local release package path:
 
-`release/1.7.8/LeafReader-1.7.8.pkg`
+`release/1.7.9/LeafReader-1.7.8.pkg`
 
 Build the signed release package without publishing:
 
 ```sh
-./scripts/release_pkg.sh 1.7.8
+./scripts/release_pkg.sh 1.7.9
 ```
 
 Run the full publish flow from a clean working tree:
 
 ```sh
-./scripts/publish_release.sh 1.7.8
+./scripts/publish_release.sh 1.7.9
 ```
 
 The publish script runs tests, builds/signs/notarizes the pkg, smoke-tests the package payload, reports speech runtime size, commits version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-models` only when publishing changed speech model archives in `docs/tts/`. Add `--push-wiki --cleanup-releases` to sync GitHub Wiki and clean old ignored local release artifacts after publishing.
