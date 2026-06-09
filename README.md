@@ -29,7 +29,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 
 ### 下载
 
-[下载 Leaf Reader 1.7.5 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.7.5/LeafReader-1.7.5.pkg)
+[下载 Leaf Reader 1.7.9 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.7.9/LeafReader-1.7.9.pkg)
 
 ### 系统要求
 
@@ -63,6 +63,20 @@ Leaf Reader 可以使用 Piper、[FluidAudio Kokoro Core ML](https://huggingface
 常规应用版本会复用这些模型文件。只有模型文件变化时才需要重新发布语音模型归档，并同步更新 `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag`。
 
 ### 更新记录
+
+#### 1.7.9
+
+- 改进 PDF 朗读：会学习重复出现的页眉和页脚行，TTS 时自动跳过。
+- 页码和页脚混在同一视觉行时会整行跳过，避免只删页码、仍读出页脚文字。
+- 增加启动耗时诊断，并延迟初始化部分朗读组件，让日常启动更轻。
+- 补充 PDF 页脚过滤、低位置正文误删和启动耗时快照的回归测试。
+
+#### 1.7.8
+
+- 改进主题覆盖，工具栏、搜索、书架、背单词和 AI 界面更一致地跟随白色、护眼和深色主题。
+- 加强发布和文档检查，本地检查会在临时目录构建手册，避免生成 HTML 噪声。
+- 清理语音 runtime 发布维护逻辑，移除废弃下载包装，并把 Piper worker 支持代码拆得更聚焦。
+- 增加主题调色板回归测试，保持 UI theme 扫描无警告。
 
 #### 1.7.7
 
@@ -497,7 +511,7 @@ Latest installer:
 
 Local release package path:
 
-`release/1.7.9/LeafReader-1.7.8.pkg`
+`release/1.7.9/LeafReader-1.7.9.pkg`
 
 Build the signed release package without publishing:
 

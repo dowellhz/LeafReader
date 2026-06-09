@@ -12,10 +12,20 @@
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
       <pubDate>Tue, 09 Jun 2026 03:22:48 +0000</pubDate>
       <description xml:lang="zh"><![CDATA[
-        <ul><li>Leaf Reader 1.7.9 发布。</li></ul>
+        <ul>
+          <li>改进 PDF 朗读：自动学习并跳过重复页眉和页脚行。</li>
+          <li>页码和页脚文字在同一视觉行时会整行跳过，避免 TTS 读出页脚。</li>
+          <li>增加启动耗时诊断，并延迟部分朗读组件初始化，让日常启动更轻。</li>
+          <li>补充 PDF 页脚过滤和启动耗时相关回归测试。</li>
+        </ul>
       ]]></description>
       <description xml:lang="en"><![CDATA[
-        <ul><li>Leaf Reader 1.7.9 release.</li></ul>
+        <ul>
+          <li>Improved PDF read-aloud by learning and skipping repeated header and footer rows.</li>
+          <li>Footer text and page numbers on the same visual row are skipped together during TTS.</li>
+          <li>Added launch performance diagnostics and delayed part of speech setup for lighter everyday startup.</li>
+          <li>Added regression coverage for PDF footer filtering and launch timing.</li>
+        </ul>
       ]]></description>
       <enclosure
         url="https://github.com/dowellhz/LeafReader/releases/download/v1.7.9/LeafReader-1.7.9.pkg"
