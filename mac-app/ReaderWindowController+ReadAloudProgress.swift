@@ -109,6 +109,7 @@ extension ReaderWindowController {
     func resetReadAloudPDFProgress() {
         readAloudPDFPages.removeAll()
         readAloudPDFPageTextCache.removeAll()
+        readAloudState.pdfChromeFilter.reset()
         readAloudPDFCandidatePageIndex = 0
         readAloudPDFSearchLocation = 0
         readAloudPageLockedAtTopIndex = nil

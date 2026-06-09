@@ -17,11 +17,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var pendingOpenFileURLs: [URL] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        LaunchPerformanceTracker.shared.mark("didFinishLaunching")
         controller = ReaderWindowController()
+        LaunchPerformanceTracker.shared.mark("windowController")
         installMainMenu()
+        LaunchPerformanceTracker.shared.mark("menu")
         controller.window?.makeKeyAndOrderFront(nil)
+        LaunchPerformanceTracker.shared.mark("windowVisible")
         NSApp.activate(ignoringOtherApps: true)
         loadPendingOpenFilesIfNeeded()
+        LaunchPerformanceTracker.shared.finish()
         startUpdaterAfterInitialWindowDisplay()
     }
 
@@ -81,6 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         updaterController = controller
         refreshMainMenu()
+        LaunchPerformanceTracker.shared.mark("sparkle")
         return controller
     }
 

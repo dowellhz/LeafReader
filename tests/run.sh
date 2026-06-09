@@ -132,6 +132,7 @@ PERSONAL_VOCABULARY_TEST_SOURCES=(
 
 REGRESSION_TEST_SOURCES=(
   mac-app/ProcessRunner.swift
+  mac-app/LaunchPerformanceTracker.swift
   mac-app/AIRequestState.swift
   mac-app/MarkdownRenderer.swift
   mac-app/MarkdownBlockParser.swift

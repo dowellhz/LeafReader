@@ -3,7 +3,10 @@ import PDFKit
 
 extension ReaderWindowController {
     private var pdfReadAloudBatchBuilder: PDFReadAloudBatchBuilder {
-        PDFReadAloudBatchBuilder(pdfView: pdfView) { [weak self] in
+        PDFReadAloudBatchBuilder(
+            pdfView: pdfView,
+            chromeFilterState: readAloudState.pdfChromeFilter
+        ) { [weak self] in
             self?.titleLabel.stringValue ?? ""
         }
     }

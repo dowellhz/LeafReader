@@ -18,6 +18,7 @@ enum DiagnosticsReport {
         let documentName = controller?.currentFileURL?.lastPathComponent ?? AppText.noPDF
         let ecdict = ECDICTDictionary.shared.diagnosticInfo()
         let appcastURL = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String ?? "-"
+        let launchPerformance = LaunchPerformanceTracker.shared.snapshot()
 
         return [
             DiagnosticRow(
@@ -29,6 +30,11 @@ enum DiagnosticsReport {
                 title: AppText.localized("运行路径", "Runtime Path"),
                 detail: Bundle.main.bundleURL.path,
                 isOK: true
+            ),
+            DiagnosticRow(
+                title: AppText.localized("启动耗时", "Launch Time"),
+                detail: launchPerformance?.detailText ?? AppText.localized("暂无数据", "No data yet"),
+                isOK: launchPerformance != nil
             ),
             DiagnosticRow(
                 title: AppText.localized("Sparkle 更新", "Sparkle Updates"),

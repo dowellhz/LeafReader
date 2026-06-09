@@ -11,9 +11,15 @@ final class PDFReadAloudBatchBuilder {
 
     private weak var pdfView: PDFView?
     private let titleProvider: () -> String
+    private let chromeFilterState: PDFReadAloudChromeFilter.State
 
-    init(pdfView: PDFView, titleProvider: @escaping () -> String) {
+    init(
+        pdfView: PDFView,
+        chromeFilterState: PDFReadAloudChromeFilter.State,
+        titleProvider: @escaping () -> String
+    ) {
         self.pdfView = pdfView
+        self.chromeFilterState = chromeFilterState
         self.titleProvider = titleProvider
     }
 
@@ -126,19 +132,22 @@ final class PDFReadAloudBatchBuilder {
         let rawText = selection?.string?.trimmingCharacters(in: .whitespacesAndNewlines)
             ?? page.string?.trimmingCharacters(in: .whitespacesAndNewlines)
             ?? ""
-        let text = strippedChrome(rawText, page: page)
+        let text = strippedChrome(rawText, page: page, selection: selection)
         guard Self.wordCount(in: text) >= 4 else { return nil }
         return text.isEmpty ? nil : text
     }
 
     private func textForFullPage(_ page: PDFPage) -> String? {
         let rawText = page.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let text = strippedChrome(rawText, page: page)
+        let text = strippedChrome(rawText, page: page, selection: fullPageSelection(for: page))
         guard Self.wordCount(in: text) >= 4 else { return nil }
         return text.isEmpty ? nil : text
     }
 
-    private func strippedChrome(_ text: String, page: PDFPage) -> String {
+    private func strippedChrome(_ text: String, page: PDFPage, selection: PDFSelection?) -> String {
+        if let layoutFilteredText = layoutFilteredText(for: page, selection: selection) {
+            return layoutFilteredText.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         guard let document = pdfView?.document else {
             return ReaderAIContextBuilder.stripPDFPageChrome(
                 from: text,
@@ -156,6 +165,41 @@ final class PDFReadAloudBatchBuilder {
             nextText: nextText,
             title: titleProvider()
         ).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func layoutFilteredText(for page: PDFPage, selection: PDFSelection?) -> String? {
+        guard let pdfView,
+              let document = pdfView.document,
+              let selection else {
+            return nil
+        }
+        let pageIndex = document.index(for: page)
+        guard pageIndex != NSNotFound else { return nil }
+
+        let pageBounds = page.bounds(for: pdfView.displayBox)
+        let lines = selection.selectionsByLine().compactMap { line -> PDFReadAloudChromeFilter.Line? in
+            guard let text = line.string?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !text.isEmpty,
+                  line.pages.contains(page) else {
+                return nil
+            }
+            let bounds = line.bounds(for: page)
+            guard !bounds.isEmpty else { return nil }
+            return PDFReadAloudChromeFilter.Line(text: text, bounds: bounds, pageBounds: pageBounds)
+        }
+        guard !lines.isEmpty else { return nil }
+
+        let filtered = PDFReadAloudChromeFilter.filteredText(
+            lines: lines,
+            state: chromeFilterState
+        )
+        return filtered.isEmpty ? nil : filtered
+    }
+
+    private func fullPageSelection(for page: PDFPage) -> PDFSelection? {
+        guard let pdfView else { return nil }
+        let pageBounds = page.bounds(for: pdfView.displayBox)
+        return page.selection(for: pageBounds)
     }
 
     private func nextPage(after page: PDFPage) -> PDFPage? {

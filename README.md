@@ -320,6 +320,13 @@ Third-party speech models and runtimes remain copyrighted by their respective pr
 - [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) / Kokoro model: Apache License 2.0.
 - [Piper](https://github.com/rhasspy/piper): MIT License; Piper voice model assets follow the metadata shipped with the upstream model package.
 
+## What's New in 1.7.9
+
+- Improved PDF read-aloud by learning repeated header and footer rows and skipping them during TTS.
+- Page-number and footer rows are removed as whole visual rows, so mixed footer text is not spoken.
+- Added launch performance diagnostics and delayed speech setup so everyday app startup stays lighter.
+- Added focused regression coverage for PDF footer filtering, low-body-text false positives, and launch timing snapshots.
+
 ## What's New in 1.7.8
 
 - Improved reader theme coverage so chrome, toolbar, search, bookshelf, vocabulary, and AI surfaces consistently follow white, eye-care, and dark themes.

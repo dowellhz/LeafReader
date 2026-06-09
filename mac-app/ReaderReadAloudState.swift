@@ -7,6 +7,7 @@ struct ReaderReadAloudState {
     var temporaryUnderlineAnnotations: [(page: PDFPage, annotation: PDFAnnotation)] = []
     var pdfPages: [PDFPage] = []
     var pdfPageTextCache: [Int: String] = [:]
+    var pdfChromeFilter = PDFReadAloudChromeFilter.State()
     var pdfCandidatePageIndex = 0
     var pdfSearchLocation = 0
     var pageLockedAtTopIndex: Int?

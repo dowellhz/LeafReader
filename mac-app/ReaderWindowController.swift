@@ -58,7 +58,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     let loadingIndicator = NSProgressIndicator()
     let loadingLabel = NSTextField(labelWithString: "")
     let aiPanel = AIChatPanel()
-    let vocabularySpeechSynthesizer = AVSpeechSynthesizer()
+    lazy var vocabularySpeechSynthesizer = AVSpeechSynthesizer()
     lazy var vocabularySpeechCoordinator = VocabularySpeechCoordinator(
         synthesizer: vocabularySpeechSynthesizer,
         owner: self
@@ -155,9 +155,11 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         dropContentView.readerWindowController = self
         window.readerWindowController = self
         window.delegate = self
+        LaunchPerformanceTracker.shared.mark("windowShell")
         buildUI()
+        LaunchPerformanceTracker.shared.mark("buildUI")
         installSpeechProgressObserver()
-        _ = vocabularySpeechCoordinator
+        LaunchPerformanceTracker.shared.mark("speechObserver")
     }
 
     deinit {

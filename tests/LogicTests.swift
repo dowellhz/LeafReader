@@ -419,6 +419,64 @@ private func testReaderAISourceMatcher() throws {
     try expect(ReaderAISourceMatcher.linkedWordText("imperative", overlapsReadAloudText: "more imperative still"), "linked word text should match spoken phrase")
 }
 
+private func testPDFReadAloudChromeFilterLearnsRepeatedEdgeLines() throws {
+    let pageBounds = CGRect(x: 0, y: 0, width: 600, height: 800)
+    let shortPageBounds = CGRect(x: 0, y: 0, width: 372, height: 484)
+    let firstPageLines = [
+        PDFReadAloudChromeFilter.Line(text: "Book Title", bounds: CGRect(x: 50, y: 760, width: 200, height: 12), pageBounds: pageBounds),
+        PDFReadAloudChromeFilter.Line(text: "Real first page sentence.", bounds: CGRect(x: 50, y: 500, width: 300, height: 12), pageBounds: pageBounds),
+        PDFReadAloudChromeFilter.Line(text: "1", bounds: CGRect(x: 300, y: 20, width: 20, height: 12), pageBounds: pageBounds)
+    ]
+    let secondPageLines = [
+        PDFReadAloudChromeFilter.Line(text: "Book Title", bounds: CGRect(x: 50, y: 760, width: 200, height: 12), pageBounds: pageBounds),
+        PDFReadAloudChromeFilter.Line(text: "Real second page sentence.", bounds: CGRect(x: 50, y: 500, width: 300, height: 12), pageBounds: pageBounds),
+        PDFReadAloudChromeFilter.Line(text: "Book Title", bounds: CGRect(x: 50, y: 400, width: 200, height: 12), pageBounds: pageBounds),
+        PDFReadAloudChromeFilter.Line(text: "2", bounds: CGRect(x: 300, y: 20, width: 20, height: 12), pageBounds: pageBounds),
+        PDFReadAloudChromeFilter.Line(text: "Chapter footer", bounds: CGRect(x: 330, y: 20, width: 120, height: 12), pageBounds: pageBounds)
+    ]
+    let state = PDFReadAloudChromeFilter.State()
+
+    let first = PDFReadAloudChromeFilter.filteredText(lines: firstPageLines, state: state)
+    try expect(first.contains("Book Title"), "first repeated-looking edge line should be kept until the filter learns it")
+    try expect(!first.contains("\n1"), "page number edge lines should be filtered immediately")
+
+    let second = PDFReadAloudChromeFilter.filteredText(lines: secondPageLines, state: state)
+    try expect(!second.hasPrefix("Book Title"), "second repeated edge line should be filtered after learning")
+    try expect(second.contains("Real second page sentence."), "body text should remain readable")
+    try expect(second.contains("\nBook Title"), "same text in the page body should not be removed")
+    try expect(!second.contains("\n2"), "later footer rows should be filtered immediately")
+    try expect(!second.contains("Chapter footer"), "the whole detected footer row should be filtered")
+
+    let shortPageState = PDFReadAloudChromeFilter.State()
+    _ = PDFReadAloudChromeFilter.filteredText(
+        lines: [
+            PDFReadAloudChromeFilter.Line(text: "Free eBooks at Planet eBook.com", bounds: CGRect(x: 31, y: 62, width: 200, height: 12), pageBounds: shortPageBounds),
+            PDFReadAloudChromeFilter.Line(text: "51", bounds: CGRect(x: 264, y: 62, width: 20, height: 12), pageBounds: shortPageBounds)
+        ],
+        state: shortPageState
+    )
+    let gatsbyLikePage = PDFReadAloudChromeFilter.filteredText(
+        lines: [
+            PDFReadAloudChromeFilter.Line(text: "Real Gatsby paragraph.", bounds: CGRect(x: 31, y: 250, width: 260, height: 12), pageBounds: shortPageBounds),
+            PDFReadAloudChromeFilter.Line(text: "Free eBooks at Planet eBook.com", bounds: CGRect(x: 31, y: 62, width: 200, height: 12), pageBounds: shortPageBounds),
+            PDFReadAloudChromeFilter.Line(text: "52", bounds: CGRect(x: 264, y: 62, width: 20, height: 12), pageBounds: shortPageBounds)
+        ],
+        state: shortPageState
+    )
+    try expect(gatsbyLikePage.contains("Real Gatsby paragraph."), "short-page body text should remain")
+    try expect(!gatsbyLikePage.contains("Free eBooks"), "short-page repeated footer text should be filtered")
+    try expect(!gatsbyLikePage.contains("52"), "short-page footer row should remove the page number too")
+
+    let prideLikePage = PDFReadAloudChromeFilter.filteredText(
+        lines: [
+            PDFReadAloudChromeFilter.Line(text: "with you at the next ball.", bounds: CGRect(x: 72, y: 102, width: 220, height: 12), pageBounds: pageBounds),
+            PDFReadAloudChromeFilter.Line(text: "Other body line.", bounds: CGRect(x: 72, y: 300, width: 220, height: 12), pageBounds: pageBounds)
+        ],
+        state: PDFReadAloudChromeFilter.State()
+    )
+    try expect(prideLikePage.contains("with you at the next ball."), "low body text should not be treated as footer chrome")
+}
+
 private func testCapturedPageScrollGuard() throws {
     try expect(shouldApplyCapturedPageScroll(capturedPageIndex: 2, documentPageCount: 5), "captured page in current document should be scrollable")
     try expect(!shouldApplyCapturedPageScroll(capturedPageIndex: -1, documentPageCount: 5), "negative captured page should be ignored")
@@ -740,6 +798,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Reading context snapshot", testReadingContextSnapshot),
     ("Reader focused selection priority", testReaderFocusedSelectionPriority),
     ("Reader AI source matcher", testReaderAISourceMatcher),
+    ("PDF read-aloud chrome filter", testPDFReadAloudChromeFilterLearnsRepeatedEdgeLines),
     ("Captured page scroll guard", testCapturedPageScrollGuard),
     ("PDF brightness policy", testPDFBrightnessPolicy),
     ("Debounced task", testDebouncedTask),

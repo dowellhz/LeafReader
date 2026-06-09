@@ -216,6 +216,18 @@ private func testAIRequestStateLifecycle() throws {
     try expect(!state.shouldHandleCompletion(for: firstID), "new requests should clear stale cancellation state")
 }
 
+private func testLaunchPerformanceTrackerSnapshot() throws {
+    let tracker = LaunchPerformanceTracker(startTime: 10)
+    tracker.mark("window", now: 10.12)
+    tracker.mark("menu", now: 10.2)
+    let snapshot = tracker.finish(now: 10.25)
+
+    try expectEqual(snapshot.totalMilliseconds, 250, "launch tracker should report total elapsed milliseconds")
+    try expectEqual(snapshot.marks.count, 2, "launch tracker should keep phase marks")
+    try expect(snapshot.detailText.contains("window 120ms"), "launch tracker detail should include phase timing")
+    try expect(tracker.snapshot()?.totalMilliseconds == 250, "launch tracker should retain the finished snapshot")
+}
+
 private func testProcessRunnerCapturesOutputAndTimeout() throws {
     let echo = try ProcessRunner.run(
         executableURL: URL(fileURLWithPath: "/bin/echo"),
@@ -262,6 +274,8 @@ struct RegressionTestRunner {
             print("PASS AI source legacy decode")
             try testAIRequestStateLifecycle()
             print("PASS AI request state lifecycle")
+            try testLaunchPerformanceTrackerSnapshot()
+            print("PASS launch performance tracker")
             try testProcessRunnerCapturesOutputAndTimeout()
             print("PASS process runner output and timeout")
             print("RegressionTests passed")
