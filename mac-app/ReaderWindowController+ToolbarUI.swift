@@ -179,8 +179,7 @@ extension ReaderWindowController {
 
     func configureTopRightControls() {
         fullScreenButton = capsuleButton(title: AppText.fullScreen, symbol: "arrow.up.left.and.arrow.down.right", action: #selector(toggleFullScreen))
-        pageLayoutButton = capsuleButton(title: "", symbol: "rectangle.split.2x1", action: #selector(togglePDFPageLayout))
-        pageLayoutButton.toolTip = AppText.localized("切换单页/双页浏览", "Toggle single/two-page view")
+        pageLayoutButton = capsuleButton(title: "", symbol: "rectangle.stack", action: #selector(showPDFDisplayModeMenu(_:)), showsLeadingSymbol: true)
         cropButton = capsuleButton(title: "", symbol: "crop", action: #selector(togglePDFMarginCrop))
         cropButton.toolTip = AppText.localized("裁掉 PDF 页面外侧空白", "Crop outer PDF margins")
         updatePDFPageLayoutButton()

@@ -1,5 +1,14 @@
 import Foundation
 
+enum PDFReadingMode: String, CaseIterable {
+    case paged
+    case continuous
+
+    var allowsEdgePaging: Bool {
+        self == .paged
+    }
+}
+
 enum PDFPagingPolicy {
     static let documentSizeTolerance: CGFloat = 2
 

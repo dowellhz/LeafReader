@@ -9,6 +9,13 @@ final class EdgePagingPDFView: PDFView {
 
     var onScrollPastPageEdge: ((ScrollPageDirection) -> Void)?
     var onDroppedDocumentURLs: (([URL]) -> Void)?
+    var allowsEdgePaging = true {
+        didSet {
+            if !allowsEdgePaging {
+                accumulatedEdgeScroll = 0
+            }
+        }
+    }
 
     private var accumulatedEdgeScroll: CGFloat = 0
     private var lastEdgePageTurn = Date.distantPast
@@ -65,6 +72,12 @@ final class EdgePagingPDFView: PDFView {
     }
 
     override func scrollWheel(with event: NSEvent) {
+        guard allowsEdgePaging else {
+            accumulatedEdgeScroll = 0
+            super.scrollWheel(with: event)
+            return
+        }
+
         if event.phase == .began {
             accumulatedEdgeScroll = 0
         }
@@ -157,11 +170,7 @@ final class EdgePagingPDFView: PDFView {
         let menu = NSMenu()
         menu.allowsContextMenuPlugIns = false
 
-        let groups = [
-            resizeContextMenuTitles,
-            pageLayoutContextMenuTitles,
-            pageTurnContextMenuTitles
-        ]
+        let groups = [resizeContextMenuTitles, pageTurnContextMenuTitles]
         for allowedGroup in groups {
             var didAddGroupItem = false
             for item in sourceMenu.items {
@@ -199,15 +208,6 @@ final class EdgePagingPDFView: PDFView {
             "zoom in", "放大",
             "zoom out", "缩小",
             "actual size", "实际大小"
-        ])
-    }
-
-    private var pageLayoutContextMenuTitles: Set<String> {
-        Set([
-            "single page", "单页",
-            "single page continuous", "单页连续",
-            "two pages", "双页",
-            "two pages continuous", "双页连续"
         ])
     }
 

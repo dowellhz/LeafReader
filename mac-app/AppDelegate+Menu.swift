@@ -122,6 +122,12 @@ extension AppDelegate {
             target: controller
         ))
         menu.addItem(menuItem(
+            AppText.localized("切换逐页/连续滚动", "Toggle Paged/Continuous Scrolling"),
+            action: #selector(ReaderWindowController.togglePDFReadingMode),
+            key: "4",
+            target: controller
+        ))
+        menu.addItem(menuItem(
             AppText.localized("裁边/原边", "Crop/Original Margins"),
             action: #selector(ReaderWindowController.togglePDFMarginCrop),
             key: "3",

@@ -110,6 +110,7 @@ extension ReaderWindowController {
 
     func handlePDFTrackpadScroll(_ event: NSEvent) -> Bool {
         guard currentDocumentKind == .pdf,
+              currentPDFReadingMode().allowsEdgePaging,
               event.hasPreciseScrollingDeltas,
               abs(event.scrollingDeltaY) > abs(event.scrollingDeltaX),
               abs(event.scrollingDeltaY) > 0,
