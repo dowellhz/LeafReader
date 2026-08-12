@@ -362,10 +362,11 @@ enum VocabularyLogicTests {
 
     static func testVocabularyLearningStats() throws {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        guard let utc = TimeZone(secondsFromGMT: 0) else { throw TestFailure(description: "could not create UTC time zone") }
+        calendar.timeZone = utc
         let now = Date(timeIntervalSince1970: 1_700_000_000)
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: now)!
-        let older = calendar.date(byAdding: .day, value: -3, to: now)!
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+              let older = calendar.date(byAdding: .day, value: -3, to: now) else { throw TestFailure(description: "could not create vocabulary statistics dates") }
 
         var reviewedToday = VocabularySRSState.initial(createdAt: older)
         reviewedToday.reviewCount = 3

@@ -2,7 +2,7 @@ import Foundation
 
 enum SpeechRuntimeManifestTests {
     static func testSpeechModelManifestParsingAndChecksumValidation() throws {
-        let manifestJSON = """
+        guard let manifestJSON = """
         {
           "generatedAt": "2026-05-23T06:08:12Z",
           "assets": [
@@ -13,11 +13,15 @@ enum SpeechRuntimeManifestTests {
             }
           ]
         }
-        """.data(using: .utf8)!
+        """.data(using: .utf8) else {
+            throw TestFailure(description: "could not encode manifest fixture")
+        }
         let manifest = try SpeechRuntimeResourceManager.decodeModelManifest(manifestJSON)
-        let asset = manifest.asset(named: "piper-tts-macos-arm64.tar.gz")
-        try expectEqual(asset?.sha256, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", "manifest lookup should return the matching asset digest")
-        try expectEqual(asset?.size, 5, "manifest lookup should return the matching asset size")
+        guard let asset = manifest.asset(named: "piper-tts-macos-arm64.tar.gz") else {
+            throw TestFailure(description: "manifest lookup should return the matching asset")
+        }
+        try expectEqual(asset.sha256, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", "manifest lookup should return the matching asset digest")
+        try expectEqual(asset.size, 5, "manifest lookup should return the matching asset size")
 
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("leafreader-sha256-\(UUID().uuidString).txt")
@@ -33,7 +37,7 @@ enum SpeechRuntimeManifestTests {
             try expectEqual(error.code, -7, "checksum mismatch should use the checksum error code")
         }
 
-        let wrongSize = SpeechModelManifest.Asset(name: "piper-tts-macos-arm64.tar.gz", size: 6, sha256: asset!.sha256)
+        let wrongSize = SpeechModelManifest.Asset(name: "piper-tts-macos-arm64.tar.gz", size: 6, sha256: asset.sha256)
         do {
             try LocalRuntimeDownloadSupport.validateArchiveManifest(fileURL, asset: wrongSize)
             throw TestFailure(description: "size mismatch should throw")

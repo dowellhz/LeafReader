@@ -219,7 +219,13 @@ extension SpeechRuntimeResourceManager {
         }
 
         private static func releaseAssetURL(fileName: String) -> URL {
-            URL(string: "\(releaseDownloadsBaseURL)/download/\(runtimeAssetsReleaseTag)/\(fileName)")!
+            guard let baseURL = URL(string: releaseDownloadsBaseURL) else {
+                preconditionFailure("Invalid speech runtime release base URL")
+            }
+            return baseURL
+                .appendingPathComponent("download", isDirectory: true)
+                .appendingPathComponent(runtimeAssetsReleaseTag, isDirectory: true)
+                .appendingPathComponent(fileName)
         }
 
         private func runtimeDirectory(in root: URL) -> URL {

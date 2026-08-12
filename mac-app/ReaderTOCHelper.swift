@@ -27,10 +27,12 @@ struct ReaderTOCHelper {
                     let pageIndex = document.index(for: page)
                     guard pageIndex != NSNotFound else { continue }
                     let title = child.label?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let displayTitle = title.flatMap { $0.isEmpty ? nil : $0 }
+                        ?? AppText.localized("未命名目录", "Untitled")
                     let id = "pdf-toc-\(items.count)"
                     destinations[id] = PDFTOCDestination(pageIndex: pageIndex, point: destination.point)
                     items.append(ReaderTOCItem(
-                        title: title?.isEmpty == false ? title! : AppText.localized("未命名目录", "Untitled"),
+                        title: displayTitle,
                         href: id,
                         level: min(level, 4)
                     ))

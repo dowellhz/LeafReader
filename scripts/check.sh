@@ -20,6 +20,9 @@ fi
 cd "$ROOT_DIR"
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-/private/tmp/leafreader-clang-cache}"
 
+echo "==> Checking source line limits"
+./scripts/check_source_line_limits.sh
+
 echo "==> Checking whitespace"
 git diff --check
 

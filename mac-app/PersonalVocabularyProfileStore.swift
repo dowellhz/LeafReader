@@ -4,7 +4,7 @@ import SQLite3
 private let PERSONAL_VOCABULARY_SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
 final class PersonalVocabularyProfileStore {
-    static let shared = PersonalVocabularyProfileStore(databaseURL: defaultDatabaseURL())
+    static let shared = PersonalVocabularyProfileStore(databaseURL: PersonalVocabularyProfileSchema.defaultDatabaseURL())
 
     private let lock = NSLock()
     private var db: OpaquePointer?
@@ -98,35 +98,7 @@ final class PersonalVocabularyProfileStore {
     }
 
     private func createTables() {
-        let sql = """
-        PRAGMA journal_mode = WAL;
-        CREATE TABLE IF NOT EXISTS personal_vocabulary_profiles (
-            lemma TEXT PRIMARY KEY,
-            surface_count INTEGER NOT NULL DEFAULT 0,
-            seen_count INTEGER NOT NULL DEFAULT 0,
-            unqueried_seen_count INTEGER NOT NULL DEFAULT 0,
-            post_query_unqueried_seen_count INTEGER NOT NULL DEFAULT 0,
-            queried_count INTEGER NOT NULL DEFAULT 0,
-            ai_explain_count INTEGER NOT NULL DEFAULT 0,
-            review_correct_count INTEGER NOT NULL DEFAULT 0,
-            review_wrong_count INTEGER NOT NULL DEFAULT 0,
-            documents_seen INTEGER NOT NULL DEFAULT 0,
-            is_learning_tracked INTEGER NOT NULL DEFAULT 0,
-            status TEXT NOT NULL DEFAULT 'observed',
-            confidence REAL NOT NULL DEFAULT 0,
-            last_seen_at REAL,
-            updated_at REAL NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS personal_vocabulary_document_seen (
-            lemma TEXT NOT NULL,
-            document_id TEXT NOT NULL,
-            seen_count INTEGER NOT NULL DEFAULT 0,
-            updated_at REAL NOT NULL,
-            PRIMARY KEY(lemma, document_id)
-        );
-        CREATE INDEX IF NOT EXISTS idx_personal_vocabulary_status ON personal_vocabulary_profiles(status, confidence);
-        """
-        executeRaw(sql, operation: "create personal vocabulary tables")
+        executeRaw(PersonalVocabularyProfileSchema.createTablesSQL, operation: "create personal vocabulary tables")
         ensureColumn(table: "personal_vocabulary_profiles", name: "is_learning_tracked", definition: "INTEGER NOT NULL DEFAULT 0")
         cleanupNoiseProfiles()
     }
@@ -136,13 +108,7 @@ final class PersonalVocabularyProfileStore {
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(
             db,
-            """
-            SELECT lemma FROM personal_vocabulary_profiles
-            WHERE queried_count = 0
-              AND ai_explain_count = 0
-              AND review_correct_count = 0
-              AND review_wrong_count = 0
-            """,
+            PersonalVocabularyProfileSchema.noiseCandidateSQL,
             -1,
             &statement,
             nil
@@ -522,12 +488,4 @@ final class PersonalVocabularyProfileStore {
         return String(cString: sqlite3_errmsg(db))
     }
 
-    private static func databaseDirectory() -> URL? {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("LeafReader", isDirectory: true)
-    }
-
-    private static func defaultDatabaseURL() -> URL? {
-        databaseDirectory()?.appendingPathComponent("personal-vocabulary.sqlite3")
-    }
 }

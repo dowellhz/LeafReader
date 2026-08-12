@@ -16,7 +16,12 @@ extension ReaderWindowController {
         configurePageAndSearchControls()
         configureTopRightControls()
 
-        for view in [titleLabel, readAloudButton!, readAloudStopButton!, coverImageView, zoomGroup, pageLabel, searchUnderlineButton!, searchButton!, pageLayoutButton!, cropButton!, fullScreenButton!] {
+        let toolbarSubviews: [NSView?] = [
+            titleLabel, readAloudButton, readAloudStopButton, coverImageView, zoomGroup,
+            pageLabel, searchUnderlineButton, searchButton, pageLayoutButton, cropButton, fullScreenButton
+        ]
+        assert(toolbarSubviews.allSatisfy { $0 != nil }, "toolbar controls must be configured before layout")
+        for view in toolbarSubviews.compactMap({ $0 }) {
             view.translatesAutoresizingMaskIntoConstraints = false
             toolbar.addSubview(view)
         }
@@ -82,12 +87,19 @@ extension ReaderWindowController {
         navigationStack.alignment = .centerY
         navigationStack.distribution = .fill
         navigationStack.spacing = ReaderUILayout.navigationStackSpacing
-        for button in [tocButton!, coverButton!, prevButton!, nextButton!, farthestPositionButton!] {
+        let navigationButtons: [NSButton?] = [tocButton, coverButton, prevButton, nextButton, farthestPositionButton]
+        assert(navigationButtons.allSatisfy { $0 != nil }, "navigation controls must be configured before layout")
+        for button in navigationButtons.compactMap({ $0 }) {
             button.translatesAutoresizingMaskIntoConstraints = false
             navigationStack.addArrangedSubview(button)
         }
 
-        for view in [settingsButton, recentButton!, notesButton!, vocabularyButton!, navigationStack, embeddingStatusLabel, embeddingPauseButton!, embeddingCancelButton!] {
+        let bottomBarSubviews: [NSView?] = [
+            settingsButton, recentButton, notesButton, vocabularyButton, navigationStack,
+            embeddingStatusLabel, embeddingPauseButton, embeddingCancelButton
+        ]
+        assert(bottomBarSubviews.allSatisfy { $0 != nil }, "bottom bar controls must be configured before layout")
+        for view in bottomBarSubviews.compactMap({ $0 }) {
             view.translatesAutoresizingMaskIntoConstraints = false
             bottomBar.addSubview(view)
         }
