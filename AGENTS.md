@@ -46,7 +46,24 @@ These instructions apply to the entire repository.
 - Schema changes must be additive, idempotent, and safe for existing installations. Use `SQLiteSchemaMigrator` for column additions.
 - Keep SQL column order, bind indexes, and decode indexes aligned; update all three together and cover the migration with a store test.
 - Use prepared statements and bindings for values. Do not interpolate user-controlled values into SQL.
+- Treat a multi-statement write as atomic: check `BEGIN`, every statement, and `COMMIT`; roll back and report failure if any step fails. Never return success before a successful commit.
+- Add failure-path coverage for destructive replacement writes, including statement and commit failures, and verify that existing records remain intact.
 - Never delete or reinterpret existing user records without an explicit migration policy and regression coverage.
+
+## Security and Untrusted Input
+
+- Store API keys, tokens, and other secrets in macOS Keychain. Do not derive encryption keys from predictable app, user, or filesystem metadata, and do not keep recoverable secrets in `UserDefaults` or ordinary files.
+- Secret migrations must write and verify the Keychain item before deleting legacy data. Never log secrets, authorization headers, complete request payloads, or user document text.
+- Treat EPUB, DOCX, model/runtime archives, manifests, HTML, and linked resources as untrusted input.
+- Before extracting an archive, reject absolute paths, parent traversal, escaping symlinks, excessive entry counts, excessive expanded size, and unsafe compression ratios. Verify every resolved extracted path remains inside the owned destination and clean up partial output on failure.
+- Runtime/model installation must fail closed unless a trusted manifest provides the expected asset, byte size, and non-empty checksum. Validate the archive before extracting or executing any installed file.
+- Do not rely on regular-expression HTML rewriting as the sole security boundary. Use an allowlist policy for rendered elements, attributes, URL schemes, navigation, and remote subresources, and cover bypass cases with hostile-document tests.
+
+## Resource Lifecycle and Caching
+
+- Give every temporary file or directory an explicit owner. Clean it up on load failure, cancellation, stale async results, document replacement, window close, and owner deinitialization; do not delete shared persistent caches through this path.
+- Async document work must use cancellation or generation guards before mutating state. A result discarded as stale must still release its owned resources.
+- Persistent cache identity must include content identity, not only path, timestamp, or file size. Add invalidation coverage for content replacement that preserves metadata.
 
 ## Web Reader and Shell Code
 
