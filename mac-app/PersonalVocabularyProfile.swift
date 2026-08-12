@@ -18,6 +18,7 @@ struct PersonalVocabularyProfile: Equatable {
     var reviewCorrectCount: Int
     var reviewWrongCount: Int
     var documentsSeen: Int
+    var isLearningTracked: Bool
     var status: PersonalVocabularyStatus
     var confidence: Double
     var lastSeenAt: Date?
@@ -122,15 +123,13 @@ enum PersonalVocabularyProfilePolicy {
         queriedCount: Int,
         reviewCorrectCount: Int,
         reviewWrongCount: Int,
-        documentsSeen: Int
+        documentsSeen: Int,
+        isLearningTracked: Bool = false
     ) -> PersonalVocabularyStatus {
         if reviewCorrectCount >= 3, reviewWrongCount == 0 {
             return .known
         }
-        if queriedCount > 0, reviewWrongCount == 0, postQueryUnqueriedSeenCount >= 4 {
-            return .known
-        }
-        if queriedCount > 0 || reviewWrongCount > 0 {
+        if isLearningTracked || queriedCount > 0 || reviewWrongCount > 0 {
             return .learning
         }
         if unqueriedSeenCount >= 4 {

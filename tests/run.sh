@@ -127,6 +127,8 @@ SQLITE_WORD_TEST_SOURCES=(
 PERSONAL_VOCABULARY_TEST_SOURCES=(
   tests/PersonalVocabularyProfileStoreTests.swift
   mac-app/PersonalVocabularyProfile.swift
+  mac-app/PersonalVocabularyProfileSchema.swift
+  mac-app/SQLiteSchemaMigrator.swift
   mac-app/PersonalVocabularyProfileStore.swift
 )
 
@@ -147,6 +149,7 @@ LOGIC_TEST_SOURCES=(
   tests/AIConversationContextStoreTests.swift
   tests/EPUBLogicTests.swift
   tests/ReadingNoteLogicTests.swift
+  tests/ReadingNoteMarkdownLogicTests.swift
   tests/ReaderShelfLogicTests.swift
   tests/AISettingsTestSupport.swift
   tests/AISettingsLogicTests.swift
@@ -157,10 +160,13 @@ LOGIC_TEST_SOURCES=(
   tests/SpeechRuntimeAvailabilityTests.swift
   tests/ECDICTLogicTests.swift
   tests/VocabularyLogicTests.swift
+  tests/ReaderCoreLogicTests.swift
+  tests/ReaderReadAloudLogicTests.swift
   tests/LogicTests.swift
 )
 
 node --check mac-app/Resources/reader-web-text.js
+node --check mac-app/Resources/reader-web-overlay.js
 node --check mac-app/Resources/reader-web-search.js
 node --check mac-app/Resources/reader-web-marks.js
 node --check mac-app/Resources/reader-web.js

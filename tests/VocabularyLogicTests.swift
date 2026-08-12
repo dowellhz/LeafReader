@@ -205,7 +205,7 @@ enum VocabularyLogicTests {
         )
         try expectEqual(learning, .learning, "queried words should be treated as learning")
 
-        let recoveredKnown = PersonalVocabularyProfilePolicy.status(
+        let queriedAfterReading = PersonalVocabularyProfilePolicy.status(
             seenCount: 34,
             unqueriedSeenCount: 34,
             postQueryUnqueriedSeenCount: 4,
@@ -214,7 +214,31 @@ enum VocabularyLogicTests {
             reviewWrongCount: 0,
             documentsSeen: 1
         )
-        try expectEqual(recoveredKnown, .known, "queried words should recover to known after repeated unqueried reading")
+        try expectEqual(queriedAfterReading, .learning, "queried words should stay learning until explicit review success")
+
+        let trackedAfterReading = PersonalVocabularyProfilePolicy.status(
+            seenCount: 34,
+            unqueriedSeenCount: 34,
+            postQueryUnqueriedSeenCount: 0,
+            queriedCount: 0,
+            reviewCorrectCount: 0,
+            reviewWrongCount: 0,
+            documentsSeen: 3,
+            isLearningTracked: true
+        )
+        try expectEqual(trackedAfterReading, .learning, "tracked vocabulary words should not become known from exposure alone")
+
+        let reviewKnown = PersonalVocabularyProfilePolicy.status(
+            seenCount: 1,
+            unqueriedSeenCount: 1,
+            postQueryUnqueriedSeenCount: 0,
+            queriedCount: 1,
+            reviewCorrectCount: 3,
+            reviewWrongCount: 0,
+            documentsSeen: 1,
+            isLearningTracked: true
+        )
+        try expectEqual(reviewKnown, .known, "explicit review success should still mark tracked words known")
 
         let observed = PersonalVocabularyProfilePolicy.status(
             seenCount: 1,
@@ -338,10 +362,11 @@ enum VocabularyLogicTests {
 
     static func testVocabularyLearningStats() throws {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        guard let utc = TimeZone(secondsFromGMT: 0) else { throw TestFailure(description: "could not create UTC time zone") }
+        calendar.timeZone = utc
         let now = Date(timeIntervalSince1970: 1_700_000_000)
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: now)!
-        let older = calendar.date(byAdding: .day, value: -3, to: now)!
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+              let older = calendar.date(byAdding: .day, value: -3, to: now) else { throw TestFailure(description: "could not create vocabulary statistics dates") }
 
         var reviewedToday = VocabularySRSState.initial(createdAt: older)
         reviewedToday.reviewCount = 3

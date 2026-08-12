@@ -4,7 +4,7 @@ import SQLite3
 private let PERSONAL_VOCABULARY_SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
 final class PersonalVocabularyProfileStore {
-    static let shared = PersonalVocabularyProfileStore(databaseURL: defaultDatabaseURL())
+    static let shared = PersonalVocabularyProfileStore(databaseURL: PersonalVocabularyProfileSchema.defaultDatabaseURL())
 
     private let lock = NSLock()
     private var db: OpaquePointer?
@@ -98,34 +98,8 @@ final class PersonalVocabularyProfileStore {
     }
 
     private func createTables() {
-        let sql = """
-        PRAGMA journal_mode = WAL;
-        CREATE TABLE IF NOT EXISTS personal_vocabulary_profiles (
-            lemma TEXT PRIMARY KEY,
-            surface_count INTEGER NOT NULL DEFAULT 0,
-            seen_count INTEGER NOT NULL DEFAULT 0,
-            unqueried_seen_count INTEGER NOT NULL DEFAULT 0,
-            post_query_unqueried_seen_count INTEGER NOT NULL DEFAULT 0,
-            queried_count INTEGER NOT NULL DEFAULT 0,
-            ai_explain_count INTEGER NOT NULL DEFAULT 0,
-            review_correct_count INTEGER NOT NULL DEFAULT 0,
-            review_wrong_count INTEGER NOT NULL DEFAULT 0,
-            documents_seen INTEGER NOT NULL DEFAULT 0,
-            status TEXT NOT NULL DEFAULT 'observed',
-            confidence REAL NOT NULL DEFAULT 0,
-            last_seen_at REAL,
-            updated_at REAL NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS personal_vocabulary_document_seen (
-            lemma TEXT NOT NULL,
-            document_id TEXT NOT NULL,
-            seen_count INTEGER NOT NULL DEFAULT 0,
-            updated_at REAL NOT NULL,
-            PRIMARY KEY(lemma, document_id)
-        );
-        CREATE INDEX IF NOT EXISTS idx_personal_vocabulary_status ON personal_vocabulary_profiles(status, confidence);
-        """
-        executeRaw(sql, operation: "create personal vocabulary tables")
+        executeRaw(PersonalVocabularyProfileSchema.createTablesSQL, operation: "create personal vocabulary tables")
+        ensureColumn(table: "personal_vocabulary_profiles", name: "is_learning_tracked", definition: "INTEGER NOT NULL DEFAULT 0")
         cleanupNoiseProfiles()
     }
 
@@ -134,13 +108,7 @@ final class PersonalVocabularyProfileStore {
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(
             db,
-            """
-            SELECT lemma FROM personal_vocabulary_profiles
-            WHERE queried_count = 0
-              AND ai_explain_count = 0
-              AND review_correct_count = 0
-              AND review_wrong_count = 0
-            """,
+            PersonalVocabularyProfileSchema.noiseCandidateSQL,
             -1,
             &statement,
             nil
@@ -198,6 +166,7 @@ final class PersonalVocabularyProfileStore {
         let reviewCorrectCount = existing?.reviewCorrectCount ?? 0
         let reviewWrongCount = existing?.reviewWrongCount ?? 0
         let documentsSeen = (existing?.documentsSeen ?? 0) + (documentWasNew ? 1 : 0)
+        let isLearningTracked = existing?.isLearningTracked ?? false
         return upsertProfile(
             lemma: lemma,
             surfaceCount: (existing?.surfaceCount ?? 0) + count,
@@ -209,6 +178,7 @@ final class PersonalVocabularyProfileStore {
             reviewCorrectCount: reviewCorrectCount,
             reviewWrongCount: reviewWrongCount,
             documentsSeen: documentsSeen,
+            isLearningTracked: isLearningTracked,
             lastSeenAt: date,
             updatedAt: date
         )
@@ -234,6 +204,7 @@ final class PersonalVocabularyProfileStore {
             reviewCorrectCount: reviewCorrectCount,
             reviewWrongCount: reviewWrongCount,
             documentsSeen: documentsSeen,
+            isLearningTracked: true,
             lastSeenAt: existing?.lastSeenAt,
             updatedAt: date
         )
@@ -250,6 +221,7 @@ final class PersonalVocabularyProfileStore {
         reviewCorrectCount: Int,
         reviewWrongCount: Int,
         documentsSeen: Int,
+        isLearningTracked: Bool,
         lastSeenAt: Date?,
         updatedAt: Date
     ) -> Bool {
@@ -260,7 +232,8 @@ final class PersonalVocabularyProfileStore {
             queriedCount: queriedCount,
             reviewCorrectCount: reviewCorrectCount,
             reviewWrongCount: reviewWrongCount,
-            documentsSeen: documentsSeen
+            documentsSeen: documentsSeen,
+            isLearningTracked: isLearningTracked
         )
         let confidence = PersonalVocabularyProfilePolicy.confidence(
             seenCount: seenCount,
@@ -275,9 +248,9 @@ final class PersonalVocabularyProfileStore {
             sql: """
             INSERT INTO personal_vocabulary_profiles (
               lemma, surface_count, seen_count, unqueried_seen_count, post_query_unqueried_seen_count, queried_count, ai_explain_count,
-              review_correct_count, review_wrong_count, documents_seen, status, confidence, last_seen_at, updated_at
+              review_correct_count, review_wrong_count, documents_seen, is_learning_tracked, status, confidence, last_seen_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(lemma) DO UPDATE SET
               surface_count = excluded.surface_count,
               seen_count = excluded.seen_count,
@@ -288,6 +261,7 @@ final class PersonalVocabularyProfileStore {
               review_correct_count = excluded.review_correct_count,
               review_wrong_count = excluded.review_wrong_count,
               documents_seen = excluded.documents_seen,
+              is_learning_tracked = excluded.is_learning_tracked,
               status = excluded.status,
               confidence = excluded.confidence,
               last_seen_at = excluded.last_seen_at,
@@ -305,14 +279,15 @@ final class PersonalVocabularyProfileStore {
             sqlite3_bind_int(statement, 8, Int32(reviewCorrectCount))
             sqlite3_bind_int(statement, 9, Int32(reviewWrongCount))
             sqlite3_bind_int(statement, 10, Int32(documentsSeen))
-            bindText(status.rawValue, at: 11, statement: statement)
-            sqlite3_bind_double(statement, 12, confidence)
+            sqlite3_bind_int(statement, 11, isLearningTracked ? 1 : 0)
+            bindText(status.rawValue, at: 12, statement: statement)
+            sqlite3_bind_double(statement, 13, confidence)
             if let lastSeenAt {
-                sqlite3_bind_double(statement, 13, lastSeenAt.timeIntervalSince1970)
+                sqlite3_bind_double(statement, 14, lastSeenAt.timeIntervalSince1970)
             } else {
-                sqlite3_bind_null(statement, 13)
+                sqlite3_bind_null(statement, 14)
             }
-            sqlite3_bind_double(statement, 14, updatedAt.timeIntervalSince1970)
+            sqlite3_bind_double(statement, 15, updatedAt.timeIntervalSince1970)
         }
     }
 
@@ -362,7 +337,7 @@ final class PersonalVocabularyProfileStore {
             """
             SELECT lemma, surface_count, seen_count, unqueried_seen_count, post_query_unqueried_seen_count,
                    queried_count, ai_explain_count,
-                   review_correct_count, review_wrong_count, documents_seen, status, confidence, last_seen_at, updated_at
+                   review_correct_count, review_wrong_count, documents_seen, is_learning_tracked, status, confidence, last_seen_at, updated_at
             FROM personal_vocabulary_profiles
             WHERE status IN (\(placeholders))
             ORDER BY CASE status
@@ -399,7 +374,7 @@ final class PersonalVocabularyProfileStore {
             """
             SELECT lemma, surface_count, seen_count, unqueried_seen_count, post_query_unqueried_seen_count,
                    queried_count, ai_explain_count,
-                   review_correct_count, review_wrong_count, documents_seen, status, confidence, last_seen_at, updated_at
+                   review_correct_count, review_wrong_count, documents_seen, is_learning_tracked, status, confidence, last_seen_at, updated_at
             FROM personal_vocabulary_profiles WHERE lemma = ?
             """,
             -1,
@@ -416,10 +391,10 @@ final class PersonalVocabularyProfileStore {
     }
 
     private func decodeProfile(statement: OpaquePointer?, fallbackLemma: String) -> PersonalVocabularyProfile {
-        let statusText = sqlite3_column_text(statement, 10).map { String(cString: $0) } ?? PersonalVocabularyStatus.observed.rawValue
-        let lastSeenAt = sqlite3_column_type(statement, 12) == SQLITE_NULL
+        let statusText = sqlite3_column_text(statement, 11).map { String(cString: $0) } ?? PersonalVocabularyStatus.observed.rawValue
+        let lastSeenAt = sqlite3_column_type(statement, 13) == SQLITE_NULL
             ? nil
-            : Date(timeIntervalSince1970: sqlite3_column_double(statement, 12))
+            : Date(timeIntervalSince1970: sqlite3_column_double(statement, 13))
         return PersonalVocabularyProfile(
             lemma: sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? fallbackLemma,
             surfaceCount: Int(sqlite3_column_int(statement, 1)),
@@ -431,10 +406,24 @@ final class PersonalVocabularyProfileStore {
             reviewCorrectCount: Int(sqlite3_column_int(statement, 7)),
             reviewWrongCount: Int(sqlite3_column_int(statement, 8)),
             documentsSeen: Int(sqlite3_column_int(statement, 9)),
+            isLearningTracked: sqlite3_column_int(statement, 10) != 0,
             status: PersonalVocabularyStatus(rawValue: statusText) ?? .observed,
-            confidence: sqlite3_column_double(statement, 11),
+            confidence: sqlite3_column_double(statement, 12),
             lastSeenAt: lastSeenAt,
-            updatedAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 13))
+            updatedAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 14))
+        )
+    }
+
+    private func ensureColumn(table: String, name: String, definition: String) {
+        SQLiteSchemaMigrator.ensureColumn(
+            db: db,
+            table: table,
+            name: name,
+            definition: definition,
+            logFailure: logSQLiteFailure,
+            execute: { [weak self] sql, operation in
+                self?.executeRaw(sql, operation: operation) ?? false
+            }
         )
     }
 
@@ -499,12 +488,4 @@ final class PersonalVocabularyProfileStore {
         return String(cString: sqlite3_errmsg(db))
     }
 
-    private static func databaseDirectory() -> URL? {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("LeafReader", isDirectory: true)
-    }
-
-    private static func defaultDatabaseURL() -> URL? {
-        databaseDirectory()?.appendingPathComponent("personal-vocabulary.sqlite3")
-    }
 }

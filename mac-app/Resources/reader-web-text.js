@@ -273,6 +273,7 @@
     occurrenceIndexInText,
     leafReaderFindSearchSpans,
     normalizedIndexForRoot,
+    rangeFromNormalizedSpan,
     rangeForNormalizedText,
     rangeForWordInContext,
     leafReaderWordCount,

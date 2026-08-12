@@ -72,8 +72,10 @@ extension AISettingsStore {
         if let option = embeddingEndpointOptions.first(where: { $0.endpoint == savedEndpoint }) {
             return option
         }
-        if savedEndpoint == "https://api.siliconflow.com/v1/embeddings" {
-            return embeddingEndpointOptions.first { $0.id == "siliconflow" } ?? embeddingEndpointOptions.last!
+        if savedEndpoint == "https://api.siliconflow.com/v1/embeddings",
+           let legacyOption = embeddingEndpointOptions.first(where: { $0.id == "siliconflow" })
+            ?? embeddingEndpointOptions.last {
+            return legacyOption
         }
         let customRequiresKey = !(validEndpoint(from: savedEndpoint)?.isLocalEndpoint ?? false)
         return EmbeddingEndpointOption(
