@@ -45,6 +45,20 @@ enum SpeechRuntimeManifestTests {
             try expectEqual(error.domain, LocalRuntimeDownloadSupport.downloadErrorDomain, "size mismatch should use the download error domain")
             try expectEqual(error.code, -8, "size mismatch should use the size error code")
         }
+
+        for untrustedAsset in [
+            nil,
+            SpeechModelManifest.Asset(name: "runtime.tar.gz", size: nil, sha256: asset.sha256),
+            SpeechModelManifest.Asset(name: "runtime.tar.gz", size: 5, sha256: "")
+        ] {
+            do {
+                try LocalRuntimeDownloadSupport.validateArchiveManifest(fileURL, asset: untrustedAsset)
+                throw TestFailure(description: "missing verification metadata should fail closed")
+            } catch let error as NSError {
+                try expectEqual(error.domain, LocalRuntimeDownloadSupport.downloadErrorDomain, "missing verification metadata should use the download error domain")
+                try expectEqual(error.code, -9, "missing verification metadata should use the trust error code")
+            }
+        }
     }
 
     static func testSpeechModelManifestDecodeFallsBackToBundledManifest() throws {
@@ -79,6 +93,42 @@ enum SpeechRuntimeManifestTests {
         )
         if case .success = failureResult {
             throw TestFailure(description: "invalid remote manifest should fail when no bundled manifest exists")
+        }
+
+        let remoteDocument = Data(
+            """
+            {
+              "assets": [
+                {
+                  "name": "piper-tts-macos-arm64.tar.gz",
+                  "size": 1,
+                  "sha256": "\(String(repeating: "0", count: 64))"
+                }
+              ]
+            }
+            """.utf8
+        )
+        let conflictResult = SpeechRuntimeResourceManager.modelManifestDecodeResult(
+            data: remoteDocument,
+            bundledManifest: bundled
+        )
+        switch conflictResult {
+        case .success(let manifest):
+            try expectEqual(
+                manifest?.asset(named: "piper-tts-macos-arm64.tar.gz")?.sha256,
+                bundled.assets[0].sha256,
+                "remote manifest must not replace signed bundled trust metadata"
+            )
+        case .failure(let error):
+            throw TestFailure(description: "signed bundled manifest should remain usable: \(error)")
+        }
+
+        let validWithoutTrust = SpeechRuntimeResourceManager.modelManifestDecodeResult(
+            data: remoteDocument,
+            bundledManifest: nil
+        )
+        if case .success = validWithoutTrust {
+            throw TestFailure(description: "valid remote metadata should fail without a signed bundled trust root")
         }
     }
 

@@ -13,6 +13,7 @@ extension WebDocumentLoader {
 
     static func loadDOCX(url: URL) throws -> WebReadableDocument {
         let directory = try unzip(url: url)
+        let ownedResource = OwnedTemporaryResource(url: directory)
         let documentURL = directory.appendingPathComponent("word/document.xml")
         let xml = try String(contentsOf: documentURL, encoding: .utf8)
         let relationships = docxRelationships(from: directory.appendingPathComponent("word/_rels/document.xml.rels"))
@@ -27,7 +28,8 @@ extension WebDocumentLoader {
             plainTextLoader: nil,
             coverImageURL: nil,
             tocItems: docxTOCItems(from: body),
-            diagnostics: []
+            diagnostics: [],
+            ownedResource: ownedResource
         )
     }
 

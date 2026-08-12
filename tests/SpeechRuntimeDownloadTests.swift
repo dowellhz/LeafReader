@@ -147,6 +147,7 @@ enum SpeechRuntimeDownloadTests {
         let resumeExpired = NSError(domain: LocalRuntimeDownloadSupport.downloadErrorDomain, code: 416)
         let resumeMismatch = NSError(domain: LocalRuntimeDownloadSupport.downloadErrorDomain, code: LocalRuntimeDownloadSupport.resumeRangeMismatchCode)
         let checksumMismatch = NSError(domain: LocalRuntimeDownloadSupport.downloadErrorDomain, code: -7)
+        let missingTrustMetadata = NSError(domain: LocalRuntimeDownloadSupport.downloadErrorDomain, code: -9)
         let networkFailure = NSError(domain: NSURLErrorDomain, code: NSURLErrorNetworkConnectionLost)
 
         try expect(
@@ -172,6 +173,10 @@ enum SpeechRuntimeDownloadTests {
         try expect(
             LocalRuntimeDownloadSupport.shouldRestartWithoutPartialDownload(error: checksumMismatch),
             "checksum failures should discard the corrupt partial archive"
+        )
+        try expect(
+            LocalRuntimeDownloadSupport.shouldRestartWithoutPartialDownload(error: missingTrustMetadata),
+            "missing trust metadata should discard an unverifiable partial archive"
         )
         try expect(
             !LocalRuntimeDownloadSupport.shouldRestartWithoutPartialDownload(error: networkFailure),

@@ -14,6 +14,7 @@ extension SpeechRuntimeResourceManager {
         }
         try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
 
+        try validateRuntimeArchiveEntries(archiveURL)
         let result = try ProcessRunner.run(
             executableURL: URL(fileURLWithPath: "/usr/bin/tar"),
             arguments: ["-xzf", archiveURL.path, "-C", stagingDirectory.path],
@@ -36,6 +37,7 @@ extension SpeechRuntimeResourceManager {
             )
         }
 
+        try ArchiveSafetyValidator.validateExtractedTree(at: stagingDirectory, policy: .runtime)
         try validateExtractedRuntime(runtime, in: stagingDirectory)
         for path in runtime.requiredPaths(in: stagingDirectory) where !path.hasDirectoryPath {
             guard fileManager.fileExists(atPath: path.path) else { continue }
@@ -64,6 +66,34 @@ extension SpeechRuntimeResourceManager {
             restoreRuntimeInstall(runtime, from: backupDirectory)
             throw error
         }
+    }
+
+    static func validateRuntimeArchiveEntries(_ archiveURL: URL) throws {
+        let pathsResult = try ProcessRunner.run(
+            executableURL: URL(fileURLWithPath: "/usr/bin/tar"),
+            arguments: ["-tzf", archiveURL.path],
+            timeout: installArchiveTimeout
+        )
+        let verboseResult = try ProcessRunner.run(
+            executableURL: URL(fileURLWithPath: "/usr/bin/tar"),
+            arguments: ["-tvzf", archiveURL.path],
+            timeout: installArchiveTimeout
+        )
+        guard !pathsResult.timedOut, !verboseResult.timedOut,
+              pathsResult.terminationStatus == 0, verboseResult.terminationStatus == 0 else {
+            throw NSError(
+                domain: "LeafReader.SpeechRuntime",
+                code: -10,
+                userInfo: [NSLocalizedDescriptionKey: AppText.localized("模型压缩包目录校验失败。", "Speech runtime archive listing validation failed.")]
+            )
+        }
+        try ArchiveSafetyValidator.validateTarGzipListing(
+            pathsOutput: pathsResult.stdout,
+            verboseOutput: verboseResult.stdout,
+            compressedArchiveBytes: Int64(
+                (try? archiveURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+            )
+        )
     }
 
     static func validateInstalledRuntimeIsUsable(_ runtime: Runtime) throws {

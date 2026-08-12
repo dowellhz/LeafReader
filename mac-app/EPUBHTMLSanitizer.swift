@@ -14,6 +14,15 @@ enum EPUBHTMLSanitizer {
         #"(?i)\s+on[a-z0-9:-]+\s*=\s*[^\s>]+"#
     ]
 
+    private static let removableTagPatterns = [
+        #"(?i)</?(?:form|button|select|textarea|input|meta|link|base)\b[^>]*>"#,
+        #"(?i)\s+srcset\s*=\s*"[^"]*""#,
+        #"(?i)\s+srcset\s*=\s*'[^']*'"#,
+        #"(?i)\s+srcset\s*=\s*[^\s>]+"#,
+        #"(?i)\s+style\s*=\s*"[^"]*(?:url\s*\(|@import|expression\s*\()[^"]*""#,
+        #"(?i)\s+style\s*=\s*'[^']*(?:url\s*\(|@import|expression\s*\()[^']*'"#
+    ]
+
     private static let javascriptURLPatterns = [
         #"(?i)\s+(?:href|src|xlink:href)\s*=\s*"javascript:[^"]*""#,
         #"(?i)\s+(?:href|src|xlink:href)\s*=\s*'javascript:[^']*'"#,
@@ -35,23 +44,54 @@ enum EPUBHTMLSanitizer {
         ("&ldquo;", "\u{201C}"),
         ("&rdquo;", "\u{201D}"),
         ("&hellip;", "\u{2026}"),
+        ("&colon;", ":"),
+        ("&Tab;", "\t"),
+        ("&NewLine;", "\n"),
         ("&amp;", "&")
     ]
 
     static func sanitizeContent(_ html: String) -> String {
         var output = html
-        for pattern in removableBlockPatterns + eventAttributePatterns {
+        for pattern in removableBlockPatterns + eventAttributePatterns + removableTagPatterns {
             output = output.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
         }
         for pattern in javascriptURLPatterns {
             output = output.replacingOccurrences(of: pattern, with: " href=\"#\"", options: .regularExpression)
         }
+        output = neutralizeEncodedScriptURLs(in: output)
         output = output.replacingOccurrences(
             of: #"(?i)<([a-z0-9:-]+)([^>]*)\bid=["']sbo-rt-content["']([^>]*)>"#,
             with: "<$1$2$3 data-reader-original-id=\"sbo-rt-content\" class=\"sbo-rt-content\">",
             options: .regularExpression
         )
         return addLazyLoadingToImages(in: output)
+    }
+
+    static func neutralizeEncodedScriptURLs(in html: String) -> String {
+        guard let regex = cachedRegex(#"(?i)\s+(href|src|xlink:href)\s*=\s*(["'])([\s\S]*?)\2"#) else {
+            return html
+        }
+        let nsHTML = html as NSString
+        var output = ""
+        var cursor = 0
+        for match in regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)) {
+            output += nsHTML.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
+            let value = nsHTML.substring(with: match.range(at: 3))
+            let decoded = decodeEntities(value)
+                .unicodeScalars
+                .filter { !CharacterSet.whitespacesAndNewlines.contains($0) && !CharacterSet.controlCharacters.contains($0) }
+                .map(String.init)
+                .joined()
+                .lowercased()
+            if decoded.hasPrefix("javascript:") || decoded.hasPrefix("vbscript:") {
+                output += " href=\"#\""
+            } else {
+                output += nsHTML.substring(with: match.range)
+            }
+            cursor = match.range.location + match.range.length
+        }
+        output += nsHTML.substring(from: cursor)
+        return output
     }
 
     static func addLazyLoadingToImages(in html: String) -> String {

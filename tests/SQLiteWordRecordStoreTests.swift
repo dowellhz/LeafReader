@@ -118,6 +118,34 @@ struct SQLiteWordRecordStoreTestRunner {
         assert(reopened.loadWebRecords(documentID: documentID).map(\.id) == ["web-b"], "Web records should persist after reopening production SQLite store")
         }
 
+        let atomicDocumentID = "sqlite-atomic-test-doc"
+        let original = pdfRecord(id: "original", word: "stable", answer: "keep", createdAt: 1)
+        do {
+        let seedStore = WordRecordSQLiteStore(databaseURL: dbURL)
+        assert(seedStore.savePDFRecords(documentID: atomicDocumentID, records: [original]), "atomic test seed should save")
+        }
+
+        do {
+        let deleteFailureStore = WordRecordSQLiteStore(databaseURL: dbURL) { $0 == "delete existing PDF records" }
+        let replacement = pdfRecord(id: "replacement", word: "new", answer: "replace", createdAt: 2)
+        assert(!deleteFailureStore.savePDFRecords(documentID: atomicDocumentID, records: [replacement]), "DELETE failure should fail the save")
+        assert(deleteFailureStore.loadPDFRecords(documentID: atomicDocumentID).map(\.id) == ["original"], "DELETE failure should preserve existing records")
+        }
+
+        do {
+        let insertFailureStore = WordRecordSQLiteStore(databaseURL: dbURL) { $0 == "insert PDF record" }
+        let replacement = pdfRecord(id: "replacement", word: "new", answer: "replace", createdAt: 2)
+        assert(!insertFailureStore.savePDFRecords(documentID: atomicDocumentID, records: [replacement]), "INSERT failure should fail the save")
+        assert(insertFailureStore.loadPDFRecords(documentID: atomicDocumentID).map(\.id) == ["original"], "INSERT failure rollback should preserve existing records")
+        }
+
+        do {
+        let commitFailureStore = WordRecordSQLiteStore(databaseURL: dbURL) { $0 == "commit transaction" }
+        let replacement = pdfRecord(id: "replacement", word: "new", answer: "replace", createdAt: 2)
+        assert(!commitFailureStore.savePDFRecords(documentID: atomicDocumentID, records: [replacement]), "COMMIT failure should fail the save")
+        assert(commitFailureStore.loadPDFRecords(documentID: atomicDocumentID).map(\.id) == ["original"], "COMMIT failure rollback should preserve existing records")
+        }
+
         try? FileManager.default.removeItem(at: dbDirectory)
         print("SQLiteWordRecordStoreTests passed")
     }

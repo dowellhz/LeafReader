@@ -158,6 +158,7 @@ LOGIC_TEST_SOURCES=(
   tests/SpeechRuntimeDownloadTests.swift
   tests/SpeechRuntimeManifestTests.swift
   tests/SpeechRuntimeAvailabilityTests.swift
+  tests/SecurityHardeningTests.swift
   tests/ECDICTLogicTests.swift
   tests/VocabularyLogicTests.swift
   tests/ReaderCoreLogicTests.swift

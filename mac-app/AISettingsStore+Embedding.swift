@@ -114,16 +114,18 @@ extension AISettingsStore {
 
         let legacyProviderKey = LocalEncryptedStore.string(forKey: encryptedAPIKeyDefaultsKey(for: embeddingProviderID))
         if !legacyProviderKey.isEmpty {
-            LocalEncryptedStore.save(legacyProviderKey, forKey: encryptedAPIKeyDefaultsKey(for: providerKey))
-            LocalEncryptedStore.save("", forKey: encryptedAPIKeyDefaultsKey(for: embeddingProviderID))
-            defaults.synchronize()
+            if LocalEncryptedStore.save(legacyProviderKey, forKey: encryptedAPIKeyDefaultsKey(for: providerKey)) {
+                _ = LocalEncryptedStore.save("", forKey: encryptedAPIKeyDefaultsKey(for: embeddingProviderID))
+                defaults.synchronize()
+            }
             return legacyProviderKey
         }
 
         if let legacyKey = nonEmptyTrimmed(defaults.string(forKey: apiKeyDefaultsKey(for: embeddingProviderID))) {
-            LocalEncryptedStore.save(legacyKey, forKey: encryptedAPIKeyDefaultsKey(for: providerKey))
-            defaults.removeObject(forKey: apiKeyDefaultsKey(for: embeddingProviderID))
-            defaults.synchronize()
+            if LocalEncryptedStore.save(legacyKey, forKey: encryptedAPIKeyDefaultsKey(for: providerKey)) {
+                defaults.removeObject(forKey: apiKeyDefaultsKey(for: embeddingProviderID))
+                defaults.synchronize()
+            }
             return legacyKey
         }
 
@@ -146,9 +148,10 @@ extension AISettingsStore {
         }
 
         let selectedOptionID = optionID ?? selectedEmbeddingEndpointOption.id
-        LocalEncryptedStore.save(apiKey, forKey: encryptedAPIKeyDefaultsKey(for: embeddingAPIKeyProviderID(for: selectedOptionID)))
-        defaults.removeObject(forKey: apiKeyDefaultsKey(for: embeddingProviderID))
-        defaults.synchronize()
+        if LocalEncryptedStore.save(apiKey, forKey: encryptedAPIKeyDefaultsKey(for: embeddingAPIKeyProviderID(for: selectedOptionID))) {
+            defaults.removeObject(forKey: apiKeyDefaultsKey(for: embeddingProviderID))
+            defaults.synchronize()
+        }
     }
 
     private static func embeddingAPIKeyProviderID(for optionID: String) -> String {

@@ -1,6 +1,55 @@
 import Foundation
 
 enum AISettingsLogicTests {
+    static func testSecureCredentialStoreRoundTripAndLegacyMigration() throws {
+        let suiteName = "LeafReaderTests.LocalSecretStore.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            throw TestFailure(description: "could not create secret store defaults")
+        }
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = InMemoryLocalSecretStore()
+        let account = "encryptedApiKey.openai"
+        defaults.set(try legacyEncryptedCredential(" legacy-key "), forKey: account)
+
+        try LocalEncryptedStore.withStore(store, legacyDefaults: defaults) {
+            try expectEqual(LocalEncryptedStore.string(forKey: account), "legacy-key", "legacy encrypted key should migrate")
+            try expectEqual(store.values[account], "legacy-key", "migrated key should be verified in secure storage")
+            try expect(defaults.object(forKey: account) == nil, "verified legacy encrypted data should be deleted")
+
+            try expect(LocalEncryptedStore.save(" replacement ", forKey: account), "secure key save should succeed")
+            try expectEqual(LocalEncryptedStore.string(forKey: account), "replacement", "secure key should round trip")
+            try expect(LocalEncryptedStore.save("", forKey: account), "secure key delete should succeed")
+            try expectEqual(LocalEncryptedStore.string(forKey: account), "", "deleted secure key should not be returned")
+        }
+    }
+
+    static func testCredentialMigrationPreservesLegacyDataOnWriteFailure() throws {
+        let suiteName = "LeafReaderTests.LocalSecretFailure.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            throw TestFailure(description: "could not create secret failure defaults")
+        }
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = InMemoryLocalSecretStore()
+        store.failsWrites = true
+        let account = "encryptedApiKey.openai"
+        let encoded = try legacyEncryptedCredential("legacy-key")
+        defaults.set(encoded, forKey: account)
+
+        try LocalEncryptedStore.withStore(store, legacyDefaults: defaults) {
+            try expectEqual(LocalEncryptedStore.string(forKey: account), "legacy-key", "failed migration should still return legacy value")
+            try expectEqual(defaults.string(forKey: account), encoded, "failed migration must retain legacy encrypted data")
+
+            defaults.removeObject(forKey: account)
+            let plainKey = AISettingsStore.apiKeyDefaultsKey(for: "claude")
+            defaults.set("plain-key", forKey: plainKey)
+            try AISettingsStore.withDefaults(defaults) {
+                let model = AISettingsStore.models.first { $0.provider == "claude" }!
+                try expectEqual(AISettingsStore.apiKey(for: model), "plain-key", "failed plaintext migration should remain usable")
+                try expectEqual(defaults.string(forKey: plainKey), "plain-key", "failed plaintext migration must retain source data")
+            }
+        }
+    }
+
     static func testEmbeddingDefaults() throws {
         let legacySiliconFlow = selectedEmbeddingOption(savedEndpoint: "https://api.siliconflow.com/v1/embeddings")
         try expectEqual(legacySiliconFlow.id, "siliconflow", "legacy SiliconFlow endpoint should map to provider")

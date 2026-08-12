@@ -15,6 +15,8 @@ extension ReaderWindowController {
             return
         }
         closeReadingNotePanelsForDocumentTransition()
+        webView.stopLoading()
+        releaseCurrentOwnedWebResource()
         currentDocumentKind = .pdf
         pdfView.isHidden = false
         webView.isHidden = true
@@ -72,7 +74,10 @@ extension ReaderWindowController {
             do {
                 let document = try WebDocumentLoader.load(url: url)
                 DispatchQueue.main.async {
-                    guard let self, self.documentLoadGeneration == generation else { return }
+                    guard let self, self.documentLoadGeneration == generation else {
+                        document.ownedResource?.release()
+                        return
+                    }
                     self.applyLoadedWebDocument(document, url: url, kind: kind, generation: generation)
                 }
             } catch {
@@ -85,6 +90,9 @@ extension ReaderWindowController {
 
     func applyLoadedWebDocument(_ document: WebReadableDocument, url: URL, kind: ReaderDocumentKind, generation: Int) {
         closeReadingNotePanelsForDocumentTransition()
+        webView.stopLoading()
+        releaseCurrentOwnedWebResource()
+        currentOwnedWebResource = document.ownedResource
         currentDocumentKind = kind
         pdfView.isHidden = true
         pdfDimOverlay.isHidden = true
@@ -116,9 +124,15 @@ extension ReaderWindowController {
         titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
         applyDocumentDiagnostics(document.diagnostics, fileName: url.lastPathComponent)
         if let coverImageURL = document.coverImageURL, let image = NSImage(contentsOf: coverImageURL) {
+            image.isTemplate = false
             coverImageView.image = image
+            coverImageView.contentTintColor = nil
         } else {
-            coverImageView.image = NSImage(systemSymbolName: kind == .epub ? "book.closed" : "doc.text", accessibilityDescription: nil)
+            coverImageView.image = NSImage(
+                systemSymbolName: kind == .epub ? "book.closed" : "doc.text",
+                accessibilityDescription: AppText.localized("文档封面", "Document cover")
+            )
+            coverImageView.contentTintColor = ReaderTheme.selected.secondaryTextColor
         }
         coverImageView.isHidden = false
         pageLayoutButton.isHidden = true
@@ -126,8 +140,13 @@ extension ReaderWindowController {
         updateWebProgressLabel(0)
         zoomField.stringValue = "100%"
         if let htmlFileURL = document.htmlFileURL {
+            allowedInitialWebNavigationURLs = [htmlFileURL.standardizedFileURL.absoluteString]
             webView.loadFileURL(htmlFileURL, allowingReadAccessTo: document.baseURL)
         } else {
+            allowedInitialWebNavigationURLs = [
+                document.baseURL.standardizedFileURL.absoluteString,
+                "about:blank"
+            ]
             webView.loadHTMLString(document.html, baseURL: document.baseURL)
         }
         applyReaderTheme()
@@ -139,6 +158,12 @@ extension ReaderWindowController {
         scheduleWebPlainTextLoad(document.plainTextLoader, generation: webPlainTextGeneration)
         scheduleDocumentEmbeddingWarmup(priorityPageIndex: currentEmbeddingPriorityIndex())
         finishDocumentLoadingAfterAIBubbles(generation: generation)
+    }
+
+    func releaseCurrentOwnedWebResource() {
+        allowedInitialWebNavigationURLs.removeAll()
+        currentOwnedWebResource?.release()
+        currentOwnedWebResource = nil
     }
 
     func prepareRuntimeStateForLoadedDocument(url: URL) {

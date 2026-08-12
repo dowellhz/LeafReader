@@ -152,11 +152,15 @@ enum EPUBLogicTests {
             "EPUB internal link target should reject links outside the EPUB root"
         )
 
-        let sanitized = EPUBHTMLSanitizer.sanitizeContent(#"<p onclick="x()"><script>bad()</script><iframe src="bad"></iframe><a href="javascript:bad()">x</a><img src="cover.jpg"></p>"#)
+        let sanitized = EPUBHTMLSanitizer.sanitizeContent(#"<meta http-equiv="refresh" content="0;https://example.com"><form action="https://example.com"><p onclick="x()"><script>bad()</script><iframe src="bad"></iframe><a href="java&#x73;cript&colon;bad()">x</a><img srcset="https://example.com/tracker 2x" src="cover.jpg" style="background:url(https://example.com/tracker)"></p></form>"#)
         try expect(!sanitized.localizedCaseInsensitiveContains("<script"), "EPUB sanitizer should remove scripts")
         try expect(!sanitized.localizedCaseInsensitiveContains("<iframe"), "EPUB sanitizer should remove iframes")
         try expect(!sanitized.localizedCaseInsensitiveContains("onclick"), "EPUB sanitizer should remove event handlers")
         try expect(!sanitized.localizedCaseInsensitiveContains("javascript:"), "EPUB sanitizer should neutralize javascript links")
+        try expect(!sanitized.localizedCaseInsensitiveContains("<meta"), "EPUB sanitizer should remove meta refresh")
+        try expect(!sanitized.localizedCaseInsensitiveContains("<form"), "EPUB sanitizer should remove form elements")
+        try expect(!sanitized.localizedCaseInsensitiveContains("srcset"), "EPUB sanitizer should remove srcset remote-resource paths")
+        try expect(!sanitized.localizedCaseInsensitiveContains("background:url"), "EPUB sanitizer should remove CSS URL loads")
         try expect(sanitized.contains(#"loading="lazy""#), "EPUB sanitizer should add lazy loading to images")
     }
 }

@@ -119,6 +119,7 @@ extension ReaderWindowController {
         pdfTOCGeneration += 1
         invalidateDocumentAgentIndex()
         clearDocumentContentViewsForUnload()
+        releaseCurrentOwnedWebResource()
         resetCurrentDocumentRuntimeState()
         resetEmptyDocumentChrome()
     }
