@@ -42,6 +42,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     static let preferredAIWidthDefaultsKey = "preferredAIWidth"
     static let pdfTwoPageModeDefaultsKey = "pdfTwoPageMode"
+    static let pdfReadingModeDefaultsKey = "pdfReadingMode"
     static let pdfMarginCropDefaultsKey = "pdfMarginCrop"
     static let fileMD5CacheDefaultsKey = "fileMD5Cache"
     static let embeddingControlStateDefaultsKey = "embeddingControlState"

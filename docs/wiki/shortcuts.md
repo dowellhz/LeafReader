@@ -24,6 +24,7 @@
 | `Command + \` | 显示/隐藏 AI 面板 | 切换右侧 AI 面板。 |
 | `Command + 2` | 单页/双页 | 切换 PDF 单页和双页显示。 |
 | `Command + 3` | 裁边/原边 | 切换 PDF 裁边显示。 |
+| `Command + 4` | 逐页/连续滚动 | 切换 PDF 逐页浏览和连续垂直滚动。 |
 | `Command + +` | 放大 | 放大阅读区域。 |
 | `Command + -` | 缩小 | 缩小阅读区域。 |
 | `Command + Control + F` | 全屏 | 进入或退出全屏。 |
