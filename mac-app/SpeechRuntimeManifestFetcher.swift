@@ -20,7 +20,14 @@ extension SpeechRuntimeResourceManager {
         bundledManifest: SpeechModelManifest?
     ) -> Result<SpeechModelManifest?, Error> {
         do {
-            return .success(try decodeModelManifest(data))
+            let remoteManifest = try decodeModelManifest(data)
+            guard let bundledManifest else {
+                return .failure(untrustedManifestError())
+            }
+            if remoteManifest != bundledManifest {
+                NSLog("LeafReader speech model manifest: remote manifest differs from signed bundled manifest; using bundled trust data")
+            }
+            return .success(bundledManifest)
         } catch {
             if let bundledManifest {
                 NSLog(
@@ -31,6 +38,19 @@ extension SpeechRuntimeResourceManager {
             }
             return .failure(error)
         }
+    }
+
+    private static func untrustedManifestError() -> NSError {
+        NSError(
+            domain: LocalRuntimeDownloadSupport.downloadErrorDomain,
+            code: -9,
+            userInfo: [
+                NSLocalizedDescriptionKey: AppText.localized(
+                    "应用内缺少可信的模型校验清单，已停止下载。",
+                    "The signed bundled runtime manifest is missing; download was stopped."
+                )
+            ]
+        )
     }
 
     static func fetchModelManifest(
@@ -45,13 +65,14 @@ extension SpeechRuntimeResourceManager {
                     bundledManifest != nil,
                     String(describing: error)
                 )
-                completion(.success(bundledManifest))
+                completion(bundledManifest.map { .success($0) } ?? .failure(untrustedManifestError()))
                 return
             }
 
             let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 200
             if statusCode == 404 {
-                completion(.success(bundledModelManifest()))
+                let bundledManifest = bundledModelManifest()
+                completion(bundledManifest.map { .success($0) } ?? .failure(untrustedManifestError()))
                 return
             }
             guard (200...299).contains(statusCode), let data else {

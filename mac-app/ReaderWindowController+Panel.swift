@@ -319,6 +319,8 @@ extension ReaderWindowController {
     }
 
     func windowWillClose(_ notification: Notification) {
+        webView.stopLoading()
+        releaseCurrentOwnedWebResource()
         selectionActionToolbarWindow?.orderOut(nil)
         if let selectionActionToolbarWindow {
             window?.removeChildWindow(selectionActionToolbarWindow)

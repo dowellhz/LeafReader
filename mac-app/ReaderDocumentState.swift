@@ -17,6 +17,8 @@ struct ReaderDocumentState {
     var pendingWebProgressRestore: (generation: Int, progress: Double, zoomPercent: Int?)?
     var currentDocumentDiagnostics: [String] = []
     var currentTOCItems: [ReaderTOCItem] = []
+    var currentOwnedWebResource: OwnedTemporaryResource?
+    var allowedInitialWebNavigationURLs: Set<String> = []
     var pdfTOCDestinations: [String: ReaderTOCHelper.PDFTOCDestination] = [:]
     var pdfTOCGeneration = 0
     var webZoomPercent = 100

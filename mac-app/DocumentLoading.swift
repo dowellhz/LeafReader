@@ -9,6 +9,29 @@ struct WebReadableDocument {
     let coverImageURL: URL?
     let tocItems: [ReaderTOCItem]
     let diagnostics: [String]
+    let ownedResource: OwnedTemporaryResource?
+
+    init(
+        html: String,
+        htmlFileURL: URL?,
+        baseURL: URL,
+        plainText: String,
+        plainTextLoader: (() -> String)?,
+        coverImageURL: URL?,
+        tocItems: [ReaderTOCItem],
+        diagnostics: [String],
+        ownedResource: OwnedTemporaryResource? = nil
+    ) {
+        self.html = html
+        self.htmlFileURL = htmlFileURL
+        self.baseURL = baseURL
+        self.plainText = plainText
+        self.plainTextLoader = plainTextLoader
+        self.coverImageURL = coverImageURL
+        self.tocItems = tocItems
+        self.diagnostics = diagnostics
+        self.ownedResource = ownedResource
+    }
 }
 
 struct ReaderTOCItem {

@@ -94,6 +94,7 @@ enum LocalRuntimeDownloadSupport {
             || error.code == -3
             || error.code == -7
             || error.code == -8
+            || error.code == -9
     }
 
     static func contentRangeStart(_ value: String?) -> Int64? {
@@ -227,24 +228,35 @@ enum LocalRuntimeDownloadSupport {
     }
 
     static func validateArchiveManifest(_ archiveURL: URL, asset: LocalRuntimeDownloadManifestAsset?) throws {
-        guard let asset else { return }
-        if let expectedSize = asset.byteSize {
-            let actualSize = partialDownloadSize(at: archiveURL)
-            guard actualSize == expectedSize else {
-                throw NSError(
-                    domain: downloadErrorDomain,
-                    code: -8,
-                    userInfo: [NSLocalizedDescriptionKey: AppText.localized("运行时文件大小校验失败，请重新下载。", "Runtime file size verification failed. Please download it again.")]
-                )
-            }
+        guard let asset,
+              let expectedSize = asset.byteSize,
+              expectedSize > 0,
+              asset.sha256.range(of: #"^[0-9a-fA-F]{64}$"#, options: .regularExpression) != nil else {
+            throw NSError(
+                domain: downloadErrorDomain,
+                code: -9,
+                userInfo: [NSLocalizedDescriptionKey: AppText.localized("缺少可信的模型校验信息，已停止安装。", "Trusted runtime verification metadata is missing; installation was stopped.")]
+            )
+        }
+        let actualSize = partialDownloadSize(at: archiveURL)
+        guard actualSize == expectedSize else {
+            throw NSError(
+                domain: downloadErrorDomain,
+                code: -8,
+                userInfo: [NSLocalizedDescriptionKey: AppText.localized("运行时文件大小校验失败，请重新下载。", "Runtime file size verification failed. Please download it again.")]
+            )
         }
         try validateArchiveChecksum(archiveURL, expectedSHA256: asset.sha256)
     }
 
     static func validateArchiveChecksum(_ archiveURL: URL, expectedSHA256: String?) throws {
         guard let expectedSHA256,
-              !expectedSHA256.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return
+              expectedSHA256.range(of: #"^[0-9a-fA-F]{64}$"#, options: .regularExpression) != nil else {
+            throw NSError(
+                domain: downloadErrorDomain,
+                code: -9,
+                userInfo: [NSLocalizedDescriptionKey: AppText.localized("缺少可信的 SHA-256 校验值。", "A trusted SHA-256 checksum is required.")]
+            )
         }
         let actual = try sha256HexDigest(for: archiveURL)
         guard actual.caseInsensitiveCompare(expectedSHA256) == .orderedSame else {

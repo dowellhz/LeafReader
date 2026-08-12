@@ -62,7 +62,21 @@ enum SpeechRuntimeResourceManager {
             guard isCurrentDownload(runtime, downloadID: downloadID) else { return }
             switch manifestResult {
             case .success(let manifest):
-                let expectedAsset = manifest?.asset(named: plan.expectedAssetName)
+                guard let expectedAsset = manifest?.asset(named: plan.expectedAssetName),
+                      expectedAsset.byteSize.map({ $0 > 0 }) == true,
+                      expectedAsset.sha256.range(of: #"^[0-9a-fA-F]{64}$"#, options: .regularExpression) != nil else {
+                    LocalRuntimeDownloadSupport.removePartialDownload(for: plan)
+                    finishDownload(
+                        runtime,
+                        downloadID: downloadID,
+                        result: .failure(NSError(
+                            domain: LocalRuntimeDownloadSupport.downloadErrorDomain,
+                            code: -9,
+                            userInfo: [NSLocalizedDescriptionKey: AppText.localized("缺少可信的模型校验信息，无法下载。", "Trusted runtime verification metadata is missing; download was stopped.")]
+                        ))
+                    )
+                    return
+                }
                 download(runtime, downloadID: downloadID, plan: plan, expectedAsset: expectedAsset, retryingWithoutResume: false) { result in
                     finishDownload(runtime, downloadID: downloadID, result: result)
                 }

@@ -6,11 +6,13 @@ final class WordRecordSQLiteStore {
 
     private let lock = NSLock()
     private var db: OpaquePointer?
+    private let shouldFailOperation: (String) -> Bool
     private let codec = WordRecordSQLiteJSONCodec()
     private lazy var pdfMapper = PDFWordRecordSQLiteMapper(codec: codec)
     private lazy var webMapper = WebWordRecordSQLiteMapper(codec: codec)
 
-    init(databaseURL: URL?) {
+    init(databaseURL: URL?, shouldFailOperation: @escaping (String) -> Bool = { _ in false }) {
+        self.shouldFailOperation = shouldFailOperation
         guard let url = databaseURL else {
             NSLog("LeafReader word records: no database URL available")
             return
@@ -51,7 +53,10 @@ final class WordRecordSQLiteStore {
     func savePDFRecords(documentID: String, records: [StoredPDFWordRecord]) -> Bool {
         locked {
             guard beginTransaction() else { return false }
-            _ = execute(sql: "DELETE FROM pdf_word_records WHERE document_id = ?", bindings: [documentID], operation: "delete existing PDF records")
+            guard execute(sql: "DELETE FROM pdf_word_records WHERE document_id = ?", bindings: [documentID], operation: "delete existing PDF records") else {
+                rollbackTransaction()
+                return false
+            }
 
             var didFail = false
             for record in records {
@@ -64,7 +69,10 @@ final class WordRecordSQLiteStore {
                 rollbackTransaction()
                 return false
             }
-            commitTransaction()
+            guard commitTransaction() else {
+                rollbackTransaction()
+                return false
+            }
             return true
         }
     }
@@ -98,7 +106,10 @@ final class WordRecordSQLiteStore {
     func saveWebRecords(documentID: String, records: [StoredWebWordRecord]) -> Bool {
         locked {
             guard beginTransaction() else { return false }
-            _ = execute(sql: "DELETE FROM web_word_records WHERE document_id = ?", bindings: [documentID], operation: "delete existing web records")
+            guard execute(sql: "DELETE FROM web_word_records WHERE document_id = ?", bindings: [documentID], operation: "delete existing web records") else {
+                rollbackTransaction()
+                return false
+            }
 
             var didFail = false
             for record in records {
@@ -111,7 +122,10 @@ final class WordRecordSQLiteStore {
                 rollbackTransaction()
                 return false
             }
-            commitTransaction()
+            guard commitTransaction() else {
+                rollbackTransaction()
+                return false
+            }
             return true
         }
     }
@@ -203,7 +217,7 @@ final class WordRecordSQLiteStore {
         executeRaw("BEGIN IMMEDIATE TRANSACTION", operation: "begin transaction")
     }
 
-    private func commitTransaction() {
+    private func commitTransaction() -> Bool {
         executeRaw("COMMIT", operation: "commit transaction")
     }
 
@@ -251,6 +265,10 @@ final class WordRecordSQLiteStore {
         stepOperation: String,
         bind: (OpaquePointer?) -> Void
     ) -> Bool {
+        guard !shouldFailOperation(prepareOperation) else {
+            logInjectedFailure(prepareOperation)
+            return false
+        }
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
             logSQLiteFailure(prepareOperation)
@@ -258,6 +276,10 @@ final class WordRecordSQLiteStore {
         }
         defer { sqlite3_finalize(statement) }
         bind(statement)
+        guard !shouldFailOperation(stepOperation) else {
+            logInjectedFailure(stepOperation)
+            return false
+        }
         guard sqlite3_step(statement) == SQLITE_DONE else {
             logSQLiteFailure(stepOperation)
             return false
@@ -318,12 +340,19 @@ final class WordRecordSQLiteStore {
             rollbackTransaction()
             return false
         }
-        commitTransaction()
+        guard commitTransaction() else {
+            rollbackTransaction()
+            return false
+        }
         return true
     }
 
     @discardableResult
     private func executeRaw(_ sql: String, operation: String) -> Bool {
+        guard !shouldFailOperation(operation) else {
+            logInjectedFailure(operation)
+            return false
+        }
         var errorMessage: UnsafeMutablePointer<Int8>?
         let result = sqlite3_exec(db, sql, nil, nil, &errorMessage)
         if result == SQLITE_OK {
@@ -339,6 +368,10 @@ final class WordRecordSQLiteStore {
 
     private func logSQLiteFailure(_ operation: String) {
         NSLog("LeafReader word records: SQLite %@ failed (error=%@)", operation, sqliteErrorMessage())
+    }
+
+    private func logInjectedFailure(_ operation: String) {
+        NSLog("LeafReader word records: injected SQLite %@ failure", operation)
     }
 
     private func sqliteErrorMessage() -> String {

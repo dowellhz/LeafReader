@@ -63,22 +63,35 @@ extension ReaderWindowController {
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        guard navigationAction.navigationType == .linkActivated else {
-            decisionHandler(.allow)
-            return
-        }
-
         guard let url = navigationAction.request.url else {
             decisionHandler(.cancel)
             return
         }
 
-        if url.scheme == "http" || url.scheme == "https" {
-            NSWorkspace.shared.open(url)
-        } else if let fragment = url.fragment, !fragment.isEmpty {
-            webView.evaluateJavaScript("document.getElementById(\(jsStringLiteral(fragment)))?.scrollIntoView({behavior:'smooth', block:'start'});")
+        let navigationURL = url.isFileURL ? url.standardizedFileURL.absoluteString : url.absoluteString
+        let isApprovedInitialNavigation = navigationAction.navigationType == .other
+            && navigationAction.targetFrame?.isMainFrame == true
+            && allowedInitialWebNavigationURLs.contains(navigationURL)
+        if isApprovedInitialNavigation {
+            allowedInitialWebNavigationURLs.removeAll()
         }
-        decisionHandler(.cancel)
+        let policy = WebDocumentNavigationPolicy.decision(
+            for: url,
+            isUserActivatedLink: navigationAction.navigationType == .linkActivated,
+            isApprovedInitialNavigation: isApprovedInitialNavigation
+        )
+        switch policy {
+        case .allow:
+            decisionHandler(.allow)
+        case .cancel:
+            decisionHandler(.cancel)
+        case .openExternally:
+            NSWorkspace.shared.open(url)
+            decisionHandler(.cancel)
+        case .scrollToFragment(let fragment):
+            webView.evaluateJavaScript("document.getElementById(\(jsStringLiteral(fragment)))?.scrollIntoView({behavior:'smooth', block:'start'});")
+            decisionHandler(.cancel)
+        }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

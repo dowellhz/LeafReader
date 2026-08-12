@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 
 extension WebDocumentLoader {
@@ -8,13 +7,7 @@ extension WebDocumentLoader {
 
     static func unzipEPUBToCache(url: URL) throws -> URL {
         let fileURL = url.standardizedFileURL
-        let values = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
-        let modified = values?.contentModificationDate?.timeIntervalSince1970 ?? 0
-        let fileSize = values?.fileSize ?? 0
-        let key = SHA256.hash(data: Data("\(fileURL.path)#\(modified)#\(fileSize)".utf8))
-            .prefix(16)
-            .map { String(format: "%02x", $0) }
-            .joined()
+        let key = try epubCacheKey(for: fileURL)
         let cacheRoot = try epubCacheRoot()
         cleanupOldEPUBCacheEntries(in: cacheRoot, keeping: key)
         let destination = cacheRoot.appendingPathComponent(key, isDirectory: true)
@@ -49,6 +42,10 @@ extension WebDocumentLoader {
             }
             throw error
         }
+    }
+
+    static func epubCacheKey(for url: URL) throws -> String {
+        try DocumentContentIdentity.sha256Key(for: url)
     }
 
     static func epubCacheRoot() throws -> URL {
@@ -101,11 +98,17 @@ extension WebDocumentLoader {
         let destination = FileManager.default.temporaryDirectory
             .appendingPathComponent("LeafReader-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-        try unzip(url: url, to: destination)
-        return destination
+        do {
+            try unzip(url: url, to: destination)
+            return destination
+        } catch {
+            try? FileManager.default.removeItem(at: destination)
+            throw error
+        }
     }
 
     static func unzip(url: URL, to destination: URL) throws {
+        try ArchiveSafetyValidator.validateZIP(at: url)
         let result = try ProcessRunner.run(
             executableURL: URL(fileURLWithPath: "/usr/bin/unzip"),
             arguments: ["-qq", "-o", url.path, "-d", destination.path],
@@ -124,6 +127,7 @@ extension WebDocumentLoader {
                 )
             ])
         }
+        try ArchiveSafetyValidator.validateExtractedTree(at: destination, policy: .document)
     }
 
     static func zipEntryData(in url: URL, entryPath: String) throws -> Data? {

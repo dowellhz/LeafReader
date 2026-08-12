@@ -127,12 +127,19 @@ extension ReaderWindowController {
 
     func configureReaderWebView() {
         let webConfiguration = WKWebViewConfiguration()
+        webConfiguration.websiteDataStore = .nonPersistent()
+        webConfiguration.preferences.javaScriptCanOpenWindowsAutomatically = false
         let userContentController = WKUserContentController()
         userContentController.add(self, name: "selectionChanged")
         userContentController.add(self, name: "scrollChanged")
         userContentController.add(self, name: "webWordClicked")
         userContentController.add(self, name: "webNoteClicked")
         userContentController.add(self, name: "webAISourceClicked")
+        userContentController.addUserScript(WKUserScript(
+            source: WebDocumentSecurityPolicy.DOMSanitizerScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        ))
         userContentController.addUserScript(WKUserScript(
             source: Self.webDocumentUserScriptSource(),
             injectionTime: .atDocumentEnd,

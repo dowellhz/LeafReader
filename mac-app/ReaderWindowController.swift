@@ -164,6 +164,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     deinit {
+        releaseCurrentOwnedWebResource()
         if let localEventMonitor {
             NSEvent.removeMonitor(localEventMonitor)
         }

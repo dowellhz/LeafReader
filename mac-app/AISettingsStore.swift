@@ -136,9 +136,10 @@ enum AISettingsStore {
         }
 
         if let legacyKey = nonEmptyTrimmed(defaults.string(forKey: apiKeyDefaultsKey(for: config.provider))) {
-            LocalEncryptedStore.save(legacyKey, forKey: encryptedAPIKeyDefaultsKey(for: config.provider))
-            defaults.removeObject(forKey: apiKeyDefaultsKey(for: config.provider))
-            defaults.synchronize()
+            if LocalEncryptedStore.save(legacyKey, forKey: encryptedAPIKeyDefaultsKey(for: config.provider)) {
+                defaults.removeObject(forKey: apiKeyDefaultsKey(for: config.provider))
+                defaults.synchronize()
+            }
             return legacyKey
         }
 
@@ -157,9 +158,10 @@ enum AISettingsStore {
             saveLocalOpenAIEndpoint(customEndpoint)
             saveLocalOpenAIModelName(customModelName)
         }
-        LocalEncryptedStore.save(apiKey, forKey: encryptedAPIKeyDefaultsKey(for: model.provider))
-        defaults.removeObject(forKey: apiKeyDefaultsKey(for: model.provider))
-        defaults.synchronize()
+        if LocalEncryptedStore.save(apiKey, forKey: encryptedAPIKeyDefaultsKey(for: model.provider)) {
+            defaults.removeObject(forKey: apiKeyDefaultsKey(for: model.provider))
+            defaults.synchronize()
+        }
     }
 
     static func apiKeyDefaultsKey(for provider: String) -> String {

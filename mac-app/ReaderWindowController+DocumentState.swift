@@ -81,6 +81,16 @@ extension ReaderWindowController {
         set { documentState.currentTOCItems = newValue }
     }
 
+    var currentOwnedWebResource: OwnedTemporaryResource? {
+        get { documentState.currentOwnedWebResource }
+        set { documentState.currentOwnedWebResource = newValue }
+    }
+
+    var allowedInitialWebNavigationURLs: Set<String> {
+        get { documentState.allowedInitialWebNavigationURLs }
+        set { documentState.allowedInitialWebNavigationURLs = newValue }
+    }
+
     var pdfTOCDestinations: [String: ReaderTOCHelper.PDFTOCDestination] {
         get { documentState.pdfTOCDestinations }
         set { documentState.pdfTOCDestinations = newValue }

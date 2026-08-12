@@ -1,4 +1,27 @@
+import CryptoKit
 import Foundation
+
+final class InMemoryLocalSecretStore: LocalSecretStoring {
+    var values: [String: String] = [:]
+    var failsReads = false
+    var failsWrites = false
+    var failsDeletes = false
+
+    func read(account: String) throws -> String? {
+        if failsReads { throw TestFailure(description: "injected secret read failure") }
+        return values[account]
+    }
+
+    func write(_ value: String, account: String) throws {
+        if failsWrites { throw TestFailure(description: "injected secret write failure") }
+        values[account] = value
+    }
+
+    func delete(account: String) throws {
+        if failsDeletes { throw TestFailure(description: "injected secret delete failure") }
+        values.removeValue(forKey: account)
+    }
+}
 
 struct EmbeddingEndpointOption {
     let id: String
@@ -104,8 +127,25 @@ func withIsolatedAISettingsDefaults(_ body: (UserDefaults) throws -> Void) throw
     defer {
         defaults.removePersistentDomain(forName: suiteName)
     }
-    try AISettingsStore.withDefaults(defaults) {
-        try body(defaults)
+    let secretStore = InMemoryLocalSecretStore()
+    try LocalEncryptedStore.withStore(secretStore, legacyDefaults: defaults) {
+        try AISettingsStore.withDefaults(defaults) {
+            try body(defaults)
+        }
     }
 }
 
+func legacyEncryptedCredential(_ value: String) throws -> String {
+    let material = [
+        "LeafReaderLocalEncryptedAPIKey",
+        Bundle.main.bundleIdentifier ?? "com.linlu.leafreader",
+        NSUserName(),
+        NSHomeDirectory()
+    ].joined(separator: "|")
+    let key = SymmetricKey(data: Data(SHA256.hash(data: Data(material.utf8))))
+    let box = try AES.GCM.seal(Data(value.utf8), using: key)
+    guard let combined = box.combined else {
+        throw TestFailure(description: "could not create legacy encrypted credential")
+    }
+    return combined.base64EncodedString()
+}
