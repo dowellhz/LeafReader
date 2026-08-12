@@ -127,6 +127,7 @@ SQLITE_WORD_TEST_SOURCES=(
 PERSONAL_VOCABULARY_TEST_SOURCES=(
   tests/PersonalVocabularyProfileStoreTests.swift
   mac-app/PersonalVocabularyProfile.swift
+  mac-app/SQLiteSchemaMigrator.swift
   mac-app/PersonalVocabularyProfileStore.swift
 )
 

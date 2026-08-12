@@ -480,6 +480,60 @@ private func testPDFReadAloudChromeFilterLearnsRepeatedEdgeLines() throws {
     try expect(prideLikePage.contains("with you at the next ball."), "low body text should not be treated as footer chrome")
 }
 
+private func testPaperStructureDetectorFindsStableSectionHeadings() throws {
+    let headings = PaperStructureDetector.headings(from: [
+        (
+            pageIndex: 0,
+            text: """
+            A Reliable Paper Title
+            Abstract
+            This paper introduces a system and reports results.
+            1 Introduction
+            This is a long sentence that should not become a heading because it ends like normal prose.
+            """
+        ),
+        (
+            pageIndex: 2,
+            text: """
+            2 Related Work
+            Prior work covers several areas.
+            3.1 Experimental Setup
+            We evaluate the model on two datasets.
+            References
+            """
+        )
+    ])
+
+    try expectEqual(
+        headings.map(\.title),
+        ["Abstract", "1 Introduction", "2 Related Work", "3.1 Experimental Setup", "References"],
+        "paper structure detector should keep stable paper section headings"
+    )
+    try expectEqual(headings.map(\.pageIndex), [0, 0, 2, 2, 2], "detected headings should keep source pages")
+    try expectEqual(headings[3].level, 1, "numbered subsection should be nested")
+}
+
+private func testPaperStructureDetectorRejectsWeakSectionSignals() throws {
+    let headings = PaperStructureDetector.headings(from: [
+        (
+            pageIndex: 0,
+            text: """
+            Abstract
+            This short note mentions prior work.
+            """
+        ),
+        (
+            pageIndex: 1,
+            text: """
+            References
+            [1] Example citation.
+            """
+        )
+    ])
+
+    try expectEqual(headings.count, 0, "weak terminal headings should not replace the page-based PDF TOC")
+}
+
 private func testCapturedPageScrollGuard() throws {
     try expect(shouldApplyCapturedPageScroll(capturedPageIndex: 2, documentPageCount: 5), "captured page in current document should be scrollable")
     try expect(!shouldApplyCapturedPageScroll(capturedPageIndex: -1, documentPageCount: 5), "negative captured page should be ignored")
@@ -802,6 +856,8 @@ private let tests: [(String, () throws -> Void)] = [
     ("Reader focused selection priority", testReaderFocusedSelectionPriority),
     ("Reader AI source matcher", testReaderAISourceMatcher),
     ("PDF read-aloud chrome filter", testPDFReadAloudChromeFilterLearnsRepeatedEdgeLines),
+    ("Paper structure detector", testPaperStructureDetectorFindsStableSectionHeadings),
+    ("Paper structure detector weak signals", testPaperStructureDetectorRejectsWeakSectionSignals),
     ("Captured page scroll guard", testCapturedPageScrollGuard),
     ("PDF brightness policy", testPDFBrightnessPolicy),
     ("Debounced task", testDebouncedTask),

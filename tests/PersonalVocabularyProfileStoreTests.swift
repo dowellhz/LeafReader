@@ -63,6 +63,7 @@ struct PersonalVocabularyProfileStoreTestRunner {
         }
         assert(queried.queriedCount == 1, "query count should increment")
         assert(queried.aiExplainCount == 1, "AI explain count should increment")
+        assert(queried.isLearningTracked, "query should mark the word as learning tracked")
         assert(queried.postQueryUnqueriedSeenCount == 0, "query should reset post-query unqueried exposure")
         assert(queried.status == .learning, "queried words should return to learning")
         assert(store.loadKnownProfiles().allSatisfy { $0.lemma != "gravity" }, "queried learning words should not be returned as known profiles")
@@ -73,7 +74,8 @@ struct PersonalVocabularyProfileStoreTestRunner {
             return
         }
         assert(recovered.postQueryUnqueriedSeenCount == 4, "post-query unqueried exposure should accumulate after query")
-        assert(recovered.status == .known, "queried words should recover to known after repeated unqueried reading")
+        assert(recovered.status == .learning, "queried words should not recover to known from unqueried reading alone")
+        assert(store.loadKnownProfiles().allSatisfy { $0.lemma != "gravity" }, "tracked learning words should stay out of known profiles")
 
         executeSQL(
             """

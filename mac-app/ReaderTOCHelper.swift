@@ -15,7 +15,7 @@ struct ReaderTOCHelper {
     static func pdfTOCItems(from document: PDFDocument, displayBox: PDFDisplayBox) -> PDFTOC {
         var destinations: [String: PDFTOCDestination] = [:]
         guard let root = document.outlineRoot else {
-            return pdfPageTOCItems(from: document, displayBox: displayBox)
+            return pdfInferredStructureTOCItems(from: document, displayBox: displayBox)
         }
         var items: [ReaderTOCItem] = []
 
@@ -41,7 +41,7 @@ struct ReaderTOCHelper {
 
         walk(root, level: 0)
         if items.isEmpty {
-            return pdfPageTOCItems(from: document, displayBox: displayBox)
+            return pdfInferredStructureTOCItems(from: document, displayBox: displayBox)
         }
         return PDFTOC(items: items, destinations: destinations)
     }
@@ -101,6 +101,34 @@ struct ReaderTOCHelper {
                 href: id,
                 level: 0
             )
+        }
+        return PDFTOC(items: items, destinations: destinations)
+    }
+
+    private static func pdfInferredStructureTOCItems(from document: PDFDocument, displayBox: PDFDisplayBox) -> PDFTOC {
+        let pages = (0..<document.pageCount).compactMap { index -> (pageIndex: Int, text: String)? in
+            guard let text = document.page(at: index)?.string else { return nil }
+            return (pageIndex: index, text: text)
+        }
+        let headings = PaperStructureDetector.headings(from: pages)
+        guard !headings.isEmpty else {
+            return pdfPageTOCItems(from: document, displayBox: displayBox)
+        }
+
+        var destinations: [String: PDFTOCDestination] = [:]
+        let items = headings.enumerated().compactMap { offset, heading -> ReaderTOCItem? in
+            guard let page = document.page(at: heading.pageIndex) else { return nil }
+            let id = "pdf-section-\(offset)"
+            let bounds = page.bounds(for: displayBox)
+            destinations[id] = PDFTOCDestination(pageIndex: heading.pageIndex, point: NSPoint(x: bounds.minX, y: bounds.maxY))
+            return ReaderTOCItem(
+                title: heading.title,
+                href: id,
+                level: min(max(heading.level, 0), 4)
+            )
+        }
+        guard !items.isEmpty else {
+            return pdfPageTOCItems(from: document, displayBox: displayBox)
         }
         return PDFTOC(items: items, destinations: destinations)
     }
