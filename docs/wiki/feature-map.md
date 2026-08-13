@@ -62,6 +62,9 @@ Use this page when the task starts from a product feature instead of a file name
 ## Persistence Helpers
 
 - `mac-app/SQLiteSchemaMigrator.swift`: shared SQLite column migration helper used by reading notes and vocabulary records.
+- `mac-app/UserDataBackupService*.swift`: validated backup packages and journaled cold-start restoration.
+- `mac-app/AppDelegate+UserDataBackup.swift`: File menu backup/restore workflow and startup recovery.
+- `mac-app/LocalEncryptedStore.swift`: on-demand Keychain storage for API credentials; credentials are excluded from user-data backups.
 
 ## TTS And Read Aloud
 

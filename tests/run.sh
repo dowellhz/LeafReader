@@ -15,7 +15,7 @@ LOGIC_APP_SOURCES=()
 always_include_logic_app_source() {
   local base="$1"
   case "$base" in
-    ReadingNoteEditorViews.swift|SelectionToolbarConfiguration.swift)
+    EmbeddingClient.swift|ReadingNoteEditorViews.swift|SelectionToolbarConfiguration.swift)
       return 0
       ;;
   esac
@@ -191,6 +191,8 @@ LOGIC_TEST_SOURCES=(
   tests/SecurityHardeningTests.swift
   tests/ECDICTLogicTests.swift
   tests/VocabularyLogicTests.swift
+  tests/PDFVocabularyHyphenTests.swift
+  tests/UserDataBackupServiceTests.swift
   tests/ReaderCoreLogicTests.swift
   tests/ReaderReadAloudLogicTests.swift
   tests/LogicTests.swift

@@ -3,11 +3,13 @@ import Foundation
 
 final class InMemoryLocalSecretStore: LocalSecretStoring {
     var values: [String: String] = [:]
+    var readCount = 0
     var failsReads = false
     var failsWrites = false
     var failsDeletes = false
 
     func read(account: String) throws -> String? {
+        readCount += 1
         if failsReads { throw TestFailure(description: "injected secret read failure") }
         return values[account]
     }

@@ -99,9 +99,11 @@ extension ReaderWindowController {
     func configureSelectionToolbarActions(for text: String) {
         let wordText = selectedVocabularyTextForToolbar(fallback: text)
         let isVocabulary = vocabularySpeakerWord(wordText) != nil
+        let isOnline = NetworkConnectivityMonitor.shared.isOnline
+        let canOfferModelActionWithoutCredentialLookup = !AISettingsStore.selectedModel.requiresAPIKey || isOnline
         let capabilityState = ReaderCapabilityState.make(
-            isOnline: NetworkConnectivityMonitor.shared.isOnline,
-            hasModelAPIKey: AISettingsStore.hasAPIKeyForSelectedModel,
+            isOnline: isOnline,
+            hasModelAPIKey: canOfferModelActionWithoutCredentialLookup,
             isLocalDictionaryInstalled: ECDICTDictionary.shared.isInstalled
         )
         let configuration = SelectionToolbarConfiguration.make(

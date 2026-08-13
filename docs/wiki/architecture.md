@@ -26,6 +26,8 @@ AppDelegate
 - `AISettingsPanelController*.swift`: settings window, with focused builders for each page and separate speech selection/download extensions.
 - `SpeechPlaybackCoordinator.swift`, `SpeechRuntimeResourceManager.swift`, and `RuntimeDownload.swift`: local TTS playback, runtime selection, compatibility, and model downloads.
 - `SQLiteTransactionExecutor.swift`: shared checked transaction boundary used by SQLite-backed stores.
+- `UserDataBackupService*.swift`: versioned user-data packages, live SQLite snapshots, credential-filtered preferences, integrity validation, and journaled cold-start restore/rollback.
+- `AppDelegate+UserDataBackup.swift`: backup and restore menu workflow. Pending restores run before reader controllers and database singletons are created.
 - `Resources/reader-web*.js`: focused WebKit reader modules for text, marks, search, TTS ranges, selection events, and bridge installation. Web marks share cached normalized text indexes and prefer CSS Custom Highlight ranges, with a DOM-span fallback for older WebKit versions.
 - `RecentDocuments*.swift` and `RecentBookCardView.swift`: bookshelf panel and recent document UI.
 - `WordRecordSQLiteStore.swift` and related stores: persistent word and conversation data.
@@ -36,6 +38,8 @@ AppDelegate
 Large controllers are split by behavior into extensions or focused helper views. New work should prefer adding to an existing focused module instead of growing a general controller file.
 
 Document opening prioritizes first visible content. PDF cover generation, table-of-contents construction, and persisted mark restoration start only after the reader surface is visible, and every asynchronous result is guarded by the active document generation.
+
+Reader selection and automatic background embedding work do not inspect Keychain credentials. Credentials are read only from explicit AI, diagnostics, connection-test, or settings actions. User-data backups exclude all current and legacy API-key preference fields and never copy or replace Keychain items.
 
 ## Related Files
 

@@ -28,9 +28,6 @@ extension ReaderWindowController {
 
     func vocabularyTextForCurrentPDFSelection(selection: PDFSelection?, fallback: String) -> String {
         let normalizedFallback = normalizedPDFVocabularyText(fallback)
-        if VocabularyTextPolicy.speakableWord(normalizedFallback) != nil {
-            return normalizedFallback
-        }
         guard let selection,
               let page = selection.pages.first,
               let pageText = page.string,
@@ -123,12 +120,18 @@ extension ReaderWindowController {
         fallback: String
     ) -> String? {
         let trimmed = fallback.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.range(of: #"[‐‑‒–—-]$"#, options: .regularExpression) != nil else { return nil }
-        let prefix = trimmed.replacingOccurrences(of: #"[‐‑‒–—-]+$"#, with: "", options: .regularExpression)
-        guard !prefix.isEmpty else { return nil }
+        let pattern: String
+        if trimmed.range(of: #"[‐‑‒–—-]$"#, options: .regularExpression) != nil {
+            let prefix = trimmed.replacingOccurrences(of: #"[‐‑‒–—-]+$"#, with: "", options: .regularExpression)
+            guard !prefix.isEmpty else { return nil }
+            pattern = VocabularyTextPolicy.lineBrokenHyphenWordPattern(prefix: prefix)
+        } else {
+            guard VocabularyTextPolicy.isSingleEnglishWord(trimmed) else { return nil }
+            pattern = VocabularyTextPolicy.lineBrokenHyphenWordPattern(suffix: trimmed)
+        }
 
-        let pattern = #"(?i)"# + VocabularyTextPolicy.lineBrokenHyphenWordPattern(prefix: prefix)
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let caseInsensitivePattern = #"(?i)"# + pattern
+        guard let regex = try? NSRegularExpression(pattern: caseInsensitivePattern) else { return nil }
         let nsText = pageText as NSString
         let matches = regex.matches(in: pageText, range: NSRange(location: 0, length: nsText.length))
         guard !matches.isEmpty else { return nil }
@@ -153,7 +156,20 @@ extension ReaderWindowController {
                 intersectionInset: CGSize(width: 10, height: 8)
             )
             if score < bestScore {
-                let value = normalizedPDFVocabularyText(nsText.substring(with: match.range))
+                let matchedText = nsText.substring(with: match.range)
+                let layoutHyphenRange = match.range(withName: "layoutHyphen")
+                let selectionSpansMultipleLines = candidateSelection.selectionsByLine().count > 1
+                let localLayoutHyphenRange: NSRange? =
+                    selectionSpansMultipleLines && layoutHyphenRange.location != NSNotFound
+                    ? NSRange(
+                        location: layoutHyphenRange.location - match.range.location,
+                        length: layoutHyphenRange.length
+                    )
+                    : nil
+                let value = normalizedPDFVocabularyText(
+                    matchedText,
+                    lineBrokenHyphenRange: localLayoutHyphenRange
+                )
                 if VocabularyTextPolicy.speakableWord(value) != nil {
                     bestScore = score
                     bestText = value
@@ -164,11 +180,18 @@ extension ReaderWindowController {
         return bestText
     }
 
-    private func normalizedPDFVocabularyText(_ text: String) -> String {
-        VocabularyTextPolicy.normalizedPDFVocabularyText(text) { candidate in
-            let metadata = VocabularyDictionaryMetadataService.metadata(for: candidate)
-            return metadata.frequency != nil || metadata.tags != nil
-        }
+    private func normalizedPDFVocabularyText(_ text: String, lineBrokenHyphenRange: NSRange? = nil) -> String {
+        VocabularyTextPolicy.normalizedPDFVocabularyText(
+            text,
+            lineBrokenHyphenRange: lineBrokenHyphenRange,
+            isKnownHyphenatedWord: isKnownVocabularyWord,
+            isKnownWord: isKnownVocabularyWord
+        )
+    }
+
+    private func isKnownVocabularyWord(_ candidate: String) -> Bool {
+        let metadata = VocabularyDictionaryMetadataService.metadata(for: candidate)
+        return metadata.frequency != nil || metadata.tags != nil
     }
 
     private func tightSelectionBounds(_ selection: PDFSelection, page: PDFPage, originalBounds: CGRect) -> CGRect {

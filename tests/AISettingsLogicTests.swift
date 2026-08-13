@@ -1,6 +1,32 @@
 import Foundation
 
 enum AISettingsLogicTests {
+    static func testAutomaticEmbeddingConfigurationAvoidsCredentialAccess() throws {
+        let suiteName = "LeafReaderTests.AutomaticEmbedding.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            throw TestFailure(description: "could not create automatic embedding defaults")
+        }
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let secretStore = InMemoryLocalSecretStore()
+        try LocalEncryptedStore.withStore(secretStore, legacyDefaults: defaults) {
+            try AISettingsStore.withDefaults(defaults) {
+                defaults.set("https://api.openai.com/v1/embeddings", forKey: AISettingsStore.embeddingEndpointKey)
+                try expect(
+                    EmbeddingClient.configFromCurrentAISettings(allowsCredentialAccess: false) == nil,
+                    "automatic remote embedding should wait for an explicit credential-using action"
+                )
+                try expectEqual(secretStore.readCount, 0, "automatic remote embedding should not read Keychain")
+
+                defaults.set("http://127.0.0.1:11434/api/embed", forKey: AISettingsStore.embeddingEndpointKey)
+                try expect(
+                    EmbeddingClient.configFromCurrentAISettings(allowsCredentialAccess: false) != nil,
+                    "automatic local embedding should remain available without credentials"
+                )
+                try expectEqual(secretStore.readCount, 0, "automatic local embedding should not read Keychain")
+            }
+        }
+    }
+
     static func testSecureCredentialStoreRoundTripAndLegacyMigration() throws {
         let suiteName = "LeafReaderTests.LocalSecretStore.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {

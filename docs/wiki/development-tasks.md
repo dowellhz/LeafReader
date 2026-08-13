@@ -241,6 +241,35 @@ Watch for:
 - Sorting or import behavior changing without test coverage.
 - Shelf actions clearing the wrong document data.
 
+## Change User Data Backup, Restore, Or Credentials
+
+Start with:
+
+- `mac-app/UserDataBackupModels.swift`
+- `mac-app/UserDataBackupService.swift`
+- `mac-app/UserDataBackupService+Restore.swift`
+- `mac-app/AppDelegate+UserDataBackup.swift`
+- `mac-app/LocalEncryptedStore.swift`
+- `mac-app/EmbeddingClient.swift`
+
+Run:
+
+```sh
+./tests/run.sh
+./scripts/check.sh --no-build
+./scripts/check_ui_theme.sh --warnings-as-errors
+./scripts/build_app.sh
+```
+
+Watch for:
+
+- Including API keys, legacy credential preference fields, caches, model downloads, or document text caches in a backup.
+- Restoring SQLite files after store singletons have opened them; restore must run during cold startup.
+- Accepting undeclared files, symbolic links, escaping paths, excessive entry counts, oversized payloads, checksum mismatches, or failed SQLite integrity checks.
+- Applying only part of a restore without retaining a durable rollback journal.
+- Deleting current-machine credentials while applying preferences from another backup.
+- Reading Keychain merely because the reader opened a document, selected text, or scheduled automatic background work.
+
 ## Publish A New Version
 
 Start with:
