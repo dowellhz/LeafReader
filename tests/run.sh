@@ -120,6 +120,7 @@ SQLITE_WORD_TEST_SOURCES=(
   mac-app/PDFWordRecordStore.swift
   mac-app/WebWordRecordStore.swift
   mac-app/SQLiteSchemaMigrator.swift
+  mac-app/SQLiteTransactionExecutor.swift
   mac-app/WordRecordSQLiteRowMapper.swift
   mac-app/WordRecordSQLiteStore.swift
 )
@@ -129,6 +130,7 @@ PERSONAL_VOCABULARY_TEST_SOURCES=(
   mac-app/PersonalVocabularyProfile.swift
   mac-app/PersonalVocabularyProfileSchema.swift
   mac-app/SQLiteSchemaMigrator.swift
+  mac-app/SQLiteTransactionExecutor.swift
   mac-app/PersonalVocabularyProfileStore.swift
 )
 
@@ -170,6 +172,8 @@ node --check mac-app/Resources/reader-web-text.js
 node --check mac-app/Resources/reader-web-overlay.js
 node --check mac-app/Resources/reader-web-search.js
 node --check mac-app/Resources/reader-web-marks.js
+node --check mac-app/Resources/reader-web-tts.js
+node --check mac-app/Resources/reader-web-selection.js
 node --check mac-app/Resources/reader-web.js
 node tests/ReaderWebScriptTests.js
 
@@ -187,6 +191,7 @@ run_swift_test /tmp/leafreader-personal-vocabulary-tests \
 run_swift_test /tmp/leafreader-pdf-embedding-store-tests \
   tests/PDFEmbeddingStoreTests.swift \
   mac-app/PDFEmbeddingStore.swift \
+  mac-app/SQLiteTransactionExecutor.swift \
   mac-app/PDFDocumentAgentIndex.swift \
   mac-app/ReaderAIContextBuilder.swift \
   mac-app/ReaderAIContextBuilder+PDF.swift \

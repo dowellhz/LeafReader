@@ -6,10 +6,12 @@ extension ReaderWindowController {
               let overlay = bundledWebScript(named: "reader-web-overlay"),
               let search = bundledWebScript(named: "reader-web-search"),
               let marks = bundledWebScript(named: "reader-web-marks"),
+              let tts = bundledWebScript(named: "reader-web-tts"),
+              let selection = bundledWebScript(named: "reader-web-selection"),
               let main = bundledWebScript(named: "reader-web") else {
             return ""
         }
-        return [helper, overlay, search, marks, main].joined(separator: "\n")
+        return [helper, overlay, search, marks, tts, selection, main].joined(separator: "\n")
     }
 
     private static func bundledWebScript(named name: String) -> String? {

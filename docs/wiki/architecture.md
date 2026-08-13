@@ -22,8 +22,10 @@ AppDelegate
 - `DocumentLoading*.swift`: EPUB/DOCX archive handling, HTML generation, shared document helpers.
 - `ProcessRunner.swift`: bounded external process execution for archive helpers and other command-line runtimes.
 - `AIChatPanel*.swift`: AI chat UI, request lifecycle, bubble layout, selection handling.
-- `AISettingsPanelController*.swift`: settings window, model configuration, AI analysis cache controls, and TTS runtime download controls.
+- `AISettingsPanelController*.swift`: settings window, with focused builders for each page and separate speech selection/download extensions.
 - `SpeechPlaybackCoordinator.swift`, `SpeechRuntimeResourceManager.swift`, and `RuntimeDownload.swift`: local TTS playback, runtime selection, compatibility, and model downloads.
+- `SQLiteTransactionExecutor.swift`: shared checked transaction boundary used by SQLite-backed stores.
+- `Resources/reader-web*.js`: focused WebKit reader modules for text, marks, search, TTS ranges, selection events, and bridge installation.
 - `RecentDocuments*.swift` and `RecentBookCardView.swift`: bookshelf panel and recent document UI.
 - `WordRecordSQLiteStore.swift` and related stores: persistent word and conversation data.
 
@@ -41,4 +43,5 @@ Large controllers are split by behavior into extensions or focused helper views.
 - `mac-app/AIChatPanel.swift`
 - `mac-app/SpeechPlaybackCoordinator.swift`
 - `mac-app/SpeechRuntimeResourceManager.swift`
+- `mac-app/SQLiteTransactionExecutor.swift`
 - `mac-app/WordRecordSQLiteStore.swift`

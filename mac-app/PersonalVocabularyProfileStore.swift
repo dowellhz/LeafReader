@@ -8,8 +8,10 @@ final class PersonalVocabularyProfileStore {
 
     private let lock = NSLock()
     private var db: OpaquePointer?
+    private let shouldFailOperation: (String) -> Bool
 
-    init(databaseURL: URL?) {
+    init(databaseURL: URL?, shouldFailOperation: @escaping (String) -> Bool = { _ in false }) {
+        self.shouldFailOperation = shouldFailOperation
         guard let url = databaseURL else {
             NSLog("LeafReader personal vocabulary: no database URL available")
             return
@@ -45,20 +47,14 @@ final class PersonalVocabularyProfileStore {
     func recordExposure(_ exposure: PersonalVocabularyExposure) -> Bool {
         locked {
             guard !exposure.documentID.isEmpty, !exposure.lemmaCounts.isEmpty else { return true }
-            guard beginTransaction() else { return false }
-            var didFail = false
-            for (lemma, count) in exposure.lemmaCounts where count > 0 {
-                guard upsertExposure(lemma: lemma, documentID: exposure.documentID, count: count, date: exposure.date) else {
-                    didFail = true
-                    break
+            return withTransaction {
+                for (lemma, count) in exposure.lemmaCounts where count > 0 {
+                    guard upsertExposure(lemma: lemma, documentID: exposure.documentID, count: count, date: exposure.date) else {
+                        return false
+                    }
                 }
+                return true
             }
-            if didFail {
-                rollbackTransaction()
-                return false
-            }
-            commitTransaction()
-            return true
         }
     }
 
@@ -67,20 +63,14 @@ final class PersonalVocabularyProfileStore {
         let counts = PersonalVocabularyTokenizer.lemmaCounts(in: text)
         guard !counts.isEmpty else { return true }
         return locked {
-            guard beginTransaction() else { return false }
-            var didFail = false
-            for lemma in counts.keys {
-                guard upsertQuery(lemma: lemma, aiExplainCount: aiExplainCount, date: date) else {
-                    didFail = true
-                    break
+            withTransaction {
+                for lemma in counts.keys {
+                    guard upsertQuery(lemma: lemma, aiExplainCount: aiExplainCount, date: date) else {
+                        return false
+                    }
                 }
+                return true
             }
-            if didFail {
-                rollbackTransaction()
-                return false
-            }
-            commitTransaction()
-            return true
         }
     }
 
@@ -126,14 +116,14 @@ final class PersonalVocabularyProfileStore {
             }
         }
         guard !noiseLemmas.isEmpty else { return }
-        guard beginTransaction() else { return }
-        for lemma in noiseLemmas {
-            guard deleteProfileLocked(lemma: lemma) else {
-                rollbackTransaction()
-                return
+        _ = withTransaction {
+            for lemma in noiseLemmas {
+                guard deleteProfileLocked(lemma: lemma) else {
+                    return false
+                }
             }
+            return true
         }
-        commitTransaction()
     }
 
     private func upsertExposure(lemma: String, documentID: String, count: Int, date: Date) -> Bool {
@@ -433,16 +423,10 @@ final class PersonalVocabularyProfileStore {
         return body()
     }
 
-    private func beginTransaction() -> Bool {
-        executeRaw("BEGIN IMMEDIATE TRANSACTION", operation: "begin transaction")
-    }
-
-    private func commitTransaction() {
-        executeRaw("COMMIT", operation: "commit transaction")
-    }
-
-    private func rollbackTransaction() {
-        executeRaw("ROLLBACK", operation: "rollback transaction")
+    private func withTransaction(_ work: () -> Bool) -> Bool {
+        SQLiteTransactionExecutor { [weak self] sql, operation in
+            self?.executeRaw(sql, operation: operation) ?? false
+        }.perform(work)
     }
 
     private func executeStatement(sql: String, operation: String, bind: (OpaquePointer?) -> Void) -> Bool {
@@ -462,6 +446,10 @@ final class PersonalVocabularyProfileStore {
 
     @discardableResult
     private func executeRaw(_ sql: String, operation: String) -> Bool {
+        guard !shouldFailOperation(operation) else {
+            NSLog("LeafReader personal vocabulary: injected SQLite failure for %@", operation)
+            return false
+        }
         var errorMessage: UnsafeMutablePointer<Int8>?
         let result = sqlite3_exec(db, sql, nil, nil, &errorMessage)
         if result == SQLITE_OK {

@@ -1,5 +1,10 @@
 const assert = require('assert');
 const web = require('../mac-app/Resources/reader-web.js');
+const tts = require('../mac-app/Resources/reader-web-tts.js');
+const selection = require('../mac-app/Resources/reader-web-selection.js');
+
+assert.strictEqual(typeof tts.install, 'function');
+assert.strictEqual(typeof selection.install, 'function');
 
 global.NodeFilter = { SHOW_TEXT: 4 };
 global.document = {
