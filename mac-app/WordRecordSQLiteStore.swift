@@ -52,28 +52,19 @@ final class WordRecordSQLiteStore {
     @discardableResult
     func savePDFRecords(documentID: String, records: [StoredPDFWordRecord]) -> Bool {
         locked {
-            guard beginTransaction() else { return false }
-            guard execute(sql: "DELETE FROM pdf_word_records WHERE document_id = ?", bindings: [documentID], operation: "delete existing PDF records") else {
-                rollbackTransaction()
-                return false
-            }
-
-            var didFail = false
-            for record in records {
-                guard insertPDFRecord(documentID: documentID, record: record, prepareOperation: "prepare save PDF record", stepOperation: "insert PDF record") else {
-                    didFail = true
-                    break
+            withTransaction {
+                guard execute(sql: "DELETE FROM pdf_word_records WHERE document_id = ?", bindings: [documentID], operation: "delete existing PDF records") else {
+                    return false
+                }
+                return records.allSatisfy { record in
+                    insertPDFRecord(
+                        documentID: documentID,
+                        record: record,
+                        prepareOperation: "prepare save PDF record",
+                        stepOperation: "insert PDF record"
+                    )
                 }
             }
-            if didFail {
-                rollbackTransaction()
-                return false
-            }
-            guard commitTransaction() else {
-                rollbackTransaction()
-                return false
-            }
-            return true
         }
     }
 
@@ -105,28 +96,19 @@ final class WordRecordSQLiteStore {
     @discardableResult
     func saveWebRecords(documentID: String, records: [StoredWebWordRecord]) -> Bool {
         locked {
-            guard beginTransaction() else { return false }
-            guard execute(sql: "DELETE FROM web_word_records WHERE document_id = ?", bindings: [documentID], operation: "delete existing web records") else {
-                rollbackTransaction()
-                return false
-            }
-
-            var didFail = false
-            for record in records {
-                guard insertWebRecord(documentID: documentID, record: record, prepareOperation: "prepare save web record", stepOperation: "insert web record") else {
-                    didFail = true
-                    break
+            withTransaction {
+                guard execute(sql: "DELETE FROM web_word_records WHERE document_id = ?", bindings: [documentID], operation: "delete existing web records") else {
+                    return false
+                }
+                return records.allSatisfy { record in
+                    insertWebRecord(
+                        documentID: documentID,
+                        record: record,
+                        prepareOperation: "prepare save web record",
+                        stepOperation: "insert web record"
+                    )
                 }
             }
-            if didFail {
-                rollbackTransaction()
-                return false
-            }
-            guard commitTransaction() else {
-                rollbackTransaction()
-                return false
-            }
-            return true
         }
     }
 
@@ -213,16 +195,10 @@ final class WordRecordSQLiteStore {
         return body()
     }
 
-    private func beginTransaction() -> Bool {
-        executeRaw("BEGIN IMMEDIATE TRANSACTION", operation: "begin transaction")
-    }
-
-    private func commitTransaction() -> Bool {
-        executeRaw("COMMIT", operation: "commit transaction")
-    }
-
-    private func rollbackTransaction() {
-        executeRaw("ROLLBACK", operation: "rollback transaction")
+    private func withTransaction(_ work: () -> Bool) -> Bool {
+        SQLiteTransactionExecutor { [weak self] sql, operation in
+            self?.executeRaw(sql, operation: operation) ?? false
+        }.perform(work)
     }
 
     private func execute(sql: String, bindings: [String], operation: String) -> Bool {
@@ -320,31 +296,18 @@ final class WordRecordSQLiteStore {
     private func deleteRecords(table: String, documentID: String, ids: [String]) -> Bool {
         guard !ids.isEmpty else { return true }
         let sql = "DELETE FROM \(table) WHERE document_id = ? AND id = ?"
-        guard beginTransaction() else { return false }
-        var didFail = false
-        for id in ids {
-            let didDelete = executeStatement(
-                sql: sql,
-                prepareOperation: "prepare delete \(table) record",
-                stepOperation: "delete \(table) record"
-            ) { statement in
-                sqlite3_bind_text(statement, 1, documentID, -1, WORD_RECORD_SQLITE_TRANSIENT)
-                sqlite3_bind_text(statement, 2, id, -1, WORD_RECORD_SQLITE_TRANSIENT)
+        return withTransaction {
+            ids.allSatisfy { id in
+                executeStatement(
+                    sql: sql,
+                    prepareOperation: "prepare delete \(table) record",
+                    stepOperation: "delete \(table) record"
+                ) { statement in
+                    sqlite3_bind_text(statement, 1, documentID, -1, WORD_RECORD_SQLITE_TRANSIENT)
+                    sqlite3_bind_text(statement, 2, id, -1, WORD_RECORD_SQLITE_TRANSIENT)
+                }
             }
-            if !didDelete {
-                didFail = true
-            }
-            if didFail { break }
         }
-        if didFail {
-            rollbackTransaction()
-            return false
-        }
-        guard commitTransaction() else {
-            rollbackTransaction()
-            return false
-        }
-        return true
     }
 
     @discardableResult

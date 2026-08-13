@@ -47,8 +47,10 @@ ReaderWindowController+ReadAloud
 - `SpeechTextPolicy.swift`：TTS 文本归一化、英文候选判断和朗读分段。
 - `SpeechRuntimeResourceManager.swift`：运行时安装检测、下载 URL、模型大小、兼容性、暂停/恢复/取消和清理。
 - `RuntimeDownload.swift`：URLSession 下载、进度、断点数据和 HTTP 错误处理。
-- `AISettingsPanelController+Speech.swift`：设置页里选择、下载、暂停、取消、删除和兼容性警告。
-- `AISettingsPanelController+Build.swift`：朗读设置行、模型选择器、状态标签、按钮和进度条。
+- `AISettingsPanelController+Speech.swift`：设置页里的运行时选择、语言策略、声音选择和试听。
+- `AISettingsPanelController+SpeechDownloads.swift`：运行时状态、下载、暂停、取消、删除、兼容性警告和诊断。
+- `AISettingsPanelController+BuildSpeech.swift`：朗读设置行、模型选择器、状态标签、按钮和进度条。
+- `Resources/reader-web-tts.js`：WebKit 内容的朗读分段、批次推进和当前范围下划线。
 - `ReaderWindowController+ReadAloud.swift`：PDF 和 WebKit 内容的文档级朗读入口。
 - `ReaderWindowController+ReadAloudProgress.swift`：朗读时的当前段落下划线和高亮更新。
 - `AIChatPanel+Actions.swift`：AI 文本发音，优先本地 TTS，必要时系统语音回退。

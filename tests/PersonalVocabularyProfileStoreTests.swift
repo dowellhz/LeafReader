@@ -102,6 +102,23 @@ struct PersonalVocabularyProfileStoreTestRunner {
         let knownProfiles = store.loadKnownProfiles()
         assert(knownProfiles.contains { $0.lemma == "roistering" && $0.status == .known }, "known profile query should return inferred known words")
 
+        let gravityBeforeFailedCommit = store.loadProfile(lemma: "gravity")?.seenCount
+        let commitFailureStore = PersonalVocabularyProfileStore(databaseURL: dbURL) { operation in
+            operation == "commit transaction"
+        }
+        assert(
+            !commitFailureStore.recordExposure(documentID: "rollback-book", text: "gravity zephyr", date: date),
+            "commit failure should be reported"
+        )
+        assert(
+            commitFailureStore.loadProfile(lemma: "gravity")?.seenCount == gravityBeforeFailedCommit,
+            "commit failure should preserve the existing profile"
+        )
+        assert(
+            commitFailureStore.loadProfile(lemma: "zephyr") == nil,
+            "commit failure should roll back newly inserted profiles"
+        )
+
         print("PersonalVocabularyProfileStoreTests passed")
     }
 }

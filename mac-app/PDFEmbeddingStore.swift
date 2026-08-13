@@ -78,38 +78,34 @@ final class PDFEmbeddingStore {
         INSERT OR REPLACE INTO embeddings(document_id, model, chunk_id, page_index, chunk_index, text, embedding, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
-        guard beginTransaction() else { return }
-        var didWriteAllRows = true
-        let updatedAt = Date().timeIntervalSince1970
-        var statement: OpaquePointer?
-        guard prepare(sql, statement: &statement, operation: "prepare embedding save") else {
-            rollbackTransaction()
-            return
-        }
-        defer { sqlite3_finalize(statement) }
-        for (chunk, embedding) in zip(chunks, embeddings) {
-            sqlite3_reset(statement)
-            sqlite3_clear_bindings(statement)
-            bind(documentID, at: 1, statement: statement)
-            bind(model, at: 2, statement: statement)
-            bind(chunk.id, at: 3, statement: statement)
-            sqlite3_bind_int(statement, 4, Int32(chunk.pageIndex))
-            sqlite3_bind_int(statement, 5, Int32(chunk.chunkIndex))
-            bind(chunk.text, at: 6, statement: statement)
-            let data = Self.encodeEmbedding(embedding)
-            _ = data.withUnsafeBytes { bytes in
-                sqlite3_bind_blob(statement, 7, bytes.baseAddress, Int32(data.count), SQLITE_TRANSIENT)
+        let didSave = withTransaction {
+            let updatedAt = Date().timeIntervalSince1970
+            var statement: OpaquePointer?
+            guard prepare(sql, statement: &statement, operation: "prepare embedding save") else {
+                return false
             }
-            sqlite3_bind_double(statement, 8, updatedAt)
-            if !step(statement, operation: "save embedding row") {
-                didWriteAllRows = false
-                break
+            defer { sqlite3_finalize(statement) }
+            for (chunk, embedding) in zip(chunks, embeddings) {
+                sqlite3_reset(statement)
+                sqlite3_clear_bindings(statement)
+                bind(documentID, at: 1, statement: statement)
+                bind(model, at: 2, statement: statement)
+                bind(chunk.id, at: 3, statement: statement)
+                sqlite3_bind_int(statement, 4, Int32(chunk.pageIndex))
+                sqlite3_bind_int(statement, 5, Int32(chunk.chunkIndex))
+                bind(chunk.text, at: 6, statement: statement)
+                let data = Self.encodeEmbedding(embedding)
+                _ = data.withUnsafeBytes { bytes in
+                    sqlite3_bind_blob(statement, 7, bytes.baseAddress, Int32(data.count), SQLITE_TRANSIENT)
+                }
+                sqlite3_bind_double(statement, 8, updatedAt)
+                guard step(statement, operation: "save embedding row") else {
+                    return false
+                }
             }
+            return true
         }
-        guard didWriteAllRows, commitTransaction() else {
-            rollbackTransaction()
-            return
-        }
+        guard didSave else { return }
         invalidateCacheSize()
         pruneIfNeeded(maximumBytes: Self.defaultMaximumCacheBytes)
     }
@@ -260,16 +256,15 @@ final class PDFEmbeddingStore {
         return true
     }
 
-    private func beginTransaction() -> Bool {
-        exec("BEGIN IMMEDIATE TRANSACTION", operation: "begin embedding save transaction")
-    }
-
-    private func commitTransaction() -> Bool {
-        exec("COMMIT", operation: "commit embedding save transaction")
-    }
-
-    private func rollbackTransaction() {
-        exec("ROLLBACK", operation: "rollback embedding save transaction")
+    private func withTransaction(_ work: () -> Bool) -> Bool {
+        let operations = SQLiteTransactionExecutor.Operations(
+            begin: "begin embedding save transaction",
+            commit: "commit embedding save transaction",
+            rollback: "rollback embedding save transaction"
+        )
+        return SQLiteTransactionExecutor(operations: operations) { [weak self] sql, operation in
+            self?.exec(sql, operation: operation) ?? false
+        }.perform(work)
     }
 
     private func vacuum() {
