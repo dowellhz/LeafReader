@@ -29,6 +29,7 @@ extension ReaderWindowController {
         webView.isHidden = true
         pdfView.document = document
         prepareRuntimeStateForLoadedDocument(url: url)
+        preparePDFTextSnapshotAsync(for: url)
         captureOriginalPDFCropBoxes()
         applyPDFMarginCropIfNeeded()
         pdfWordRecordStore = currentFileMD5.map { PDFWordRecordStore(fileMD5: $0) }
@@ -177,6 +178,8 @@ extension ReaderWindowController {
     }
 
     func prepareRuntimeStateForLoadedDocument(url: URL) {
+        resetPDFTextSnapshotState()
+        removeAllVocabularyWordAnnotations()
         currentFileURL = url
         currentFileMD5 = fileMD5(for: url)
         pendingPDFTOCBuildRequest = nil
@@ -196,6 +199,8 @@ extension ReaderWindowController {
         didTurnPageForCurrentPDFTrackpadGesture = false
         lastPDFTrackpadEdgeDirection = nil
         highlightedSelectionKeys.removeAll()
+        vocabularyState.pdfAnnotationRestoreGeneration += 1
+        vocabularyState.resolvedPDFWordBounds.removeAll()
         clearAISourceUnderlineTracking()
         clearSearchState()
         originalPDFCropBoxes.removeAll()

@@ -44,10 +44,11 @@ struct PDFWordRecordSQLiteMapper {
         case dictionaryFrequency = 8
         case createdAt = 9
         case srsJSON = 10
+        case textAnchorJSON = 11
     }
 
     static let selectSQL = """
-    SELECT id, word, page_index, bounds_json, context, question, answer, dictionary_tags, dictionary_frequency, created_at, srs_json
+    SELECT id, word, page_index, bounds_json, context, question, answer, dictionary_tags, dictionary_frequency, created_at, srs_json, text_anchor_json
     FROM pdf_word_records
     WHERE document_id = ?
     ORDER BY created_at ASC, id ASC
@@ -55,9 +56,9 @@ struct PDFWordRecordSQLiteMapper {
 
     static let insertSQL = """
     INSERT OR REPLACE INTO pdf_word_records(
-        document_id, id, word, page_index, bounds_json, context, question, answer, dictionary_tags, dictionary_frequency, created_at, srs_json
+        document_id, id, word, page_index, bounds_json, context, question, answer, dictionary_tags, dictionary_frequency, created_at, srs_json, text_anchor_json
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     let codec: WordRecordSQLiteJSONCodec
@@ -76,6 +77,7 @@ struct PDFWordRecordSQLiteMapper {
             word: word,
             pageIndex: Int(sqlite3_column_int(statement, Column.pageIndex.rawValue)),
             bounds: bounds,
+            textAnchor: codec.decode(TextQuoteAnchor.self, from: optionalStringColumn(statement, Column.textAnchorJSON.rawValue)),
             context: optionalStringColumn(statement, Column.context.rawValue),
             question: question,
             answer: answer,
@@ -99,6 +101,7 @@ struct PDFWordRecordSQLiteMapper {
         bindOptionalInt(record.dictionaryFrequency, at: .dictionaryFrequency, statement: statement)
         sqlite3_bind_double(statement, WordRecordSQLiteBindIndex.createdAt.rawValue, record.createdAt.timeIntervalSince1970)
         bindOptionalText(codec.encode(record.srs), at: .srsJSON, statement: statement)
+        bindOptionalText(codec.encode(record.textAnchor), at: 13, statement: statement)
     }
 }
 
@@ -184,6 +187,14 @@ func bindOptionalText(_ value: String?, at index: WordRecordSQLiteBindIndex, sta
         return
     }
     bindText(value, at: index, statement: statement)
+}
+
+func bindOptionalText(_ value: String?, at index: Int32, statement: OpaquePointer?) {
+    guard let value else {
+        sqlite3_bind_null(statement, index)
+        return
+    }
+    sqlite3_bind_text(statement, index, value, -1, WORD_RECORD_SQLITE_TRANSIENT)
 }
 
 func bindOptionalInt(_ value: Int?, at index: WordRecordSQLiteBindIndex, statement: OpaquePointer?) {

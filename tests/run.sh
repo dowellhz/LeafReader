@@ -117,6 +117,7 @@ SQLITE_WORD_TEST_SOURCES=(
   tests/SQLiteWordRecordStoreTests.swift
   mac-app/VocabularySRS.swift
   mac-app/StoredPDFWordRect.swift
+  mac-app/TextQuoteAnchor.swift
   mac-app/PDFWordRecordStore.swift
   mac-app/WebWordRecordStore.swift
   mac-app/SQLiteSchemaMigrator.swift
@@ -169,6 +170,11 @@ DOCX_TEST_SOURCES=(
   mac-app/WebDocumentSecurityPolicy.swift
 )
 
+PDF_TEXT_SNAPSHOT_TEST_SOURCES=(
+  tests/PDFDocumentTextSnapshotTests.swift
+  mac-app/PDFDocumentTextSnapshot.swift
+)
+
 LOGIC_TEST_SOURCES=(
   tests/AIConversationContextStoreTests.swift
   tests/EPUBLogicTests.swift
@@ -217,6 +223,7 @@ run_swift_test /tmp/leafreader-pdf-embedding-store-tests \
   mac-app/PDFEmbeddingStore.swift \
   mac-app/SQLiteTransactionExecutor.swift \
   mac-app/PDFDocumentAgentIndex.swift \
+  mac-app/PDFDocumentTextSnapshot.swift \
   mac-app/ReaderAIContextBuilder.swift \
   mac-app/ReaderAIContextBuilder+PDF.swift \
   mac-app/ReaderAIContextPolicy.swift \
@@ -224,6 +231,10 @@ run_swift_test /tmp/leafreader-pdf-embedding-store-tests \
   -framework PDFKit \
   -framework Cocoa \
   -lsqlite3
+
+run_swift_test /tmp/leafreader-pdf-text-snapshot-tests \
+  "${PDF_TEXT_SNAPSHOT_TEST_SOURCES[@]}" \
+  -framework PDFKit
 
 run_swift_test /tmp/leafreader-regression-tests \
   "${REGRESSION_TEST_SOURCES[@]}" \

@@ -5,6 +5,7 @@ struct StoredPDFWordRecord: Codable {
     let word: String
     let pageIndex: Int
     let bounds: StoredPDFWordRect
+    var textAnchor: TextQuoteAnchor? = nil
     var context: String?
     var question: String
     var answer: String

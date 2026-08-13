@@ -69,6 +69,8 @@ extension ReaderWindowController {
 
     func markReaderInteraction() {
         lastReaderInteractionAt = Date()
+        pdfTextSnapshotCancellationToken?.deferWork(for: 0.25)
+        documentAgentIndexCancellationToken?.deferWork(for: 0.25)
     }
 
     func cancelScheduledEmbeddingWarmup() {

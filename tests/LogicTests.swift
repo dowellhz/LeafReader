@@ -83,6 +83,8 @@ private let tests: [(String, () throws -> Void)] = [
     ("Embedding key isolation", AISettingsLogicTests.testEmbeddingKeyIsolation),
     ("Embedding legacy key migration", AISettingsLogicTests.testEmbeddingLegacyKeyMigration),
     ("Embedding warmup idle policy", testEmbeddingWarmupIdlePolicy),
+    ("Text quote anchor resolution", testTextQuoteAnchorResolution),
+    ("PDF vocabulary highlight policy", testPDFVocabularyHighlightPolicy),
     ("Reader entity decoding", EPUBLogicTests.testReaderEntityDecoding),
     ("EPUB text decoding", EPUBLogicTests.testEPUBTextDecoding),
     ("EPUB spine linear parsing", EPUBLogicTests.testEPUBSpineLinearParsing),

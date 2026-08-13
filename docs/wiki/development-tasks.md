@@ -22,6 +22,36 @@ Watch for:
 - Losing native PDFKit scroll or rubber-band behavior.
 - Thresholds that work for short pages but fail on long technical books.
 
+## Change PDF Text Indexing Or Vocabulary Marks
+
+Start with:
+
+- `mac-app/PDFDocumentTextSnapshot.swift`
+- `mac-app/PDFDocumentAgentIndex.swift`
+- `mac-app/ReaderWindowController+PDFTextSnapshot.swift`
+- `mac-app/ReaderWindowController+VocabularyHighlights.swift`
+- `mac-app/TextQuoteAnchor.swift`
+- `mac-app/WordRecordSQLiteRowMapper.swift`
+- `mac-app/WordRecordSQLiteStore.swift`
+
+Run:
+
+```sh
+./tests/run.sh
+./scripts/check.sh --no-build
+./scripts/build_app.sh
+```
+
+Watch for:
+
+- Materializing annotations for every PDF page instead of only visible pages.
+- Letting a stale annotation batch or text snapshot mutate a replacement document.
+- Reusing cached PDF text after source bytes change while path, timestamp, or size stay unchanged.
+- Continuing background PDF extraction or indexing during active scrolling, zooming, or page turns.
+- Changing the text normalization used by an anchor without a versioned compatibility policy.
+- Adding SQLite anchor fields without keeping select columns, decode indexes, insert columns, and bindings aligned.
+- Dropping the stored-rectangle fallback required by vocabulary records created before semantic anchors existed.
+
 ## Change Document Loading Or Web Marks
 
 Start with:

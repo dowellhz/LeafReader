@@ -9,6 +9,11 @@ struct ReaderDocumentState {
     var currentDocumentKind: ReaderDocumentKind = .pdf
     var documentLoadGeneration = 0
     var activeWebDocumentLoadCancellationToken: DocumentLoadCancellationToken?
+    var pdfTextSnapshot: PDFDocumentTextSnapshot?
+    var pdfTextSnapshotGeneration = 0
+    var pdfTextSnapshotCancellationToken: PDFDocumentTextCancellationToken?
+    var isPreparingPDFTextSnapshot = false
+    var pdfTextSnapshotCallbacks: [(PDFDocumentTextSnapshot?) -> Void] = []
     var currentPDFSelectedText = ""
     var currentWebPlainText = ""
     var webPlainTextGeneration = 0

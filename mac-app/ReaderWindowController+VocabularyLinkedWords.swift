@@ -31,6 +31,7 @@ extension ReaderWindowController {
                 word: pending.word,
                 pageIndex: pending.pageIndex,
                 bounds: pending.bounds,
+                textAnchor: pending.textAnchor,
                 context: pending.context,
                 question: question,
                 answer: trimmedAnswer,

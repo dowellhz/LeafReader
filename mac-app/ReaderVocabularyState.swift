@@ -1,4 +1,5 @@
 import Foundation
+import PDFKit
 
 struct ReaderVocabularyState {
     var storedWordRecords: [StoredPDFWordRecord] = []
@@ -8,4 +9,7 @@ struct ReaderVocabularyState {
     var pendingWebWordRecords: [String: ReaderWindowController.PendingWebWordRecord] = [:]
     var webWordRecordStore: WebWordRecordStore?
     var currentExportRecords: [VocabularyExportRecord] = []
+    var pdfAnnotationRestoreGeneration = 0
+    var renderedPDFWordAnnotations: [(page: PDFPage, annotation: PDFAnnotation)] = []
+    var resolvedPDFWordBounds: [String: CGRect] = [:]
 }

@@ -2,6 +2,31 @@ import Cocoa
 import PDFKit
 
 extension ReaderWindowController {
+    var pdfTextSnapshot: PDFDocumentTextSnapshot? {
+        get { documentState.pdfTextSnapshot }
+        set { documentState.pdfTextSnapshot = newValue }
+    }
+
+    var pdfTextSnapshotGeneration: Int {
+        get { documentState.pdfTextSnapshotGeneration }
+        set { documentState.pdfTextSnapshotGeneration = newValue }
+    }
+
+    var pdfTextSnapshotCancellationToken: PDFDocumentTextCancellationToken? {
+        get { documentState.pdfTextSnapshotCancellationToken }
+        set { documentState.pdfTextSnapshotCancellationToken = newValue }
+    }
+
+    var isPreparingPDFTextSnapshot: Bool {
+        get { documentState.isPreparingPDFTextSnapshot }
+        set { documentState.isPreparingPDFTextSnapshot = newValue }
+    }
+
+    var pdfTextSnapshotCallbacks: [(PDFDocumentTextSnapshot?) -> Void] {
+        get { documentState.pdfTextSnapshotCallbacks }
+        set { documentState.pdfTextSnapshotCallbacks = newValue }
+    }
+
     var currentFileURL: URL? {
         get { documentState.currentFileURL }
         set { documentState.currentFileURL = newValue }

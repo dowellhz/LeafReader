@@ -1,5 +1,6 @@
 import Cocoa
 import Foundation
+import SQLite3
 
 final class AIChatPanel {
     struct LinkedWordBubble {
@@ -22,6 +23,7 @@ private func pdfRecord(
     word: String,
     answer: String,
     createdAt: TimeInterval,
+    textAnchor: TextQuoteAnchor? = nil,
     srs: VocabularySRSState? = nil
 ) -> StoredPDFWordRecord {
     StoredPDFWordRecord(
@@ -29,6 +31,7 @@ private func pdfRecord(
         word: word,
         pageIndex: 4,
         bounds: StoredPDFWordRect(CGRect(x: 10, y: 20, width: 30, height: 12)),
+        textAnchor: textAnchor,
         context: "pdf context",
         question: "What is \(word)?",
         answer: answer,
@@ -76,11 +79,17 @@ struct SQLiteWordRecordStoreTestRunner {
             activeRecallStreak: 2,
             masteredAt: nil
         )
+        let anchorSource = "alpha stable omega"
+        let anchor = TextQuoteAnchor(
+            unitOrdinal: 4,
+            sourceRange: (anchorSource as NSString).range(of: "stable"),
+            sourceText: anchorSource
+        )
 
         do {
         let store = WordRecordSQLiteStore(databaseURL: dbURL)
-        let first = pdfRecord(id: "pdf-a", word: "alpha", answer: "one", createdAt: 1, srs: srs)
-        let updated = pdfRecord(id: "pdf-a", word: "alpha", answer: "updated", createdAt: 2, srs: srs)
+        let first = pdfRecord(id: "pdf-a", word: "alpha", answer: "one", createdAt: 1, textAnchor: anchor, srs: srs)
+        let updated = pdfRecord(id: "pdf-a", word: "alpha", answer: "updated", createdAt: 2, textAnchor: anchor, srs: srs)
         let second = pdfRecord(id: "pdf-b", word: "beta", answer: "two", createdAt: 3)
         let other = pdfRecord(id: "pdf-other", word: "other", answer: "other", createdAt: 4)
 
@@ -92,6 +101,7 @@ struct SQLiteWordRecordStoreTestRunner {
         assert(loadedPDF.map(\.id) == ["pdf-a", "pdf-b"], "PDF records should load ordered records for one document only")
         assert(loadedPDF.first?.answer == "updated", "PDF upsert should replace existing rows")
         assert(loadedPDF.first?.srs?.reviewCount == 2, "PDF SRS state should round-trip through production SQLite store")
+        assert(loadedPDF.first?.textAnchor == anchor, "PDF semantic text anchor should round-trip through production SQLite store")
         assert(store.loadPDFRecords(documentID: otherDocumentID).map(\.id) == ["pdf-other"], "PDF records should stay scoped by document")
 
         assert(store.deletePDFRecords(documentID: documentID, ids: ["pdf-a"]), "PDF delete(ids:) should succeed")
@@ -173,6 +183,29 @@ struct SQLiteWordRecordStoreTestRunner {
         assert(!batchCommitFailureStore.upsertPDFRecords(documentID: batchDocumentID, records: [updatedOriginal]), "batch COMMIT failure should fail the upsert")
         assert(batchCommitFailureStore.loadPDFRecords(documentID: batchDocumentID).first?.answer == "keep", "batch COMMIT failure should roll back the update")
         }
+
+        let legacyDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("leafreader-word-anchor-migration-\(UUID().uuidString)")
+        let legacyDatabaseURL = legacyDirectory.appendingPathComponent("word-records.sqlite3")
+        try? FileManager.default.createDirectory(at: legacyDirectory, withIntermediateDirectories: true)
+        var legacyDB: OpaquePointer?
+        assert(sqlite3_open(legacyDatabaseURL.path, &legacyDB) == SQLITE_OK, "legacy migration database should open")
+        let legacySchema = """
+        CREATE TABLE pdf_word_records (
+            document_id TEXT NOT NULL, id TEXT NOT NULL, word TEXT NOT NULL,
+            page_index INTEGER NOT NULL, bounds_json TEXT NOT NULL, context TEXT,
+            question TEXT NOT NULL, answer TEXT NOT NULL, dictionary_tags TEXT,
+            dictionary_frequency INTEGER, created_at REAL NOT NULL, srs_json TEXT,
+            PRIMARY KEY(document_id, id)
+        );
+        """
+        assert(sqlite3_exec(legacyDB, legacySchema, nil, nil, nil) == SQLITE_OK, "legacy PDF schema should be created")
+        sqlite3_close(legacyDB)
+        let migratedStore = WordRecordSQLiteStore(databaseURL: legacyDatabaseURL)
+        let migratedRecord = pdfRecord(id: "migrated", word: "stable", answer: "kept", createdAt: 1, textAnchor: anchor)
+        assert(migratedStore.upsertPDFRecord(documentID: "legacy", record: migratedRecord), "anchor migration should allow writes")
+        assert(migratedStore.loadPDFRecords(documentID: "legacy").first?.textAnchor == anchor, "anchor migration should preserve semantic data")
+        try? FileManager.default.removeItem(at: legacyDirectory)
 
         try? FileManager.default.removeItem(at: dbDirectory)
         print("SQLiteWordRecordStoreTests passed")

@@ -13,14 +13,10 @@ extension ReaderWindowController {
 
     func clearCurrentPDFWordRecords() {
         guard !storedWordRecords.isEmpty else { return }
-        for record in storedWordRecords {
-            guard let page = pdfView.document?.page(at: record.pageIndex) else { continue }
-            for annotation in page.annotations where storedWordID(from: annotation) == record.id {
-                page.removeAnnotation(annotation)
-            }
-        }
+        removeAllVocabularyWordAnnotations()
         storedWordRecords.removeAll()
         highlightedSelectionKeys.removeAll()
+        vocabularyState.resolvedPDFWordBounds.removeAll()
         saveStoredWordRecords()
         pdfView.setNeedsDisplay(pdfView.bounds)
     }

@@ -77,6 +77,48 @@ func testEmbeddingWarmupIdlePolicy() throws {
     try expectEqual(EmbeddingWarmupPolicy.warmupDelay, 18.0, "warmup delay should remain explicit")
 }
 
+func testTextQuoteAnchorResolution() throws {
+    let source = "alpha target omega target final"
+    let range = (source as NSString).range(of: "target", options: [], range: NSRange(location: 10, length: 20))
+    guard let anchor = TextQuoteAnchor(
+        unitOrdinal: 3,
+        sourceRange: range,
+        sourceText: source,
+        contextLength: 8
+    ) else {
+        throw TestFailure(description: "valid source range should create an anchor")
+    }
+    try expectEqual(anchor.resolvedRange(in: source), range, "anchor should use its compact source position")
+
+    let shifted = "preface alpha target omega target final"
+    let resolved = anchor.resolvedRange(in: shifted)
+    try expectEqual(
+        resolved.map { (shifted as NSString).substring(with: $0) },
+        "target",
+        "anchor should recover the exact quote after text shifts"
+    )
+    try expectEqual(resolved?.location, range.location + 8, "surrounding context should choose the original occurrence")
+}
+
+func testPDFVocabularyHighlightPolicy() throws {
+    let indexes = PDFVocabularyHighlightPolicy.visibleRecordIndexes(
+        pageIndexes: [0, 3, 3, 9, 4],
+        visiblePageIndexes: [3, 4]
+    )
+    try expectEqual(indexes, [1, 2, 4], "only visible-page vocabulary records should materialize")
+    try expectEqual(
+        PDFVocabularyHighlightPolicy.batchRange(startIndex: 0, count: 20),
+        0..<8,
+        "highlight batches should have an explicit bounded size"
+    )
+    try expectEqual(
+        PDFVocabularyHighlightPolicy.batchRange(startIndex: 16, count: 20),
+        16..<20,
+        "last highlight batch should stop at the record count"
+    )
+    try expect(PDFVocabularyHighlightPolicy.batchRange(startIndex: 20, count: 20) == nil, "completed batches should stop")
+}
+
 func testPageScrollDirection() throws {
     try expectEqual(pageDirectionAtEdge(deltaY: 12, isAtTop: true, isAtBottom: false), .previous, "scrolling upward at page top should go previous")
     try expectEqual(pageDirectionAtEdge(deltaY: -12, isAtTop: false, isAtBottom: true), .next, "scrolling downward at page bottom should go next")

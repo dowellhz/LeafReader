@@ -11,6 +11,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let word: String
         let pageIndex: Int
         let bounds: StoredPDFWordRect
+        let textAnchor: TextQuoteAnchor?
         let context: String
         var dictionaryTags: String?
         var dictionaryFrequency: Int?
@@ -169,6 +170,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     deinit {
         activeWebDocumentLoadCancellationToken?.cancel()
+        pdfTextSnapshotCancellationToken?.cancel()
         releaseCurrentOwnedWebResource()
         if let localEventMonitor {
             NSEvent.removeMonitor(localEventMonitor)

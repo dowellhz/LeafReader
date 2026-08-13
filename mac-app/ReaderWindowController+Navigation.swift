@@ -219,6 +219,7 @@ extension ReaderWindowController {
     func handlePDFPageChange() {
         markReaderInteraction()
         hideSelectionToolbar()
+        materializeStoredWordAnnotationsForVisiblePages()
         let newPageIndex = currentPageIndex()
         guard newPageIndex != lastPageIndex else {
             updatePageLabel()

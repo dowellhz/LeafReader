@@ -16,6 +16,11 @@ extension ReaderWindowController {
         set { embeddingState.documentAgentIndexGeneration = newValue }
     }
 
+    var documentAgentIndexCancellationToken: PDFDocumentTextCancellationToken? {
+        get { embeddingState.documentAgentIndexCancellationToken }
+        set { embeddingState.documentAgentIndexCancellationToken = newValue }
+    }
+
     var pendingDocumentAgentIndexCallbacks: [() -> Void] {
         get { embeddingState.pendingDocumentAgentIndexCallbacks }
         set { embeddingState.pendingDocumentAgentIndexCallbacks = newValue }

@@ -21,6 +21,7 @@ AppDelegate
 - `ReaderWindowController*.swift`: reader shell, document opening, navigation, search, AI integration, vocabulary, sessions.
 - `DocumentLoading*.swift`: EPUB/DOCX archive handling, shared document helpers, and cancellable DOCX streaming preparation. Prepared DOCX output is cached by a content fingerprint, verified before reuse, and published atomically so a stale or interrupted load cannot replace valid content.
 - `ProcessRunner.swift`: bounded external process execution for archive helpers and other command-line runtimes.
+- `PDFDocumentTextSnapshot.swift`: cancellable PDF text extraction and a verified, content-addressed cache reused by whole-document AI indexing. Background extraction and index construction pause briefly during reader interaction.
 - `AIChatPanel*.swift`: AI chat UI, request lifecycle, bubble layout, selection handling.
 - `AISettingsPanelController*.swift`: settings window, with focused builders for each page and separate speech selection/download extensions.
 - `SpeechPlaybackCoordinator.swift`, `SpeechRuntimeResourceManager.swift`, and `RuntimeDownload.swift`: local TTS playback, runtime selection, compatibility, and model downloads.
@@ -28,6 +29,7 @@ AppDelegate
 - `Resources/reader-web*.js`: focused WebKit reader modules for text, marks, search, TTS ranges, selection events, and bridge installation. Web marks share cached normalized text indexes and prefer CSS Custom Highlight ranges, with a DOM-span fallback for older WebKit versions.
 - `RecentDocuments*.swift` and `RecentBookCardView.swift`: bookshelf panel and recent document UI.
 - `WordRecordSQLiteStore.swift` and related stores: persistent word and conversation data.
+- `TextQuoteAnchor.swift` and `ReaderWindowController+VocabularyHighlights.swift`: semantic PDF occurrence identity plus visible-page, bounded-batch annotation materialization. Stored rectangles remain the compatibility fallback for existing records.
 
 ## Design Rule
 
