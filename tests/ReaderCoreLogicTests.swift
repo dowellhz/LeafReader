@@ -130,6 +130,34 @@ func testPDFPagingPolicy() throws {
     try expect(PDFReadingMode.paged.allowsEdgePaging, "paged mode should keep edge-triggered page turns")
     try expect(!PDFReadingMode.continuous.allowsEdgePaging, "continuous mode should use native scrolling without edge-triggered page turns")
     try expectEqual(PDFReadingMode(rawValue: "continuous"), .continuous, "continuous reading mode should round-trip through persistence")
+    try expectEqual(
+        PDFPagingPolicy.previousPagePlacement(for: .paged),
+        .bottom,
+        "paged previous navigation should preserve the previous page bottom"
+    )
+    try expectEqual(
+        PDFPagingPolicy.previousPagePlacement(for: .continuous),
+        .top,
+        "continuous previous navigation should visibly move to the previous page top"
+    )
+    try expectEqual(
+        PDFPagingPolicy.navigationPageIndex(
+            readingMode: .paged,
+            viewportPageIndex: 4,
+            currentPageIndex: 5
+        ),
+        4,
+        "paged navigation should follow the viewport anchor"
+    )
+    try expectEqual(
+        PDFPagingPolicy.navigationPageIndex(
+            readingMode: .continuous,
+            viewportPageIndex: 4,
+            currentPageIndex: 5
+        ),
+        5,
+        "continuous navigation should follow PDFKit's active page"
+    )
     try expectEqual(PDFPagingPolicy.wheelEdgeScrollThreshold, 40, "wheel edge threshold should remain explicit")
     try expectEqual(PDFPagingPolicy.wheelPageTurnCooldown, 0.45, "wheel cooldown should prevent double page turns")
     try expectEqual(PDFPagingPolicy.trackpadEdgeSlop, 12, "trackpad edge slop should remain explicit")

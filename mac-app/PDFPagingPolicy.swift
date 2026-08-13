@@ -9,6 +9,11 @@ enum PDFReadingMode: String, CaseIterable {
     }
 }
 
+enum PDFPageNavigationPlacement: Equatable {
+    case top
+    case bottom
+}
+
 enum PDFPagingPolicy {
     static let documentSizeTolerance: CGFloat = 2
 
@@ -28,5 +33,22 @@ enum PDFPagingPolicy {
             return trackpadShortPageTurnThreshold
         }
         return trackpadLongPageTurnThreshold
+    }
+
+    static func previousPagePlacement(for readingMode: PDFReadingMode) -> PDFPageNavigationPlacement {
+        readingMode == .continuous ? .top : .bottom
+    }
+
+    static func navigationPageIndex(
+        readingMode: PDFReadingMode,
+        viewportPageIndex: Int?,
+        currentPageIndex: Int?
+    ) -> Int? {
+        switch readingMode {
+        case .paged:
+            return viewportPageIndex ?? currentPageIndex
+        case .continuous:
+            return currentPageIndex ?? viewportPageIndex
+        }
     }
 }
