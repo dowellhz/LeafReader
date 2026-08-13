@@ -8,7 +8,7 @@ extension ReaderWindowController {
 
     func scheduleDocumentEmbeddingWarmup(priorityPageIndex: Int?) {
         guard AISettingsStore.autoEmbeddingIndexEnabled,
-              EmbeddingClient.configFromCurrentAISettings() != nil else {
+              EmbeddingClient.configFromCurrentAISettings(allowsCredentialAccess: false) != nil else {
             return
         }
         guard let documentID = currentFileMD5 else { return }

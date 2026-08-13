@@ -5,7 +5,9 @@ This page records security practices for Leaf Reader development and release wor
 ## API Keys
 
 - Never commit API keys, tokens, private keys, signing keys, `.env` files, or local credentials.
-- AI provider keys should be entered through the app settings UI and stored locally.
+- AI provider keys should be entered through the app settings UI and stored in macOS Keychain.
+- Reader startup, document opening, text selection, and automatic background embedding must not read Keychain. Credential access is deferred until an explicit AI, settings, diagnostics, or connection-test action.
+- User-data backups exclude Keychain items and filter both `apiKey.*` and legacy `encryptedApiKey.*` preference fields. Restore preserves credentials already present on the current Mac.
 - Do not hard-code provider keys in Swift, JavaScript, HTML, shell scripts, docs, app bundles, or tests.
 - If a key appears in GitHub Secret Scanning, treat it as exposed even if it was removed from the current branch.
 

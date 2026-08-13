@@ -73,6 +73,19 @@ extension AppDelegate {
         ))
         menu.addItem(.separator())
         menu.addItem(menuItem(
+            AppText.localized("备份用户数据...", "Back Up User Data..."),
+            action: #selector(createUserDataBackup(_:)),
+            key: "",
+            target: self
+        ))
+        menu.addItem(menuItem(
+            AppText.localized("恢复用户数据...", "Restore User Data..."),
+            action: #selector(scheduleUserDataRestore(_:)),
+            key: "",
+            target: self
+        ))
+        menu.addItem(.separator())
+        menu.addItem(menuItem(
             AppText.localized("关闭窗口", "Close Window"),
             action: #selector(NSWindow.performClose(_:)),
             key: "w",

@@ -15,10 +15,11 @@ struct EmbeddingModelConfig {
 }
 
 final class EmbeddingClient {
-    static func configFromCurrentAISettings() -> EmbeddingModelConfig? {
+    static func configFromCurrentAISettings(allowsCredentialAccess: Bool = true) -> EmbeddingModelConfig? {
         let endpoint = AISettingsStore.embeddingEndpoint
         let endpointOption = AISettingsStore.selectedEmbeddingEndpointOption
-        let apiKey = AISettingsStore.embeddingAPIKey
+        guard allowsCredentialAccess || !endpointOption.requiresAPIKey else { return nil }
+        let apiKey = allowsCredentialAccess ? AISettingsStore.embeddingAPIKey : ""
         guard !endpointOption.requiresAPIKey || !apiKey.isEmpty else { return nil }
 
         return EmbeddingModelConfig(

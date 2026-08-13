@@ -15,9 +15,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var manualUpdateProbeHandledResult = false
     weak var manualUpdateSender: AnyObject?
     var pendingOpenFileURLs: [URL] = []
+    var userDataBackupService: UserDataBackupService?
+    var restoredUserDataEntryCount: Int?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         LaunchPerformanceTracker.shared.mark("didFinishLaunching")
+        guard prepareUserDataBackupBeforePersistenceActivation() else { return }
         controller = ReaderWindowController()
         LaunchPerformanceTracker.shared.mark("windowController")
         installMainMenu()
@@ -25,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.window?.makeKeyAndOrderFront(nil)
         LaunchPerformanceTracker.shared.mark("windowVisible")
         NSApp.activate(ignoringOtherApps: true)
+        showUserDataRestoreCompletionIfNeeded()
         loadPendingOpenFilesIfNeeded()
         LaunchPerformanceTracker.shared.finish()
         startUpdaterAfterInitialWindowDisplay()

@@ -94,7 +94,7 @@ enum VocabularyLogicTests {
         try expectEqual(VocabularyTextPolicy.normalizedPDFVocabularyText("con-\ntemptuous"), "contemptuous", "PDF line-broken plain words should drop the layout hyphen")
         try expectEqual(VocabularyTextPolicy.normalizedPDFVocabularyText("Nine-\ntenths"), "Nine-tenths", "PDF line-broken true hyphenated words should keep the hyphen")
         try expectEqual(
-            VocabularyTextPolicy.normalizedPDFVocabularyText("fam-\niliar") { $0 == "familiar" },
+            VocabularyTextPolicy.normalizedPDFVocabularyText("fam-\niliar", isKnownWord: { $0 == "familiar" }),
             "familiar",
             "dictionary-backed PDF normalization should prefer known dehyphenated words"
         )
