@@ -6,7 +6,7 @@
     if (char === '\u201C' || char === '\u201D') return ['"'];
     if (/[\u2010-\u2015]/.test(char)) return ['-'];
     if (char === '\u2026') return ['.', '.', '.'];
-    return [char.toLowerCase()];
+    return char.toLowerCase().normalize('NFD').split('');
   };
   const normalizedText = (value) => {
     let output = '';
@@ -50,37 +50,67 @@
     }
     return matches;
   };
+  const normalizedIndexCache = new WeakMap();
+  const invalidateNormalizedIndex = (rootNode) => {
+    if (rootNode) normalizedIndexCache.delete(rootNode);
+  };
   const normalizedIndexForRoot = (rootNode) => {
+    const cached = normalizedIndexCache.get(rootNode);
+    if (cached) return cached;
     const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT);
-    const positions = [];
+    const nodeRuns = [];
+    const offsets = [];
     let normalized = '';
     let previousWasSpace = true;
     let node;
     while ((node = walker.nextNode())) {
       const raw = node.nodeValue || '';
+      const runStart = normalized.length;
       for (let i = 0; i < raw.length; i++) {
         const char = raw[i];
         if (/\s/.test(char)) {
           if (!previousWasSpace) {
             normalized += ' ';
-            positions.push({ node, offset: i });
+            offsets.push(i);
             previousWasSpace = true;
           }
         } else {
           for (const part of canonicalTextParts(char)) {
             normalized += part;
-            positions.push({ node, offset: i });
+            offsets.push(i);
             previousWasSpace = false;
           }
         }
       }
+      if (normalized.length > runStart) {
+        nodeRuns.push({ start: runStart, end: normalized.length, node });
+      }
     }
     const leadingSpaces = normalized.length - normalized.trimStart().length;
-    return { text: normalized.trim(), positions, leadingSpaces };
+    const index = {
+      text: normalized.trim(),
+      nodeRuns,
+      offsets: Uint32Array.from(offsets),
+      leadingSpaces
+    };
+    normalizedIndexCache.set(rootNode, index);
+    return index;
+  };
+  const positionForNormalizedOffset = (index, offset) => {
+    let low = 0;
+    let high = index.nodeRuns.length - 1;
+    while (low <= high) {
+      const middle = (low + high) >> 1;
+      const run = index.nodeRuns[middle];
+      if (offset < run.start) high = middle - 1;
+      else if (offset >= run.end) low = middle + 1;
+      else return { node: run.node, offset: index.offsets[offset] };
+    }
+    return null;
   };
   const rangeFromNormalizedSpan = (index, startIndex, length) => {
-    const start = index.positions[index.leadingSpaces + startIndex];
-    const end = index.positions[index.leadingSpaces + startIndex + length - 1];
+    const start = positionForNormalizedOffset(index, index.leadingSpaces + startIndex);
+    const end = positionForNormalizedOffset(index, index.leadingSpaces + startIndex + length - 1);
     if (!start || !end) return null;
     const range = document.createRange();
     range.setStart(start.node, start.offset);
@@ -273,6 +303,7 @@
     occurrenceIndexInText,
     leafReaderFindSearchSpans,
     normalizedIndexForRoot,
+    invalidateNormalizedIndex,
     rangeFromNormalizedSpan,
     rangeForNormalizedText,
     rangeForWordInContext,

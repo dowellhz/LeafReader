@@ -40,6 +40,9 @@ const textNode = (value) => ({ nodeValue: value });
 
 assert.strictEqual(web.normalizedText('  Hello\nWORLD\t '), 'hello world');
 assert.strictEqual(web.normalizedText('I\u2019ve seen high\u2014bouncing lover\u2026'), "i've seen high-bouncing lover...");
+assert.strictEqual(web.normalizedText('Caf\u00E9'), web.normalizedText('Cafe\u0301'));
+assert.strictEqual(web.normalizedText('über\u00ADsende'), web.normalizedText('übersende'));
+assert.strictEqual(web.normalizedText('STRA\u1E9EE'), web.normalizedText('Straße'));
 assert.strictEqual(web.occurrenceIndexInText('Alpha beta alpha beta', 'alpha', 'Alpha beta '), 1);
 assert.deepStrictEqual(web.leafReaderFindSearchSpans('Alpha beta alpha', 'alpha'), [
   { start: 0, end: 5 },
@@ -63,6 +66,20 @@ assert.strictEqual(wordRange.startContainer, second);
 assert.strictEqual(wordRange.startOffset, 0);
 assert.strictEqual(wordRange.endContainer, second);
 assert.strictEqual(wordRange.endOffset, 8);
+
+const collapsedWhitespaceStart = textNode('eins  ');
+const collapsedWhitespaceEnd = textNode('\n\tzwei');
+const collapsedWhitespaceRange = web.rangeForNormalizedText(
+  { textNodes: [collapsedWhitespaceStart, collapsedWhitespaceEnd] },
+  'eins zwei'
+);
+assert.strictEqual(collapsedWhitespaceRange.startContainer, collapsedWhitespaceStart);
+assert.strictEqual(collapsedWhitespaceRange.startOffset, 0);
+assert.strictEqual(collapsedWhitespaceRange.endContainer, collapsedWhitespaceEnd);
+assert.strictEqual(collapsedWhitespaceRange.endOffset, 6);
+
+web.invalidateNormalizedIndex(root);
+assert.notStrictEqual(web.normalizedIndexForRoot(root), normalized);
 
 const quoteNode = textNode('I\u2019ve had advantages that you\u2019ve had.');
 const quoteRange = web.rangeForNormalizedText({ textNodes: [quoteNode] }, "you've had");

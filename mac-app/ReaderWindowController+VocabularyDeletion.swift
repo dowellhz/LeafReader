@@ -36,15 +36,12 @@ extension ReaderWindowController {
 
         if currentDocumentKind == .pdf {
             let removedRecords = storedWordRecords.filter { idSet.contains($0.id) }
-            for record in removedRecords {
-                guard let page = pdfView.document?.page(at: record.pageIndex) else { continue }
-                for annotation in page.annotations where storedWordID(from: annotation) == record.id {
-                    page.removeAnnotation(annotation)
-                }
-            }
             if !removedRecords.isEmpty {
                 storedWordRecords.removeAll { idSet.contains($0.id) }
                 highlightedSelectionKeys.removeAll()
+                for id in idSet {
+                    vocabularyState.resolvedPDFWordBounds.removeValue(forKey: id)
+                }
                 restoreStoredWordAnnotations()
             }
             deleteStoredWordRecords(ids: idsToRemove)

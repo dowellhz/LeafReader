@@ -76,6 +76,23 @@ final class WordRecordSQLiteStore {
     }
 
     @discardableResult
+    func upsertPDFRecords(documentID: String, records: [StoredPDFWordRecord]) -> Bool {
+        guard !records.isEmpty else { return true }
+        return locked {
+            withTransaction {
+                records.allSatisfy { record in
+                    insertPDFRecord(
+                        documentID: documentID,
+                        record: record,
+                        prepareOperation: "prepare batch upsert PDF record",
+                        stepOperation: "batch upsert PDF record"
+                    )
+                }
+            }
+        }
+    }
+
+    @discardableResult
     func deletePDFRecords(documentID: String, ids: [String]) -> Bool {
         locked {
             deleteRecords(table: "pdf_word_records", documentID: documentID, ids: ids)
@@ -120,6 +137,23 @@ final class WordRecordSQLiteStore {
     }
 
     @discardableResult
+    func upsertWebRecords(documentID: String, records: [StoredWebWordRecord]) -> Bool {
+        guard !records.isEmpty else { return true }
+        return locked {
+            withTransaction {
+                records.allSatisfy { record in
+                    insertWebRecord(
+                        documentID: documentID,
+                        record: record,
+                        prepareOperation: "prepare batch upsert web record",
+                        stepOperation: "batch upsert web record"
+                    )
+                }
+            }
+        }
+    }
+
+    @discardableResult
     func deleteWebRecords(documentID: String, ids: [String]) -> Bool {
         locked {
             deleteRecords(table: "web_word_records", documentID: documentID, ids: ids)
@@ -142,6 +176,7 @@ final class WordRecordSQLiteStore {
             dictionary_frequency INTEGER,
             created_at REAL NOT NULL,
             srs_json TEXT,
+            text_anchor_json TEXT,
             PRIMARY KEY(document_id, id)
         );
         CREATE INDEX IF NOT EXISTS idx_pdf_word_records_document ON pdf_word_records(document_id);
@@ -173,6 +208,7 @@ final class WordRecordSQLiteStore {
         ensureColumn(table: "pdf_word_records", name: "dictionary_tags", definition: "TEXT")
         ensureColumn(table: "web_word_records", name: "dictionary_tags", definition: "TEXT")
         ensureColumn(table: "pdf_word_records", name: "dictionary_frequency", definition: "INTEGER")
+        ensureColumn(table: "pdf_word_records", name: "text_anchor_json", definition: "TEXT")
         ensureColumn(table: "web_word_records", name: "dictionary_frequency", definition: "INTEGER")
     }
 

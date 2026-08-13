@@ -2,17 +2,6 @@ import Cocoa
 import PDFKit
 
 extension ReaderWindowController {
-    func ensureDocumentAgentIndex() {
-        guard pdfAgentIndex == nil else { return }
-        if currentDocumentKind == .pdf {
-            guard let document = pdfView.document else { return }
-            pdfAgentIndex = PDFDocumentAgentIndex(document: document, title: titleLabel.stringValue)
-            return
-        }
-        guard !currentWebPlainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        pdfAgentIndex = PDFDocumentAgentIndex(text: currentWebPlainText)
-    }
-
     func ensureDocumentAgentIndexAsync(completion: (() -> Void)? = nil) {
         if pdfAgentIndex != nil {
             completion?()
@@ -33,12 +22,30 @@ extension ReaderWindowController {
                 finishDocumentAgentIndexBuild(nil, generation: generation)
                 return
             }
-            DispatchQueue.global(qos: .utility).async { [weak self] in
-                autoreleasepool {
-                    let document = PDFDocument(url: url)
-                    let index = document.map { PDFDocumentAgentIndex(document: $0, title: title) }
-                    DispatchQueue.main.async {
-                        self?.finishDocumentAgentIndexBuild(index, generation: generation)
+            ensurePDFTextSnapshotAsync(for: url) { [weak self] snapshot in
+                guard let self,
+                      self.documentAgentIndexGeneration == generation,
+                      self.currentFileURL == url else {
+                    return
+                }
+                let cancellationToken = PDFDocumentTextCancellationToken()
+                self.documentAgentIndexCancellationToken = cancellationToken
+                DispatchQueue.global(qos: .utility).async { [weak self] in
+                    autoreleasepool {
+                        let index: PDFDocumentAgentIndex?
+                        if let snapshot {
+                            index = PDFDocumentAgentIndex(
+                                snapshot: snapshot,
+                                title: title,
+                                cancellationToken: cancellationToken
+                            )
+                        } else {
+                            let document = PDFDocument(url: url)
+                            index = document.map { PDFDocumentAgentIndex(document: $0, title: title) }
+                        }
+                        DispatchQueue.main.async {
+                            self?.finishDocumentAgentIndexBuild(index, generation: generation)
+                        }
                     }
                 }
             }
@@ -60,6 +67,7 @@ extension ReaderWindowController {
 
     func finishDocumentAgentIndexBuild(_ index: PDFDocumentAgentIndex?, generation: Int) {
         guard generation == documentAgentIndexGeneration else { return }
+        documentAgentIndexCancellationToken = nil
         pdfAgentIndex = index
         isBuildingDocumentAgentIndex = false
         let callbacks = pendingDocumentAgentIndexCallbacks
@@ -68,6 +76,8 @@ extension ReaderWindowController {
     }
 
     func invalidateDocumentAgentIndex() {
+        documentAgentIndexCancellationToken?.cancel()
+        documentAgentIndexCancellationToken = nil
         pdfAgentIndex = nil
         isBuildingDocumentAgentIndex = false
         documentAgentIndexGeneration += 1

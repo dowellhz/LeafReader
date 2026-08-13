@@ -19,19 +19,23 @@ AppDelegate
 
 - `AppDelegate*.swift`: app lifecycle, menu, help, update UI.
 - `ReaderWindowController*.swift`: reader shell, document opening, navigation, search, AI integration, vocabulary, sessions.
-- `DocumentLoading*.swift`: EPUB/DOCX archive handling, HTML generation, shared document helpers.
+- `DocumentLoading*.swift`: EPUB/DOCX archive handling, shared document helpers, and cancellable DOCX streaming preparation. Prepared DOCX output is cached by a content fingerprint, verified before reuse, and published atomically so a stale or interrupted load cannot replace valid content.
 - `ProcessRunner.swift`: bounded external process execution for archive helpers and other command-line runtimes.
+- `PDFDocumentTextSnapshot.swift`: cancellable PDF text extraction and a verified, content-addressed cache reused by whole-document AI indexing. Background extraction and index construction pause briefly during reader interaction.
 - `AIChatPanel*.swift`: AI chat UI, request lifecycle, bubble layout, selection handling.
 - `AISettingsPanelController*.swift`: settings window, with focused builders for each page and separate speech selection/download extensions.
 - `SpeechPlaybackCoordinator.swift`, `SpeechRuntimeResourceManager.swift`, and `RuntimeDownload.swift`: local TTS playback, runtime selection, compatibility, and model downloads.
 - `SQLiteTransactionExecutor.swift`: shared checked transaction boundary used by SQLite-backed stores.
-- `Resources/reader-web*.js`: focused WebKit reader modules for text, marks, search, TTS ranges, selection events, and bridge installation.
+- `Resources/reader-web*.js`: focused WebKit reader modules for text, marks, search, TTS ranges, selection events, and bridge installation. Web marks share cached normalized text indexes and prefer CSS Custom Highlight ranges, with a DOM-span fallback for older WebKit versions.
 - `RecentDocuments*.swift` and `RecentBookCardView.swift`: bookshelf panel and recent document UI.
 - `WordRecordSQLiteStore.swift` and related stores: persistent word and conversation data.
+- `TextQuoteAnchor.swift` and `ReaderWindowController+VocabularyHighlights.swift`: semantic PDF occurrence identity plus visible-page, bounded-batch annotation materialization. Stored rectangles remain the compatibility fallback for existing records.
 
 ## Design Rule
 
 Large controllers are split by behavior into extensions or focused helper views. New work should prefer adding to an existing focused module instead of growing a general controller file.
+
+Document opening prioritizes first visible content. PDF cover generation, table-of-contents construction, and persisted mark restoration start only after the reader surface is visible, and every asynchronous result is guarded by the active document generation.
 
 ## Related Files
 

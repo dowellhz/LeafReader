@@ -248,6 +248,15 @@ private func testProcessRunnerCapturesOutputAndTimeout() throws {
         timeout: 0.1
     )
     try expect(sleep.timedOut, "long-running process should time out")
+
+    let cancelled = try ProcessRunner.run(
+        executableURL: URL(fileURLWithPath: "/bin/sleep"),
+        arguments: ["2"],
+        timeout: 2,
+        isCancelled: { true }
+    )
+    try expect(cancelled.wasCancelled, "cancelled process should report cancellation")
+    try expect(!cancelled.timedOut, "cancelled process should not be reported as timed out")
 }
 
 @main

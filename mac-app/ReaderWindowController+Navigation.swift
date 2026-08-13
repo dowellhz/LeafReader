@@ -46,7 +46,10 @@ extension ReaderWindowController {
             scrollWebPage(direction: -1)
             return
         }
-        turnPDFPage(direction: .previous, targetPlacement: .bottom)
+        turnPDFPage(
+            direction: .previous,
+            targetPlacement: PDFPagingPolicy.previousPagePlacement(for: currentPDFReadingMode())
+        )
     }
 
     @objc func nextPage() {
@@ -152,18 +155,23 @@ extension ReaderWindowController {
         clearAISelectionForNavigation()
         turnPDFPage(
             direction: direction,
-            targetPlacement: direction == .previous ? .bottom : .top
+            targetPlacement: direction == .previous
+                ? PDFPagingPolicy.previousPagePlacement(for: currentPDFReadingMode())
+                : .top
         )
     }
 
-    private enum PDFPagePlacement {
-        case top
-        case bottom
-    }
-
-    private func turnPDFPage(direction: EdgePagingPDFView.ScrollPageDirection, targetPlacement: PDFPagePlacement) {
+    private func turnPDFPage(
+        direction: EdgePagingPDFView.ScrollPageDirection,
+        targetPlacement: PDFPageNavigationPlacement
+    ) {
         guard let document = pdfView.document, document.pageCount > 0 else { return }
-        let currentIndex = currentPDFViewportAnchor()?.pageIndex ?? currentPageIndex() ?? 0
+        let readingMode = currentPDFReadingMode()
+        let currentIndex = PDFPagingPolicy.navigationPageIndex(
+            readingMode: readingMode,
+            viewportPageIndex: currentPDFViewportAnchor()?.pageIndex,
+            currentPageIndex: currentPageIndex()
+        ) ?? 0
         let targetIndex: Int
         switch direction {
         case .previous:
@@ -188,7 +196,7 @@ extension ReaderWindowController {
         scrollPage(page, to: .top)
     }
 
-    private func scrollPage(_ page: PDFPage, to placement: PDFPagePlacement) {
+    private func scrollPage(_ page: PDFPage, to placement: PDFPageNavigationPlacement) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self,
                   self.pdfView.document?.index(for: page) != NSNotFound else {
@@ -219,6 +227,7 @@ extension ReaderWindowController {
     func handlePDFPageChange() {
         markReaderInteraction()
         hideSelectionToolbar()
+        materializeStoredWordAnnotationsForVisiblePages()
         let newPageIndex = currentPageIndex()
         guard newPageIndex != lastPageIndex else {
             updatePageLabel()

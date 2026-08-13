@@ -11,6 +11,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
         let word: String
         let pageIndex: Int
         let bounds: StoredPDFWordRect
+        let textAnchor: TextQuoteAnchor?
         let context: String
         var dictionaryTags: String?
         var dictionaryFrequency: Int?
@@ -102,6 +103,10 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var searchResults: [PDFSelection] = []
     var searchResultIndex = 0
     var lastSearchQuery = ""
+    weak var activePDFSearchDocument: PDFDocument?
+    var activePDFSearchQuery = ""
+    var isPDFSearchInProgress = false
+    var didRegisterPDFSearchObservers = false
     var embeddingState = ReaderEmbeddingState()
     var aiState = ReaderAIState()
     let sessionSaveTask = DebouncedTask(delay: ReaderSessionPolicy.lastPositionSaveDelay)
@@ -164,6 +169,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     deinit {
+        activeWebDocumentLoadCancellationToken?.cancel()
+        pdfTextSnapshotCancellationToken?.cancel()
         releaseCurrentOwnedWebResource()
         if let localEventMonitor {
             NSEvent.removeMonitor(localEventMonitor)

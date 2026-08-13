@@ -77,6 +77,48 @@ func testEmbeddingWarmupIdlePolicy() throws {
     try expectEqual(EmbeddingWarmupPolicy.warmupDelay, 18.0, "warmup delay should remain explicit")
 }
 
+func testTextQuoteAnchorResolution() throws {
+    let source = "alpha target omega target final"
+    let range = (source as NSString).range(of: "target", options: [], range: NSRange(location: 10, length: 20))
+    guard let anchor = TextQuoteAnchor(
+        unitOrdinal: 3,
+        sourceRange: range,
+        sourceText: source,
+        contextLength: 8
+    ) else {
+        throw TestFailure(description: "valid source range should create an anchor")
+    }
+    try expectEqual(anchor.resolvedRange(in: source), range, "anchor should use its compact source position")
+
+    let shifted = "preface alpha target omega target final"
+    let resolved = anchor.resolvedRange(in: shifted)
+    try expectEqual(
+        resolved.map { (shifted as NSString).substring(with: $0) },
+        "target",
+        "anchor should recover the exact quote after text shifts"
+    )
+    try expectEqual(resolved?.location, range.location + 8, "surrounding context should choose the original occurrence")
+}
+
+func testPDFVocabularyHighlightPolicy() throws {
+    let indexes = PDFVocabularyHighlightPolicy.visibleRecordIndexes(
+        pageIndexes: [0, 3, 3, 9, 4],
+        visiblePageIndexes: [3, 4]
+    )
+    try expectEqual(indexes, [1, 2, 4], "only visible-page vocabulary records should materialize")
+    try expectEqual(
+        PDFVocabularyHighlightPolicy.batchRange(startIndex: 0, count: 20),
+        0..<8,
+        "highlight batches should have an explicit bounded size"
+    )
+    try expectEqual(
+        PDFVocabularyHighlightPolicy.batchRange(startIndex: 16, count: 20),
+        16..<20,
+        "last highlight batch should stop at the record count"
+    )
+    try expect(PDFVocabularyHighlightPolicy.batchRange(startIndex: 20, count: 20) == nil, "completed batches should stop")
+}
+
 func testPageScrollDirection() throws {
     try expectEqual(pageDirectionAtEdge(deltaY: 12, isAtTop: true, isAtBottom: false), .previous, "scrolling upward at page top should go previous")
     try expectEqual(pageDirectionAtEdge(deltaY: -12, isAtTop: false, isAtBottom: true), .next, "scrolling downward at page bottom should go next")
@@ -88,6 +130,34 @@ func testPDFPagingPolicy() throws {
     try expect(PDFReadingMode.paged.allowsEdgePaging, "paged mode should keep edge-triggered page turns")
     try expect(!PDFReadingMode.continuous.allowsEdgePaging, "continuous mode should use native scrolling without edge-triggered page turns")
     try expectEqual(PDFReadingMode(rawValue: "continuous"), .continuous, "continuous reading mode should round-trip through persistence")
+    try expectEqual(
+        PDFPagingPolicy.previousPagePlacement(for: .paged),
+        .bottom,
+        "paged previous navigation should preserve the previous page bottom"
+    )
+    try expectEqual(
+        PDFPagingPolicy.previousPagePlacement(for: .continuous),
+        .top,
+        "continuous previous navigation should visibly move to the previous page top"
+    )
+    try expectEqual(
+        PDFPagingPolicy.navigationPageIndex(
+            readingMode: .paged,
+            viewportPageIndex: 4,
+            currentPageIndex: 5
+        ),
+        4,
+        "paged navigation should follow the viewport anchor"
+    )
+    try expectEqual(
+        PDFPagingPolicy.navigationPageIndex(
+            readingMode: .continuous,
+            viewportPageIndex: 4,
+            currentPageIndex: 5
+        ),
+        5,
+        "continuous navigation should follow PDFKit's active page"
+    )
     try expectEqual(PDFPagingPolicy.wheelEdgeScrollThreshold, 40, "wheel edge threshold should remain explicit")
     try expectEqual(PDFPagingPolicy.wheelPageTurnCooldown, 0.45, "wheel cooldown should prevent double page turns")
     try expectEqual(PDFPagingPolicy.trackpadEdgeSlop, 12, "trackpad edge slop should remain explicit")
@@ -212,6 +282,16 @@ func testReaderProgressFormatter() throws {
     try expectEqual(ReaderProgressFormatter.webProgressPercent(-0.2), 0, "web progress should clamp low")
     try expectEqual(ReaderProgressFormatter.webProgressPercent(0.126), 13, "web progress should round")
     try expectEqual(ReaderProgressFormatter.webProgressPercent(1.4), 100, "web progress should clamp high")
+
+    try expectEqual(ReaderProgressFormatter.searchResultText(resultIndex: nil, resultCount: 0, isSearching: true), "0 / …", "search should show an indeterminate total while finding")
+    try expectEqual(ReaderProgressFormatter.searchResultText(resultIndex: 1, resultCount: 4, isSearching: true), "2 / …", "search should keep the current match while finding")
+    try expectEqual(ReaderProgressFormatter.searchResultText(resultIndex: 9, resultCount: 4, isSearching: false), "4 / 4", "search should clamp the current match")
+    try expectEqual(ReaderProgressFormatter.searchResultText(resultIndex: nil, resultCount: 0, isSearching: false), "0 / 0", "finished empty search should show zero results")
+
+    try expectEqual(ReaderProgressFormatter.webSectionProgress(index: 2, locationCount: 5), 0.5, "web source progress should use the section index")
+    try expectEqual(ReaderProgressFormatter.webSectionProgress(index: -2, locationCount: 5), 0, "web source progress should clamp low")
+    try expectEqual(ReaderProgressFormatter.webSectionProgress(index: 20, locationCount: 5), 1, "web source progress should clamp high")
+    try expectEqual(ReaderProgressFormatter.webSectionProgress(index: 2, locationCount: 1), 0, "single-section sources should start at zero")
 }
 
 func testReaderAIContextTextCleanup() throws {

@@ -1,7 +1,7 @@
 import Cocoa
 
 extension ReaderWindowController {
-    func applyReaderTheme() {
+    func applyReaderTheme(refreshDocumentDecorations: Bool = true) {
         let theme = ReaderTheme.selected
         let isDark = theme == .dark
         let chromeBackground = chromeBackgroundColor(for: theme)
@@ -35,8 +35,10 @@ extension ReaderWindowController {
         readingNotesPanelController?.refreshTheme()
         pdfView.backgroundColor = chromeBackground
         pdfView.enclosingScrollView?.backgroundColor = chromeBackground
-        applyPDFReaderTheme(theme: theme)
-        refreshStoredWordAnnotationAppearance()
+        applyPDFReaderTheme(theme: theme, refreshReadingNotes: refreshDocumentDecorations)
+        if refreshDocumentDecorations {
+            refreshStoredWordAnnotationAppearance()
+        }
 
         applyWebReaderTheme(theme: theme)
     }
@@ -101,7 +103,7 @@ extension ReaderWindowController {
         embeddingStatusLabel.textColor = ReaderTheme.selected.secondaryTextColor
     }
 
-    func applyPDFReaderTheme(theme: ReaderTheme) {
+    func applyPDFReaderTheme(theme: ReaderTheme, refreshReadingNotes: Bool = true) {
         pdfView.displaysPageBreaks = true
         pdfView.pageShadowsEnabled = true
         clearPDFContentFilters()
@@ -111,7 +113,9 @@ extension ReaderWindowController {
         pdfView.documentView?.needsDisplay = true
         pdfView.setNeedsDisplay(pdfView.bounds)
         updateAISourceUnderlineTheme(theme)
-        restoreReadingNoteAnnotations()
+        if refreshReadingNotes {
+            restoreReadingNoteAnnotations()
+        }
     }
 
     func clearPDFContentFilters() {

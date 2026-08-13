@@ -11,6 +11,7 @@
     occurrenceIndexInText,
     leafReaderFindSearchSpans,
     normalizedIndexForRoot,
+    invalidateNormalizedIndex,
     rangeFromNormalizedSpan,
     rangeForNormalizedText,
     rangeForWordInContext,
@@ -20,18 +21,24 @@
   } = window.LeafReaderWebText;
 
   const unwrapSpans = (selector) => {
+    let removed = 0;
     document.querySelectorAll(selector).forEach((span) => {
       const parent = span.parentNode;
       if (!parent) return;
       while (span.firstChild) parent.insertBefore(span.firstChild, span);
       parent.removeChild(span);
       parent.normalize();
+      removed += 1;
     });
+    return removed;
   };
 
   const leafReaderSearchAPI = window.LeafReaderWebSearch.makeSearchAPI({
     installReaderOverlayStyle,
-    leafReaderFindSearchSpans
+    leafReaderFindSearchSpans,
+    normalizedText,
+    normalizedIndexForRoot,
+    rangeFromNormalizedSpan
   });
   window.leafReaderClearSearchHighlights = leafReaderSearchAPI.clearSearchHighlights;
   window.leafReaderSearch = leafReaderSearchAPI.search;
@@ -92,6 +99,15 @@
       const end = node === range.endContainer ? range.endOffset : (node.nodeValue || '').length;
       if (end > range.startOffset) targets.push({ node, start: range.startOffset, end });
     }
+    const rootsToInvalidate = new Set([document.body]);
+    for (const target of targets) {
+      let element = target.node.parentElement;
+      while (element) {
+        rootsToInvalidate.add(element);
+        if (element === document.body) break;
+        element = element.parentElement;
+      }
+    }
     for (const target of targets.reverse()) {
       const textNode = target.node;
       let middle = textNode;
@@ -103,6 +119,9 @@
       middle.parentNode.insertBefore(span, middle);
       span.appendChild(middle);
     }
+    if (targets.length > 0) {
+      rootsToInvalidate.forEach(invalidateNormalizedIndex);
+    }
     return targets.length > 0;
   };
 
@@ -111,7 +130,10 @@
     normalizedText,
     wrapRangeTextNodes,
     findTextRange: window.leafReaderFindTextRange,
-    unwrapSpans
+    rangeForWordInContext,
+    rangeForNormalizedText,
+    unwrapSpans,
+    invalidateTextIndex: invalidateNormalizedIndex
   });
   window.leafReaderClearAISourceUnderlines = marks.clearAISourceUnderlines;
   window.leafReaderAddAISourceUnderlineForSelection = marks.addAISourceUnderlineForSelection;
@@ -141,6 +163,9 @@
   });
   window.LeafReaderWebSelection.install({
     occurrenceIndexInText,
-    scrollProgress: tts.scrollProgress
+    scrollProgress: tts.scrollProgress,
+    aiSourceKeyAtPoint: marks.aiSourceKeyAtPoint,
+    linkedWordIDAtPoint: marks.linkedWordIDAtPoint,
+    noteIDAtPoint: marks.noteIDAtPoint
   });
 })();

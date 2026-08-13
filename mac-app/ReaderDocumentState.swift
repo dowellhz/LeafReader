@@ -1,4 +1,5 @@
 import Cocoa
+import PDFKit
 
 struct ReaderDocumentState {
     var currentFileURL: URL?
@@ -7,6 +8,12 @@ struct ReaderDocumentState {
     var sessionStore = ReaderSessionStore(fileMD5: nil)
     var currentDocumentKind: ReaderDocumentKind = .pdf
     var documentLoadGeneration = 0
+    var activeWebDocumentLoadCancellationToken: DocumentLoadCancellationToken?
+    var pdfTextSnapshot: PDFDocumentTextSnapshot?
+    var pdfTextSnapshotGeneration = 0
+    var pdfTextSnapshotCancellationToken: PDFDocumentTextCancellationToken?
+    var isPreparingPDFTextSnapshot = false
+    var pdfTextSnapshotCallbacks: [(PDFDocumentTextSnapshot?) -> Void] = []
     var currentPDFSelectedText = ""
     var currentWebPlainText = ""
     var webPlainTextGeneration = 0
@@ -21,6 +28,8 @@ struct ReaderDocumentState {
     var allowedInitialWebNavigationURLs: Set<String> = []
     var pdfTOCDestinations: [String: ReaderTOCHelper.PDFTOCDestination] = [:]
     var pdfTOCGeneration = 0
+    var pendingPDFTOCBuildRequest: (url: URL, displayBox: PDFDisplayBox)?
+    var pendingPDFCoverThumbnailRequest: (url: URL, documentID: String?)?
     var webZoomPercent = 100
     var webScrollProgress: Double = 0
     var originalPDFCropBoxes: [Int: CGRect] = [:]

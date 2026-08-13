@@ -2,6 +2,30 @@ import Cocoa
 import PDFKit
 
 extension ReaderWindowController {
+    func textQuoteAnchor(
+        pageIndex: Int,
+        selection: PDFSelection,
+        page: PDFPage,
+        sourceText: String
+    ) -> TextQuoteAnchor? {
+        let rangeCount = selection.numberOfTextRanges(on: page)
+        guard rangeCount > 0 else { return nil }
+        var combinedRange = selection.range(at: 0, on: page)
+        guard combinedRange.location != NSNotFound else { return nil }
+        if rangeCount > 1 {
+            for index in 1..<rangeCount {
+                let range = selection.range(at: index, on: page)
+                guard range.location != NSNotFound else { continue }
+                combinedRange = NSUnionRange(combinedRange, range)
+            }
+        }
+        return TextQuoteAnchor(
+            unitOrdinal: pageIndex,
+            sourceRange: combinedRange,
+            sourceText: sourceText
+        )
+    }
+
     func vocabularyTextForCurrentPDFSelection(selection: PDFSelection?, fallback: String) -> String {
         let normalizedFallback = normalizedPDFVocabularyText(fallback)
         if VocabularyTextPolicy.speakableWord(normalizedFallback) != nil {
@@ -59,6 +83,17 @@ extension ReaderWindowController {
         }
 
         return bestBounds
+    }
+
+    func exactPDFSelectionBounds(_ selection: PDFSelection, page: PDFPage) -> CGRect? {
+        let originalBounds = selection.bounds(for: page)
+        guard originalBounds.width > 0, originalBounds.height > 0 else { return nil }
+        let bounds = tightSelectionBounds(
+            selection,
+            page: page,
+            originalBounds: originalBounds
+        ).insetBy(dx: -1.5, dy: -1)
+        return bounds.width > 0 && bounds.height > 0 ? bounds : nil
     }
 
     func pdfTextRanges(matching query: String, in pageText: String) -> [NSRange] {

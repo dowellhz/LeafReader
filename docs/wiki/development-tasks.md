@@ -22,6 +22,66 @@ Watch for:
 - Losing native PDFKit scroll or rubber-band behavior.
 - Thresholds that work for short pages but fail on long technical books.
 
+## Change PDF Text Indexing Or Vocabulary Marks
+
+Start with:
+
+- `mac-app/PDFDocumentTextSnapshot.swift`
+- `mac-app/PDFDocumentAgentIndex.swift`
+- `mac-app/ReaderWindowController+PDFTextSnapshot.swift`
+- `mac-app/ReaderWindowController+VocabularyHighlights.swift`
+- `mac-app/TextQuoteAnchor.swift`
+- `mac-app/WordRecordSQLiteRowMapper.swift`
+- `mac-app/WordRecordSQLiteStore.swift`
+
+Run:
+
+```sh
+./tests/run.sh
+./scripts/check.sh --no-build
+./scripts/build_app.sh
+```
+
+Watch for:
+
+- Materializing annotations for every PDF page instead of only visible pages.
+- Letting a stale annotation batch or text snapshot mutate a replacement document.
+- Reusing cached PDF text after source bytes change while path, timestamp, or size stay unchanged.
+- Continuing background PDF extraction or indexing during active scrolling, zooming, or page turns.
+- Changing the text normalization used by an anchor without a versioned compatibility policy.
+- Adding SQLite anchor fields without keeping select columns, decode indexes, insert columns, and bindings aligned.
+- Dropping the stored-rectangle fallback required by vocabulary records created before semantic anchors existed.
+
+## Change Document Loading Or Web Marks
+
+Start with:
+
+- `mac-app/DocumentLoading.swift`
+- `mac-app/DocumentLoading+Archive.swift`
+- `mac-app/DocumentLoading+DOCXStreaming.swift`
+- `mac-app/DocumentLoading+DOCXCache.swift`
+- `mac-app/ReaderWindowController+DocumentLoading.swift`
+- `mac-app/Resources/reader-web-text.js`
+- `mac-app/Resources/reader-web-marks.js`
+- `mac-app/Resources/reader-web-search.js`
+
+Run:
+
+```sh
+./tests/run.sh
+./scripts/check.sh --no-build
+./scripts/build_app.sh
+```
+
+Watch for:
+
+- A superseded EPUB or DOCX load mutating the current document or leaving temporary resources behind.
+- Reusing prepared DOCX output after the source bytes change, even when path, size, or timestamp are unchanged.
+- Publishing an incomplete DOCX cache entry after cancellation or extraction failure.
+- Forgetting to invalidate normalized Web text indexes after a DOM text mutation.
+- Relying on CSS Custom Highlight without retaining the DOM-span fallback required by older WebKit versions.
+- Starting PDF table-of-contents, cover, or persisted-mark restoration before the first visible reader update.
+
 ## Change AI Translation Or Explanations
 
 Start with:

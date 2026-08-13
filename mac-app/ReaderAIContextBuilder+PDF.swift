@@ -32,6 +32,56 @@ extension ReaderAIContextBuilder {
         return stripPDFPageChrome(from: combined, previousText: previousRaw, nextText: nextRaw, title: title)
     }
 
+    static func pdfPageTranslationText(pageTexts: [String], pageIndex: Int, title: String) -> String {
+        guard pageTexts.indices.contains(pageIndex) else { return "" }
+        let currentRaw = pageTexts[pageIndex]
+        let previousPreviousRaw = pageIndex > 1 ? pageTexts[pageIndex - 2] : ""
+        let previousRaw = pageIndex > 0 ? pageTexts[pageIndex - 1] : ""
+        let nextRaw = pageIndex + 1 < pageTexts.count ? pageTexts[pageIndex + 1] : ""
+        let nextNextRaw = pageIndex + 2 < pageTexts.count ? pageTexts[pageIndex + 2] : ""
+        let currentText = stripPDFPageChrome(
+            from: currentRaw,
+            previousText: previousRaw,
+            nextText: nextRaw,
+            title: title
+        )
+        guard hasTrimmedText(currentText) else { return "" }
+
+        let previousText = pageIndex > 0
+            ? stripPDFPageChrome(
+                from: previousRaw,
+                previousText: previousPreviousRaw,
+                nextText: currentRaw,
+                title: title
+            )
+            : ""
+        let nextText = pageIndex + 1 < pageTexts.count
+            ? stripPDFPageChrome(
+                from: nextRaw,
+                previousText: currentRaw,
+                nextText: nextNextRaw,
+                title: title
+            )
+            : ""
+        let prefix = pdfPreviousPageParagraphTailIfNeeded(
+            currentText: currentText,
+            previousText: previousText,
+            title: title
+        )
+        let suffix = pdfNextPageParagraphHeadIfNeeded(
+            currentText: currentText,
+            nextText: nextText,
+            title: title
+        )
+        let combined = joinedNonEmptyParagraphs([prefix, currentText, suffix])
+        return stripPDFPageChrome(
+            from: combined,
+            previousText: previousRaw,
+            nextText: nextRaw,
+            title: title
+        )
+    }
+
     static func stripPDFPageChrome(from text: String, previousText: String, nextText: String, title: String = "") -> String {
         var lines = text
             .replacingOccurrences(of: "\r\n", with: "\n")

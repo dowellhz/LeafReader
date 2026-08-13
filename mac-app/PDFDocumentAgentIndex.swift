@@ -38,6 +38,26 @@ final class PDFDocumentAgentIndex {
         chunks = builtChunks
     }
 
+    init?(
+        snapshot: PDFDocumentTextSnapshot,
+        title: String,
+        cancellationToken: PDFDocumentTextCancellationToken
+    ) {
+        var builtChunks: [Chunk] = []
+        for pageIndex in snapshot.pageTexts.indices {
+            if cancellationToken.waitUntilRunnableOrCancelled() {
+                return nil
+            }
+            let pageText = ReaderAIContextBuilder.pdfPageTranslationText(
+                pageTexts: snapshot.pageTexts,
+                pageIndex: pageIndex,
+                title: title
+            )
+            builtChunks.append(contentsOf: Self.chunks(from: pageText, pageIndex: pageIndex))
+        }
+        chunks = builtChunks
+    }
+
     init(text: String) {
         let sections = Self.sections(from: text)
         chunks = sections.enumerated().flatMap { sectionIndex, sectionText in
