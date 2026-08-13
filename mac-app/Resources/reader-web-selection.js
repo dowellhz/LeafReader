@@ -1,7 +1,13 @@
 (() => {
   const root = typeof globalThis !== 'undefined' ? globalThis : this;
 
-  const install = ({ occurrenceIndexInText, scrollProgress }) => {
+  const install = ({
+    occurrenceIndexInText,
+    scrollProgress,
+    aiSourceKeyAtPoint = () => '',
+    linkedWordIDAtPoint = () => '',
+    noteIDAtPoint = () => ''
+  }) => {
     let lastScrollSent = 0;
     let documentMouseDown = false;
 
@@ -106,6 +112,13 @@
       window.webkit.messageHandlers.selectionChanged.postMessage({ text: '', context: '' });
     });
     document.addEventListener('click', (event) => {
+      const highlightedAISourceKey = aiSourceKeyAtPoint(event.clientX, event.clientY);
+      if (highlightedAISourceKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        window.webkit.messageHandlers.webAISourceClicked.postMessage(String(highlightedAISourceKey));
+        return;
+      }
       const aiSource = event.target?.closest?.('span.leaf-reader-ai-source-underline');
       if (aiSource) {
         event.preventDefault();
@@ -120,11 +133,25 @@
         window.leafReaderJumpToHref(link.dataset.leafHref || '');
         return;
       }
+      const highlightedWordID = linkedWordIDAtPoint(event.clientX, event.clientY);
+      if (highlightedWordID) {
+        event.preventDefault();
+        event.stopPropagation();
+        window.webkit.messageHandlers.webWordClicked.postMessage(String(highlightedWordID));
+        return;
+      }
       const word = event.target?.closest?.('span.leaf-reader-linked-word');
       if (word) {
         event.preventDefault();
         event.stopPropagation();
         window.webkit.messageHandlers.webWordClicked.postMessage(String(word.dataset.leafWordId || ''));
+        return;
+      }
+      const highlightedNoteID = noteIDAtPoint(event.clientX, event.clientY);
+      if (highlightedNoteID) {
+        event.preventDefault();
+        event.stopPropagation();
+        window.webkit.messageHandlers.webNoteClicked.postMessage(String(highlightedNoteID));
         return;
       }
       const note = event.target?.closest?.('span.leaf-reader-note-highlight');

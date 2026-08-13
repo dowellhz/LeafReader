@@ -45,15 +45,27 @@ struct WebWordRecordStore {
         return legacyRecords
     }
 
-    func save(_ records: [StoredWebWordRecord]) {
-        if WordRecordSQLiteStore.shared.saveWebRecords(documentID: documentID, records: records) {
+    @discardableResult
+    func save(_ records: [StoredWebWordRecord]) -> Bool {
+        let didSave = WordRecordSQLiteStore.shared.saveWebRecords(documentID: documentID, records: records)
+        if didSave {
             defaults.set(true, forKey: migrationKey)
         }
+        return didSave
     }
 
     @discardableResult
     func upsert(_ record: StoredWebWordRecord) -> Bool {
         let didSave = WordRecordSQLiteStore.shared.upsertWebRecord(documentID: documentID, record: record)
+        if didSave {
+            defaults.set(true, forKey: migrationKey)
+        }
+        return didSave
+    }
+
+    @discardableResult
+    func upsert(_ records: [StoredWebWordRecord]) -> Bool {
+        let didSave = WordRecordSQLiteStore.shared.upsertWebRecords(documentID: documentID, records: records)
         if didSave {
             defaults.set(true, forKey: migrationKey)
         }

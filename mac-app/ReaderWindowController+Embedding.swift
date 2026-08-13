@@ -2,17 +2,6 @@ import Cocoa
 import PDFKit
 
 extension ReaderWindowController {
-    func ensureDocumentAgentIndex() {
-        guard pdfAgentIndex == nil else { return }
-        if currentDocumentKind == .pdf {
-            guard let document = pdfView.document else { return }
-            pdfAgentIndex = PDFDocumentAgentIndex(document: document, title: titleLabel.stringValue)
-            return
-        }
-        guard !currentWebPlainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        pdfAgentIndex = PDFDocumentAgentIndex(text: currentWebPlainText)
-    }
-
     func ensureDocumentAgentIndexAsync(completion: (() -> Void)? = nil) {
         if pdfAgentIndex != nil {
             completion?()

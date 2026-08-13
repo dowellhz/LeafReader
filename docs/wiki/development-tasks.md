@@ -22,6 +22,36 @@ Watch for:
 - Losing native PDFKit scroll or rubber-band behavior.
 - Thresholds that work for short pages but fail on long technical books.
 
+## Change Document Loading Or Web Marks
+
+Start with:
+
+- `mac-app/DocumentLoading.swift`
+- `mac-app/DocumentLoading+Archive.swift`
+- `mac-app/DocumentLoading+DOCXStreaming.swift`
+- `mac-app/DocumentLoading+DOCXCache.swift`
+- `mac-app/ReaderWindowController+DocumentLoading.swift`
+- `mac-app/Resources/reader-web-text.js`
+- `mac-app/Resources/reader-web-marks.js`
+- `mac-app/Resources/reader-web-search.js`
+
+Run:
+
+```sh
+./tests/run.sh
+./scripts/check.sh --no-build
+./scripts/build_app.sh
+```
+
+Watch for:
+
+- A superseded EPUB or DOCX load mutating the current document or leaving temporary resources behind.
+- Reusing prepared DOCX output after the source bytes change, even when path, size, or timestamp are unchanged.
+- Publishing an incomplete DOCX cache entry after cancellation or extraction failure.
+- Forgetting to invalidate normalized Web text indexes after a DOM text mutation.
+- Relying on CSS Custom Highlight without retaining the DOM-span fallback required by older WebKit versions.
+- Starting PDF table-of-contents, cover, or persisted-mark restoration before the first visible reader update.
+
 ## Change AI Translation Or Explanations
 
 Start with:

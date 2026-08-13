@@ -17,6 +17,8 @@ extension ReaderWindowController {
 
     func loadDocument(_ url: URL) {
         guard let kind = ReaderDocumentKind.kind(for: url) else { return }
+        activeWebDocumentLoadCancellationToken?.cancel()
+        activeWebDocumentLoadCancellationToken = nil
         stopReadAloudImmediately()
         SpeechPlaybackCoordinator.shared.shutdownRuntime(.kokoro)
         documentLoadGeneration += 1
@@ -51,6 +53,8 @@ extension ReaderWindowController {
 
     func showDocumentLoadingFailure(_ error: Error, generation: Int) {
         guard documentLoadGeneration == generation else { return }
+        pendingPDFTOCBuildRequest = nil
+        pendingPDFCoverThumbnailRequest = nil
         hideDocumentLoading(generation: generation)
         let alert = NSAlert(error: error)
         alert.applyLeafStyle()
@@ -67,7 +71,21 @@ extension ReaderWindowController {
                 self.aiPanel.flushTranscriptLayout()
                 self.aiPanel.layoutSubtreeIfNeeded()
                 self.hideDocumentLoading(generation: generation)
+                self.finishVisibleDocumentWork(generation: generation)
             }
+        }
+    }
+
+    private func finishVisibleDocumentWork(generation: Int) {
+        guard documentLoadGeneration == generation, currentDocumentKind == .pdf else { return }
+        startPendingPDFTOCBuildIfNeeded()
+        startPendingPDFCoverThumbnailIfNeeded()
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  self.documentLoadGeneration == generation,
+                  self.currentDocumentKind == .pdf else { return }
+            self.restoreStoredWordAnnotations()
+            self.restoreReadingNoteAnnotations()
         }
     }
 

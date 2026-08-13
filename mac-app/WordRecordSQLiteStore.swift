@@ -76,6 +76,23 @@ final class WordRecordSQLiteStore {
     }
 
     @discardableResult
+    func upsertPDFRecords(documentID: String, records: [StoredPDFWordRecord]) -> Bool {
+        guard !records.isEmpty else { return true }
+        return locked {
+            withTransaction {
+                records.allSatisfy { record in
+                    insertPDFRecord(
+                        documentID: documentID,
+                        record: record,
+                        prepareOperation: "prepare batch upsert PDF record",
+                        stepOperation: "batch upsert PDF record"
+                    )
+                }
+            }
+        }
+    }
+
+    @discardableResult
     func deletePDFRecords(documentID: String, ids: [String]) -> Bool {
         locked {
             deleteRecords(table: "pdf_word_records", documentID: documentID, ids: ids)
@@ -116,6 +133,23 @@ final class WordRecordSQLiteStore {
     func upsertWebRecord(documentID: String, record: StoredWebWordRecord) -> Bool {
         locked {
             insertWebRecord(documentID: documentID, record: record)
+        }
+    }
+
+    @discardableResult
+    func upsertWebRecords(documentID: String, records: [StoredWebWordRecord]) -> Bool {
+        guard !records.isEmpty else { return true }
+        return locked {
+            withTransaction {
+                records.allSatisfy { record in
+                    insertWebRecord(
+                        documentID: documentID,
+                        record: record,
+                        prepareOperation: "prepare batch upsert web record",
+                        stepOperation: "batch upsert web record"
+                    )
+                }
+            }
         }
     }
 

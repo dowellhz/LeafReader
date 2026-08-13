@@ -21,6 +21,11 @@ extension ReaderWindowController {
         set { embeddingState.pendingDocumentAgentIndexCallbacks = newValue }
     }
 
+    var webSourceNavigationGeneration: Int {
+        get { embeddingState.webSourceNavigationGeneration }
+        set { embeddingState.webSourceNavigationGeneration = newValue }
+    }
+
     var pdfEmbeddingStore: PDFEmbeddingStore? {
         get { embeddingState.pdfEmbeddingStore }
         set { embeddingState.pdfEmbeddingStore = newValue }

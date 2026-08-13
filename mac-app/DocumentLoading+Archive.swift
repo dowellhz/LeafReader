@@ -107,13 +107,23 @@ extension WebDocumentLoader {
         }
     }
 
-    static func unzip(url: URL, to destination: URL) throws {
+    static func unzip(
+        url: URL,
+        to destination: URL,
+        cancellationToken: DocumentLoadCancellationToken? = nil
+    ) throws {
+        try cancellationToken?.checkCancellation()
         try ArchiveSafetyValidator.validateZIP(at: url)
+        try cancellationToken?.checkCancellation()
         let result = try ProcessRunner.run(
             executableURL: URL(fileURLWithPath: "/usr/bin/unzip"),
             arguments: ["-qq", "-o", url.path, "-d", destination.path],
-            timeout: archiveProcessTimeout
+            timeout: archiveProcessTimeout,
+            isCancelled: { cancellationToken?.isCancelled == true }
         )
+        if result.wasCancelled {
+            throw CancellationError()
+        }
         guard !result.timedOut else {
             throw NSError(domain: "LeafReader", code: -1, userInfo: [
                 NSLocalizedDescriptionKey: "Unable to unpack \(url.lastPathComponent): unzip timed out."
@@ -127,6 +137,7 @@ extension WebDocumentLoader {
                 )
             ])
         }
+        try cancellationToken?.checkCancellation()
         try ArchiveSafetyValidator.validateExtractedTree(at: destination, policy: .document)
     }
 

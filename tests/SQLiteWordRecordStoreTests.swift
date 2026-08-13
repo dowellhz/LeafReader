@@ -86,8 +86,7 @@ struct SQLiteWordRecordStoreTestRunner {
 
         assert(store.upsertPDFRecord(documentID: documentID, record: first), "PDF upsert should succeed")
         assert(store.upsertPDFRecord(documentID: otherDocumentID, record: other), "PDF upsert for another document should succeed")
-        assert(store.upsertPDFRecord(documentID: documentID, record: second), "PDF second upsert should succeed")
-        assert(store.upsertPDFRecord(documentID: documentID, record: updated), "PDF update upsert should succeed")
+        assert(store.upsertPDFRecords(documentID: documentID, records: [second, updated]), "PDF batch upsert should succeed")
 
         let loadedPDF = store.loadPDFRecords(documentID: documentID)
         assert(loadedPDF.map(\.id) == ["pdf-a", "pdf-b"], "PDF records should load ordered records for one document only")
@@ -102,7 +101,7 @@ struct SQLiteWordRecordStoreTestRunner {
         let webUpdated = webRecord(id: "web-a", word: "gamma", answer: "updated", createdAt: 2, srs: srs)
         let webSecond = webRecord(id: "web-b", word: "delta", answer: "two", createdAt: 3)
         assert(store.saveWebRecords(documentID: documentID, records: [webFirst, webSecond]), "Web full save should succeed")
-        assert(store.upsertWebRecord(documentID: documentID, record: webUpdated), "Web upsert should succeed")
+        assert(store.upsertWebRecords(documentID: documentID, records: [webUpdated]), "Web batch upsert should succeed")
 
         let loadedWeb = store.loadWebRecords(documentID: documentID)
         assert(loadedWeb.map(\.id) == ["web-a", "web-b"], "Web records should load ordered records")
@@ -144,6 +143,35 @@ struct SQLiteWordRecordStoreTestRunner {
         let replacement = pdfRecord(id: "replacement", word: "new", answer: "replace", createdAt: 2)
         assert(!commitFailureStore.savePDFRecords(documentID: atomicDocumentID, records: [replacement]), "COMMIT failure should fail the save")
         assert(commitFailureStore.loadPDFRecords(documentID: atomicDocumentID).map(\.id) == ["original"], "COMMIT failure rollback should preserve existing records")
+        }
+
+        let batchDocumentID = "sqlite-batch-atomic-test-doc"
+        let batchOriginal = pdfRecord(id: "batch-original", word: "stable", answer: "keep", createdAt: 1)
+        do {
+        let seedStore = WordRecordSQLiteStore(databaseURL: dbURL)
+        assert(seedStore.upsertPDFRecord(documentID: batchDocumentID, record: batchOriginal), "batch atomic test seed should save")
+        }
+
+        do {
+        var insertCount = 0
+        let batchFailureStore = WordRecordSQLiteStore(databaseURL: dbURL) { operation in
+            guard operation == "batch upsert PDF record" else { return false }
+            insertCount += 1
+            return insertCount == 2
+        }
+        let updatedOriginal = pdfRecord(id: "batch-original", word: "stable", answer: "changed", createdAt: 2)
+        let batchNew = pdfRecord(id: "batch-new", word: "new", answer: "new", createdAt: 3)
+        assert(!batchFailureStore.upsertPDFRecords(documentID: batchDocumentID, records: [updatedOriginal, batchNew]), "batch INSERT failure should fail the upsert")
+        let records = batchFailureStore.loadPDFRecords(documentID: batchDocumentID)
+        assert(records.map(\.id) == ["batch-original"], "batch INSERT failure should not leave a partially inserted row")
+        assert(records.first?.answer == "keep", "batch INSERT failure should roll back an earlier update")
+        }
+
+        do {
+        let batchCommitFailureStore = WordRecordSQLiteStore(databaseURL: dbURL) { $0 == "commit transaction" }
+        let updatedOriginal = pdfRecord(id: "batch-original", word: "stable", answer: "changed", createdAt: 2)
+        assert(!batchCommitFailureStore.upsertPDFRecords(documentID: batchDocumentID, records: [updatedOriginal]), "batch COMMIT failure should fail the upsert")
+        assert(batchCommitFailureStore.loadPDFRecords(documentID: batchDocumentID).first?.answer == "keep", "batch COMMIT failure should roll back the update")
         }
 
         try? FileManager.default.removeItem(at: dbDirectory)

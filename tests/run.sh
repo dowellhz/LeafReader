@@ -147,6 +147,28 @@ REGRESSION_TEST_SOURCES=(
   tests/RegressionTests.swift
 )
 
+DOCX_TEST_SOURCES=(
+  tests/DOCXStreamingParserTests.swift
+  mac-app/AppText.swift
+  mac-app/ArchiveSafetyValidator.swift
+  mac-app/DocumentLoading.swift
+  mac-app/DocumentLoading+Archive.swift
+  mac-app/DocumentLoading+DOCX.swift
+  mac-app/DocumentLoading+DOCXCache.swift
+  mac-app/DocumentLoading+DOCXStreaming.swift
+  mac-app/DocumentLoading+EPUB.swift
+  mac-app/DocumentLoading+HTML.swift
+  mac-app/DocumentContentIdentity.swift
+  mac-app/EPUBHTMLSanitizer.swift
+  mac-app/EPUBPackageParser.swift
+  mac-app/EPUBPathResolver.swift
+  mac-app/EPUBTextDecoder.swift
+  mac-app/OwnedTemporaryResource.swift
+  mac-app/ProcessRunner.swift
+  mac-app/ReaderDocumentKind.swift
+  mac-app/WebDocumentSecurityPolicy.swift
+)
+
 LOGIC_TEST_SOURCES=(
   tests/AIConversationContextStoreTests.swift
   tests/EPUBLogicTests.swift
@@ -176,6 +198,8 @@ node --check mac-app/Resources/reader-web-tts.js
 node --check mac-app/Resources/reader-web-selection.js
 node --check mac-app/Resources/reader-web.js
 node tests/ReaderWebScriptTests.js
+node tests/ReaderWebSearchTests.js
+node tests/ReaderWebMarksTests.js
 
 collect_logic_app_sources
 
@@ -204,6 +228,9 @@ run_swift_test /tmp/leafreader-pdf-embedding-store-tests \
 run_swift_test /tmp/leafreader-regression-tests \
   "${REGRESSION_TEST_SOURCES[@]}" \
   -framework Cocoa
+
+run_swift_test /tmp/leafreader-docx-tests \
+  "${DOCX_TEST_SOURCES[@]}"
 
 run_swift_test /tmp/leafreader-update-failure-classifier-tests \
   mac-app/UpdateFailureClassifier.swift \

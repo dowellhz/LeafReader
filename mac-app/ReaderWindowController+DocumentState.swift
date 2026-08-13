@@ -1,4 +1,5 @@
 import Cocoa
+import PDFKit
 
 extension ReaderWindowController {
     var currentFileURL: URL? {
@@ -29,6 +30,11 @@ extension ReaderWindowController {
     var documentLoadGeneration: Int {
         get { documentState.documentLoadGeneration }
         set { documentState.documentLoadGeneration = newValue }
+    }
+
+    var activeWebDocumentLoadCancellationToken: DocumentLoadCancellationToken? {
+        get { documentState.activeWebDocumentLoadCancellationToken }
+        set { documentState.activeWebDocumentLoadCancellationToken = newValue }
     }
 
     var currentPDFSelectedText: String {
@@ -99,6 +105,16 @@ extension ReaderWindowController {
     var pdfTOCGeneration: Int {
         get { documentState.pdfTOCGeneration }
         set { documentState.pdfTOCGeneration = newValue }
+    }
+
+    var pendingPDFTOCBuildRequest: (url: URL, displayBox: PDFDisplayBox)? {
+        get { documentState.pendingPDFTOCBuildRequest }
+        set { documentState.pendingPDFTOCBuildRequest = newValue }
+    }
+
+    var pendingPDFCoverThumbnailRequest: (url: URL, documentID: String?)? {
+        get { documentState.pendingPDFCoverThumbnailRequest }
+        set { documentState.pendingPDFCoverThumbnailRequest = newValue }
     }
 
     var webZoomPercent: Int {

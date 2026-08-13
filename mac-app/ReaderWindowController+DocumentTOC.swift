@@ -4,14 +4,20 @@ import PDFKit
 extension ReaderWindowController {
     func schedulePDFTOCBuild(for url: URL, displayBox: PDFDisplayBox) {
         pdfTOCGeneration += 1
+        pendingPDFTOCBuildRequest = (url, displayBox)
+    }
+
+    func startPendingPDFTOCBuildIfNeeded() {
+        guard let request = pendingPDFTOCBuildRequest else { return }
+        pendingPDFTOCBuildRequest = nil
         let generation = pdfTOCGeneration
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let document = PDFDocument(url: url) else { return }
-            let toc = ReaderTOCHelper.pdfTOCItems(from: document, displayBox: displayBox)
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let document = PDFDocument(url: request.url) else { return }
+            let toc = ReaderTOCHelper.pdfTOCItems(from: document, displayBox: request.displayBox)
             DispatchQueue.main.async {
                 guard let self,
                       self.pdfTOCGeneration == generation,
-                      self.currentFileURL == url else {
+                      self.currentFileURL?.standardizedFileURL == request.url.standardizedFileURL else {
                     return
                 }
                 self.currentTOCItems = toc.items

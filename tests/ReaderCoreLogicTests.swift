@@ -212,6 +212,16 @@ func testReaderProgressFormatter() throws {
     try expectEqual(ReaderProgressFormatter.webProgressPercent(-0.2), 0, "web progress should clamp low")
     try expectEqual(ReaderProgressFormatter.webProgressPercent(0.126), 13, "web progress should round")
     try expectEqual(ReaderProgressFormatter.webProgressPercent(1.4), 100, "web progress should clamp high")
+
+    try expectEqual(ReaderProgressFormatter.searchResultText(resultIndex: nil, resultCount: 0, isSearching: true), "0 / …", "search should show an indeterminate total while finding")
+    try expectEqual(ReaderProgressFormatter.searchResultText(resultIndex: 1, resultCount: 4, isSearching: true), "2 / …", "search should keep the current match while finding")
+    try expectEqual(ReaderProgressFormatter.searchResultText(resultIndex: 9, resultCount: 4, isSearching: false), "4 / 4", "search should clamp the current match")
+    try expectEqual(ReaderProgressFormatter.searchResultText(resultIndex: nil, resultCount: 0, isSearching: false), "0 / 0", "finished empty search should show zero results")
+
+    try expectEqual(ReaderProgressFormatter.webSectionProgress(index: 2, locationCount: 5), 0.5, "web source progress should use the section index")
+    try expectEqual(ReaderProgressFormatter.webSectionProgress(index: -2, locationCount: 5), 0, "web source progress should clamp low")
+    try expectEqual(ReaderProgressFormatter.webSectionProgress(index: 20, locationCount: 5), 1, "web source progress should clamp high")
+    try expectEqual(ReaderProgressFormatter.webSectionProgress(index: 2, locationCount: 1), 0, "single-section sources should start at zero")
 }
 
 func testReaderAIContextTextCleanup() throws {

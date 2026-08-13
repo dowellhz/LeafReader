@@ -1,6 +1,13 @@
 import Cocoa
 import PDFKit
 
+private enum ReaderPDFCoverThumbnailLoader {
+    static let queue = DispatchQueue(
+        label: "com.linlu.leafreader.pdf-cover-thumbnail",
+        qos: .utility
+    )
+}
+
 extension ReaderWindowController {
     func loadPDF(_ url: URL, generation: Int? = nil) {
         guard let document = PDFDocument(url: url) else {
@@ -38,13 +45,11 @@ extension ReaderWindowController {
         storedWordRecords = loadStoredWordRecords()
         storedWebWordRecords.removeAll()
         loadReadingNotesForCurrentDocument()
-        restoreStoredWordAnnotations()
-        restoreReadingNoteAnnotations()
         aiPanel.loadLinkedWordBubbles(pdfWordRecordStore?.linkedWordBubbles(from: storedWordRecords) ?? [])
         loadSavedAIConversationIfNeeded()
         titleLabel.stringValue = url.deletingPathExtension().lastPathComponent
         applyDocumentDiagnostics([], fileName: url.lastPathComponent)
-        updateCoverThumbnail(from: document)
+        scheduleCoverThumbnail(for: url, documentID: currentFileMD5)
         pageLayoutButton.isHidden = false
         cropButton.isHidden = false
         updatePDFMarginCropButton()
@@ -57,32 +62,38 @@ extension ReaderWindowController {
 
         restoreBookProgressOrGoHome()
         lastPageIndex = currentPageIndex()
-        applyReaderTheme()
+        applyReaderTheme(refreshDocumentDecorations: false)
         updatePageLabel()
         updateZoomLabel()
         RecentDocumentsStore.record(url: url, kind: .pdf)
         saveSession()
         scheduleDocumentEmbeddingWarmup(priorityPageIndex: currentEmbeddingPriorityIndex())
-        SpeechPlaybackCoordinator.shared.stopKokoroWorkerIfLanguageDiffers(from: currentReadAloudProbeText() ?? "")
         if let generation {
             finishDocumentLoadingAfterAIBubbles(generation: generation)
         }
     }
 
     func loadWebDocument(_ url: URL, kind: ReaderDocumentKind, generation: Int) {
+        let cancellationToken = DocumentLoadCancellationToken()
+        activeWebDocumentLoadCancellationToken = cancellationToken
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
-                let document = try WebDocumentLoader.load(url: url)
+                let document = try WebDocumentLoader.load(url: url, cancellationToken: cancellationToken)
                 DispatchQueue.main.async {
                     guard let self, self.documentLoadGeneration == generation else {
                         document.ownedResource?.release()
                         return
                     }
+                    self.activeWebDocumentLoadCancellationToken = nil
                     self.applyLoadedWebDocument(document, url: url, kind: kind, generation: generation)
                 }
+            } catch is CancellationError {
+                return
             } catch {
                 DispatchQueue.main.async {
-                    self?.showDocumentLoadingFailure(error, generation: generation)
+                    guard let self, self.documentLoadGeneration == generation else { return }
+                    self.activeWebDocumentLoadCancellationToken = nil
+                    self.showDocumentLoadingFailure(error, generation: generation)
                 }
             }
         }
@@ -150,7 +161,6 @@ extension ReaderWindowController {
             webView.loadHTMLString(document.html, baseURL: document.baseURL)
         }
         applyReaderTheme()
-        SpeechPlaybackCoordinator.shared.stopKokoroWorkerIfLanguageDiffers(from: currentReadAloudProbeText() ?? "")
         applyWebZoomToPage()
         restoreWebProgressAfterLoad()
         RecentDocumentsStore.record(url: url, kind: kind)
@@ -169,6 +179,8 @@ extension ReaderWindowController {
     func prepareRuntimeStateForLoadedDocument(url: URL) {
         currentFileURL = url
         currentFileMD5 = fileMD5(for: url)
+        pendingPDFTOCBuildRequest = nil
+        pendingPDFCoverThumbnailRequest = nil
         sessionStore = ReaderSessionStore(fileMD5: currentFileMD5)
         aiConversationStore = currentFileMD5.map { AIConversationStore(fileMD5: $0) }
         loadedAIConversation = nil
@@ -220,14 +232,34 @@ extension ReaderWindowController {
         }
     }
 
-    func updateCoverThumbnail(from document: PDFDocument) {
-        guard let firstPage = document.page(at: 0) else {
-            coverImageView.image = nil
-            coverImageView.isHidden = true
-            return
-        }
-
-        coverImageView.image = firstPage.thumbnail(of: CGSize(width: 56, height: 76), for: .cropBox)
+    func scheduleCoverThumbnail(for url: URL, documentID: String?) {
+        coverImageView.image = NSImage(
+            systemSymbolName: "doc.richtext",
+            accessibilityDescription: AppText.localized("文档封面", "Document cover")
+        )
+        coverImageView.contentTintColor = ReaderTheme.selected.secondaryTextColor
         coverImageView.isHidden = false
+        pendingPDFCoverThumbnailRequest = (url, documentID)
+    }
+
+    func startPendingPDFCoverThumbnailIfNeeded() {
+        guard let request = pendingPDFCoverThumbnailRequest else { return }
+        pendingPDFCoverThumbnailRequest = nil
+        ReaderPDFCoverThumbnailLoader.queue.async { [weak self] in
+            let image = PDFDocument(url: request.url)?.page(at: 0)?.thumbnail(
+                of: CGSize(width: 56, height: 76),
+                for: .cropBox
+            )
+            DispatchQueue.main.async {
+                guard let self,
+                      self.currentDocumentKind == .pdf,
+                      self.currentFileMD5 == request.documentID,
+                      self.currentFileURL?.standardizedFileURL == request.url.standardizedFileURL,
+                      let image else { return }
+                image.isTemplate = false
+                self.coverImageView.image = image
+                self.coverImageView.contentTintColor = nil
+            }
+        }
     }
 }

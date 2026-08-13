@@ -335,7 +335,7 @@ extension ReaderWindowController {
         aiPanelResizeLayoutTask.flush()
         preferredAIWidthSaveTask.flush()
         sessionSaveTask.cancel()
-        flushCurrentBookWordRecordSaves()
+        flushCurrentBookWordRecordSaves(waitForCompletion: true)
         saveCurrentAIConversationBeforeDocumentChange()
     }
 }

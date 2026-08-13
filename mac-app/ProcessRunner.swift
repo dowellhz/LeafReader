@@ -6,6 +6,7 @@ struct ProcessRunResult {
     let stdout: Data
     let stderr: Data
     let timedOut: Bool
+    let wasCancelled: Bool
 }
 
 enum ProcessRunner {
@@ -13,7 +14,8 @@ enum ProcessRunner {
         executableURL: URL,
         arguments: [String],
         timeout: TimeInterval,
-        currentDirectoryURL: URL? = nil
+        currentDirectoryURL: URL? = nil,
+        isCancelled: (() -> Bool)? = nil
     ) throws -> ProcessRunResult {
         let process = Process()
         process.executableURL = executableURL
@@ -53,9 +55,25 @@ enum ProcessRunner {
             throw error
         }
 
-        let deadline = DispatchTime.now() + timeout
-        let timedOut = finished.wait(timeout: deadline) == .timedOut
-        if timedOut && process.isRunning {
+        let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(max(0, timeout) * 1_000_000_000)
+        var timedOut = false
+        var wasCancelled = false
+        while true {
+            if isCancelled?() == true {
+                wasCancelled = true
+                break
+            }
+            let now = DispatchTime.now().uptimeNanoseconds
+            if now >= deadline {
+                timedOut = true
+                break
+            }
+            let waitNanoseconds = Int(min(50_000_000, deadline - now))
+            if finished.wait(timeout: .now() + .nanoseconds(waitNanoseconds)) == .success {
+                break
+            }
+        }
+        if (timedOut || wasCancelled) && process.isRunning {
             process.terminate()
             if finished.wait(timeout: .now() + 2) == .timedOut, process.isRunning {
                 kill(process.processIdentifier, SIGKILL)
@@ -74,7 +92,8 @@ enum ProcessRunner {
             terminationStatus: process.isRunning ? -1 : process.terminationStatus,
             stdout: stdoutBuffer.data,
             stderr: stderrBuffer.data,
-            timedOut: timedOut
+            timedOut: timedOut,
+            wasCancelled: wasCancelled
         )
     }
 }

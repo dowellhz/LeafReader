@@ -45,15 +45,27 @@ struct PDFWordRecordStore {
         return legacyRecords
     }
 
-    func save(_ records: [StoredPDFWordRecord]) {
-        if WordRecordSQLiteStore.shared.savePDFRecords(documentID: documentID, records: records) {
+    @discardableResult
+    func save(_ records: [StoredPDFWordRecord]) -> Bool {
+        let didSave = WordRecordSQLiteStore.shared.savePDFRecords(documentID: documentID, records: records)
+        if didSave {
             defaults.set(true, forKey: migrationKey)
         }
+        return didSave
     }
 
     @discardableResult
     func upsert(_ record: StoredPDFWordRecord) -> Bool {
         let didSave = WordRecordSQLiteStore.shared.upsertPDFRecord(documentID: documentID, record: record)
+        if didSave {
+            defaults.set(true, forKey: migrationKey)
+        }
+        return didSave
+    }
+
+    @discardableResult
+    func upsert(_ records: [StoredPDFWordRecord]) -> Bool {
+        let didSave = WordRecordSQLiteStore.shared.upsertPDFRecords(documentID: documentID, records: records)
         if didSave {
             defaults.set(true, forKey: migrationKey)
         }
