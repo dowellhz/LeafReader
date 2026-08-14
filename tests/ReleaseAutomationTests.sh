@@ -53,8 +53,11 @@ if git -C "$ROOT_DIR" ls-files | grep -Eq '\.(dmg|pkg|zip)$'; then
   failures=$((failures + 1))
 fi
 if [[ ! -f "$WORKFLOW" ]] || ! grep -Fq './scripts/check.sh --no-build' "$WORKFLOW" \
-    || ! grep -Fq './scripts/build_app.sh --debug --universal' "$WORKFLOW"; then
-  echo "FAIL release automation: app CI must run standard checks and a universal debug build" >&2
+    || ! grep -Fq 'brew install ripgrep' "$WORKFLOW" \
+    || ! grep -Fq 'macos-15-intel' "$WORKFLOW" \
+    || ! grep -Fq './scripts/build_app.sh --debug --archs' "$WORKFLOW" \
+    || ! grep -Fq 'needs: architecture-build' "$WORKFLOW"; then
+  echo "FAIL release automation: app CI must run standard checks and native ARM/Intel builds" >&2
   failures=$((failures + 1))
 fi
 
