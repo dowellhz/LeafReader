@@ -25,6 +25,7 @@ extension AISettingsPanelController {
         let imageView = NSImageView()
         imageView.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: metrics.titleIconSymbolSize, weight: .regular))
+        imageView.setAccessibilityElement(false)
         imageView.identifier = Identifiers.settingsTitleIcon
         imageView.contentTintColor = settingsTitleIconColor(for: ReaderTheme.selected, fallback: primaryText)
         imageView.imageScaling = .scaleNone

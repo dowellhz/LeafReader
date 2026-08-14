@@ -183,18 +183,28 @@ extension ReaderWindowController {
     }
 
     func saveReadingNote(_ note: ReadingNote) {
+        guard ReadingNoteStore.shared.upsert(note) else {
+            NSSound.beep()
+            let alert = NSAlert()
+            alert.messageText = AppText.localized("无法保存阅读笔记", "Unable to Save Reading Note")
+            alert.informativeText = AppText.localized(
+                "笔记位置数据无效或本地数据库不可用，原有笔记未被覆盖。",
+                "The note location is invalid or the local database is unavailable. The previous note was preserved."
+            )
+            alert.applyLeafStyle()
+            alert.runModal()
+            return
+        }
         if let index = storedReadingNotes.firstIndex(where: { $0.id == note.id }) {
             storedReadingNotes[index] = note
         } else {
             storedReadingNotes.append(note)
         }
-        if ReadingNoteStore.shared.upsert(note) {
-            readingNotesPanelController?.update(notes: storedReadingNotes)
-            if currentDocumentKind == .pdf {
-                addReadingNoteAnnotation(note)
-            } else {
-                markCurrentWebSelectionAsReadingNote(id: note.id)
-            }
+        readingNotesPanelController?.update(notes: storedReadingNotes)
+        if currentDocumentKind == .pdf {
+            addReadingNoteAnnotation(note)
+        } else {
+            markCurrentWebSelectionAsReadingNote(id: note.id)
         }
     }
 

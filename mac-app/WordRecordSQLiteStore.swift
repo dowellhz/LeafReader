@@ -246,6 +246,7 @@ final class WordRecordSQLiteStore {
             for (offset, value) in bindings.enumerated() {
                 sqlite3_bind_text(statement, Int32(offset + 1), value, -1, WORD_RECORD_SQLITE_TRANSIENT)
             }
+            return true
         }
     }
 
@@ -275,7 +276,7 @@ final class WordRecordSQLiteStore {
         sql: String,
         prepareOperation: String,
         stepOperation: String,
-        bind: (OpaquePointer?) -> Void
+        bind: (OpaquePointer?) -> Bool
     ) -> Bool {
         guard !shouldFailOperation(prepareOperation) else {
             logInjectedFailure(prepareOperation)
@@ -287,7 +288,10 @@ final class WordRecordSQLiteStore {
             return false
         }
         defer { sqlite3_finalize(statement) }
-        bind(statement)
+        guard bind(statement) else {
+            NSLog("LeafReader word records: %@ failed because required record data could not be encoded", stepOperation)
+            return false
+        }
         guard !shouldFailOperation(stepOperation) else {
             logInjectedFailure(stepOperation)
             return false
@@ -341,6 +345,7 @@ final class WordRecordSQLiteStore {
                 ) { statement in
                     sqlite3_bind_text(statement, 1, documentID, -1, WORD_RECORD_SQLITE_TRANSIENT)
                     sqlite3_bind_text(statement, 2, id, -1, WORD_RECORD_SQLITE_TRANSIENT)
+                    return true
                 }
             }
         }

@@ -22,12 +22,14 @@ extension ReaderWindowController {
         loadingOverlay.addSubview(loadingLabel)
     }
 
-    func iconButton(symbol: String, action: Selector) -> NSButton {
+    func iconButton(symbol: String, action: Selector, accessibilityDescription: String) -> NSButton {
         let button = NSButton(title: "", target: self, action: action)
         button.isBordered = false
-        setSystemImage(symbol, on: button)
+        setSystemImage(symbol, on: button, accessibilityDescription: accessibilityDescription)
         button.imageScaling = .scaleProportionallyDown
         button.contentTintColor = ReaderTheme.selected.primaryTextColor
+        button.setAccessibilityLabel(accessibilityDescription)
+        button.toolTip = accessibilityDescription
         return button
     }
 

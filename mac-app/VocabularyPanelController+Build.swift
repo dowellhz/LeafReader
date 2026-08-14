@@ -128,6 +128,7 @@ extension VocabularyPanelController {
         let icon = NSImageView()
         icon.image = NSImage(systemSymbolName: "text.book.closed", accessibilityDescription: nil)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 26, weight: .semibold))
+        icon.setAccessibilityElement(false)
         icon.contentTintColor = owner.vocabularyAccentColor(for: theme)
         icon.imageScaling = .scaleNone
         icon.translatesAutoresizingMaskIntoConstraints = false

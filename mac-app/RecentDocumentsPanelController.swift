@@ -101,6 +101,7 @@ final class RecentDocumentsPanelController: NSObject {
         let titleIcon = NSImageView()
         titleIcon.image = NSImage(systemSymbolName: "books.vertical", accessibilityDescription: nil)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 26, weight: .semibold))
+        titleIcon.setAccessibilityElement(false)
         titleIcon.contentTintColor = primaryText
         titleIcon.imageScaling = .scaleNone
         titleIcon.translatesAutoresizingMaskIntoConstraints = false
@@ -112,6 +113,7 @@ final class RecentDocumentsPanelController: NSObject {
 
         let closeButton = NSButton(title: "", target: self, action: #selector(closePanel(_:)))
         closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: AppText.close)
+        closeButton.setAccessibilityLabel(AppText.close)
         closeButton.isBordered = false
         closeButton.contentTintColor = primaryText
         closeButton.translatesAutoresizingMaskIntoConstraints = false

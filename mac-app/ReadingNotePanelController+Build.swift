@@ -107,6 +107,7 @@ extension ReadingNotePanelController {
         title.alignment = .center
         title.translatesAutoresizingMaskIntoConstraints = false
         titleIconView.image = NSImage(systemSymbolName: "pencil.and.list.clipboard", accessibilityDescription: nil)
+        titleIconView.setAccessibilityElement(false)
         titleIconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
         titleIconView.translatesAutoresizingMaskIntoConstraints = false
         titleIconView.widthAnchor.constraint(equalToConstant: 20).isActive = true
@@ -124,11 +125,13 @@ extension ReadingNotePanelController {
         let listButton = iconButton(
             symbol: "sidebar.right",
             action: #selector(showNotesTapped(_:)),
+            label: AppText.localized("阅读笔记列表", "Reading notes list"),
             pointSize: Metrics.topIconPointSize
         )
         let moreButton = iconButton(
             symbol: "ellipsis.curlybraces",
             action: #selector(moreTapped(_:)),
+            label: AppText.localized("更多操作", "More actions"),
             pointSize: Metrics.topIconPointSize
         )
         topIconButtons = [listButton, moreButton]
@@ -183,18 +186,44 @@ extension ReadingNotePanelController {
     }
 
     private func buildEditorToolbar() -> NSStackView {
-        let save = iconButton(symbol: "square.and.arrow.down", action: #selector(saveTapped(_:)))
-        save.toolTip = AppText.localized("保存当前阅读笔记", "Save this reading note")
-        let undo = iconButton(symbol: "arrow.uturn.backward", action: #selector(undoTapped(_:)))
-        let redo = iconButton(symbol: "arrow.uturn.forward", action: #selector(redoTapped(_:)))
+        let save = iconButton(
+            symbol: "square.and.arrow.down",
+            action: #selector(saveTapped(_:)),
+            label: AppText.localized("保存当前阅读笔记", "Save this reading note")
+        )
+        let undo = iconButton(
+            symbol: "arrow.uturn.backward",
+            action: #selector(undoTapped(_:)),
+            label: AppText.localized("撤销", "Undo")
+        )
+        let redo = iconButton(
+            symbol: "arrow.uturn.forward",
+            action: #selector(redoTapped(_:)),
+            label: AppText.localized("重做", "Redo")
+        )
         let bold = textButton(title: "B", action: #selector(boldTapped(_:)))
         let italic = textButton(title: "I", action: #selector(italicTapped(_:)))
         italic.font = NSFontManager.shared.convert(AppFont.semibold(ofSize: 16), toHaveTrait: .italicFontMask)
-        let list = iconButton(symbol: "list.bullet", action: #selector(listTapped(_:)))
-        let check = iconButton(symbol: "checklist", action: #selector(checklistTapped(_:)))
-        let template = iconButton(symbol: "doc.plaintext", action: #selector(templateTapped(_:)))
-        template.toolTip = AppText.localized("插入阅读笔记模板", "Insert reading note template")
-        let image = iconButton(symbol: "photo", action: #selector(imageTapped(_:)))
+        let list = iconButton(
+            symbol: "list.bullet",
+            action: #selector(listTapped(_:)),
+            label: AppText.localized("项目符号列表", "Bulleted list")
+        )
+        let check = iconButton(
+            symbol: "checklist",
+            action: #selector(checklistTapped(_:)),
+            label: AppText.localized("检查清单", "Checklist")
+        )
+        let template = iconButton(
+            symbol: "doc.plaintext",
+            action: #selector(templateTapped(_:)),
+            label: AppText.localized("插入阅读笔记模板", "Insert reading note template")
+        )
+        let image = iconButton(
+            symbol: "photo",
+            action: #selector(imageTapped(_:)),
+            label: AppText.localized("插入图片", "Insert image")
+        )
         let buttons = [save, undo, redo, toolbarSeparator(), bold, italic, list, check, template, image]
         let stack = NSStackView(views: buttons)
         stack.orientation = .horizontal
@@ -256,6 +285,7 @@ extension ReadingNotePanelController {
         askInputField.translatesAutoresizingMaskIntoConstraints = false
 
         askSendButton.image = NSImage(systemSymbolName: "arrow.up.circle.fill", accessibilityDescription: AppText.send)
+        askSendButton.setAccessibilityLabel(AppText.send)
         askSendButton.isBordered = false
         askSendButton.target = self
         askSendButton.action = #selector(submitAskQuestion(_:))
@@ -301,8 +331,8 @@ extension ReadingNotePanelController {
         }
     }
 
-    private func iconButton(symbol: String, action: Selector, pointSize: CGFloat = 15) -> NSButton {
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
+    private func iconButton(symbol: String, action: Selector, label: String, pointSize: CGFloat = 15) -> NSButton {
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: pointSize, weight: .semibold))
         let button = ReadingNoteIconButton(image: image ?? NSImage(), target: self, action: action)
         button.isBordered = false
@@ -313,6 +343,8 @@ extension ReadingNotePanelController {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.widthAnchor.constraint(equalToConstant: 34).isActive = true
         button.heightAnchor.constraint(equalToConstant: 34).isActive = true
+        button.setAccessibilityLabel(label)
+        button.toolTip = label
         return button
     }
 

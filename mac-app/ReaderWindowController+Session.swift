@@ -146,7 +146,7 @@ extension ReaderWindowController {
     }
 
 
-    func fileMD5(for url: URL) -> String? {
+    func legacyDocumentIDForShelfItem(_ url: URL) -> String? {
         let fastID = DocumentIdentity.fastID(for: url)
         let legacyMD5 = cachedLegacyMD5(for: url)
         return DocumentIdentity.selectedID(
@@ -186,6 +186,9 @@ extension ReaderWindowController {
             }
         }
         if defaults.object(forKey: "aiConversation.\(documentID)") != nil {
+            return true
+        }
+        if ReadingNoteStore.shared.containsNotes(documentID: documentID) {
             return true
         }
         if !WordRecordSQLiteStore.shared.loadPDFRecords(documentID: documentID).isEmpty {

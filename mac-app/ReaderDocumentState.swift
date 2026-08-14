@@ -8,7 +8,7 @@ struct ReaderDocumentState {
     var sessionStore = ReaderSessionStore(fileMD5: nil)
     var currentDocumentKind: ReaderDocumentKind = .pdf
     var documentLoadGeneration = 0
-    var activeWebDocumentLoadCancellationToken: DocumentLoadCancellationToken?
+    var activeDocumentLoadCancellationToken: DocumentLoadCancellationToken?
     var pdfTextSnapshot: PDFDocumentTextSnapshot?
     var pdfTextSnapshotGeneration = 0
     var pdfTextSnapshotCancellationToken: PDFDocumentTextCancellationToken?

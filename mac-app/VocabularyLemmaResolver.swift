@@ -206,8 +206,8 @@ enum VocabularyLemmaResolver {
         }
         if surface.hasSuffix("ing"), surface.count > 5 {
             let stem = String(surface.dropLast(3))
-            candidates.append(stem)
             candidates.append(removingDoubledFinalConsonant(from: stem))
+            candidates.append(stem)
             candidates.append(stem + "e")
             if stem.hasSuffix("y") {
                 candidates.append(String(stem.dropLast()) + "ie")
@@ -215,8 +215,8 @@ enum VocabularyLemmaResolver {
         }
         if surface.hasSuffix("ed"), surface.count > 4 {
             let stem = String(surface.dropLast(2))
-            candidates.append(stem)
             candidates.append(removingDoubledFinalConsonant(from: stem))
+            candidates.append(stem)
             candidates.append(stem + "e")
         }
         if surface.hasSuffix("es"), surface.count > 4 {

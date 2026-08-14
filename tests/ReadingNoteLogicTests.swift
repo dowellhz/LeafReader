@@ -69,6 +69,30 @@ enum ReadingNoteLogicTests {
         try expectEqual(loaded.count, 1, "upsert should replace the existing note")
         try expectEqual(loaded[0].markdown, "Updated\n", "updated note should preserve markdown")
         try expect(loaded[0].isFavorite, "updated note should preserve favorite state")
+        try expect(store.containsNotes(documentID: "doc-1"), "note presence lookup should find durable records")
+
+        let invalidReplacement = ReadingNote(
+            id: note.id,
+            documentID: note.documentID,
+            documentTitle: note.documentTitle,
+            documentKind: "epub",
+            quote: note.quote,
+            markdown: "Must not replace",
+            locator: ReadingNote.Locator(
+                pdfFragments: nil,
+                webAnchor: ReadingNote.WebAnchor(
+                    selectedText: "selection",
+                    context: "context",
+                    occurrenceIndex: 0,
+                    scrollProgress: .nan
+                )
+            ),
+            createdAt: note.createdAt,
+            updatedAt: note.updatedAt
+        )
+        try expect(!store.upsert(invalidReplacement), "invalid required locator JSON should reject the replacement")
+        loaded = store.load(documentID: "doc-1")
+        try expectEqual(loaded.first?.markdown, "Updated\n", "failed locator encoding must preserve the existing note")
 
         try expect(store.delete(id: "note-1"), "reading note should delete")
         try expectEqual(store.load(documentID: "doc-1").count, 0, "deleted note should no longer load")

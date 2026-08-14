@@ -17,8 +17,8 @@ extension ReaderWindowController {
 
     func loadDocument(_ url: URL) {
         guard let kind = ReaderDocumentKind.kind(for: url) else { return }
-        activeWebDocumentLoadCancellationToken?.cancel()
-        activeWebDocumentLoadCancellationToken = nil
+        activeDocumentLoadCancellationToken?.cancel()
+        activeDocumentLoadCancellationToken = nil
         stopReadAloudImmediately()
         SpeechPlaybackCoordinator.shared.shutdownRuntime(.kokoro)
         documentLoadGeneration += 1
@@ -28,14 +28,57 @@ extension ReaderWindowController {
         flushCurrentBookWordRecordSaves()
         saveCurrentAIConversationBeforeDocumentChange()
         resetEmbeddingStateForDocumentChange()
-        switch kind {
-        case .pdf:
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.documentLoadGeneration == generation else { return }
-                self.loadPDF(url, generation: generation)
+        let cancellationToken = DocumentLoadCancellationToken()
+        activeDocumentLoadCancellationToken = cancellationToken
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let contentIdentifiers = try DocumentIdentity.contentIdentifiers(
+                    for: url,
+                    isCancelled: { cancellationToken.isCancelled }
+                )
+                try cancellationToken.checkCancellation()
+                guard let self else { return }
+                let metadataID = DocumentIdentity.migrationMetadataID(
+                    fastID: DocumentIdentity.fastID(for: url),
+                    cachedLegacyID: self.cachedLegacyMD5(for: url),
+                    computedLegacyID: contentIdentifiers.legacyMD5
+                )
+                let documentID = DocumentIdentity.storageID(
+                    contentID: contentIdentifiers.contentID,
+                    metadataID: metadataID,
+                    legacyID: contentIdentifiers.legacyMD5,
+                    hasStoredData: self.hasStoredDocumentData(documentID:)
+                )
+                try cancellationToken.checkCancellation()
+                DispatchQueue.main.async { [weak self] in
+                    guard let self,
+                          self.documentLoadGeneration == generation,
+                          self.activeDocumentLoadCancellationToken === cancellationToken else {
+                        return
+                    }
+                    switch kind {
+                    case .pdf:
+                        self.activeDocumentLoadCancellationToken = nil
+                        self.loadPDF(url, documentID: documentID, generation: generation)
+                    case .epub, .docx:
+                        self.loadWebDocument(
+                            url,
+                            kind: kind,
+                            documentID: documentID,
+                            generation: generation,
+                            cancellationToken: cancellationToken
+                        )
+                    }
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.documentLoadGeneration == generation else { return }
+                    self.activeDocumentLoadCancellationToken = nil
+                    self.showDocumentLoadingFailure(error, generation: generation)
+                }
             }
-        case .epub, .docx:
-            loadWebDocument(url, kind: kind, generation: generation)
         }
     }
 

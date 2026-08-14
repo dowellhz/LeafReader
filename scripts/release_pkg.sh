@@ -10,8 +10,9 @@ VERSION="$1"
 NOTES_FILE="${2:-}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_PATH="$ROOT_DIR/Leaf Reader.app"
-PKG_ROOT="/private/tmp/leafreader-pkg-root-$VERSION"
-COMPONENT_PLIST="/private/tmp/leafreader-components-$VERSION.plist"
+RELEASE_TEMP_DIR="$(mktemp -d "${TMPDIR:-/private/tmp}/leafreader-release-pkg.XXXXXX")"
+PKG_ROOT="$RELEASE_TEMP_DIR/pkg-root"
+COMPONENT_PLIST="$RELEASE_TEMP_DIR/components.plist"
 RELEASE_DIR="$ROOT_DIR/release/$VERSION"
 UNSIGNED_PKG="$RELEASE_DIR/LeafReader-$VERSION-unsigned.pkg"
 SIGNED_PKG="$RELEASE_DIR/LeafReader-$VERSION.pkg"
@@ -28,6 +29,21 @@ DOWNLOAD_URL="https://github.com/dowellhz/LeafReader/releases/download/v$VERSION
 CONFIG_SPARKLE_KEY_FILE="${SPARKLE_KEY_CONFIG_FILE:-$HOME/.config/leafreader/sparkle-ed25519-private-key}"
 LOCAL_SPARKLE_KEY_FILE="$ROOT_DIR/sparkle-ed25519-private-key"
 export COPYFILE_DISABLE=1
+
+cleanup_release_temp() {
+  rm -rf "$RELEASE_TEMP_DIR"
+}
+trap cleanup_release_temp EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+if [[ -n "${LEAFREADER_RELEASE_PKG_TEST_TEMP_LOG:-}" ]]; then
+  printf '%s\n' "$RELEASE_TEMP_DIR" > "$LEAFREADER_RELEASE_PKG_TEST_TEMP_LOG"
+fi
+if [[ "${LEAFREADER_RELEASE_PKG_INJECT_FAILURE:-}" == "after-temp-setup" ]]; then
+  echo "Injected release package failure after temporary workspace setup." >&2
+  exit 97
+fi
 
 if [[ ! -x "$SIGN_UPDATE" ]]; then
   echo "Sparkle sign_update not found at $SIGN_UPDATE" >&2
@@ -52,9 +68,8 @@ fi
 
 APP_SIGN_IDENTITY="$APP_SIGN_IDENTITY" REQUIRE_BUNDLED_SPEECH_RUNTIMES=1 "$BUILD_SCRIPT" --release --universal
 
-rm -rf "$PKG_ROOT"
 mkdir -p "$PKG_ROOT/Applications" "$RELEASE_DIR"
-rm -f "$UNSIGNED_PKG" "$SIGNED_PKG" "$COMPONENT_PLIST"
+rm -f "$UNSIGNED_PKG" "$SIGNED_PKG"
 cp -R "$APP_PATH" "$PKG_ROOT/Applications/"
 find "$PKG_ROOT" -name '._*' -type f -delete
 xattr -cr "$PKG_ROOT"

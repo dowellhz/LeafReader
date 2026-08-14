@@ -40,7 +40,11 @@ extension ReaderWindowController {
 
     func configureBottomBarViews() -> ReaderBottomBarSetup {
         let bottomBar = readerBarView()
-        let settingsButton = iconButton(symbol: "gearshape", action: #selector(openAISettings))
+        let settingsButton = iconButton(
+            symbol: "gearshape",
+            action: #selector(openAISettings),
+            accessibilityDescription: AppText.settings
+        )
         settingsButton.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: AppText.settings)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 19, weight: .regular))
         let navigationStack = NSStackView()
@@ -187,8 +191,11 @@ extension ReaderWindowController {
         searchUnderlineButton = SearchUnderlineButton(title: "", target: self, action: #selector(showSearchOverlay))
         searchUnderlineButton.toolTip = AppText.localized("搜索文档", "Search document")
         searchUnderlineButton.theme = ReaderTheme.selected
-        searchButton = iconButton(symbol: "magnifyingglass", action: #selector(showSearchOverlay))
-        searchButton.toolTip = AppText.localized("搜索文档", "Search document")
+        searchButton = iconButton(
+            symbol: "magnifyingglass",
+            action: #selector(showSearchOverlay),
+            accessibilityDescription: AppText.localized("搜索文档", "Search document")
+        )
     }
 
     func configureTopRightControls() {
@@ -203,7 +210,8 @@ extension ReaderWindowController {
     func configureRelatedFormsControl() {
         relatedFormsButton = iconButton(
             symbol: "eye",
-            action: #selector(toggleRelatedWordForms(_:))
+            action: #selector(toggleRelatedWordForms(_:)),
+            accessibilityDescription: AppText.localized("显示相关词形高亮", "Show related-form highlights")
         )
         relatedFormsButton.isHidden = true
         updateRelatedFormsButton()
@@ -219,6 +227,7 @@ extension ReaderWindowController {
             on: relatedFormsButton,
             accessibilityDescription: title
         )
+        relatedFormsButton.setAccessibilityLabel(title)
         relatedFormsButton.toolTip = title
         relatedFormsButton.state = showsRelatedWordForms ? .on : .off
     }

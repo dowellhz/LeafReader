@@ -36,7 +36,7 @@ These instructions apply to the entire repository.
 
 - All new user-visible text must provide Chinese and English variants through `AppText.localized(_:_:)` or an existing `AppText` property.
 - New controls must work in all reader themes: `original`, `eyeCare`, and `dark`.
-- Icon-only controls must use an SF Symbol with an accessibility description and theme-aware tinting.
+- Icon-only controls must use an SF Symbol with an accessibility description, an explicit control accessibility label, and theme-aware tinting.
 - Dynamically created controls must apply the current theme at creation and participate in the owning surface's later theme refresh path.
 - Preserve keyboard navigation, menu shortcuts, first-responder behavior, and native PDFKit/WebKit scrolling behavior.
 - Keep expensive parsing, database work, network requests, model loading, and process execution off the main UI path.
@@ -48,12 +48,14 @@ These instructions apply to the entire repository.
 - Use prepared statements and bindings for values. Do not interpolate user-controlled values into SQL.
 - Treat a multi-statement write as atomic: check `BEGIN`, every statement, and `COMMIT`; roll back and report failure if any step fails. Never return success before a successful commit.
 - Add failure-path coverage for destructive replacement writes, including statement and commit failures, and verify that existing records remain intact.
+- Encode required structured values before mutating memory or stepping a persistence statement. If encoding fails, report failure and preserve the previous record; do not substitute an empty object or partial value.
 - Never delete or reinterpret existing user records without an explicit migration policy and regression coverage.
 
 ## Security and Untrusted Input
 
 - Store API keys, tokens, and other secrets in macOS Keychain. Do not derive encryption keys from predictable app, user, or filesystem metadata, and do not keep recoverable secrets in `UserDefaults` or ordinary files.
 - Secret migrations must write and verify the Keychain item before deleting legacy data. Never log secrets, authorization headers, complete request payloads, or user document text.
+- Do not make startup connectivity probes to unrelated third-party hosts. Use system path status for coarse UI state and the real target request error for fallback decisions.
 - Treat EPUB, DOCX, model/runtime archives, manifests, HTML, and linked resources as untrusted input.
 - Before extracting an archive, reject absolute paths, parent traversal, escaping symlinks, excessive entry counts, excessive expanded size, and unsafe compression ratios. Verify every resolved extracted path remains inside the owned destination and clean up partial output on failure.
 - Runtime/model installation must fail closed unless a trusted manifest provides the expected asset, byte size, and non-empty checksum. Validate the archive before extracting or executing any installed file.
@@ -70,8 +72,9 @@ These instructions apply to the entire repository.
 - Keep code in `mac-app/Resources/reader-web*.js` compatible with the WebKit version available on macOS 12.
 - Avoid duplicating reader state between Swift and JavaScript; use the existing bridge and message patterns.
 - Shell scripts must use `#!/usr/bin/env bash` and `set -euo pipefail` unless there is a documented compatibility reason not to.
-- Quote path and variable expansions, use repository-relative paths derived from the script location, and put temporary output under `mktemp` or `/private/tmp`.
+- Quote path and variable expansions, use repository-relative paths derived from the script location, and create owned temporary output with `mktemp`; install an `EXIT` trap when cleanup is required.
 - Do not weaken signing, notarization, bundle auditing, checksum, or architecture checks to make a build pass.
+- Publish and checksum-verify release assets before pushing an appcast that references them. Keep installers in GitHub Releases rather than Git tracking, and make pre-publication failures remove staged remote release state.
 
 ## Tests and Validation
 
@@ -94,6 +97,7 @@ Use `./scripts/check.sh` for a full pre-commit verification when the local envir
 - Tests use lightweight executable Swift test runners rather than XCTest. Follow the existing `expect`/`expectEqual` and runner patterns.
 - When adding a test-only source dependency, update the appropriate source list in `tests/run.sh`.
 - JavaScript changes must pass `node --check` and `tests/ReaderWebScriptTests.js`; the standard test script runs these checks.
+- Keep GitHub Actions application CI aligned with the standard checks, strict UI-theme validation, and a universal app build.
 - Always run `git diff --check` before committing.
 
 ## Documentation and Generated Files

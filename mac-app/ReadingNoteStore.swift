@@ -60,8 +60,14 @@ final class ReadingNoteStore {
                       let kind = stringColumn(statement, 3),
                       let quote = stringColumn(statement, 4),
                       let markdown = stringColumn(statement, 5),
-                      let locatorJSON = stringColumn(statement, 6),
-                      let locator = decodeLocator(locatorJSON) else {
+                      let locatorJSON = stringColumn(statement, 6) else {
+                    continue
+                }
+                let locator: ReadingNote.Locator
+                do {
+                    locator = try decodeLocator(locatorJSON)
+                } catch {
+                    NSLog("LeafReader reading notes: skipped unreadable locator (id=%@, error=%@)", id, error.localizedDescription)
                     continue
                 }
                 notes.append(ReadingNote(
@@ -85,6 +91,13 @@ final class ReadingNoteStore {
     func upsert(_ note: ReadingNote) -> Bool {
         locked {
             guard let db else { return false }
+            let locatorJSON: String
+            do {
+                locatorJSON = try encodeLocator(note.locator)
+            } catch {
+                NSLog("LeafReader reading notes: encode locator failed (id=%@, error=%@)", note.id, error.localizedDescription)
+                return false
+            }
             let sql = """
             INSERT OR REPLACE INTO reading_notes(
                 id, document_id, document_title, document_kind, quote, markdown, locator_json, created_at, updated_at, is_favorite
@@ -103,7 +116,7 @@ final class ReadingNoteStore {
             bind(note.documentKind, at: 4, statement: statement)
             bind(note.quote, at: 5, statement: statement)
             bind(note.markdown, at: 6, statement: statement)
-            bind(encodeLocator(note.locator) ?? "{}", at: 7, statement: statement)
+            bind(locatorJSON, at: 7, statement: statement)
             sqlite3_bind_double(statement, 8, note.createdAt.timeIntervalSince1970)
             sqlite3_bind_double(statement, 9, note.updatedAt.timeIntervalSince1970)
             sqlite3_bind_int(statement, 10, note.isFavorite ? 1 : 0)
@@ -132,6 +145,26 @@ final class ReadingNoteStore {
                 return false
             }
             return true
+        }
+    }
+
+    func containsNotes(documentID: String) -> Bool {
+        locked {
+            guard let db else { return false }
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(
+                db,
+                "SELECT 1 FROM reading_notes WHERE document_id = ? LIMIT 1",
+                -1,
+                &statement,
+                nil
+            ) == SQLITE_OK else {
+                logSQLiteFailure("prepare note presence lookup")
+                return false
+            }
+            defer { sqlite3_finalize(statement) }
+            bind(documentID, at: 1, statement: statement)
+            return sqlite3_step(statement) == SQLITE_ROW
         }
     }
 
@@ -189,14 +222,19 @@ final class ReadingNoteStore {
         return String(cString: value)
     }
 
-    private func encodeLocator(_ locator: ReadingNote.Locator) -> String? {
-        guard let data = try? encoder.encode(locator) else { return nil }
-        return String(data: data, encoding: .utf8)
+    private func encodeLocator(_ locator: ReadingNote.Locator) throws -> String {
+        let data = try encoder.encode(locator)
+        guard let value = String(data: data, encoding: .utf8) else {
+            throw CocoaError(.fileWriteInapplicableStringEncoding)
+        }
+        return value
     }
 
-    private func decodeLocator(_ value: String) -> ReadingNote.Locator? {
-        guard let data = value.data(using: .utf8) else { return nil }
-        return try? decoder.decode(ReadingNote.Locator.self, from: data)
+    private func decodeLocator(_ value: String) throws -> ReadingNote.Locator {
+        guard let data = value.data(using: .utf8) else {
+            throw CocoaError(.fileReadInapplicableStringEncoding)
+        }
+        return try decoder.decode(ReadingNote.Locator.self, from: data)
     }
 
     private func logSQLiteFailure(_ operation: String) {

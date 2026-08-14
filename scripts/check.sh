@@ -32,6 +32,9 @@ echo "==> Checking wiki"
 echo "==> Checking UI theme coverage"
 ./scripts/check_ui_theme.sh
 
+echo "==> Checking UI accessibility"
+./scripts/check_ui_accessibility.sh
+
 echo "==> Running tests"
 ./tests/run.sh
 

@@ -444,16 +444,16 @@ enum VocabularyLogicTests {
         )
         try expectEqual(full.displayMode, .full(showsSpeak: true), "configured online state should expose the full toolbar")
     }
-
-    static func testLocalDictionaryFallbackRequiresOfflineState() throws {
+    static func testLocalDictionaryFallbackUsesActualRequestFailure() throws {
         let timeout = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)
         try expect(
-            RequestAvailabilityPolicy.shouldUseLocalDictionaryFallback(for: timeout, isOnline: false),
-            "offline network errors should use local dictionary fallback"
+            RequestAvailabilityPolicy.shouldUseLocalDictionaryFallback(for: timeout),
+            "network request failures should use local dictionary fallback"
         )
+        let serverError = NSError(domain: NSURLErrorDomain, code: NSURLErrorBadServerResponse)
         try expect(
-            !RequestAvailabilityPolicy.shouldUseLocalDictionaryFallback(for: timeout, isOnline: true),
-            "online network errors should surface the model error instead of silently using local dictionary"
+            !RequestAvailabilityPolicy.shouldUseLocalDictionaryFallback(for: serverError),
+            "non-connectivity errors should surface the model error"
         )
     }
 

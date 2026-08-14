@@ -122,6 +122,7 @@ Run:
 ```sh
 ./scripts/check.sh --no-build
 ./scripts/check_ui_theme.sh --warnings-as-errors
+./scripts/check_ui_accessibility.sh
 ./scripts/build_app.sh
 ```
 
@@ -131,6 +132,7 @@ UI rule:
 
 - Every new visible control must define or inherit colors for all reader modes: original, eyeCare, and dark.
 - Icon-only buttons must set `contentTintColor` from the active theme, not a fixed system color.
+- Icon-only buttons must pass localized text into both the symbol accessibility description and the control accessibility label.
 - Controls created after startup must use the current theme at creation time and must also be updated by the surface's theme refresh path.
 - If a control is inside a dynamic row, bubble, note, or popup accessory view, theme refresh must walk existing subviews and update it.
 - Save panels and other macOS accessory views should hide irrelevant system fields, such as tags, when they are not part of the app workflow.
@@ -238,6 +240,7 @@ Run:
 Watch for:
 
 - Moved files losing stable identity.
+- Replacement content inheriting state because identity uses only path, size, or modification time.
 - Sorting or import behavior changing without test coverage.
 - Shelf actions clearing the wrong document data.
 
@@ -292,4 +295,6 @@ Watch for:
 
 - Version references disagreeing between `Info.plist`, `README.md`, website, and appcast.
 - Package signing or notarization failures.
+- Pushing an appcast before the referenced GitHub Release asset is public and checksum-verified.
+- Leaving a draft release or remote tag behind after a pre-publication failure.
 - Sparkle update check failing after publishing.

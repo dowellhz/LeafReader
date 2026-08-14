@@ -171,7 +171,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     }
 
     deinit {
-        activeWebDocumentLoadCancellationToken?.cancel()
+        activeDocumentLoadCancellationToken?.cancel()
         pdfTextSnapshotCancellationToken?.cancel()
         releaseCurrentOwnedWebResource()
         if let localEventMonitor {

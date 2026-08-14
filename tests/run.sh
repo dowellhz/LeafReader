@@ -210,6 +210,8 @@ node tests/ReaderWebScriptTests.js
 node tests/ReaderWebSearchTests.js
 node tests/ReaderWebMarksTests.js
 
+./tests/ReleaseAutomationTests.sh
+
 collect_logic_app_sources
 
 run_swift_test /tmp/leafreader-sqlite-word-tests \

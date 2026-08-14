@@ -57,7 +57,6 @@ extension AIChatPanel {
                 self.setBusy(false, text: "")
                 switch result {
                 case .success(let content):
-                    NetworkConnectivityMonitor.shared.markRequestSucceeded()
                     let finalContent = VocabularyTagFormatter.appendSuffix(
                         to: AIResponseTextFormatter.trimmed(content),
                         suffix: answerSuffix

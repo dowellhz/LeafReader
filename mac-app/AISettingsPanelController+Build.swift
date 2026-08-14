@@ -28,6 +28,7 @@ extension AISettingsPanelController {
         let titleLabel = label(AppText.settings, size: 22, weight: .semibold, color: primaryText)
         let closeButton = NSButton(title: "", target: self, action: #selector(cancel(_:)))
         closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: AppText.close)
+        closeButton.setAccessibilityLabel(AppText.close)
         closeButton.isBordered = false
         closeButton.contentTintColor = primaryText
         closeButton.translatesAutoresizingMaskIntoConstraints = false

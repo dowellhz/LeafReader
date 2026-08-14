@@ -86,7 +86,7 @@ extension ReaderWindowController {
     }
 
     func removeShelfItem(path: String, clearVectorCache: Bool, clearWordRecords: Bool, clearAIData: Bool) {
-        let documentID = fileMD5(for: URL(fileURLWithPath: path))
+        let documentID = documentIDForShelfItem(path: path)
         if currentFileURL?.path == path {
             unloadCurrentDocumentForShelfRemoval()
         }
@@ -181,7 +181,7 @@ extension ReaderWindowController {
     }
 
     func clearVectorCacheForShelfItem(path: String) {
-        guard let documentID = fileMD5(for: URL(fileURLWithPath: path)) else {
+        guard let documentID = documentIDForShelfItem(path: path) else {
             NSSound.beep()
             return
         }
@@ -199,7 +199,7 @@ extension ReaderWindowController {
     }
 
     func clearWordRecordsForShelfItem(path: String) {
-        guard let documentID = fileMD5(for: URL(fileURLWithPath: path)) else {
+        guard let documentID = documentIDForShelfItem(path: path) else {
             NSSound.beep()
             return
         }
@@ -212,7 +212,7 @@ extension ReaderWindowController {
     }
 
     func clearAIDataForShelfItem(path: String) {
-        guard let documentID = fileMD5(for: URL(fileURLWithPath: path)) else {
+        guard let documentID = documentIDForShelfItem(path: path) else {
             NSSound.beep()
             return
         }
@@ -230,5 +230,15 @@ extension ReaderWindowController {
             aiPanel.clearSelectedText()
         }
         AIConversationStore(fileMD5: documentID).clear()
+    }
+
+    private func documentIDForShelfItem(path: String) -> String? {
+        if currentFileURL?.standardizedFileURL.path == path, let currentFileMD5 {
+            return currentFileMD5
+        }
+        if let documentID = RecentDocumentsStore.load().first(where: { $0.path == path })?.documentID {
+            return documentID
+        }
+        return legacyDocumentIDForShelfItem(URL(fileURLWithPath: path))
     }
 }

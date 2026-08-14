@@ -92,6 +92,78 @@ private func testDocumentIdentityFastIDIsStableAndNotMD5Length() throws {
     try expectEqual(firstID.count, 37, "fast document ID should use the fast- prefix plus a 16-byte hex hash")
 }
 
+private func testDocumentContentIdentityAndLegacyMapping() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("leafreader-content-id-tests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let originalURL = directory.appendingPathComponent("original.pdf")
+    let movedURL = directory.appendingPathComponent("moved.pdf")
+    let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
+    try Data("AAAA".utf8).write(to: originalURL)
+    try FileManager.default.setAttributes([.modificationDate: fixedDate], ofItemAtPath: originalURL.path)
+    let firstIdentifiers = try DocumentIdentity.contentIdentifiers(for: originalURL)
+    let firstContentID = firstIdentifiers.contentID
+    try expectEqual(
+        firstIdentifiers.legacyMD5,
+        "098890dde069e9abad63f19a0d9e1f32",
+        "content identity should calculate the legacy MD5 in the same streaming pass"
+    )
+    try FileManager.default.copyItem(at: originalURL, to: movedURL)
+    try expectEqual(
+        try DocumentIdentity.contentID(for: movedURL),
+        firstContentID,
+        "renaming identical bytes should preserve content identity"
+    )
+
+    let metadataID = DocumentIdentity.fastID(for: originalURL)
+    try Data("BBBB".utf8).write(to: originalURL)
+    try FileManager.default.setAttributes([.modificationDate: fixedDate], ofItemAtPath: originalURL.path)
+    let replacementContentID = try DocumentIdentity.contentID(for: originalURL)
+    try expect(firstContentID != replacementContentID, "equal-size replacement bytes should change content identity")
+    try expectEqual(DocumentIdentity.fastID(for: originalURL), metadataID, "fixture should preserve legacy metadata identity")
+    try expect(
+        DocumentIdentity.migrationMetadataID(
+            fastID: metadataID,
+            cachedLegacyID: firstIdentifiers.legacyMD5,
+            computedLegacyID: "f50881ced34c7d9e6bce100bf33dec60"
+        ) == nil,
+        "metadata state should not migrate when cached content proof contradicts current bytes"
+    )
+
+    let suiteName = "LeafReader.DocumentIdentityTests.\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+        throw TestFailure(description: "document identity test defaults should open")
+    }
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    let storedIDs = Set([metadataID])
+    let migratedID = DocumentIdentity.storageID(
+        contentID: firstContentID,
+        metadataID: metadataID,
+        legacyID: nil,
+        defaults: defaults,
+        hasStoredData: storedIDs.contains
+    )
+    try expectEqual(migratedID, metadataID, "first content open should preserve the existing legacy namespace")
+    let movedID = DocumentIdentity.storageID(
+        contentID: firstContentID,
+        metadataID: DocumentIdentity.fastID(for: movedURL),
+        legacyID: nil,
+        defaults: defaults,
+        hasStoredData: { _ in false }
+    )
+    try expectEqual(movedID, metadataID, "moved identical content should reuse the registered legacy namespace")
+    let replacementID = DocumentIdentity.storageID(
+        contentID: replacementContentID,
+        metadataID: metadataID,
+        legacyID: nil,
+        defaults: defaults,
+        hasStoredData: storedIDs.contains
+    )
+    try expectEqual(replacementID, replacementContentID, "replacement content must not inherit another content owner's legacy state")
+}
+
 private func testAIConversationMergeKeepsUnloadedHistory() throws {
     let loaded = SavedAIConversation(bubbles: [
         bubble("user", "old question"),
@@ -271,6 +343,8 @@ struct RegressionTestRunner {
             print("PASS Fast document ID legacy compatibility")
             try testDocumentIdentityFastIDIsStableAndNotMD5Length()
             print("PASS Fast document ID stability")
+            try testDocumentContentIdentityAndLegacyMapping()
+            print("PASS content document identity and legacy mapping")
             try testAIConversationMergeKeepsUnloadedHistory()
             print("PASS AI conversation lazy-save merge")
             try testAIConversationMergeTrimsToLimitAfterPreservingNewest()
