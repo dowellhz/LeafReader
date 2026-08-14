@@ -3,72 +3,53 @@ import Cocoa
 extension ReaderWindowController {
     @objc func zoomIn() {
         markReaderInteraction()
-        guard currentDocumentKind == .pdf else {
-            setWebZoom(webZoomPercent + 10)
-            return
-        }
-        pdfView.autoScales = false
-        pdfView.scaleFactor = min(pdfView.scaleFactor * 1.25, 8)
+        guard let applied = activeReaderBackend?.stepZoom(.increment) else { return }
+        syncZoomPercentFromBackend(applied)
         updateZoomLabel()
         saveSession()
     }
 
     @objc func zoomOut() {
         markReaderInteraction()
-        guard currentDocumentKind == .pdf else {
-            setWebZoom(webZoomPercent - 10)
-            return
-        }
-        pdfView.autoScales = false
-        pdfView.scaleFactor = max(pdfView.scaleFactor * 0.8, 0.1)
+        guard let applied = activeReaderBackend?.stepZoom(.decrement) else { return }
+        syncZoomPercentFromBackend(applied)
         updateZoomLabel()
         saveSession()
     }
 
     @objc func applyZoomFromField() {
         markReaderInteraction()
-        guard currentDocumentKind == .pdf else {
-            let raw = zoomField.stringValue
-                .replacingOccurrences(of: "%", with: "")
-                .replacingOccurrences(of: "％", with: "")
-                .replacingOccurrences(of: ",", with: "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let percent = Int(raw), percent > 0 else {
-                updateZoomLabel()
-                return
-            }
-            setWebZoom(percent)
-            return
-        }
         let raw = zoomField.stringValue
             .replacingOccurrences(of: "%", with: "")
             .replacingOccurrences(of: "％", with: "")
             .replacingOccurrences(of: ",", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let percent = Double(raw), percent > 0 else {
+        guard let percent = Double(raw), percent > 0,
+              let applied = activeReaderBackend?.setZoomPercent(Int(percent.rounded())) else {
             updateZoomLabel()
             return
         }
-        pdfView.autoScales = false
-        pdfView.scaleFactor = min(max(percent, 10), 800) / 100
+        syncZoomPercentFromBackend(applied)
         updateZoomLabel()
         saveSession()
-        window?.makeFirstResponder(currentDocumentKind == .pdf ? pdfView : webView)
+        activeReaderBackend?.focus()
     }
 
     func setWebZoom(_ percent: Int) {
-        webZoomPercent = min(max(percent, 60), 220)
+        guard let applied = webReaderBackend.setZoomPercent(percent) else { return }
+        webZoomPercent = applied
         zoomField.stringValue = "\(webZoomPercent)%"
-        applyWebZoomToPage()
         saveSession()
-        window?.makeFirstResponder(webView)
+        webReaderBackend.focus()
     }
 
     func applyWebZoomToPage() {
-        guard webView != nil else { return }
-        webView.pageZoom = 1
-        webView.evaluateJavaScript("""
-        document.documentElement.style.setProperty('--reader-zoom', '\(Double(webZoomPercent) / 100)');
-        """)
+        _ = webReaderBackend.setZoomPercent(webZoomPercent)
+    }
+
+    private func syncZoomPercentFromBackend(_ percent: Int) {
+        guard currentDocumentKind != .pdf else { return }
+        webZoomPercent = percent
+        zoomField.stringValue = "\(webZoomPercent)%"
     }
 }

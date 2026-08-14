@@ -54,6 +54,8 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
 
     var pdfView: EdgePagingPDFView!
     var webView: ReaderWebView!
+    lazy var pdfReaderBackend = PDFKitReaderAdapter(view: pdfView)
+    lazy var webReaderBackend = WebKitReaderAdapter(view: webView)
     let contentArea = NSView()
     let pdfContainer = ClippingView()
     let pdfDimOverlay = PassthroughOverlayView()

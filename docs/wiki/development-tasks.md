@@ -8,6 +8,7 @@ Start with:
 
 - `mac-app/PDFReaderView.swift`
 - `mac-app/PDFPagingPolicy.swift`
+- `mac-app/ReaderContentBackend.swift`
 - `mac-app/ReaderWindowController+Navigation.swift`
 
 Run:
@@ -21,6 +22,7 @@ Watch for:
 - Duplicate page turns after one scroll gesture.
 - Losing native PDFKit scroll or rubber-band behavior.
 - Thresholds that work for short pages but fail on long technical books.
+- Bypassing the typed reader backend from shared navigation or zoom commands.
 
 ## Change PDF Text Indexing Or Vocabulary Marks
 
@@ -60,6 +62,7 @@ Start with:
 - `mac-app/DocumentLoading+Archive.swift`
 - `mac-app/DocumentLoading+DOCXStreaming.swift`
 - `mac-app/DocumentLoading+DOCXCache.swift`
+- `mac-app/DOCXPreparedCache.swift`
 - `mac-app/ReaderWindowController+DocumentLoading.swift`
 - `mac-app/Resources/reader-web-text.js`
 - `mac-app/Resources/reader-web-marks.js`
@@ -78,6 +81,8 @@ Watch for:
 - A superseded EPUB or DOCX load mutating the current document or leaving temporary resources behind.
 - Reusing prepared DOCX output after the source bytes change, even when path, size, or timestamp are unchanged.
 - Publishing an incomplete DOCX cache entry after cancellation or extraction failure.
+- Extracting unrelated DOCX package entries or letting prepared cache data exceed its byte quota.
+- Letting concurrent DOCX builders replace a complete cache entry with partial output.
 - Forgetting to invalidate normalized Web text indexes after a DOM text mutation.
 - Relying on CSS Custom Highlight without retaining the DOM-span fallback required by older WebKit versions.
 - Starting PDF table-of-contents, cover, or persisted-mark restoration before the first visible reader update.

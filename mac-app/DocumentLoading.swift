@@ -33,6 +33,7 @@ struct WebReadableDocument {
     let tocItems: [ReaderTOCItem]
     let diagnostics: [String]
     let ownedResource: OwnedTemporaryResource?
+    var loadMeasurements: [DocumentLoadMeasurement]
 
     init(
         html: String,
@@ -43,7 +44,8 @@ struct WebReadableDocument {
         coverImageURL: URL?,
         tocItems: [ReaderTOCItem],
         diagnostics: [String],
-        ownedResource: OwnedTemporaryResource? = nil
+        ownedResource: OwnedTemporaryResource? = nil,
+        loadMeasurements: [DocumentLoadMeasurement] = []
     ) {
         self.html = html
         self.htmlFileURL = htmlFileURL
@@ -54,6 +56,7 @@ struct WebReadableDocument {
         self.tocItems = tocItems
         self.diagnostics = diagnostics
         self.ownedResource = ownedResource
+        self.loadMeasurements = loadMeasurements
     }
 }
 

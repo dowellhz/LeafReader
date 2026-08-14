@@ -34,6 +34,7 @@ excluded_logic_app_source() {
     DebouncedTask.swift|\
     DiagnosticsPanel*|\
     DiagnosticsReport.swift|\
+    DOCXPreparedCache.swift|\
     DocumentLoading*|\
     DocumentQuestionPromptRequest.swift|\
     EmbeddingClient.swift|\
@@ -153,9 +154,11 @@ DOCX_TEST_SOURCES=(
   mac-app/AppText.swift
   mac-app/ArchiveSafetyValidator.swift
   mac-app/DocumentLoading.swift
+  mac-app/DocumentLoadMeasurement.swift
   mac-app/DocumentLoading+Archive.swift
   mac-app/DocumentLoading+DOCX.swift
   mac-app/DocumentLoading+DOCXCache.swift
+  mac-app/DOCXPreparedCache.swift
   mac-app/DocumentLoading+DOCXStreaming.swift
   mac-app/DocumentLoading+EPUB.swift
   mac-app/DocumentLoading+HTML.swift
@@ -247,6 +250,13 @@ run_swift_test /tmp/leafreader-regression-tests \
 
 run_swift_test /tmp/leafreader-docx-tests \
   "${DOCX_TEST_SOURCES[@]}"
+
+run_swift_test /tmp/leafreader-content-backend-tests \
+  tests/ReaderContentBackendTests.swift \
+  mac-app/ReaderContentBackend.swift \
+  mac-app/ReaderSessionPolicy.swift \
+  -framework PDFKit \
+  -framework WebKit
 
 run_swift_test /tmp/leafreader-update-failure-classifier-tests \
   mac-app/UpdateFailureClassifier.swift \
