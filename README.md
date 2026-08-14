@@ -29,7 +29,7 @@ Leaf Reader 是一个原生 macOS 文档阅读器，支持 PDF、EPUB 和 DOCX�
 
 ### 下载
 
-[下载 Leaf Reader 1.7.9 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.7.9/LeafReader-1.7.9.pkg)
+[下载 Leaf Reader 1.7.10 pkg 安装包](https://github.com/dowellhz/LeafReader/releases/download/v1.7.10/LeafReader-1.7.10.pkg)
 
 ### 系统要求
 
@@ -63,6 +63,16 @@ Leaf Reader 可以使用 Piper、[FluidAudio Kokoro Core ML](https://huggingface
 常规应用版本会复用这些模型文件。只有模型文件变化时才需要重新发布语音模型归档，并同步更新 `SpeechRuntimeResourceManager.Runtime.runtimeAssetsReleaseTag`。
 
 ### 更新记录
+
+#### 1.7.10
+
+- 新增 PDF 连续滚动并修复上一页导航，同时加入论文式目录和更完整的词汇学习进度。
+- PDF 搜索改为渐进返回，文档索引、词汇持久化和可见高亮恢复不再阻塞交互路径。
+- 加入内容寻址的 PDF 文本快照和 DOCX 缓存，DOCX 使用流式解析并可在切换文档时取消旧任务。
+- 生词按词元和词性分组，支持相关词形差异高亮、显示开关以及直接查看完整释义。
+- 修复 PDF 跨行连字符选词，并强化 Web Reader 搜索、高亮和重复 occurrence 恢复。
+- 新增事务式用户数据备份和恢复，同时确保 API 凭据不会进入备份包。
+- 加强不可信文档、归档、缓存和 runtime 的安全检查，普通阅读不再触发不必要的凭据访问。
 
 #### 1.7.9
 
@@ -212,7 +222,7 @@ Website: <https://leafreader.space/>
 
 ### Download
 
-[Leaf Reader 1.7.9 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.7.9/LeafReader-1.7.9.pkg)
+[Leaf Reader 1.7.10 pkg installer](https://github.com/dowellhz/LeafReader/releases/download/v1.7.10/LeafReader-1.7.10.pkg)
 
 ### System Requirements
 
@@ -333,6 +343,16 @@ Third-party speech models and runtimes remain copyrighted by their respective pr
 
 - [FluidAudio Kokoro Core ML](https://huggingface.co/FluidInference/kokoro-82m-coreml) / Kokoro model: Apache License 2.0.
 - [Piper](https://github.com/rhasspy/piper): MIT License; Piper voice model assets follow the metadata shipped with the upstream model package.
+
+## What's New in 1.7.10
+
+- Added continuous PDF scrolling with reliable previous-page navigation, plus a paper-style table of contents and richer vocabulary learning progress.
+- Made PDF search progressive and moved document indexing, vocabulary persistence, and visible highlight restoration off the interaction-critical path.
+- Added content-addressed PDF text snapshots and prepared DOCX caches, with streaming DOCX parsing and cancellation when switching documents.
+- Improved saved-word learning with lemma-and-part-of-speech grouping, related-form highlights, a visibility toggle, and direct access to full definitions.
+- Fixed line-broken hyphenated PDF selections and strengthened Web Reader search, marks, and repeated-occurrence restoration.
+- Added transactional user-data backup and recovery while keeping API credentials out of backup packages.
+- Hardened untrusted document, archive, cache, and runtime handling, and avoided unnecessary credential access during ordinary reading.
 
 ## What's New in 1.7.9
 
@@ -501,28 +521,28 @@ Regenerate the code map after larger refactors:
 
 ### Release
 
-Current version: `1.7.9`
+Current version: `1.7.10`
 
-Git tag: `v1.7.9`
+Git tag: `v1.7.10`
 
 Latest installer:
 
-[Leaf Reader-1.7.9.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.9/LeafReader-1.7.9.pkg)
+[Leaf Reader-1.7.10.pkg](https://github.com/dowellhz/LeafReader/releases/download/v1.7.10/LeafReader-1.7.10.pkg)
 
 Local release package path:
 
-`release/1.7.9/LeafReader-1.7.9.pkg`
+`release/1.7.10/LeafReader-1.7.10.pkg`
 
 Build the signed release package without publishing:
 
 ```sh
-./scripts/release_pkg.sh 1.7.9
+./scripts/release_pkg.sh 1.7.10
 ```
 
 Run the full publish flow from a clean working tree:
 
 ```sh
-./scripts/publish_release.sh 1.7.9
+./scripts/publish_release.sh 1.7.10
 ```
 
 The publish script runs tests, builds/signs/notarizes the pkg, smoke-tests the package payload, reports speech runtime size, commits version/appcast changes, tags the release, pushes `main` and the tag, creates the GitHub Release, uploads the pkg, and verifies the download URL. Pass `--with-speech-models` only when publishing changed speech model archives in `docs/tts/`. Add `--push-wiki --cleanup-releases` to sync GitHub Wiki and clean old ignored local release artifacts after publishing.
