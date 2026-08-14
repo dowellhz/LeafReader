@@ -30,6 +30,8 @@ AppDelegate
 - `AppDelegate+UserDataBackup.swift`: backup and restore menu workflow. Pending restores run before reader controllers and database singletons are created.
 - `Resources/reader-web*.js`: focused WebKit reader modules for text, marks, search, TTS ranges, selection events, and bridge installation. Web marks share cached normalized text indexes and prefer CSS Custom Highlight ranges, with a DOM-span fallback for older WebKit versions.
 - `RecentDocuments*.swift` and `RecentBookCardView.swift`: bookshelf panel and recent document UI.
+- `DocumentIdentity.swift`: streaming content hashes and compatibility mappings that keep document state stable across moves while preventing equal-size, equal-timestamp replacements from inheriting old records.
+- `NetworkConnectivityMonitor.swift`: coarse `NWPathMonitor` state for UI availability. Request fallback decisions use errors from the actual model endpoint; app startup performs no unrelated HTTP reachability probe.
 - `WordRecordSQLiteStore.swift` and related stores: persistent word and conversation data.
 - `TextQuoteAnchor.swift` and `ReaderWindowController+VocabularyHighlights.swift`: semantic PDF occurrence identity plus visible-page, bounded-batch annotation materialization. Stored rectangles remain the compatibility fallback for existing records.
 
@@ -38,6 +40,8 @@ AppDelegate
 Large controllers are split by behavior into extensions or focused helper views. New work should prefer adding to an existing focused module instead of growing a general controller file.
 
 Document opening prioritizes first visible content. PDF cover generation, table-of-contents construction, and persisted mark restoration start only after the reader surface is visible, and every asynchronous result is guarded by the active document generation.
+
+Document content identity is calculated off the main thread before persistent state is attached. The same streaming pass calculates the historical MD5 needed to discover state after a move. A compatibility registry associates an existing namespace with its first observed content hash, while contradictory cached content proof prevents replacement bytes from claiming metadata-based state.
 
 Reader selection and automatic background embedding work do not inspect Keychain credentials. Credentials are read only from explicit AI, diagnostics, connection-test, or settings actions. User-data backups exclude all current and legacy API-key preference fields and never copy or replace Keychain items.
 

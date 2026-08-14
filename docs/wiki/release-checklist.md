@@ -74,6 +74,8 @@ curl -I -L https://leafreader.space/appcast.xml
 
 Use `--push-wiki` when the release should sync GitHub Wiki as part of the publish flow. Use `--cleanup-releases` to remove old ignored local release artifacts after a successful publish.
 
+The publish script pushes the tag, creates a draft release, downloads and checksum-verifies its assets, publishes the release, verifies the public package, and only then pushes `main` with the appcast. A failure before publication removes the draft release and staged remote tag.
+
 - Confirm the Git tag exists:
 
 ```sh
@@ -97,8 +99,9 @@ curl -I -L https://github.com/dowellhz/LeafReader/releases/download/v<version>/L
 ./scripts/update_wiki.sh --push
 ```
 
-## Rollback Notes
+## Recovery Notes
 
-- If GitHub Release upload fails, keep the tag and local package until the failure is understood.
+- If GitHub Release upload or verification fails before publication, the script removes the draft release and remote tag. Keep the local release commit, tag, and package for diagnosis; rerunning is supported when the local tag still points to that commit.
+- If the release becomes public but pushing `main` fails, do not republish. Verify the public package, then run `git push origin main` to expose the already-valid appcast commit.
 - If appcast metadata is wrong, fix `docs/appcast.xml`, commit, push, and re-check the update dialog.
 - If notarization fails, do not publish the appcast entry until the package is signed and accepted.

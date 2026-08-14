@@ -74,8 +74,9 @@ For a full maintenance publish, include wiki sync and release cleanup:
 Expected:
 
 - Version checks pass.
-- Release artifacts are uploaded to GitHub Releases.
-- `main` and `v<version>` are pushed.
+- `v<version>` is pushed and a draft GitHub Release receives the artifacts.
+- Every draft asset is downloaded and checksum-verified before the release becomes public.
+- The public package is downloaded and checksum-verified before `main` exposes the appcast.
 - `docs/appcast.xml`, `README.md`, and website references are current.
 - With `--push-wiki`, GitHub Wiki and `docs/wiki` source are updated after publication.
 - With `--cleanup-releases`, old ignored local release artifacts are removed after publication.
@@ -117,7 +118,8 @@ Skip this manual step when `publish_release.sh` was run with `--push-wiki`.
 
 ## Recovery
 
-- If GitHub Release upload fails, inspect the existing release and asset list before retrying.
+- If upload or verification fails before publication, the script removes the draft release and remote tag. Inspect the local package and retry; the local tag is accepted when it points to the release commit.
+- If the release is public but pushing `main` fails, verify the public asset and recover with `git push origin main`; do not recreate the release.
 - If the appcast is wrong, fix `docs/appcast.xml`, push `main`, and re-check the appcast URL.
 - If notarization or signing fails, do not publish the appcast entry until the package verifies.
 - If the update dialog fails, check [Troubleshooting](troubleshooting.md) before changing Sparkle configuration.

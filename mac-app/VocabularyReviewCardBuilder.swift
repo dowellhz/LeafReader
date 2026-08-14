@@ -93,6 +93,7 @@ final class VocabularyReviewCardBuilder {
         button.contentTintColor = owner.vocabularyAccentColor(for: theme)
         button.imageScaling = .scaleProportionallyDown
         button.imagePosition = .imageOnly
+        button.setAccessibilityLabel(AppText.localized("播放单词发音", "Play word pronunciation"))
         button.spokenWord = spokenWord
         button.toolTip = AppText.localized("播放单词发音", "Play word pronunciation")
         button.translatesAutoresizingMaskIntoConstraints = false

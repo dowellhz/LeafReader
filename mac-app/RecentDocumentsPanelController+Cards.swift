@@ -13,6 +13,7 @@ extension RecentDocumentsPanelController {
         card.translatesAutoresizingMaskIntoConstraints = false
 
         let cover = NSImageView()
+        cover.setAccessibilityElement(false)
         let coverKey = coverCacheKey(for: item)
         if let cachedCover = Self.coverCache[coverKey] {
             cover.image = cachedCover

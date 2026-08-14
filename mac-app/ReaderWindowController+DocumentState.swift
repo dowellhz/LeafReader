@@ -57,9 +57,9 @@ extension ReaderWindowController {
         set { documentState.documentLoadGeneration = newValue }
     }
 
-    var activeWebDocumentLoadCancellationToken: DocumentLoadCancellationToken? {
-        get { documentState.activeWebDocumentLoadCancellationToken }
-        set { documentState.activeWebDocumentLoadCancellationToken = newValue }
+    var activeDocumentLoadCancellationToken: DocumentLoadCancellationToken? {
+        get { documentState.activeDocumentLoadCancellationToken }
+        set { documentState.activeDocumentLoadCancellationToken = newValue }
     }
 
     var currentPDFSelectedText: String {

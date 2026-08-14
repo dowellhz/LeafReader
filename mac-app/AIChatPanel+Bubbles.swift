@@ -77,6 +77,7 @@ extension AIChatPanel {
             button.contentTintColor = aiAccentColor
             button.imageScaling = .scaleProportionallyDown
             button.imagePosition = .imageOnly
+            button.setAccessibilityLabel(AppText.localized("播放单词发音", "Play word pronunciation"))
             button.identifier = NSUserInterfaceItemIdentifier(word)
             button.spokenWord = word
             button.toolTip = AppText.localized("播放单词发音", "Play word pronunciation")
@@ -174,6 +175,7 @@ extension AIChatPanel {
         button.contentTintColor = secondaryTextColor
         button.imageScaling = .scaleProportionallyDown
         button.imagePosition = .imageOnly
+        button.setAccessibilityLabel(AppText.localized("删除这段气泡", "Delete this bubble"))
         button.identifier = NSUserInterfaceItemIdentifier(bodyID)
         button.toolTip = AppText.localized("删除这段气泡", "Delete this bubble")
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -195,6 +197,7 @@ extension AIChatPanel {
         button.contentTintColor = secondaryTextColor
         button.imageScaling = .scaleProportionallyDown
         button.imagePosition = .imageOnly
+        button.setAccessibilityLabel(AppText.localized("重新生成这段回答", "Regenerate this answer"))
         button.identifier = NSUserInterfaceItemIdentifier(bodyID)
         button.toolTip = AppText.localized("重新生成这段回答", "Regenerate this answer")
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -212,6 +215,7 @@ extension AIChatPanel {
         button.contentTintColor = secondaryTextColor
         button.imageScaling = .scaleProportionallyDown
         button.imagePosition = .imageOnly
+        button.setAccessibilityLabel(AppText.localized("复制这段回答的 Markdown", "Copy this answer as Markdown"))
         button.identifier = NSUserInterfaceItemIdentifier(bodyID)
         button.toolTip = AppText.localized("复制这段回答的 Markdown", "Copy this answer as Markdown")
         button.translatesAutoresizingMaskIntoConstraints = false

@@ -330,6 +330,7 @@ final class ReadAloudFloatingControlView: NSView {
         isEnabled: Bool
     ) {
         button.image = TemplateSymbolImage.make(symbolName, accessibilityDescription: label)
+        button.setAccessibilityLabel(label)
         button.isEnabled = isEnabled
         if let shortcut {
             button.toolTip = AppText.localized("\(label)（\(shortcut)）", "\(label) (\(shortcut))")

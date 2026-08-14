@@ -105,6 +105,7 @@ final class ReadingNotesPanelController: NSObject {
 
         iconView.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: nil)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 26, weight: .semibold))
+        iconView.setAccessibilityElement(false)
         iconView.translatesAutoresizingMaskIntoConstraints = false
 
         titleLabel.font = AppFont.semibold(ofSize: 20)

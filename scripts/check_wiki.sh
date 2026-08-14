@@ -74,6 +74,7 @@ check_generated_files() {
 
   for generated in code-map.md type-index.md index.md; do
     if ! diff -q "$temp_dir/$generated" "$WIKI_DIR/$generated" >/dev/null; then
+      diff -u "$WIKI_DIR/$generated" "$temp_dir/$generated" || true
       fail "$generated is stale; run ./scripts/update_wiki.sh"
     fi
   done

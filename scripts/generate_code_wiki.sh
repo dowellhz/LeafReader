@@ -6,6 +6,8 @@ OUT_DIR="${WIKI_OUT_DIR:-$ROOT_DIR/docs/wiki}"
 OUT_FILE="$OUT_DIR/code-map.md"
 TYPE_INDEX_FILE="$OUT_DIR/type-index.md"
 
+export LC_ALL=C
+
 mkdir -p "$OUT_DIR"
 
 count_files() {

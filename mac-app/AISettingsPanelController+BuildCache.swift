@@ -28,7 +28,10 @@ extension AISettingsPanelController {
         let cacheStatusLabel = label(AppText.localized("正在统计缓存...", "Calculating cache..."), size: settingsFontSize, color: secondaryText)
         let cacheDisclosureButton = NSButton(title: "", target: self, action: #selector(clearVectorCache(_:)))
         cacheDisclosureButton.isBordered = false
-        cacheDisclosureButton.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: nil)
+        let disclosureLabel = AppText.localized("展开缓存操作", "Show cache actions")
+        cacheDisclosureButton.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: disclosureLabel)
+        cacheDisclosureButton.setAccessibilityLabel(disclosureLabel)
+        cacheDisclosureButton.toolTip = disclosureLabel
         cacheDisclosureButton.contentTintColor = primaryText
         cacheDisclosureButton.isHidden = true
         cacheDisclosureButton.translatesAutoresizingMaskIntoConstraints = false

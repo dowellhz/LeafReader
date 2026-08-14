@@ -69,6 +69,30 @@ enum ReadingNoteLogicTests {
         try expectEqual(loaded.count, 1, "upsert should replace the existing note")
         try expectEqual(loaded[0].markdown, "Updated\n", "updated note should preserve markdown")
         try expect(loaded[0].isFavorite, "updated note should preserve favorite state")
+        try expect(store.containsNotes(documentID: "doc-1"), "note presence lookup should find durable records")
+
+        let invalidReplacement = ReadingNote(
+            id: note.id,
+            documentID: note.documentID,
+            documentTitle: note.documentTitle,
+            documentKind: "epub",
+            quote: note.quote,
+            markdown: "Must not replace",
+            locator: ReadingNote.Locator(
+                pdfFragments: nil,
+                webAnchor: ReadingNote.WebAnchor(
+                    selectedText: "selection",
+                    context: "context",
+                    occurrenceIndex: 0,
+                    scrollProgress: .nan
+                )
+            ),
+            createdAt: note.createdAt,
+            updatedAt: note.updatedAt
+        )
+        try expect(!store.upsert(invalidReplacement), "invalid required locator JSON should reject the replacement")
+        loaded = store.load(documentID: "doc-1")
+        try expectEqual(loaded.first?.markdown, "Updated\n", "failed locator encoding must preserve the existing note")
 
         try expect(store.delete(id: "note-1"), "reading note should delete")
         try expectEqual(store.load(documentID: "doc-1").count, 0, "deleted note should no longer load")
@@ -228,7 +252,10 @@ enum ReadingNoteLogicTests {
         try expectEqual(titleMatches.map(\.id), ["note-new"], "reading note search should match title text")
         let quoteMatches = ReadingNoteListPresenter.rows(for: [newer, older], query: "pdf fallback")
         try expectEqual(quoteMatches.map(\.id), ["note-old"], "reading note search should match quote text")
-        let locationMatches = ReadingNoteListPresenter.rows(for: [newer, older], query: "第 7")
+        let locationMatches = ReadingNoteListPresenter.rows(
+            for: [newer, older],
+            query: AppText.localized("第 7", "p. 7")
+        )
         try expectEqual(locationMatches.map(\.id), ["note-old"], "reading note search should match location text")
     }
 
@@ -373,12 +400,16 @@ enum ReadingNoteLogicTests {
             NSLocalizedDescriptionKey: "OpenAI HTTP 429: rate_limit_exceeded"
         ])
         try expect(
-            ReadingNoteAITextPolicy.userFacingError(rateLimit).contains("请求太频繁"),
+            ReadingNoteAITextPolicy.userFacingError(rateLimit).contains(
+                AppText.localized("请求太频繁", "Too many requests")
+            ),
             "reading-note AI errors should use the shared request failure classifier"
         )
 
         try expect(
-            ReadingNoteAITextPolicy.emptyOutputMessage().contains("没有返回内容"),
+            ReadingNoteAITextPolicy.emptyOutputMessage().contains(
+                AppText.localized("没有返回内容", "returned no content")
+            ),
             "empty AI responses should have a specific recovery message"
         )
     }

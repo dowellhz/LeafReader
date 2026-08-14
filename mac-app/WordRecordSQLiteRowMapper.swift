@@ -88,12 +88,13 @@ struct PDFWordRecordSQLiteMapper {
         )
     }
 
-    func bind(documentID: String, record: StoredPDFWordRecord, to statement: OpaquePointer?) {
+    func bind(documentID: String, record: StoredPDFWordRecord, to statement: OpaquePointer?) -> Bool {
+        guard let boundsJSON = codec.encode(record.bounds) else { return false }
         bindText(documentID, at: .documentID, statement: statement)
         bindText(record.id, at: .id, statement: statement)
         bindText(record.word, at: .word, statement: statement)
         sqlite3_bind_int(statement, WordRecordSQLiteBindIndex.firstSourceField.rawValue, Int32(record.pageIndex))
-        bindText(codec.encode(record.bounds) ?? "{}", at: .secondSourceField, statement: statement)
+        bindText(boundsJSON, at: .secondSourceField, statement: statement)
         bindOptionalText(record.context, at: .thirdSourceField, statement: statement)
         bindText(record.question, at: .question, statement: statement)
         bindText(record.answer, at: .answer, statement: statement)
@@ -102,6 +103,7 @@ struct PDFWordRecordSQLiteMapper {
         sqlite3_bind_double(statement, WordRecordSQLiteBindIndex.createdAt.rawValue, record.createdAt.timeIntervalSince1970)
         bindOptionalText(codec.encode(record.srs), at: .srsJSON, statement: statement)
         bindOptionalText(codec.encode(record.textAnchor), at: 13, statement: statement)
+        return true
     }
 }
 
@@ -161,7 +163,7 @@ struct WebWordRecordSQLiteMapper {
         )
     }
 
-    func bind(documentID: String, record: StoredWebWordRecord, to statement: OpaquePointer?) {
+    func bind(documentID: String, record: StoredWebWordRecord, to statement: OpaquePointer?) -> Bool {
         bindText(documentID, at: .documentID, statement: statement)
         bindText(record.id, at: .id, statement: statement)
         bindText(record.word, at: .word, statement: statement)
@@ -174,6 +176,7 @@ struct WebWordRecordSQLiteMapper {
         bindOptionalInt(record.dictionaryFrequency, at: .dictionaryFrequency, statement: statement)
         sqlite3_bind_double(statement, WordRecordSQLiteBindIndex.createdAt.rawValue, record.createdAt.timeIntervalSince1970)
         bindOptionalText(codec.encode(record.srs), at: .srsJSON, statement: statement)
+        return true
     }
 }
 

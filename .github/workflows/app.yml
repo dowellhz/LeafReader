@@ -1,0 +1,55 @@
+name: App
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install check dependencies
+        run: brew install ripgrep
+      - name: Run standard checks
+        run: ./scripts/check.sh --no-build
+      - name: Enforce UI theme coverage
+        run: ./scripts/check_ui_theme.sh --warnings-as-errors
+
+  architecture-build:
+    name: architecture-build (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Sparkle
+        run: brew install --cask sparkle
+      - name: Locate Sparkle
+        run: |
+          sparkle_root="$(find "$(brew --prefix)/Caskroom/sparkle" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          test -d "$sparkle_root/Sparkle.framework"
+          echo "SPARKLE_HOME=$sparkle_root" >> "$GITHUB_ENV"
+      - name: Build native debug app
+        run: REQUIRE_BUNDLED_SPEECH_RUNTIMES=0 ./scripts/build_app.sh --debug --archs "${{ matrix.arch }}"
+
+  universal-build:
+    if: always()
+    needs: architecture-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both architecture builds
+        env:
+          ARCHITECTURE_BUILD_RESULT: ${{ needs.architecture-build.result }}
+        run: test "$ARCHITECTURE_BUILD_RESULT" = "success"

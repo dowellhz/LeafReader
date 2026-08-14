@@ -98,6 +98,7 @@ final class ReadingNoteRowView: NSView {
         let icon = NSImageView()
         icon.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: nil)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: Metrics.iconSymbolSize, weight: .semibold))
+        icon.setAccessibilityElement(false)
         icon.contentTintColor = ReadingNoteTheme.accent(theme)
         icon.translatesAutoresizingMaskIntoConstraints = false
         return icon
@@ -122,6 +123,7 @@ final class ReadingNoteRowView: NSView {
         button.toolTip = rowViewModel.isFavorite
             ? AppText.localized("取消收藏", "Remove favorite")
             : AppText.localized("收藏并置顶", "Favorite and pin")
+        button.setAccessibilityLabel(button.toolTip)
         return button
     }
 

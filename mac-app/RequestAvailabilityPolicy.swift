@@ -5,10 +5,7 @@ enum RequestAvailabilityPolicy {
         hasAPIKey
     }
 
-    static func shouldUseLocalDictionaryFallback(
-        for error: Error,
-        isOnline: Bool = NetworkConnectivityMonitor.shared.isOnline
-    ) -> Bool {
-        !isOnline && NetworkConnectivityMonitor.isNetworkConnectivityError(error)
+    static func shouldUseLocalDictionaryFallback(for error: Error) -> Bool {
+        NetworkConnectivityMonitor.isNetworkConnectivityError(error)
     }
 }

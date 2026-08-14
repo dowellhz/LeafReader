@@ -6,13 +6,14 @@ struct RecentDocumentItem: Codable {
     let kind: String
     let openedAt: Date
     let readingProgress: Double?
+    let documentID: String?
 }
 
 enum RecentDocumentsStore {
     private static let defaultsKey = "recentDocuments"
     private static let limit = 200
 
-    static func record(url: URL, kind: ReaderDocumentKind) {
+    static func record(url: URL, kind: ReaderDocumentKind, documentID: String? = nil) {
         var items = load()
         let fileURL = url.standardizedFileURL
         let path = fileURL.path
@@ -23,7 +24,8 @@ enum RecentDocumentsStore {
                 title: fileURL.deletingPathExtension().lastPathComponent,
                 kind: kind.displayName,
                 openedAt: Date(),
-                readingProgress: nil
+                readingProgress: nil,
+                documentID: documentID
             ),
             at: 0
         )
@@ -53,7 +55,8 @@ enum RecentDocumentsStore {
                     title: fileURL.deletingPathExtension().lastPathComponent,
                     kind: kind.displayName,
                     openedAt: .distantPast,
-                    readingProgress: nil
+                    readingProgress: nil,
+                    documentID: nil
                 )
                 frontItems.append(item)
                 items.append(item)
@@ -121,7 +124,8 @@ enum RecentDocumentsStore {
                 title: existing.title,
                 kind: existing.kind,
                 openedAt: existing.openedAt,
-                readingProgress: normalizedProgress
+                readingProgress: normalizedProgress,
+                documentID: existing.documentID
             )
         } else {
             items.insert(
@@ -130,7 +134,8 @@ enum RecentDocumentsStore {
                     title: fileURL.deletingPathExtension().lastPathComponent,
                     kind: kind.displayName,
                     openedAt: Date(),
-                    readingProgress: normalizedProgress
+                    readingProgress: normalizedProgress,
+                    documentID: nil
                 ),
                 at: 0
             )

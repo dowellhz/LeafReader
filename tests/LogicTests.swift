@@ -155,6 +155,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("AI conversation markdown exporter", testAIConversationMarkdownExporter),
     ("Embedding action policy", testEmbeddingActionPolicy),
     ("Selection toolbar configuration", VocabularyLogicTests.testSelectionToolbarConfiguration),
+    ("Local dictionary fallback request failure", VocabularyLogicTests.testLocalDictionaryFallbackUsesActualRequestFailure),
     ("Vocabulary review display record loader", VocabularyLogicTests.testVocabularyReviewDisplayRecordLoaderLoadsOnlyCurrentRecord),
     ("Reading context snapshot", testReadingContextSnapshot),
     ("Reader focused selection priority", testReaderFocusedSelectionPriority),

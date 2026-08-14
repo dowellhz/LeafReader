@@ -71,9 +71,24 @@ final class SearchOverlayView: NSView {
         separator.wantsLayer = true
         separator.layer?.backgroundColor = ReaderTheme.selected.searchOverlaySeparatorColor.cgColor
 
-        configureIconButton(previousButton, symbol: "chevron.up", action: #selector(previousResult))
-        configureIconButton(nextButton, symbol: "chevron.down", action: #selector(nextResult))
-        configureIconButton(closeButton, symbol: "xmark", action: #selector(closeSearch))
+        configureIconButton(
+            previousButton,
+            symbol: "chevron.up",
+            action: #selector(previousResult),
+            label: AppText.localized("上一个搜索结果", "Previous search result")
+        )
+        configureIconButton(
+            nextButton,
+            symbol: "chevron.down",
+            action: #selector(nextResult),
+            label: AppText.localized("下一个搜索结果", "Next search result")
+        )
+        configureIconButton(
+            closeButton,
+            symbol: "xmark",
+            action: #selector(closeSearch),
+            label: AppText.localized("关闭搜索", "Close search")
+        )
 
         for view in [searchField, resultLabel, separator, previousButton, nextButton, closeButton] {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -111,13 +126,15 @@ final class SearchOverlayView: NSView {
         ])
     }
 
-    private func configureIconButton(_ button: NSButton, symbol: String, action: Selector) {
+    private func configureIconButton(_ button: NSButton, symbol: String, action: Selector, label: String) {
         button.isBordered = false
         button.target = self
         button.action = action
-        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
         button.imageScaling = .scaleProportionallyDown
         button.contentTintColor = ReaderTheme.selected.secondaryTextColor
+        button.setAccessibilityLabel(label)
+        button.toolTip = label
     }
 
     @objc private func submitSearch() {

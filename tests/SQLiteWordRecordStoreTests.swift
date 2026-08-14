@@ -24,13 +24,14 @@ private func pdfRecord(
     answer: String,
     createdAt: TimeInterval,
     textAnchor: TextQuoteAnchor? = nil,
-    srs: VocabularySRSState? = nil
+    srs: VocabularySRSState? = nil,
+    bounds: CGRect = CGRect(x: 10, y: 20, width: 30, height: 12)
 ) -> StoredPDFWordRecord {
     StoredPDFWordRecord(
         id: id,
         word: word,
         pageIndex: 4,
-        bounds: StoredPDFWordRect(CGRect(x: 10, y: 20, width: 30, height: 12)),
+        bounds: StoredPDFWordRect(bounds),
         textAnchor: textAnchor,
         context: "pdf context",
         question: "What is \(word)?",
@@ -182,6 +183,19 @@ struct SQLiteWordRecordStoreTestRunner {
         let updatedOriginal = pdfRecord(id: "batch-original", word: "stable", answer: "changed", createdAt: 2)
         assert(!batchCommitFailureStore.upsertPDFRecords(documentID: batchDocumentID, records: [updatedOriginal]), "batch COMMIT failure should fail the upsert")
         assert(batchCommitFailureStore.loadPDFRecords(documentID: batchDocumentID).first?.answer == "keep", "batch COMMIT failure should roll back the update")
+        }
+
+        do {
+        let invalidEncodingStore = WordRecordSQLiteStore(databaseURL: dbURL)
+        let invalidReplacement = pdfRecord(
+            id: "batch-original",
+            word: "stable",
+            answer: "must-not-replace",
+            createdAt: 4,
+            bounds: CGRect(x: CGFloat.nan, y: 0, width: 10, height: 10)
+        )
+        assert(!invalidEncodingStore.upsertPDFRecord(documentID: batchDocumentID, record: invalidReplacement), "required bounds encoding failure should reject the upsert")
+        assert(invalidEncodingStore.loadPDFRecords(documentID: batchDocumentID).first?.answer == "keep", "encoding failure should preserve the existing PDF row")
         }
 
         let legacyDirectory = FileManager.default.temporaryDirectory

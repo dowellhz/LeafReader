@@ -59,6 +59,7 @@ extension AIChatPanel {
         loadingDots.accentColor = aiAccentColor
         loadingDots.translatesAutoresizingMaskIntoConstraints = false
         cancelRequestButton.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: AppText.cancel)
+        cancelRequestButton.setAccessibilityLabel(AppText.cancel)
         cancelRequestButton.isBordered = false
         cancelRequestButton.contentTintColor = secondaryTextColor
         cancelRequestButton.target = self
@@ -88,6 +89,7 @@ extension AIChatPanel {
         inputBar.focusField = inputField
 
         sendButton.image = NSImage(systemSymbolName: "arrow.up.circle.fill", accessibilityDescription: AppText.send)
+        sendButton.setAccessibilityLabel(AppText.send)
         sendButton.isBordered = false
         sendButton.target = self
         sendButton.action = #selector(sendFollowUp)
@@ -167,6 +169,7 @@ extension AIChatPanel {
     func refreshLanguage() {
         inputField.placeholderString = AppText.followUpPlaceholder
         sendButton.image = NSImage(systemSymbolName: "arrow.up.circle.fill", accessibilityDescription: AppText.send)
+        sendButton.setAccessibilityLabel(AppText.send)
         summaryButton.title = AppText.localized("总结", "Summarize")
         translateButton.title = AppText.localized("翻译", "Translate")
         exportConversationButton.title = AppText.localized("导出", "Export")

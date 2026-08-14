@@ -9,7 +9,7 @@ private enum ReaderPDFCoverThumbnailLoader {
 }
 
 extension ReaderWindowController {
-    func loadPDF(_ url: URL, generation: Int? = nil) {
+    func loadPDF(_ url: URL, documentID: String, generation: Int? = nil) {
         guard let document = PDFDocument(url: url) else {
             if let generation {
                 showDocumentLoadingFailure(
@@ -28,7 +28,7 @@ extension ReaderWindowController {
         pdfView.isHidden = false
         webView.isHidden = true
         pdfView.document = document
-        prepareRuntimeStateForLoadedDocument(url: url)
+        prepareRuntimeStateForLoadedDocument(url: url, documentID: documentID)
         preparePDFTextSnapshotAsync(for: url)
         captureOriginalPDFCropBoxes()
         applyPDFMarginCropIfNeeded()
@@ -67,7 +67,7 @@ extension ReaderWindowController {
         applyReaderTheme(refreshDocumentDecorations: false)
         updatePageLabel()
         updateZoomLabel()
-        RecentDocumentsStore.record(url: url, kind: .pdf)
+        RecentDocumentsStore.record(url: url, kind: .pdf, documentID: documentID)
         saveSession()
         scheduleDocumentEmbeddingWarmup(priorityPageIndex: currentEmbeddingPriorityIndex())
         if let generation {
@@ -75,9 +75,13 @@ extension ReaderWindowController {
         }
     }
 
-    func loadWebDocument(_ url: URL, kind: ReaderDocumentKind, generation: Int) {
-        let cancellationToken = DocumentLoadCancellationToken()
-        activeWebDocumentLoadCancellationToken = cancellationToken
+    func loadWebDocument(
+        _ url: URL,
+        kind: ReaderDocumentKind,
+        documentID: String,
+        generation: Int,
+        cancellationToken: DocumentLoadCancellationToken
+    ) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
                 let document = try WebDocumentLoader.load(url: url, cancellationToken: cancellationToken)
@@ -86,22 +90,34 @@ extension ReaderWindowController {
                         document.ownedResource?.release()
                         return
                     }
-                    self.activeWebDocumentLoadCancellationToken = nil
-                    self.applyLoadedWebDocument(document, url: url, kind: kind, generation: generation)
+                    self.activeDocumentLoadCancellationToken = nil
+                    self.applyLoadedWebDocument(
+                        document,
+                        url: url,
+                        kind: kind,
+                        documentID: documentID,
+                        generation: generation
+                    )
                 }
             } catch is CancellationError {
                 return
             } catch {
                 DispatchQueue.main.async {
                     guard let self, self.documentLoadGeneration == generation else { return }
-                    self.activeWebDocumentLoadCancellationToken = nil
+                    self.activeDocumentLoadCancellationToken = nil
                     self.showDocumentLoadingFailure(error, generation: generation)
                 }
             }
         }
     }
 
-    func applyLoadedWebDocument(_ document: WebReadableDocument, url: URL, kind: ReaderDocumentKind, generation: Int) {
+    func applyLoadedWebDocument(
+        _ document: WebReadableDocument,
+        url: URL,
+        kind: ReaderDocumentKind,
+        documentID: String,
+        generation: Int
+    ) {
         closeReadingNotePanelsForDocumentTransition()
         webView.stopLoading()
         releaseCurrentOwnedWebResource()
@@ -111,7 +127,7 @@ extension ReaderWindowController {
         pdfDimOverlay.isHidden = true
         webView.isHidden = false
         pdfView.document = nil
-        prepareRuntimeStateForLoadedDocument(url: url)
+        prepareRuntimeStateForLoadedDocument(url: url, documentID: documentID)
         pdfWordRecordStore = nil
         webWordRecordStore = currentFileMD5.map { WebWordRecordStore(fileMD5: $0) }
         currentWebPlainText = document.plainText
@@ -166,7 +182,7 @@ extension ReaderWindowController {
         applyReaderTheme()
         applyWebZoomToPage()
         restoreWebProgressAfterLoad()
-        RecentDocumentsStore.record(url: url, kind: kind)
+        RecentDocumentsStore.record(url: url, kind: kind, documentID: documentID)
         saveSession()
         scheduleWebPlainTextLoad(document.plainTextLoader, generation: webPlainTextGeneration)
         scheduleDocumentEmbeddingWarmup(priorityPageIndex: currentEmbeddingPriorityIndex())
@@ -179,11 +195,11 @@ extension ReaderWindowController {
         currentOwnedWebResource = nil
     }
 
-    func prepareRuntimeStateForLoadedDocument(url: URL) {
+    func prepareRuntimeStateForLoadedDocument(url: URL, documentID: String) {
         resetPDFTextSnapshotState()
         removeAllVocabularyWordAnnotations()
         currentFileURL = url
-        currentFileMD5 = fileMD5(for: url)
+        currentFileMD5 = documentID
         pendingPDFTOCBuildRequest = nil
         pendingPDFCoverThumbnailRequest = nil
         sessionStore = ReaderSessionStore(fileMD5: currentFileMD5)

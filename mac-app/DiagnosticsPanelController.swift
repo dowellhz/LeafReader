@@ -70,6 +70,7 @@ final class DiagnosticsPanelController: NSWindowController {
         let titleIcon = NSImageView()
         titleIcon.image = NSImage(systemSymbolName: "calendar.badge.checkmark", accessibilityDescription: nil)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 24, weight: .semibold))
+        titleIcon.setAccessibilityElement(false)
         titleIcon.contentTintColor = theme.primaryText
         titleIcon.imageScaling = .scaleNone
         titleIcon.translatesAutoresizingMaskIntoConstraints = false
@@ -84,6 +85,7 @@ final class DiagnosticsPanelController: NSWindowController {
         let closeIconButton = NSButton(title: "", target: self, action: #selector(closePanel(_:)))
         closeIconButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: AppText.close)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
+        closeIconButton.setAccessibilityLabel(AppText.close)
         closeIconButton.isBordered = false
         closeIconButton.contentTintColor = theme.secondaryText
         closeIconButton.translatesAutoresizingMaskIntoConstraints = false

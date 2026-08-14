@@ -19,7 +19,6 @@ extension AIChatPanel {
         logAIRequestFailure(error, usesDictionaryFallback: shouldUseDictionaryFallback)
 
         if shouldUseDictionaryFallback {
-            NetworkConnectivityMonitor.shared.markNetworkFailure()
             if let fallbackAnswer, let assistantBody {
                 applyOfflineDictionaryFallback(
                     fallbackAnswer,
