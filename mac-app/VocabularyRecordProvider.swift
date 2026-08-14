@@ -46,21 +46,22 @@ enum VocabularyRecordProvider {
 
     static func aggregate(_ records: [VocabularyExportRecord]) -> [VocabularyExportRecord] {
         var order: [String] = []
-        var grouped: [String: [VocabularyExportRecord]] = [:]
+        var grouped: [String: [(record: VocabularyExportRecord, identity: VocabularyWordIdentity)]] = [:]
         for record in records.sorted(by: { $0.createdAt < $1.createdAt }) {
-            let key = record.word
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased()
-            guard !key.isEmpty else { continue }
+            let identity = VocabularyLemmaResolver.identity(for: record.word, context: record.context)
+            let key = identity.groupingKey
+            guard !identity.surface.isEmpty else { continue }
             if grouped[key] == nil {
                 order.append(key)
                 grouped[key] = []
             }
-            grouped[key]?.append(record)
+            grouped[key]?.append((record, identity))
         }
 
         return order.compactMap { key in
-            guard let group = grouped[key], let first = group.first else { return nil }
+            guard let entries = grouped[key], let firstEntry = entries.first else { return nil }
+            let group = entries.map(\.record)
+            let first = firstEntry.record
             var seenLocations = Set<String>()
             let locations = group.map(\.location).filter { location in
                 guard !seenLocations.contains(location) else { return false }
@@ -88,9 +89,18 @@ enum VocabularyRecordProvider {
             let dictionaryFrequency = group
                 .compactMap(\.dictionaryFrequency)
                 .min()
+            var seenForms = Set<String>()
+            let surfaceForms = entries.compactMap { entry -> String? in
+                let form = displayWord(entry.identity.surface)
+                let formKey = form.lowercased()
+                guard !form.isEmpty, seenForms.insert(formKey).inserted else { return nil }
+                return form
+            }
             return VocabularyExportRecord(
                 ids: group.flatMap(\.ids),
                 word: displayWord(first.word),
+                lemma: firstEntry.identity.lemma,
+                surfaceForms: surfaceForms,
                 answer: answer,
                 dictionaryTags: dictionaryTags,
                 dictionaryFrequency: dictionaryFrequency,

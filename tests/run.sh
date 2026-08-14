@@ -191,6 +191,7 @@ LOGIC_TEST_SOURCES=(
   tests/SecurityHardeningTests.swift
   tests/ECDICTLogicTests.swift
   tests/VocabularyLogicTests.swift
+  tests/VocabularyLemmaLogicTests.swift
   tests/PDFVocabularyHyphenTests.swift
   tests/UserDataBackupServiceTests.swift
   tests/ReaderCoreLogicTests.swift

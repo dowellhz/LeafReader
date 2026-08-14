@@ -23,6 +23,7 @@ private let tests: [(String, () throws -> Void)] = [
     ("Vocabulary daily goal policy", VocabularyLogicTests.testVocabularyDailyGoalPolicy),
     ("Vocabulary learning stats", VocabularyLogicTests.testVocabularyLearningStats),
     ("Personal vocabulary tokenizer and policy", VocabularyLogicTests.testPersonalVocabularyTokenizerAndPolicy),
+    ("Vocabulary lemma grouping", VocabularyLemmaLogicTests.testGrouping),
     ("Vocabulary answer formatter", VocabularyLogicTests.testVocabularyAnswerFormatter),
     ("PDF vocabulary layout hyphen normalization", PDFVocabularyHyphenTests.testLayoutHyphenNormalization),
     ("PDF vocabulary split suffix matching", PDFVocabularyHyphenTests.testSplitSuffixPatternFindsWholeWord),

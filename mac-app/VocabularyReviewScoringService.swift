@@ -115,6 +115,8 @@ enum VocabularyReviewScoringService {
             exportRecords[index] = VocabularyExportRecord(
                 ids: old.ids,
                 word: old.word,
+                lemma: old.lemma,
+                surfaceForms: old.surfaceForms,
                 answer: old.answer,
                 dictionaryTags: old.dictionaryTags,
                 dictionaryFrequency: old.dictionaryFrequency,

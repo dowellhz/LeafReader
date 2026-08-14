@@ -172,6 +172,7 @@ extension ReaderWindowController {
         coverImageView.isHidden = true
         pageLayoutButton.isHidden = true
         cropButton.isHidden = true
+        relatedFormsButton.isHidden = true
         pageLabel.stringValue = AppText.noPDF
         updatePageLabelTextColor()
         zoomField.stringValue = "100%"

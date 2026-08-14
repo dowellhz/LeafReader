@@ -1,6 +1,8 @@
 import Foundation
 
 enum EPUBHTMLSanitizer {
+    private static let regexCache = RegexCache()
+
     private static let removableBlockPatterns = [
         #"(?i)<script\b[\s\S]*?</script>"#,
         #"(?i)<style\b[\s\S]*?</style>"#,
@@ -179,6 +181,27 @@ enum EPUBHTMLSanitizer {
     }
 
     private static func cachedRegex(_ pattern: String) -> NSRegularExpression? {
-        try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
+        regexCache.regex(for: pattern)
+    }
+
+    private final class RegexCache {
+        private let lock = NSLock()
+        private var expressions: [String: NSRegularExpression] = [:]
+
+        func regex(for pattern: String) -> NSRegularExpression? {
+            lock.lock()
+            defer { lock.unlock() }
+            if let expression = expressions[pattern] {
+                return expression
+            }
+            guard let expression = try? NSRegularExpression(
+                pattern: pattern,
+                options: [.caseInsensitive]
+            ) else {
+                return nil
+            }
+            expressions[pattern] = expression
+            return expression
+        }
     }
 }

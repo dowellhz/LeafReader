@@ -31,6 +31,14 @@ Leaf Reader 会保存单词、解释、来源上下文和页面高亮，并在 P
 
 估算正确率来自 SRS 的 review count 和 lapse count，是一个轻量进度指标，不是完整的逐次复习历史。
 
+## 词元、词形与释义
+
+- 英文单词使用系统 NaturalLanguage 的词元和词性结果分组，例如 `run`、`runs`、`running` 会进入同一组。
+- 分组键同时包含词性，避免把拼写相同但词性不同的词错误合并；无法可靠识别时保持精确拼写分组。
+- PDF 只在当前可见页后台查找相关词形。最先保存的形式使用主高亮，其他词形使用较淡的同色高亮。
+- PDF 工具栏的眼睛按钮可以显示或隐藏相关词形；用户直接保存的形式始终保留。
+- 背单词列表会显示词元和已观察到的词形；“查看释义”会关闭背单词面板并在阅读侧栏定位完整释义。
+
 ## 复习与数据
 
 - `VocabularySRS` 负责复习间隔和掌握状态。
@@ -55,6 +63,8 @@ Leaf Reader 会保存单词、解释、来源上下文和页面高亮，并在 P
 - `PDFWordRecordStore.swift` 和 `WebWordRecordStore.swift`：PDF/Web 词条模型和包装。
 - `StoredPDFWordRect.swift`：PDF 高亮几何信息。
 - `VocabularyLearningStats.swift`：当前书籍学习统计。
+- `VocabularyLemmaResolver.swift`：保守的英文词元、词性和分组策略。
+- `VocabularyLemmaOccurrenceMatcher.swift`：可见 PDF 页的相关词形匹配。
 - `VocabularySRS.swift`：SRS 复习规则。
 - `VocabularyExporter.swift`：Anki CSV 等导出。
 - `mac-app/Resources/reader-web.js`：WebKit 选择、文本范围查找、单词高亮恢复和 AI 来源下划线恢复。
