@@ -141,6 +141,77 @@ extension WebDocumentLoader {
         try ArchiveSafetyValidator.validateExtractedTree(at: destination, policy: .document)
     }
 
+    static func zipEntryPaths(
+        in url: URL,
+        cancellationToken: DocumentLoadCancellationToken? = nil
+    ) throws -> [String] {
+        try cancellationToken?.checkCancellation()
+        try ArchiveSafetyValidator.validateZIP(at: url)
+        let result = try ProcessRunner.run(
+            executableURL: URL(fileURLWithPath: "/usr/bin/unzip"),
+            arguments: ["-Z1", url.path],
+            timeout: archiveProcessTimeout,
+            isCancelled: { cancellationToken?.isCancelled == true }
+        )
+        if result.wasCancelled {
+            throw CancellationError()
+        }
+        guard !result.timedOut, result.terminationStatus == 0 else {
+            throw NSError(domain: "LeafReader", code: Int(result.terminationStatus), userInfo: [
+                NSLocalizedDescriptionKey: archiveProcessErrorMessage(
+                    prefix: "Unable to inspect \(url.lastPathComponent)",
+                    stderr: result.stderr
+                )
+            ])
+        }
+        guard let output = String(data: result.stdout, encoding: .utf8) else {
+            throw NSError(domain: "LeafReader", code: -2, userInfo: [
+                NSLocalizedDescriptionKey: "Unable to decode the archive directory for \(url.lastPathComponent)."
+            ])
+        }
+        try cancellationToken?.checkCancellation()
+        return output.split(whereSeparator: \.isNewline).map(String.init)
+    }
+
+    static func unzip(
+        url: URL,
+        to destination: URL,
+        entryPaths: [String],
+        cancellationToken: DocumentLoadCancellationToken? = nil
+    ) throws {
+        guard !entryPaths.isEmpty else {
+            throw NSError(domain: "LeafReader", code: -2, userInfo: [
+                NSLocalizedDescriptionKey: "The document archive has no readable entries."
+            ])
+        }
+        try cancellationToken?.checkCancellation()
+        try ArchiveSafetyValidator.validateZIP(at: url)
+        let result = try ProcessRunner.run(
+            executableURL: URL(fileURLWithPath: "/usr/bin/unzip"),
+            arguments: ["-qq", "-o", url.path] + entryPaths + ["-d", destination.path],
+            timeout: archiveProcessTimeout,
+            isCancelled: { cancellationToken?.isCancelled == true }
+        )
+        if result.wasCancelled {
+            throw CancellationError()
+        }
+        guard !result.timedOut else {
+            throw NSError(domain: "LeafReader", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "Unable to unpack \(url.lastPathComponent): unzip timed out."
+            ])
+        }
+        guard result.terminationStatus == 0 else {
+            throw NSError(domain: "LeafReader", code: Int(result.terminationStatus), userInfo: [
+                NSLocalizedDescriptionKey: archiveProcessErrorMessage(
+                    prefix: "Unable to unpack \(url.lastPathComponent)",
+                    stderr: result.stderr
+                )
+            ])
+        }
+        try cancellationToken?.checkCancellation()
+        try ArchiveSafetyValidator.validateExtractedTree(at: destination, policy: .document)
+    }
+
     static func zipEntryData(in url: URL, entryPath: String) throws -> Data? {
         guard let entryPath = EPUBPathResolver.safeArchivePath(entryPath) else { return nil }
         let result = try ProcessRunner.run(

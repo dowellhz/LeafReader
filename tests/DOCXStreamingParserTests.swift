@@ -36,6 +36,9 @@ private func writeFixture(root: URL, title: String) throws -> URL {
         to: relationshipsDirectory.appendingPathComponent("document.xml.rels")
     )
     try Data([0x89, 0x50, 0x4E, 0x47]).write(to: mediaDirectory.appendingPathComponent("image 1.png"))
+    let docPropsDirectory = root.appendingPathComponent("docProps", isDirectory: true)
+    try FileManager.default.createDirectory(at: docPropsDirectory, withIntermediateDirectories: true)
+    try Data("not needed by the reader".utf8).write(to: docPropsDirectory.appendingPathComponent("unused.txt"))
     return wordDirectory.appendingPathComponent("document.xml")
 }
 
@@ -44,10 +47,33 @@ private func makeArchive(from root: URL, at archiveURL: URL) throws {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
     process.currentDirectoryURL = root
-    process.arguments = ["-q", "-r", archiveURL.path, "word"]
+    process.arguments = ["-q", "-r", archiveURL.path, "word", "docProps"]
     try process.run()
     process.waitUntilExit()
     assert(process.terminationStatus == 0, "fixture archive creation should succeed")
+}
+
+private func cacheEntries(in root: URL) throws -> [URL] {
+    guard FileManager.default.fileExists(atPath: root.path) else { return [] }
+    return try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+        .filter { !$0.lastPathComponent.hasPrefix(".") }
+}
+
+private final class ConcurrentDOCXResults: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [Result<WebReadableDocument, Error>] = []
+
+    func append(_ result: Result<WebReadableDocument, Error>) {
+        lock.lock()
+        storage.append(result)
+        lock.unlock()
+    }
+
+    func snapshot() -> [Result<WebReadableDocument, Error>] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
 }
 
 @main
@@ -87,9 +113,21 @@ private struct DOCXStreamingParserTestRunner {
         assert(first.plainText.contains("First title"), "prepared DOCX should expose plain text")
         let firstHTML = try String(contentsOf: firstHTMLURL, encoding: .utf8)
         assert(firstHTML.contains("First title"), "prepared HTML should contain rendered content")
+        assert(
+            !FileManager.default.fileExists(atPath: first.baseURL.appendingPathComponent("docProps/unused.txt").path),
+            "prepared DOCX entries should not extract unrelated archive content"
+        )
+        assert(
+            first.loadMeasurements.contains { $0.stage == .docxXMLRender },
+            "a cache miss should record its rendering stage"
+        )
 
         let second = try WebDocumentLoader.loadDOCX(url: archiveURL)
         assert(second.htmlFileURL == firstHTMLURL, "unchanged DOCX content should reuse its prepared cache")
+        assert(
+            second.loadMeasurements.contains { $0.stage == .docxCacheHitLoad },
+            "a cache hit should record its cache-load stage"
+        )
 
         try Data("tampered".utf8).write(to: firstHTMLURL)
         let repaired = try WebDocumentLoader.loadDOCX(url: archiveURL)
@@ -114,6 +152,78 @@ private struct DOCXStreamingParserTestRunner {
         } catch is CancellationError {
             // Expected.
         }
+
+        do {
+            _ = try WebDocumentLoader.validatedDOCXArchiveEntries([
+                "word/document.xml",
+                "../escape.txt"
+            ])
+            assert(false, "unsafe DOCX archive paths should be rejected")
+        } catch {
+            // Expected.
+        }
+        let selected = try WebDocumentLoader.validatedDOCXArchiveEntries([
+            "word/document.xml",
+            "word/_rels/document.xml.rels",
+            "word/media/image 1.png",
+            "docProps/unused.txt"
+        ])
+        assert(
+            selected == ["word/document.xml", "word/_rels/document.xml.rels", "word/media/image 1.png"],
+            "DOCX extraction should select only rendering dependencies"
+        )
+
+        let quotaCache = root.appendingPathComponent("quota-cache", isDirectory: true)
+        let transient = try WebDocumentLoader.loadPreparedDOCX(
+            url: archiveURL,
+            cacheRootURL: quotaCache,
+            policy: DOCXPreparedCachePolicy(maximumBytes: 1, maximumEntries: 10)
+        )
+        assert(transient.ownedResource != nil, "an oversized prepared entry should have an explicit temporary owner")
+        let quotaEntries = try cacheEntries(in: quotaCache)
+        assert(quotaEntries.isEmpty, "an oversized prepared entry should not enter the persistent cache")
+        let transientDirectory = transient.baseURL
+        transient.ownedResource?.release()
+        assert(
+            !FileManager.default.fileExists(atPath: transientDirectory.path),
+            "releasing an oversized prepared entry should remove its temporary directory"
+        )
+
+        let evictionCache = root.appendingPathComponent("eviction-cache", isDirectory: true)
+        let renamedArchive = root.appendingPathComponent("renamed.docx")
+        try FileManager.default.copyItem(at: archiveURL, to: renamedArchive)
+        let oneEntryPolicy = DOCXPreparedCachePolicy(maximumBytes: 512 * 1_024 * 1_024, maximumEntries: 1)
+        _ = try WebDocumentLoader.loadPreparedDOCX(
+            url: archiveURL,
+            cacheRootURL: evictionCache,
+            policy: oneEntryPolicy
+        )
+        _ = try WebDocumentLoader.loadPreparedDOCX(
+            url: renamedArchive,
+            cacheRootURL: evictionCache,
+            policy: oneEntryPolicy
+        )
+        let evictionEntries = try cacheEntries(in: evictionCache)
+        assert(evictionEntries.count == 1, "cache cleanup should enforce the entry quota")
+
+        let concurrentCache = root.appendingPathComponent("concurrent-cache", isDirectory: true)
+        let concurrentResults = ConcurrentDOCXResults()
+        let group = DispatchGroup()
+        for _ in 0..<2 {
+            group.enter()
+            DispatchQueue.global(qos: .userInitiated).async {
+                concurrentResults.append(Result {
+                    try WebDocumentLoader.loadPreparedDOCX(url: archiveURL, cacheRootURL: concurrentCache)
+                })
+                group.leave()
+            }
+        }
+        assert(group.wait(timeout: .now() + 20) == .success, "concurrent DOCX preparation should finish")
+        let documents = try concurrentResults.snapshot().map { try $0.get() }
+        assert(documents.count == 2, "both concurrent DOCX callers should receive a result")
+        assert(documents[0].plainText == documents[1].plainText, "concurrent DOCX results should agree")
+        let concurrentEntries = try cacheEntries(in: concurrentCache)
+        assert(concurrentEntries.count == 1, "concurrent builders should converge on one cache entry")
 
         print("DOCXStreamingParserTests passed")
     }

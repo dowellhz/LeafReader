@@ -1,12 +1,12 @@
-import PDFKit
+import Foundation
 
 extension ReaderWindowController {
     @objc func applyPageFromField() {
         guard currentDocumentKind == .pdf,
-              let document = pdfView.document,
-              document.pageCount > 0 else {
+              let backend = activePagedReaderBackend,
+              backend.pageCount > 0 else {
             updatePageLabel()
-            window?.makeFirstResponder(currentDocumentKind == .pdf ? pdfView : webView)
+            activeReaderBackend?.focus()
             return
         }
 
@@ -19,24 +19,22 @@ extension ReaderWindowController {
         }
         guard let requestedPage = Int(pageNumberText) else {
             updatePageLabel()
-            window?.makeFirstResponder(pdfView)
+            backend.focus()
             return
         }
 
-        let targetIndex = min(max(requestedPage, 1), document.pageCount) - 1
-        guard let page = document.page(at: targetIndex) else {
+        let targetIndex = min(max(requestedPage, 1), backend.pageCount) - 1
+        guard backend.navigate(toPage: targetIndex, placement: .top) else {
             updatePageLabel()
-            window?.makeFirstResponder(pdfView)
+            backend.focus()
             return
         }
 
         clearAISelectionForNavigation()
-        pdfView.go(to: page)
         lastPageIndex = targetIndex
-        scrollPageToTop(page)
         updatePageLabel()
         saveSession()
-        window?.makeFirstResponder(pdfView)
+        backend.focus()
     }
 
     @objc func prevPage() {
@@ -63,28 +61,16 @@ extension ReaderWindowController {
     }
 
     func scrollWebPage(direction: Int) {
-        let sign = direction < 0 ? "-" : ""
-        webView.evaluateJavaScript("window.scrollBy({top: \(sign)Math.max(240, window.innerHeight * 0.86), behavior: 'smooth'});")
+        activeContinuousReaderBackend?.scrollByPage(direction < 0 ? .previous : .next)
     }
 
     @objc func goToCover() {
         clearAISelectionForNavigation()
         guard currentDocumentKind == .pdf else {
-            webView.evaluateJavaScript("""
-            (() => {
-              const cover = document.querySelector('section.reader-section[data-leaf-cover="true"]') || document.querySelector('section.reader-section');
-              if (cover) {
-                cover.scrollIntoView({behavior:'smooth', block:'start'});
-              } else {
-                window.scrollTo({top:0, behavior:'smooth'});
-              }
-            })();
-            """)
+            activeContinuousReaderBackend?.scrollToCover()
             return
         }
-        guard let firstPage = pdfView.document?.page(at: 0) else { return }
-        pdfView.go(to: firstPage)
-        scrollPageToTop(firstPage)
+        guard activePagedReaderBackend?.navigate(toPage: 0, placement: .top) == true else { return }
         updatePageLabel()
         saveSession()
     }
@@ -102,23 +88,23 @@ extension ReaderWindowController {
             jumpToWebProgress(storedProgress?.scrollProgress ?? webScrollProgress, animated: true)
             return
         }
-        guard let document = pdfView.document, document.pageCount > 0 else { return }
+        guard let backend = activePagedReaderBackend, backend.pageCount > 0 else { return }
         let storedProgress = sessionStore.loadFarthestPDFProgress()
-        let targetIndex = min(max(storedProgress?.pageIndex ?? currentPageIndex() ?? 0, 0), document.pageCount - 1)
-        guard let page = document.page(at: targetIndex) else { return }
-        pdfView.go(to: page)
+        let targetIndex = min(max(storedProgress?.pageIndex ?? backend.currentPageIndex ?? 0, 0), backend.pageCount - 1)
         lastPageIndex = targetIndex
         if let storedProgress, ReaderSessionPolicy.isRestorablePDFScale(storedProgress.scale) {
             applyReadablePDFScale(storedProgress.scale)
         }
         if let anchorPoint = storedProgress?.anchorPoint {
-            restorePDFViewportAnchor(page: page, point: anchorPoint)
+            guard backend.restoreViewportAnchor(
+                ReaderPagedViewportAnchor(pageIndex: targetIndex, point: anchorPoint)
+            ) else { return }
         } else {
-            scrollPageToTop(page)
+            guard backend.navigate(toPage: targetIndex, placement: .top) else { return }
         }
         updatePageLabel()
         saveSession()
-        window?.makeFirstResponder(pdfView)
+        backend.focus()
     }
 
     func jumpToWebProgress(_ progressValue: Double, animated: Bool) {
@@ -127,26 +113,11 @@ extension ReaderWindowController {
         updateWebProgressLabel(progress)
         scrollWebToProgress(progress, animated: animated)
         saveSession()
-        window?.makeFirstResponder(webView)
+        activeContinuousReaderBackend?.focus()
     }
 
     func scrollWebToProgress(_ progress: Double, animated: Bool) {
-        let behavior = animated ? "smooth" : "auto"
-        let script = """
-        (() => {
-          const progress = \(progress);
-          const scroll = () => {
-            const scrollHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-            window.scrollTo({ top: scrollHeight * progress, behavior: '\(behavior)' });
-          };
-          if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => requestAnimationFrame(scroll), { once: true });
-          } else {
-            requestAnimationFrame(() => requestAnimationFrame(scroll));
-          }
-        })();
-        """
-        webView.evaluateJavaScript(script)
+        activeContinuousReaderBackend?.scroll(toProgress: progress, animated: animated)
     }
 
 
@@ -165,12 +136,12 @@ extension ReaderWindowController {
         direction: EdgePagingPDFView.ScrollPageDirection,
         targetPlacement: PDFPageNavigationPlacement
     ) {
-        guard let document = pdfView.document, document.pageCount > 0 else { return }
+        guard let backend = activePagedReaderBackend, backend.pageCount > 0 else { return }
         let readingMode = currentPDFReadingMode()
         let currentIndex = PDFPagingPolicy.navigationPageIndex(
             readingMode: readingMode,
-            viewportPageIndex: currentPDFViewportAnchor()?.pageIndex,
-            currentPageIndex: currentPageIndex()
+            viewportPageIndex: backend.viewportAnchor?.pageIndex,
+            currentPageIndex: backend.currentPageIndex
         ) ?? 0
         let targetIndex: Int
         switch direction {
@@ -180,40 +151,18 @@ extension ReaderWindowController {
             targetIndex = currentIndex + 1
         }
         guard targetIndex >= 0,
-              targetIndex < document.pageCount,
-              let page = document.page(at: targetIndex) else {
+              targetIndex < backend.pageCount,
+              backend.navigate(
+                toPage: targetIndex,
+                placement: targetPlacement == .top ? .top : .bottom
+              ) else {
             updatePageLabel()
             saveSession()
             return
         }
-        scrollPage(page, to: targetPlacement)
         lastPageIndex = targetIndex
         updatePageLabel()
         saveSession()
-    }
-
-    func scrollPageToTop(_ page: PDFPage) {
-        scrollPage(page, to: .top)
-    }
-
-    private func scrollPage(_ page: PDFPage, to placement: PDFPageNavigationPlacement) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self,
-                  self.pdfView.document?.index(for: page) != NSNotFound else {
-                return
-            }
-            let bounds = page.bounds(for: self.pdfView.displayBox)
-            let destinationY: CGFloat
-            switch placement {
-            case .top:
-                destinationY = bounds.maxY
-            case .bottom:
-                destinationY = bounds.minY
-            }
-            let destination = PDFDestination(page: page, at: NSPoint(x: bounds.minX, y: destinationY))
-            self.pdfView.go(to: destination)
-            self.updatePageLabel()
-        }
     }
 
     @objc func toggleFullScreen() {

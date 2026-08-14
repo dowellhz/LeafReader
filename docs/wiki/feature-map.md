@@ -14,6 +14,7 @@ Use this page when the task starts from a product feature instead of a file name
 
 - `mac-app/PDFReaderView.swift`: PDFKit view subclass and edge paging events.
 - `mac-app/PDFPagingPolicy.swift`: page turn thresholds and duplicate-turn guard.
+- `mac-app/ReaderContentBackend.swift`: typed PDFKit/WebKit navigation and zoom adapters.
 - `mac-app/ReaderWindowController+Navigation.swift`: page navigation commands.
 
 ## EPUB And DOCX Reading
@@ -21,6 +22,8 @@ Use this page when the task starts from a product feature instead of a file name
 - `mac-app/DocumentLoading.swift`: shared document model and loader entry point.
 - `mac-app/DocumentLoading+EPUB.swift`: EPUB package, cover, TOC, and resources.
 - `mac-app/DocumentLoading+DOCX.swift`: DOCX paragraph, table, and media rendering.
+- `mac-app/DocumentLoading+DOCXStreaming.swift`: cancellable streaming XML rendering.
+- `mac-app/DocumentLoading+DOCXCache.swift` and `mac-app/DOCXPreparedCache.swift`: selective extraction, verified prepared output, concurrent publication, and bounded cache cleanup.
 - `mac-app/DocumentLoading+HTML.swift`: generated HTML wrapper and rewriting.
 - `mac-app/Resources/reader-web.js`: WebKit reader behavior, selection, and highlights.
 

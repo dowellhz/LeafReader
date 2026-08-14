@@ -19,7 +19,8 @@ AppDelegate
 
 - `AppDelegate*.swift`: app lifecycle, menu, help, update UI.
 - `ReaderWindowController*.swift`: reader shell, document opening, navigation, search, AI integration, vocabulary, sessions.
-- `DocumentLoading*.swift`: EPUB/DOCX archive handling, shared document helpers, and cancellable DOCX streaming preparation. Prepared DOCX output is cached by a content fingerprint, verified before reuse, and published atomically so a stale or interrupted load cannot replace valid content.
+- `DocumentLoading*.swift` and `DOCXPreparedCache.swift`: EPUB/DOCX archive handling, shared document helpers, and cancellable DOCX streaming preparation. DOCX preparation extracts only rendering dependencies; prepared output is cached by a content fingerprint, verified before reuse, bounded by entry and byte quotas, and published atomically so concurrent, stale, or interrupted loads cannot replace valid content.
+- `ReaderContentBackend.swift`: typed PDFKit and WebKit adapters used by shared navigation and zoom commands while preserving renderer-native behavior.
 - `ProcessRunner.swift`: bounded external process execution for archive helpers and other command-line runtimes.
 - `PDFDocumentTextSnapshot.swift`: cancellable PDF text extraction and a verified, content-addressed cache reused by whole-document AI indexing. Background extraction and index construction pause briefly during reader interaction.
 - `AIChatPanel*.swift`: AI chat UI, request lifecycle, bubble layout, selection handling.
@@ -51,6 +52,8 @@ Reader selection and automatic background embedding work do not inspect Keychain
 - `mac-app/ReaderWindowController.swift`
 - `mac-app/ReaderWindowController+UI.swift`
 - `mac-app/DocumentLoading.swift`
+- `mac-app/DOCXPreparedCache.swift`
+- `mac-app/ReaderContentBackend.swift`
 - `mac-app/ProcessRunner.swift`
 - `mac-app/AIChatPanel.swift`
 - `mac-app/SpeechPlaybackCoordinator.swift`
