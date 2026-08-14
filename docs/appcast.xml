@@ -6,31 +6,35 @@
     <description>Leaf Reader macOS app updates.</description>
     <language>zh-CN</language>
     <item>
-      <title>Leaf Reader 1.7.9</title>
-      <sparkle:version>1.7.9</sparkle:version>
-      <sparkle:shortVersionString>1.7.9</sparkle:shortVersionString>
+      <title>Leaf Reader 1.7.10</title>
+      <sparkle:version>1.7.10</sparkle:version>
+      <sparkle:shortVersionString>1.7.10</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <pubDate>Tue, 09 Jun 2026 03:22:48 +0000</pubDate>
+      <pubDate>Fri, 14 Aug 2026 01:20:43 +0000</pubDate>
       <description xml:lang="zh"><![CDATA[
         <ul>
-          <li>改进 PDF 朗读：自动学习并跳过重复页眉和页脚行。</li>
-          <li>页码和页脚文字在同一视觉行时会整行跳过，避免 TTS 读出页脚。</li>
-          <li>增加启动耗时诊断，并延迟部分朗读组件初始化，让日常启动更轻。</li>
-          <li>补充 PDF 页脚过滤和启动耗时相关回归测试。</li>
-        </ul>
+  <li>新增 PDF 连续滚动和可靠的上一页导航，并加入论文式目录。</li>
+  <li>PDF 搜索改为渐进返回，同时提升 PDF、Web、EPUB 和 DOCX 的加载与高亮性能。</li>
+  <li>加入内容寻址的 PDF 文本快照、DOCX 流式解析、文档缓存和过期任务取消。</li>
+  <li>生词支持词元加词性分组、相关词形差异高亮和直接查看完整释义。</li>
+  <li>新增事务式用户数据备份和恢复，API 凭据不会进入备份包。</li>
+  <li>加强不可信文档、归档、缓存、运行时和凭据访问路径的安全性。</li>
+</ul>
       ]]></description>
       <description xml:lang="en"><![CDATA[
         <ul>
-          <li>Improved PDF read-aloud by learning and skipping repeated header and footer rows.</li>
-          <li>Footer text and page numbers on the same visual row are skipped together during TTS.</li>
-          <li>Added launch performance diagnostics and delayed part of speech setup for lighter everyday startup.</li>
-          <li>Added regression coverage for PDF footer filtering and launch timing.</li>
-        </ul>
+  <li>Added continuous PDF scrolling with reliable previous-page navigation and a paper-style table of contents.</li>
+  <li>Made PDF search progressive and improved PDF, Web, EPUB, and DOCX loading and highlight performance.</li>
+  <li>Added content-addressed PDF text snapshots, streaming DOCX parsing, prepared-document caching, and stale-task cancellation.</li>
+  <li>Improved vocabulary learning with lemma-and-part-of-speech grouping, related-form highlights, and direct definition access.</li>
+  <li>Added transactional user-data backup and recovery while excluding API credentials from backup packages.</li>
+  <li>Hardened untrusted document, archive, cache, runtime, and credential-access paths.</li>
+</ul>
       ]]></description>
       <enclosure
-        url="https://github.com/dowellhz/LeafReader/releases/download/v1.7.9/LeafReader-1.7.9.pkg"
-        sparkle:edSignature="zgt21RIJGZy96RKccYbV3XUXo00MMlHUB1u4xbohvvIMDLkARiVI0vpf2Gq+AGsiU/VKuImSpBvJzotrNQpdAQ=="
-        length="23829981"
+        url="https://github.com/dowellhz/LeafReader/releases/download/v1.7.10/LeafReader-1.7.10.pkg"
+        sparkle:edSignature="BHjRC+dOtzJH7LjQBCDum8USe0z0HW6h45DT4CADLOW2KMuiCW2ZhFvNUhjO9vCJs899rStFh0o1m6sNPoBSAg=="
+        length="24233285"
         type="application/octet-stream" />
     </item>
   </channel>
