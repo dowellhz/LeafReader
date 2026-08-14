@@ -47,6 +47,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     static let pdfMarginCropDefaultsKey = "pdfMarginCrop"
     static let fileMD5CacheDefaultsKey = "fileMD5Cache"
     static let embeddingControlStateDefaultsKey = "embeddingControlState"
+    static let showsRelatedWordFormsDefaultsKey = "reader.showsRelatedWordForms"
     static let minimumReadablePDFScale: CGFloat = 1.0
     static let capsuleButtonIdentifier = NSUserInterfaceItemIdentifier("leafReaderCapsuleButton")
     static let readAloudLanguageProbePageLimit = 3
@@ -88,6 +89,7 @@ final class ReaderWindowController: NSWindowController, NSWindowDelegate, PDFVie
     var pageLayoutButton: NSButton!
     var cropButton: NSButton!
     var searchButton: NSButton!
+    var relatedFormsButton: NSButton!
     var searchUnderlineButton: SearchUnderlineButton!
     let embeddingStatusLabel = NSTextField(labelWithString: "")
     var embeddingPauseButton: NSButton!

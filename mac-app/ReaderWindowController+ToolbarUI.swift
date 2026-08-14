@@ -15,10 +15,12 @@ extension ReaderWindowController {
         configureZoomControls(zoomGroup: zoomGroup, zoomOut: zoomOut, zoomIn: zoomIn, leftDivider: leftDivider, rightDivider: rightDivider)
         configurePageAndSearchControls()
         configureTopRightControls()
+        configureRelatedFormsControl()
 
         let toolbarSubviews: [NSView?] = [
             titleLabel, readAloudButton, readAloudStopButton, coverImageView, zoomGroup,
-            pageLabel, searchUnderlineButton, searchButton, pageLayoutButton, cropButton, fullScreenButton
+            pageLabel, searchUnderlineButton, searchButton, relatedFormsButton,
+            pageLayoutButton, cropButton, fullScreenButton
         ]
         assert(toolbarSubviews.allSatisfy { $0 != nil }, "toolbar controls must be configured before layout")
         for view in toolbarSubviews.compactMap({ $0 }) {
@@ -196,6 +198,29 @@ extension ReaderWindowController {
         cropButton.toolTip = AppText.localized("裁掉 PDF 页面外侧空白", "Crop outer PDF margins")
         updatePDFPageLayoutButton()
         updatePDFMarginCropButton()
+    }
+
+    func configureRelatedFormsControl() {
+        relatedFormsButton = iconButton(
+            symbol: "eye",
+            action: #selector(toggleRelatedWordForms(_:))
+        )
+        relatedFormsButton.isHidden = true
+        updateRelatedFormsButton()
+    }
+
+    func updateRelatedFormsButton() {
+        guard relatedFormsButton != nil else { return }
+        let title = showsRelatedWordForms
+            ? AppText.localized("隐藏相关词形高亮", "Hide related-form highlights")
+            : AppText.localized("显示相关词形高亮", "Show related-form highlights")
+        setSystemImage(
+            showsRelatedWordForms ? "eye" : "eye.slash",
+            on: relatedFormsButton,
+            accessibilityDescription: title
+        )
+        relatedFormsButton.toolTip = title
+        relatedFormsButton.state = showsRelatedWordForms ? .on : .off
     }
 
     func readerBarView() -> NSView {

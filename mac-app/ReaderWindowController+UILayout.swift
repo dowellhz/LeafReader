@@ -54,6 +54,7 @@ enum ReaderUILayout {
     static let searchUnderlineSize = CGSize(width: 74, height: 28)
     static let searchButtonLeading: CGFloat = 2
     static let iconButtonSize: CGFloat = 28
+    static let relatedFormsButtonSpacing: CGFloat = 6
 
     static let pageLayoutTrailing: CGFloat = -8
     static let pageLayoutButtonWidth: CGFloat = 84
@@ -229,6 +230,14 @@ extension ReaderWindowController {
             searchButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
             searchButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.iconButtonSize),
             searchButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.iconButtonSize),
+
+            relatedFormsButton.trailingAnchor.constraint(
+                equalTo: pageLayoutButton.leadingAnchor,
+                constant: -ReaderUILayout.relatedFormsButtonSpacing
+            ),
+            relatedFormsButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),
+            relatedFormsButton.widthAnchor.constraint(equalToConstant: ReaderUILayout.iconButtonSize),
+            relatedFormsButton.heightAnchor.constraint(equalToConstant: ReaderUILayout.iconButtonSize),
 
             pageLayoutButton.trailingAnchor.constraint(equalTo: cropButton.leadingAnchor, constant: ReaderUILayout.pageLayoutTrailing),
             pageLayoutButton.centerYAnchor.constraint(equalTo: toolbar.centerYAnchor),

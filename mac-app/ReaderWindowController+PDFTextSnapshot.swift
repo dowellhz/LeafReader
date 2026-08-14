@@ -2,7 +2,10 @@ import Foundation
 
 extension ReaderWindowController {
     func preparePDFTextSnapshotAsync(for url: URL) {
-        ensurePDFTextSnapshotAsync(for: url) { _ in }
+        ensurePDFTextSnapshotAsync(for: url) { [weak self] snapshot in
+            guard snapshot != nil else { return }
+            self?.restoreStoredWordAnnotations()
+        }
     }
 
     func ensurePDFTextSnapshotAsync(

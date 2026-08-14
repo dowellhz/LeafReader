@@ -1,7 +1,32 @@
 import Cocoa
 import PDFKit
 
+private struct VocabularyFormHighlightTarget {
+    let linkID: String
+    let primarySurface: String
+}
+
+private struct VocabularyFormPageMatch {
+    let pageIndex: Int
+    let occurrence: VocabularyLemmaOccurrence
+}
+
 extension ReaderWindowController {
+    var showsRelatedWordForms: Bool {
+        get {
+            UserDefaults.standard.object(forKey: Self.showsRelatedWordFormsDefaultsKey) as? Bool ?? true
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.showsRelatedWordFormsDefaultsKey)
+        }
+    }
+
+    @objc func toggleRelatedWordForms(_ sender: NSButton) {
+        showsRelatedWordForms.toggle()
+        updateRelatedFormsButton()
+        restoreStoredWordAnnotations()
+    }
+
     func restoreStoredWordAnnotations() {
         guard currentDocumentKind == .pdf else { return }
         vocabularyState.pdfAnnotationRestoreGeneration += 1
@@ -12,7 +37,15 @@ extension ReaderWindowController {
     }
 
     func addStoredWordAnnotation(_ record: StoredPDFWordRecord) {
-        _ = addPDFVocabularyAnnotation(record, refineBounds: true, invalidateDisplay: true)
+        let didAdd = addPDFVocabularyAnnotation(
+            record,
+            isPrimaryForm: primaryVocabularyFormRecordIDs().contains(record.id),
+            refineBounds: true,
+            invalidateDisplay: true
+        )
+        if didAdd {
+            scheduleVocabularyFormAnnotationsForVisiblePages()
+        }
     }
 
     func addPendingWordAnnotation(id: String, pageIndex: Int, bounds: CGRect, word: String) {
@@ -22,6 +55,7 @@ extension ReaderWindowController {
             storedBounds: bounds,
             word: word,
             textAnchor: pendingPDFWordRecords[id]?.textAnchor,
+            isPrimaryForm: true,
             refineBounds: true,
             invalidateDisplay: true
         )
@@ -37,9 +71,13 @@ extension ReaderWindowController {
             pageIndexes: storedWordRecords.map(\.pageIndex),
             visiblePageIndexes: visiblePageIndexes
         )
-        guard !indexes.isEmpty else { return }
+        guard !indexes.isEmpty else {
+            scheduleVocabularyFormAnnotationsForVisiblePages()
+            return
+        }
         materializeStoredWordAnnotationBatch(
             recordIndexes: indexes,
+            primaryFormRecordIDs: primaryVocabularyFormRecordIDs(),
             startIndex: 0,
             generation: vocabularyState.pdfAnnotationRestoreGeneration,
             documentID: currentFileMD5
@@ -48,6 +86,7 @@ extension ReaderWindowController {
 
     private func materializeStoredWordAnnotationBatch(
         recordIndexes: [Int],
+        primaryFormRecordIDs: Set<String>,
         startIndex: Int,
         generation: Int,
         documentID: String?
@@ -71,6 +110,7 @@ extension ReaderWindowController {
             guard visiblePageIndexes.contains(record.pageIndex) else { continue }
             didAddAnnotation = addPDFVocabularyAnnotation(
                 record,
+                isPrimaryForm: primaryFormRecordIDs.contains(record.id),
                 refineBounds: true,
                 invalidateDisplay: false
             ) || didAddAnnotation
@@ -80,10 +120,14 @@ extension ReaderWindowController {
         }
 
         let nextIndex = batchRange.upperBound
-        guard nextIndex < recordIndexes.count else { return }
+        guard nextIndex < recordIndexes.count else {
+            scheduleVocabularyFormAnnotationsForVisiblePages()
+            return
+        }
         DispatchQueue.main.async { [weak self] in
             self?.materializeStoredWordAnnotationBatch(
                 recordIndexes: recordIndexes,
+                primaryFormRecordIDs: primaryFormRecordIDs,
                 startIndex: nextIndex,
                 generation: generation,
                 documentID: documentID
@@ -94,6 +138,7 @@ extension ReaderWindowController {
     @discardableResult
     private func addPDFVocabularyAnnotation(
         _ record: StoredPDFWordRecord,
+        isPrimaryForm: Bool,
         refineBounds: Bool,
         invalidateDisplay: Bool
     ) -> Bool {
@@ -103,6 +148,7 @@ extension ReaderWindowController {
             storedBounds: record.bounds.cgRect,
             word: record.word,
             textAnchor: record.textAnchor,
+            isPrimaryForm: isPrimaryForm,
             refineBounds: refineBounds,
             invalidateDisplay: invalidateDisplay
         )
@@ -115,10 +161,12 @@ extension ReaderWindowController {
         storedBounds: CGRect,
         word: String,
         textAnchor: TextQuoteAnchor?,
+        isPrimaryForm: Bool,
         refineBounds: Bool,
         invalidateDisplay: Bool
     ) -> Bool {
-        guard let page = pdfView.document?.page(at: pageIndex) else { return false }
+        guard isPrimaryForm || showsRelatedWordForms,
+              let page = pdfView.document?.page(at: pageIndex) else { return false }
         let bounds = refineBounds
             ? displayBounds(
                 id: id,
@@ -134,7 +182,9 @@ extension ReaderWindowController {
         highlightedSelectionKeys.insert(key)
 
         let annotation = PDFAnnotation(bounds: wordUnderlineBounds(for: bounds), forType: .highlight, withProperties: nil)
-        annotation.color = vocabularySelectionHighlightColor(for: ReaderTheme.selected)
+        annotation.color = isPrimaryForm
+            ? vocabularySelectionHighlightColor(for: ReaderTheme.selected)
+            : vocabularyRelatedFormHighlightColor(for: ReaderTheme.selected)
         annotation.contents = "leaf-word:\(id)"
         page.addAnnotation(annotation)
         vocabularyState.renderedPDFWordAnnotations.append((page, annotation))
@@ -220,6 +270,105 @@ extension ReaderWindowController {
 
     func vocabularySelectionHighlightColor(for theme: ReaderTheme) -> NSColor {
         theme.aiSourceUnderlineColor
+    }
+
+    func vocabularyRelatedFormHighlightColor(for theme: ReaderTheme) -> NSColor {
+        let base = vocabularySelectionHighlightColor(for: theme)
+        return base.withAlphaComponent(base.alphaComponent * 0.42)
+    }
+
+    private func primaryVocabularyFormRecordIDs() -> Set<String> {
+        VocabularyRelatedFormPolicy.primarySampleIDs(storedWordRecords.map { record in
+            VocabularyWordSample(
+                id: record.id,
+                word: record.word,
+                context: record.context,
+                createdAt: record.createdAt
+            )
+        })
+    }
+
+    private func vocabularyFormHighlightTargets() -> [String: VocabularyFormHighlightTarget] {
+        let primaryIDs = primaryVocabularyFormRecordIDs()
+        var targets: [String: VocabularyFormHighlightTarget] = [:]
+        for record in storedWordRecords.sorted(by: { $0.createdAt < $1.createdAt }) where primaryIDs.contains(record.id) {
+            let identity = VocabularyLemmaResolver.identity(for: record.word, context: record.context)
+            guard identity.groupingKey.hasPrefix("lemma:") else { continue }
+            if targets[identity.groupingKey] == nil {
+                targets[identity.groupingKey] = VocabularyFormHighlightTarget(
+                    linkID: record.id,
+                    primarySurface: identity.surface
+                )
+            }
+        }
+        return targets
+    }
+
+    private func scheduleVocabularyFormAnnotationsForVisiblePages() {
+        guard currentDocumentKind == .pdf,
+              let snapshot = pdfTextSnapshot else { return }
+        let targets = vocabularyFormHighlightTargets()
+        guard !targets.isEmpty else { return }
+        let visiblePageIndexes = visiblePDFPageIndexes().sorted()
+        guard !visiblePageIndexes.isEmpty else { return }
+
+        let annotationGeneration = vocabularyState.pdfAnnotationRestoreGeneration
+        let snapshotGeneration = pdfTextSnapshotGeneration
+        let documentID = currentFileMD5
+        let groupingKeys = Set(targets.keys)
+        let pageTexts = visiblePageIndexes.compactMap { pageIndex -> (Int, String)? in
+            guard let text = snapshot.pageText(at: pageIndex), !text.isEmpty else { return nil }
+            return (pageIndex, text)
+        }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let matches = pageTexts.flatMap { pageIndex, text in
+                VocabularyLemmaOccurrenceMatcher.matches(
+                    in: text,
+                    groupingKeys: groupingKeys
+                ).map { VocabularyFormPageMatch(pageIndex: pageIndex, occurrence: $0) }
+            }
+            DispatchQueue.main.async {
+                guard let self,
+                      self.currentDocumentKind == .pdf,
+                      self.currentFileMD5 == documentID,
+                      self.pdfTextSnapshotGeneration == snapshotGeneration,
+                      self.vocabularyState.pdfAnnotationRestoreGeneration == annotationGeneration else {
+                    return
+                }
+                self.materializeVocabularyFormAnnotations(matches, targets: targets)
+            }
+        }
+    }
+
+    private func materializeVocabularyFormAnnotations(
+        _ matches: [VocabularyFormPageMatch],
+        targets: [String: VocabularyFormHighlightTarget]
+    ) {
+        var didAddAnnotation = false
+        for match in matches {
+            guard let target = targets[match.occurrence.groupingKey],
+                  let page = pdfView.document?.page(at: match.pageIndex),
+                  let selection = page.selection(for: match.occurrence.range) else {
+                continue
+            }
+            let bounds = exactPDFSelectionBounds(selection, page: page)
+                ?? selection.bounds(for: page)
+            guard bounds.width > 0, bounds.height > 0 else { continue }
+            let isPrimaryForm = match.occurrence.surface.caseInsensitiveCompare(target.primarySurface) == .orderedSame
+            didAddAnnotation = addPDFVocabularyAnnotation(
+                id: target.linkID,
+                pageIndex: match.pageIndex,
+                storedBounds: bounds,
+                word: match.occurrence.surface,
+                textAnchor: nil,
+                isPrimaryForm: isPrimaryForm,
+                refineBounds: false,
+                invalidateDisplay: false
+            ) || didAddAnnotation
+        }
+        if didAddAnnotation {
+            pdfView.setNeedsDisplay(pdfView.bounds)
+        }
     }
 
     func wordUnderlineBounds(for bounds: CGRect) -> CGRect {

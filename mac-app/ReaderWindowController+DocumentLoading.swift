@@ -53,6 +53,7 @@ extension ReaderWindowController {
         scheduleCoverThumbnail(for: url, documentID: currentFileMD5)
         pageLayoutButton.isHidden = false
         cropButton.isHidden = false
+        relatedFormsButton.isHidden = false
         updatePDFMarginCropButton()
         applyPDFPageLayout(animated: false)
 
@@ -149,6 +150,7 @@ extension ReaderWindowController {
         coverImageView.isHidden = false
         pageLayoutButton.isHidden = true
         cropButton.isHidden = true
+        relatedFormsButton.isHidden = true
         updateWebProgressLabel(0)
         zoomField.stringValue = "100%"
         if let htmlFileURL = document.htmlFileURL {

@@ -90,6 +90,7 @@ extension ReaderWindowController {
         refreshEmbeddingStatusLanguage()
         updatePDFPageLayoutButton()
         updatePDFMarginCropButton()
+        updateRelatedFormsButton()
         for button in [coverButton, tocButton, recentButton, notesButton, vocabularyButton, prevButton, nextButton, farthestPositionButton, pageLayoutButton, cropButton] {
             if let capsule = button as? CapsuleChromeButton {
                 capsule.theme = ReaderTheme.selected

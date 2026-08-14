@@ -56,9 +56,35 @@ extension ReaderWindowController {
         srsLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         srsLabel.translatesAutoresizingMaskIntoConstraints = false
 
+        let relatedForms = record.surfaceForms.filter {
+            $0.caseInsensitiveCompare(word) != .orderedSame
+        }
+        let formsLabel: NSTextField? = relatedForms.isEmpty ? nil : {
+            let text = AppText.localized(
+                "词元：\(record.lemma) · 相关词形：\(relatedForms.joined(separator: "、"))",
+                "Lemma: \(record.lemma) · Related forms: \(relatedForms.joined(separator: ", "))"
+            )
+            let label = NSTextField(labelWithString: text)
+            label.font = AppFont.semibold(ofSize: 12)
+            label.textColor = vocabularySecondaryTextColor(for: theme)
+            label.lineBreakMode = .byTruncatingTail
+            label.translatesAutoresizingMaskIntoConstraints = false
+            return label
+        }()
+
         let masteredButton = vocabularyActionButton(title: AppText.localized("删除", "Delete"), target: self, action: #selector(markVocabularyRecordMastered(_:)), fontSize: 14)
         masteredButton.controlSize = .small
         masteredButton.identifier = NSUserInterfaceItemIdentifier(record.ids.joined(separator: "|"))
+
+        let definitionButton = vocabularyActionButton(
+            title: AppText.localized("查看释义", "Definition"),
+            target: self,
+            action: #selector(showVocabularyDefinitionFromList(_:)),
+            fontSize: 13
+        )
+        definitionButton.controlSize = .small
+        definitionButton.identifier = record.ids.first.map { NSUserInterfaceItemIdentifier($0) }
+        definitionButton.toolTip = AppText.localized("在阅读侧栏中查看完整释义", "Show the full definition in the reader sidebar")
 
         let answerColor = vocabularyBodyTextColor(for: theme)
         let answerBody = vocabularyAnswerBody(answer, word: word)
@@ -73,7 +99,13 @@ extension ReaderWindowController {
         if let speakerButton {
             card.addSubview(speakerButton)
         }
+        if let formsLabel {
+            card.addSubview(formsLabel)
+        }
+        card.addSubview(definitionButton)
         card.addSubview(masteredButton)
+
+        let answerTopAnchor = formsLabel?.bottomAnchor ?? srsLabel.bottomAnchor
 
         NSLayoutConstraint.activate([
             titleLeadingGuide.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 74),
@@ -87,16 +119,27 @@ extension ReaderWindowController {
             locationLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
             srsLabel.leadingAnchor.constraint(equalTo: wordLabel.leadingAnchor),
             srsLabel.topAnchor.constraint(equalTo: wordLabel.bottomAnchor, constant: 6),
-            srsLabel.trailingAnchor.constraint(lessThanOrEqualTo: masteredButton.leadingAnchor, constant: -12),
+            srsLabel.trailingAnchor.constraint(lessThanOrEqualTo: definitionButton.leadingAnchor, constant: -12),
             masteredButton.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
             masteredButton.topAnchor.constraint(equalTo: locationLabel.bottomAnchor, constant: 6),
             masteredButton.widthAnchor.constraint(equalToConstant: 72),
             masteredButton.heightAnchor.constraint(equalToConstant: 26),
-            answerLabel.topAnchor.constraint(equalTo: srsLabel.bottomAnchor, constant: 12),
+            definitionButton.trailingAnchor.constraint(equalTo: masteredButton.leadingAnchor, constant: -8),
+            definitionButton.topAnchor.constraint(equalTo: masteredButton.topAnchor),
+            definitionButton.widthAnchor.constraint(equalToConstant: 88),
+            definitionButton.heightAnchor.constraint(equalToConstant: 26),
+            answerLabel.topAnchor.constraint(equalTo: answerTopAnchor, constant: 12),
             answerLabel.leadingAnchor.constraint(equalTo: wordLabel.leadingAnchor),
             answerLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
             answerLabel.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16)
         ])
+        if let formsLabel {
+            NSLayoutConstraint.activate([
+                formsLabel.leadingAnchor.constraint(equalTo: srsLabel.leadingAnchor),
+                formsLabel.topAnchor.constraint(equalTo: srsLabel.bottomAnchor, constant: 5),
+                formsLabel.trailingAnchor.constraint(lessThanOrEqualTo: definitionButton.leadingAnchor, constant: -12)
+            ])
+        }
         if let speakerButton {
             NSLayoutConstraint.activate([
                 speakerButton.leadingAnchor.constraint(equalTo: wordLabel.trailingAnchor, constant: 6),

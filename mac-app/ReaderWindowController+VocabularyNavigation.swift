@@ -2,6 +2,16 @@ import Cocoa
 import PDFKit
 
 extension ReaderWindowController {
+    @objc func showVocabularyDefinitionFromList(_ sender: NSButton) {
+        guard let linkID = sender.identifier?.rawValue,
+              ensureLinkedWordBubbleLoaded(linkID: linkID) else {
+            NSSound.beep()
+            return
+        }
+        closeVocabularyPanel()
+        selectStoredLinkedWord(linkID: linkID)
+    }
+
     func jumpToStoredLinkedWord(linkID: String) {
         if linkID.hasPrefix("document-source:") {
             let rawIndex = String(linkID.dropFirst("document-source:".count))
