@@ -115,7 +115,11 @@ enum AISettingsLogicTests {
             AISettingsStore.save(modelID: AISettingsStore.ollamaModelID, apiKey: "", customModelName: " qwen2.5:7b ")
             try expectEqual(AISettingsStore.selectedModel.model, "qwen2.5:7b", "Ollama model name should be editable and trimmed")
             try expectEqual(AISettingsStore.customModelName, "custom-chat", "Ollama model saving should not overwrite Other model name")
-            try expectEqual(AISettingsStore.ollamaValidationError(modelName: "   "), "请输入 Ollama 模型 ID。", "blank Ollama model names should be rejected")
+            try expectEqual(
+                AISettingsStore.ollamaValidationError(modelName: "   "),
+                AppText.localized("请输入 Ollama 模型 ID。", "Enter an Ollama model ID."),
+                "blank Ollama model names should be rejected"
+            )
 
             let customIndex = AISettingsStore.models.firstIndex { $0.id == AISettingsStore.customModelID }
             let ollamaIndex = AISettingsStore.models.firstIndex { $0.id == AISettingsStore.ollamaModelID }
@@ -136,8 +140,16 @@ enum AISettingsLogicTests {
             try expectEqual(AISettingsStore.selectedModel.endpoint.absoluteString, "http://127.0.0.1:8000/v1/chat/completions", "local OpenAI-compatible /v1 endpoint should be expanded to chat completions")
             try expectEqual(AISettingsStore.selectedModel.model, "local-model", "local OpenAI-compatible model name should be editable and trimmed")
             try expectEqual(AISettingsStore.apiKey(for: AISettingsStore.selectedModel), "local-key", "local OpenAI-compatible API key should be stored separately")
-            try expectEqual(AISettingsStore.localOpenAIValidationError(endpoint: "   ", modelName: "local-model"), "请输入本地 OpenAI 兼容 URL。", "blank local OpenAI-compatible endpoints should be rejected")
-            try expectEqual(AISettingsStore.localOpenAIValidationError(endpoint: "http://127.0.0.1:8000/v1", modelName: "   "), "请输入模型 ID。", "blank local OpenAI-compatible model names should be rejected")
+            try expectEqual(
+                AISettingsStore.localOpenAIValidationError(endpoint: "   ", modelName: "local-model"),
+                AppText.localized("请输入本地 OpenAI 兼容 URL。", "Enter a local OpenAI-compatible URL."),
+                "blank local OpenAI-compatible endpoints should be rejected"
+            )
+            try expectEqual(
+                AISettingsStore.localOpenAIValidationError(endpoint: "http://127.0.0.1:8000/v1", modelName: "   "),
+                AppText.localized("请输入模型 ID。", "Enter a model ID."),
+                "blank local OpenAI-compatible model names should be rejected"
+            )
         }
     }
 
@@ -241,7 +253,7 @@ enum AISettingsLogicTests {
 
         let timeout = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)
         try expect(
-            AIRequestErrorText.message(for: timeout).contains("超时"),
+            AIRequestErrorText.message(for: timeout).contains(AppText.localized("超时", "timed out")),
             "timeout errors should use a timeout-specific message"
         )
 
@@ -249,7 +261,7 @@ enum AISettingsLogicTests {
             NSLocalizedDescriptionKey: "OpenAI HTTP 429: rate_limit_exceeded"
         ])
         try expect(
-            AIRequestErrorText.message(for: rateLimit).contains("请求太频繁"),
+            AIRequestErrorText.message(for: rateLimit).contains(AppText.localized("请求太频繁", "Too many requests")),
             "rate limits should avoid the generic AI failure message"
         )
 
@@ -257,7 +269,7 @@ enum AISettingsLogicTests {
             NSLocalizedDescriptionKey: "Unexpected response: {}"
         ])
         try expect(
-            AIRequestErrorText.message(for: localUnexpected).contains("本地服务"),
+            AIRequestErrorText.message(for: localUnexpected).contains(AppText.localized("本地服务", "local service")),
             "local model response failures should explain the local service compatibility issue"
         )
     }

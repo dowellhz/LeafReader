@@ -32,7 +32,7 @@ enum SpeechRuntimeAvailabilityTests {
         )
         try expectEqual(
             LocalRuntimeStatusPresenter.statusText(downloading),
-            "下载中 · 约 112 MB",
+            AppText.localized("下载中 · 约 112 MB", "Downloading · 约 112 MB"),
             "generic local runtime presenter should format active downloads"
         )
 
@@ -47,7 +47,7 @@ enum SpeechRuntimeAvailabilityTests {
         )
         try expectEqual(
             LocalRuntimeStatusPresenter.statusText(missingRuntime),
-            "缺少运行时 · 模型已安装 · 约 112 MB",
+            AppText.localized("缺少运行时 · 模型已安装 · 约 112 MB", "Missing runtime · Model installed · 约 112 MB"),
             "generic local runtime presenter should distinguish missing runtime from missing model"
         )
 
@@ -62,7 +62,7 @@ enum SpeechRuntimeAvailabilityTests {
         )
         try expectEqual(
             LocalRuntimeStatusPresenter.statusText(missingModel),
-            "运行时已安装 · 缺少模型 · 约 112 MB",
+            AppText.localized("运行时已安装 · 缺少模型 · 约 112 MB", "Runtime installed · Missing model · 约 112 MB"),
             "generic local runtime presenter should explain missing model repair state"
         )
 
@@ -77,7 +77,10 @@ enum SpeechRuntimeAvailabilityTests {
         )
         try expectEqual(
             LocalRuntimeStatusPresenter.statusText(missingRuntimeAndModel),
-            "缺少运行时和模型 · 模型中等，英语质量好 · 约 112 MB",
+            AppText.localized(
+                "缺少运行时和模型 · 模型中等，英语质量好 · 约 112 MB",
+                "Missing runtime and model · Medium model, good English quality · 约 112 MB"
+            ),
             "generic local runtime presenter should explain missing runtime and model state"
         )
 
@@ -91,7 +94,9 @@ enum SpeechRuntimeAvailabilityTests {
             inferenceFailureText: nil
         )
         try expect(
-            LocalRuntimeStatusPresenter.statusText(unsupportedFailure).contains("上次失败：network failed"),
+            LocalRuntimeStatusPresenter.statusText(unsupportedFailure).contains(
+                AppText.localized("上次失败：network failed", "Last failed: network failed")
+            ),
             "generic local runtime presenter should include download failure details"
         )
     }
@@ -222,17 +227,20 @@ enum SpeechRuntimeAvailabilityTests {
 
         try expectEqual(
             SpeechRuntimeResourceManager.incompleteInstallStatusText(for: .piper, installState: .missingRuntime),
-            "缺少运行时 · 模型已安装 · 约 112 MB",
+            AppText.localized("缺少运行时 · 模型已安装 · 约 112 MB", "Missing runtime · Model installed · 约 112 MB"),
             "missing runtime should surface the new repair-oriented status copy"
         )
         try expectEqual(
             SpeechRuntimeResourceManager.incompleteInstallStatusText(for: .piper, installState: .missingModel),
-            "运行时已安装 · 缺少模型 · 约 112 MB",
+            AppText.localized("运行时已安装 · 缺少模型 · 约 112 MB", "Runtime installed · Missing model · 约 112 MB"),
             "missing model should surface the repair-oriented status copy"
         )
         try expectEqual(
             SpeechRuntimeResourceManager.incompleteInstallStatusText(for: .piper, installState: .missingRuntimeAndModel),
-            "缺少运行时和模型 · 模型中等，英语质量好 · 约 112 MB",
+            AppText.localized(
+                "缺少运行时和模型 · 模型中等，英语质量好 · 约 112 MB",
+                "Missing runtime and model · Medium model, good English quality · 约 112 MB"
+            ),
             "missing runtime and model should surface the repair-oriented status copy"
         )
     }

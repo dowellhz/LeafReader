@@ -252,7 +252,10 @@ enum ReadingNoteLogicTests {
         try expectEqual(titleMatches.map(\.id), ["note-new"], "reading note search should match title text")
         let quoteMatches = ReadingNoteListPresenter.rows(for: [newer, older], query: "pdf fallback")
         try expectEqual(quoteMatches.map(\.id), ["note-old"], "reading note search should match quote text")
-        let locationMatches = ReadingNoteListPresenter.rows(for: [newer, older], query: "第 7")
+        let locationMatches = ReadingNoteListPresenter.rows(
+            for: [newer, older],
+            query: AppText.localized("第 7", "p. 7")
+        )
         try expectEqual(locationMatches.map(\.id), ["note-old"], "reading note search should match location text")
     }
 
@@ -397,12 +400,16 @@ enum ReadingNoteLogicTests {
             NSLocalizedDescriptionKey: "OpenAI HTTP 429: rate_limit_exceeded"
         ])
         try expect(
-            ReadingNoteAITextPolicy.userFacingError(rateLimit).contains("请求太频繁"),
+            ReadingNoteAITextPolicy.userFacingError(rateLimit).contains(
+                AppText.localized("请求太频繁", "Too many requests")
+            ),
             "reading-note AI errors should use the shared request failure classifier"
         )
 
         try expect(
-            ReadingNoteAITextPolicy.emptyOutputMessage().contains("没有返回内容"),
+            ReadingNoteAITextPolicy.emptyOutputMessage().contains(
+                AppText.localized("没有返回内容", "returned no content")
+            ),
             "empty AI responses should have a specific recovery message"
         )
     }
